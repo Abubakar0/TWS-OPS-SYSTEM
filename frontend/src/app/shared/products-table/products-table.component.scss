@@ -1,0 +1,62 @@
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+table {
+  width: 100%;
+  min-width: 760px;
+}
+
+td strong,
+td span,
+td small {
+  display: block;
+}
+
+td span,
+td small {
+  color: #667085;
+}
+
+.status {
+  display: inline-block;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 4px 10px;
+  color: #243044;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.approved {
+  background: #dff5e7;
+  color: #0b6b37;
+}
+
+.rejected {
+  background: #fdecec;
+  color: #a11919;
+}
+
+.assigned {
+  background: #fff2cc;
+  color: #7a5400;
+}
+
+.listed {
+  background: #eaf2f8;
+  color: #163b5c;
+}
+
+.empty-state {
+  border: 1px dashed #c8d0dc;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #667085;
+  padding: 28px;
+  text-align: center;
+}

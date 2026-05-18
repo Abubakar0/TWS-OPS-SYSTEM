@@ -1,0 +1,111 @@
+<section class="page-header">
+  <div>
+    <h1>Hunter Dashboard</h1>
+    <p>Submit Amazon and eBay product pairs for review.</p>
+  </div>
+  <button mat-stroked-button type="button" (click)="loadProducts()" [disabled]="loading()">
+    <mat-icon>refresh</mat-icon>
+    <span>Refresh</span>
+  </button>
+</section>
+
+<section class="summary-grid">
+  <div class="summary-tile">
+    <span>Total</span>
+    <strong>{{ products().length }}</strong>
+  </div>
+  <div class="summary-tile">
+    <span>Approved</span>
+    <strong>{{ approvedCount() }}</strong>
+  </div>
+  <div class="summary-tile">
+    <span>Rejected</span>
+    <strong>{{ rejectedCount() }}</strong>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Product Submission</h2>
+
+  <form [formGroup]="form" (ngSubmit)="submit()">
+    <mat-form-field appearance="outline" class="span-2">
+      <mat-label>Amazon product link</mat-label>
+      <input matInput formControlName="amazonUrl" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="span-2">
+      <mat-label>eBay product link</mat-label>
+      <input matInput formControlName="ebayUrl" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Product title</mat-label>
+      <input matInput formControlName="title" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>ASIN</mat-label>
+      <input matInput formControlName="asin" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Amazon price</mat-label>
+      <input matInput type="number" formControlName="amazonPrice" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>eBay price</mat-label>
+      <input matInput type="number" formControlName="ebayPrice" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Fees</mat-label>
+      <input matInput type="number" formControlName="fees" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Stock</mat-label>
+      <input matInput type="number" formControlName="stockQuantity" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Delivery days</mat-label>
+      <input matInput type="number" formControlName="deliveryDays" />
+    </mat-form-field>
+
+    <div class="form-actions span-2">
+      <button mat-flat-button color="primary" type="submit" [disabled]="saving()">
+        @if (saving()) {
+          <mat-spinner diameter="18"></mat-spinner>
+        } @else {
+          <mat-icon>send</mat-icon>
+        }
+        <span>Submit Product</span>
+      </button>
+    </div>
+  </form>
+
+  @if (lastSubmitted()) {
+    <div class="result" [class.rejected]="lastSubmitted()?.status === 'rejected'">
+      <strong>Submitted: {{ lastSubmitted()?.status }}</strong>
+      <span>Profit {{ lastSubmitted()?.profit | currency: 'USD' }} · ROI {{ lastSubmitted()?.roi | number: '1.0-2' }}%</span>
+    </div>
+  }
+
+  @if (error()) {
+    <div class="error-message">{{ error() }}</div>
+  }
+</section>
+
+<section class="panel">
+  <h2>Product Queue</h2>
+
+  @if (loading()) {
+    <div class="loading-row">
+      <mat-spinner diameter="24"></mat-spinner>
+      <span>Loading products</span>
+    </div>
+  } @else {
+    <app-products-table [products]="products()" emptyText="No product submissions yet." />
+  }
+</section>

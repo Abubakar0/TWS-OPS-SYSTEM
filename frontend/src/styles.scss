@@ -1,0 +1,37 @@
+@import '@angular/material/prebuilt-themes/azure-blue.css';
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #f5f7fa;
+  color: #18212f;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+button,
+input,
+textarea,
+.mat-mdc-card,
+.mat-mdc-card-title,
+.mat-mdc-card-subtitle,
+.mat-mdc-button-base,
+.mat-mdc-form-field,
+.mat-mdc-input-element,
+.mat-mdc-table,
+.mat-mdc-cell,
+.mat-mdc-header-cell {
+  font-family: Arial, Helvetica, sans-serif !important;
+}
+
+a {
+  color: inherit;
+}

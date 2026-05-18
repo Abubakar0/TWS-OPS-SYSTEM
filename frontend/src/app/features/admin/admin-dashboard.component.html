@@ -1,0 +1,46 @@
+<section class="page-header">
+  <div>
+    <h1>Admin Dashboard</h1>
+    <p>Daily operations snapshot and recent product activity.</p>
+  </div>
+  <button mat-stroked-button type="button" (click)="loadProducts()" [disabled]="loading()">
+    <mat-icon>refresh</mat-icon>
+    <span>Refresh</span>
+  </button>
+</section>
+
+<section class="summary-grid">
+  <div class="summary-tile">
+    <span>Hunted Today</span>
+    <strong>{{ huntedToday() }}</strong>
+  </div>
+  <div class="summary-tile">
+    <span>Approved Queue</span>
+    <strong>{{ approvedQueue() }}</strong>
+  </div>
+  <div class="summary-tile">
+    <span>Rejected Today</span>
+    <strong>{{ rejectedToday() }}</strong>
+  </div>
+  <div class="summary-tile">
+    <span>Listed Today</span>
+    <strong>{{ listedToday() }}</strong>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Recent Activity</h2>
+
+  @if (error()) {
+    <div class="error-message">{{ error() }}</div>
+  }
+
+  @if (loading()) {
+    <div class="loading-row">
+      <mat-spinner diameter="24"></mat-spinner>
+      <span>Loading activity</span>
+    </div>
+  } @else {
+    <app-products-table [products]="products()" emptyText="No product activity yet." />
+  }
+</section>

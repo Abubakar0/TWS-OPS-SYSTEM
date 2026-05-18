@@ -1,0 +1,58 @@
+@if (products.length > 0) {
+  <div class="table-wrap">
+    <table mat-table [dataSource]="products">
+      <ng-container matColumnDef="product">
+        <th mat-header-cell *matHeaderCellDef>Product</th>
+        <td mat-cell *matCellDef="let product">
+          <strong>{{ product.title || product.asin || 'Untitled product' }}</strong>
+          <span>{{ product.asin || 'No ASIN' }}</span>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="links">
+        <th mat-header-cell *matHeaderCellDef>Links</th>
+        <td mat-cell *matCellDef="let product">
+          <a mat-icon-button [href]="product.amazonUrl" target="_blank" rel="noreferrer" aria-label="Open Amazon link">
+            <mat-icon>shopping_cart</mat-icon>
+          </a>
+          <a mat-icon-button [href]="product.ebayUrl" target="_blank" rel="noreferrer" aria-label="Open eBay link">
+            <mat-icon>open_in_new</mat-icon>
+          </a>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="numbers">
+        <th mat-header-cell *matHeaderCellDef>Profit / ROI</th>
+        <td mat-cell *matCellDef="let product">
+          <strong>{{ product.profit | currency: 'USD' }}</strong>
+          <span>{{ product.roi | number: '1.0-2' }}%</span>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let product">
+          <span class="status" [class]="product.status">{{ product.status }}</span>
+          @if (product.rejectionReason) {
+            <small>{{ product.rejectionReason }}</small>
+          }
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="owner">
+        <th mat-header-cell *matHeaderCellDef>Hunter</th>
+        <td mat-cell *matCellDef="let product">{{ product.hunterName }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="created">
+        <th mat-header-cell *matHeaderCellDef>Created</th>
+        <td mat-cell *matCellDef="let product">{{ product.createdAt | date: 'MMM d, h:mm a' }}</td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="columns"></tr>
+      <tr mat-row *matRowDef="let row; columns: columns"></tr>
+    </table>
+  </div>
+} @else {
+  <div class="empty-state">{{ emptyText }}</div>
+}

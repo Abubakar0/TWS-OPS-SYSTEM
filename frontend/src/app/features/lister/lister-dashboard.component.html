@@ -1,0 +1,38 @@
+<section class="page-header">
+  <div>
+    <h1>Lister Dashboard</h1>
+    <p>Approved products ready for manual eBay listing.</p>
+  </div>
+  <button mat-stroked-button type="button" (click)="loadProducts()" [disabled]="loading()">
+    <mat-icon>refresh</mat-icon>
+    <span>Refresh</span>
+  </button>
+</section>
+
+<section class="summary-grid">
+  <div class="summary-tile">
+    <span>Approved Queue</span>
+    <strong>{{ products().length }}</strong>
+  </div>
+  <div class="summary-tile">
+    <span>Listed Today</span>
+    <strong>0</strong>
+  </div>
+</section>
+
+<section class="panel">
+  <h2>Approved Products</h2>
+
+  @if (error()) {
+    <div class="error-message">{{ error() }}</div>
+  }
+
+  @if (loading()) {
+    <div class="loading-row">
+      <mat-spinner diameter="24"></mat-spinner>
+      <span>Loading approved products</span>
+    </div>
+  } @else {
+    <app-products-table [products]="products()" emptyText="No approved products available." />
+  }
+</section>

@@ -1,0 +1,126 @@
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+h2 {
+  margin-bottom: 16px;
+  font-size: 1.1rem;
+}
+
+p {
+  color: #667085;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.summary-tile,
+.panel {
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.summary-tile {
+  padding: 16px;
+}
+
+.summary-tile span {
+  display: block;
+  color: #667085;
+}
+
+.summary-tile strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 1.8rem;
+}
+
+.panel {
+  margin-bottom: 18px;
+  padding: 18px;
+}
+
+form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.span-2 {
+  grid-column: span 2;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+button mat-spinner {
+  margin-right: 8px;
+}
+
+.result,
+.error-message {
+  margin-top: 14px;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.result {
+  background: #dff5e7;
+  color: #0b6b37;
+}
+
+.result.rejected,
+.error-message {
+  background: #fdecec;
+  color: #a11919;
+}
+
+.result strong,
+.result span {
+  display: block;
+}
+
+.loading-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #667085;
+}
+
+@media (max-width: 760px) {
+  .page-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .summary-grid,
+  form {
+    grid-template-columns: 1fr;
+  }
+
+  .span-2 {
+    grid-column: span 1;
+  }
+}

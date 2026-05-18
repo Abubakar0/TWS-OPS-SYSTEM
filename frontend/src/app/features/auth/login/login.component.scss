@@ -1,0 +1,36 @@
+.login-page {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  background: #f5f7fa;
+  padding: 20px;
+}
+
+.login-card {
+  width: min(100%, 420px);
+  border-radius: 8px;
+  box-shadow: none;
+  border: 1px solid #d8dee8;
+}
+
+form {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+button {
+  min-height: 44px;
+}
+
+button mat-spinner {
+  margin-right: 8px;
+}
+
+.error-message {
+  border-radius: 6px;
+  background: #fdecec;
+  color: #a11919;
+  padding: 10px 12px;
+  font-size: 0.92rem;
+}

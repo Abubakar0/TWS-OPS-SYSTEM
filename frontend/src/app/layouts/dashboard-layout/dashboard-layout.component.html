@@ -1,0 +1,35 @@
+<mat-toolbar class="topbar">
+  <div class="brand">
+    <span class="brand-mark">TWS</span>
+    <span>Ops System</span>
+  </div>
+
+  <span class="spacer"></span>
+
+  <div class="user-block">
+    <span>{{ user()?.name }}</span>
+    <small>{{ user()?.role }}</small>
+  </div>
+
+  <button mat-button type="button" (click)="logout()">
+    <mat-icon>logout</mat-icon>
+    <span>Logout</span>
+  </button>
+</mat-toolbar>
+
+<div class="dashboard-shell">
+  <aside class="sidebar">
+    <nav>
+      @for (item of navItems(); track item.route) {
+        <a mat-button [routerLink]="item.route" routerLinkActive="active-link">
+          <mat-icon>{{ item.icon }}</mat-icon>
+          <span>{{ item.label }}</span>
+        </a>
+      }
+    </nav>
+  </aside>
+
+  <main class="content">
+    <router-outlet />
+  </main>
+</div>
