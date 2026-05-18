@@ -3,7 +3,7 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 const { pool } = require('../src/db/pool');
 
-const schemaPath = path.resolve(__dirname, '../../database/schema.sql');
+const schemaPath = path.resolve(__dirname, '../database/schema.sql');
 
 const users = [
   { name: 'Admin User', email: 'admin@example.com', role: 'admin' },
