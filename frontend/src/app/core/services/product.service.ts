@@ -3,15 +3,30 @@ import { HttpClient } from '@angular/common/http';
 import { map } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
-import { Product, ProductCreatePayload } from '../models/product.models';
+import {
+  AssignedHunter,
+  BulkListedPayload,
+  Product,
+  ProductCreatePayload,
+  ProductFilters,
+} from '../models/product.models';
 
 @Injectable({ providedIn: 'root' })
 export class ProductService {
   constructor(private readonly http: HttpClient) {}
 
-  listProducts() {
+  listProducts(filters: ProductFilters = {}) {
+    const params = Object.entries(filters).reduce((acc, [key, value]) => {
+      if (value) {
+        acc.set(key, String(value));
+      }
+
+      return acc;
+    }, new URLSearchParams());
+
+    const query = params.toString();
     return this.http
-      .get<{ products: Product[] }>(`${environment.apiUrl}/products`)
+      .get<{ products: Product[] }>(`${environment.apiUrl}/products${query ? `?${query}` : ''}`)
       .pipe(map((response) => response.products));
   }
 
@@ -19,5 +34,17 @@ export class ProductService {
     return this.http
       .post<{ product: Product }>(`${environment.apiUrl}/products`, payload)
       .pipe(map((response) => response.product));
+  }
+
+  listAssignedHunters() {
+    return this.http
+      .get<{ hunters: AssignedHunter[] }>(`${environment.apiUrl}/products/assigned-hunters`)
+      .pipe(map((response) => response.hunters));
+  }
+
+  markBulkListed(payload: BulkListedPayload) {
+    return this.http
+      .patch<{ products: Product[] }>(`${environment.apiUrl}/products/bulk-listed`, payload)
+      .pipe(map((response) => response.products));
   }
 }

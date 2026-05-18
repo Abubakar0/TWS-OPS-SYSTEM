@@ -10,7 +10,26 @@
   width: min(100%, 420px);
   border-radius: 8px;
   box-shadow: none;
-  border: 1px solid #d8dee8;
+  border: 1px solid var(--tws-border);
+}
+
+mat-card-title {
+  font-family: var(--tws-heading);
+}
+
+mat-card-title span {
+  background: var(--tws-gradient);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+mat-card-title sub {
+  margin-left: 3px;
+  color: var(--tws-muted);
+  font-family: var(--tws-body);
+  font-size: 0.65rem;
+  vertical-align: middle;
 }
 
 form {

@@ -16,6 +16,9 @@ Implemented in this first slice:
 - Hunter product submission workflow
 - Lister approved product queue layout
 - Admin dashboard layout with basic product stats
+- Admin user creation, disable/enable, hunter-to-lister assignment, criteria, and account management
+- Lister assigned-hunter queue with search/filter and bulk mark-listed update
+- Hunter economics preview using fee, profit, and ROI formulas before submission
 
 Not implemented yet:
 
@@ -61,8 +64,11 @@ Use separate Railway services for this monorepo:
      - `DATABASE_URL=${{Postgres.DATABASE_URL}}`
      - `JWT_SECRET=<long random secret>`
      - `CORS_ORIGIN=<your frontend Railway public URL>`
-     - `MIN_ROI=20`
-     - `MIN_PROFIT=5`
+     - `MIN_ROI=30`
+     - `MIN_PROFIT=0`
+     - `MIN_SOLD_COUNT=1`
+     - `FEE_PERCENT=21`
+     - `ASIN_REQUIRED=true`
      - `MIN_STOCK=1`
      - `MAX_DELIVERY_DAYS=7`
 
@@ -75,7 +81,7 @@ Use separate Railway services for this monorepo:
 
 3. PostgreSQL service
    - Add a Railway PostgreSQL database in the same project.
-   - Run `npm run db:seed` once against the backend service environment to create tables and demo users.
+   - Run `npm run db:seed` once against the backend service environment to create or upgrade tables and demo users.
 
 Demo users created by `npm run db:seed`:
 

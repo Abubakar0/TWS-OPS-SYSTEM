@@ -16,5 +16,5 @@ export class ProductsTableComponent {
   @Input() products: Product[] = [];
   @Input() emptyText = 'No products found.';
 
-  readonly columns = ['product', 'links', 'numbers', 'status', 'owner', 'created'];
+  readonly columns = ['product', 'links', 'numbers', 'status', 'owner', 'listing', 'created'];
 }

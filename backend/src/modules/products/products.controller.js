@@ -6,7 +6,7 @@ const createProduct = async (req, res) => {
 };
 
 const listProducts = async (req, res) => {
-  const products = await productsService.listProducts(req.user);
+  const products = await productsService.listProducts(req.user, req.query);
   res.json({ products });
 };
 
@@ -15,8 +15,20 @@ const getProductById = async (req, res) => {
   res.json({ product });
 };
 
+const listAssignedHunters = async (req, res) => {
+  const hunters = await productsService.listAssignedHunters(req.user);
+  res.json({ hunters });
+};
+
+const markProductsListed = async (req, res) => {
+  const products = await productsService.markProductsListed(req.user, req.body);
+  res.json({ products });
+};
+
 module.exports = {
   createProduct,
   listProducts,
   getProductById,
+  listAssignedHunters,
+  markProductsListed,
 };

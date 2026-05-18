@@ -1,7 +1,8 @@
 <section class="page-header">
   <div>
-    <h1>Lister Dashboard</h1>
-    <p>Approved products ready for manual eBay listing.</p>
+    <span class="eyebrow">Manual listing</span>
+    <h1>Listing Queue</h1>
+    <p>Choose an assigned hunter, copy product details, and update listed items in bulk.</p>
   </div>
   <button mat-stroked-button type="button" (click)="loadProducts()" [disabled]="loading()">
     <mat-icon>refresh</mat-icon>
@@ -11,28 +12,139 @@
 
 <section class="summary-grid">
   <div class="summary-tile">
-    <span>Approved Queue</span>
-    <strong>{{ products().length }}</strong>
+    <span>Assigned Hunters</span>
+    <strong>{{ hunters().length }}</strong>
   </div>
   <div class="summary-tile">
-    <span>Listed Today</span>
-    <strong>0</strong>
+    <span>Ready</span>
+    <strong>{{ readyCount() }}</strong>
+  </div>
+  <div class="summary-tile">
+    <span>Listed</span>
+    <strong>{{ listedCount() }}</strong>
+  </div>
+  <div class="summary-tile">
+    <span>Selected</span>
+    <strong>{{ selectedCount() }}</strong>
   </div>
 </section>
 
-<section class="panel">
-  <h2>Approved Products</h2>
-
-  @if (error()) {
-    <div class="error-message">{{ error() }}</div>
-  }
-
-  @if (loading()) {
-    <div class="loading-row">
-      <mat-spinner diameter="24"></mat-spinner>
-      <span>Loading approved products</span>
+<section class="lister-grid">
+  <aside class="panel hunter-panel">
+    <h2>Hunters</h2>
+    <div class="hunter-list">
+      @for (hunter of hunters(); track hunter.id) {
+        <button
+          type="button"
+          class="hunter-button"
+          [class.active]="selectedHunterId() === hunter.id"
+          (click)="selectHunter(hunter.id)"
+        >
+          <strong>{{ hunter.name }}</strong>
+          <span>{{ hunter.readyCount || 0 }} ready · {{ hunter.listedCount || 0 }} listed</span>
+        </button>
+      }
     </div>
-  } @else {
-    <app-products-table [products]="products()" emptyText="No approved products available." />
-  }
+  </aside>
+
+  <main class="panel">
+    <div class="queue-header">
+      <h2>Hunter Items</h2>
+      <form [formGroup]="filters" class="filters" (ngSubmit)="loadProducts()">
+        <mat-form-field appearance="outline">
+          <mat-label>Search</mat-label>
+          <input matInput formControlName="search" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Status</mat-label>
+          <mat-select formControlName="status">
+            <mat-option value="">All</mat-option>
+            <mat-option value="assigned">Assigned</mat-option>
+            <mat-option value="approved">Approved</mat-option>
+            <mat-option value="listed">Listed</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <button mat-stroked-button type="submit">
+          <mat-icon>search</mat-icon>
+          <span>Filter</span>
+        </button>
+      </form>
+    </div>
+
+    <form [formGroup]="bulkForm" class="bulk-bar" (ngSubmit)="markSelectedListed()">
+      <mat-checkbox [checked]="selectedIds().size === products().length && products().length > 0" (change)="toggleAll($event.checked)">
+        Select all
+      </mat-checkbox>
+      <mat-form-field appearance="outline">
+        <mat-label>Account used</mat-label>
+        <mat-select formControlName="accountId">
+          @for (account of accounts(); track account.id) {
+            <mat-option [value]="account.id">{{ account.name }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      <button mat-flat-button color="primary" type="submit" [disabled]="saving() || selectedIds().size === 0">
+        <mat-icon>done_all</mat-icon>
+        <span>Mark Selected Listed</span>
+      </button>
+    </form>
+
+    @if (copied()) {
+      <div class="copy-note">Copied {{ copied() }}</div>
+    }
+
+    @if (error()) {
+      <div class="error-message">{{ error() }}</div>
+    }
+
+    @if (loading()) {
+      <div class="loading-row">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>Loading products</span>
+      </div>
+    } @else {
+      <div class="product-list">
+        @for (product of products(); track product.id) {
+          <article class="product-row" [class.listed]="product.status === 'listed'">
+            <mat-checkbox [checked]="isSelected(product.id)" (change)="toggleSelection(product.id, $event.checked)" />
+            <div class="product-main">
+              <div class="product-title">
+                <strong>{{ product.title || product.asin || 'Untitled product' }}</strong>
+                <span class="status" [class]="product.status">{{ product.status }}</span>
+              </div>
+              <div class="detail-grid">
+                <button mat-stroked-button type="button" (click)="copy(product.amazonUrl, 'Amazon link')">
+                  <mat-icon>content_copy</mat-icon>
+                  <span>Amazon</span>
+                </button>
+                <button mat-stroked-button type="button" (click)="copy(product.ebayUrl, 'eBay link')">
+                  <mat-icon>content_copy</mat-icon>
+                  <span>eBay</span>
+                </button>
+                <button mat-stroked-button type="button" (click)="copy(product.asin, 'ASIN')">
+                  <mat-icon>content_copy</mat-icon>
+                  <span>{{ product.asin || 'No ASIN' }}</span>
+                </button>
+              </div>
+              <div class="metrics">
+                <span>Amazon {{ product.amazonPrice | currency: 'USD' }}</span>
+                <span>eBay {{ product.ebayPrice | currency: 'USD' }}</span>
+                <span>Fee {{ product.fees | currency: 'USD' }}</span>
+                <span>Profit {{ product.profit | currency: 'USD' }}</span>
+                <span>ROI {{ product.roi | number: '1.0-2' }}%</span>
+                <span>Sold {{ product.soldCount }}</span>
+              </div>
+              @if (product.status === 'listed') {
+                <div class="listed-note">
+                  Listed by {{ product.listedByName }} on {{ product.accountName }}
+                </div>
+              }
+            </div>
+          </article>
+        } @empty {
+          <div class="empty-state">No products found for this hunter.</div>
+        }
+      </div>
+    }
+  </main>
 </section>

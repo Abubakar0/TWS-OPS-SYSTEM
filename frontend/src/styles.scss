@@ -1,5 +1,24 @@
 @import '@angular/material/prebuilt-themes/azure-blue.css';
 @import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
+
+:root {
+  --tws-navy: #08102b;
+  --tws-navy-2: #111840;
+  --tws-blue: #1e6fff;
+  --tws-blue-2: #4da3ff;
+  --tws-blue-pale: #e8f1ff;
+  --tws-gray: #f5f7fc;
+  --tws-border: rgba(30, 111, 255, 0.13);
+  --tws-text: #111827;
+  --tws-muted: #6b7280;
+  --tws-green: #10b981;
+  --tws-orange: #f97316;
+  --tws-red: #dc2626;
+  --tws-heading: 'Syne', Georgia, serif;
+  --tws-body: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --tws-gradient: linear-gradient(135deg, #1e6fff 0%, #4da3ff 100%);
+}
 
 * {
   box-sizing: border-box;
@@ -12,14 +31,15 @@ body {
 
 body {
   margin: 0;
-  background: #f5f7fa;
-  color: #18212f;
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--tws-gray);
+  color: var(--tws-text);
+  font-family: var(--tws-body);
 }
 
 button,
 input,
 textarea,
+select,
 .mat-mdc-card,
 .mat-mdc-card-title,
 .mat-mdc-card-subtitle,
@@ -29,7 +49,14 @@ textarea,
 .mat-mdc-table,
 .mat-mdc-cell,
 .mat-mdc-header-cell {
-  font-family: Arial, Helvetica, sans-serif !important;
+  font-family: var(--tws-body) !important;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--tws-heading);
 }
 
 a {

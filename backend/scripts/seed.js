@@ -41,6 +41,28 @@ const run = async () => {
     `,
   );
 
+  await pool.query(
+    `
+      INSERT INTO hunter_lister_assignments (hunter_id, lister_id)
+      SELECT hunter.id, lister.id
+      FROM users hunter
+      CROSS JOIN users lister
+      WHERE hunter.email = 'hunter@example.com'
+        AND lister.email = 'lister@example.com'
+      ON CONFLICT (hunter_id) DO UPDATE
+      SET lister_id = EXCLUDED.lister_id,
+          updated_at = NOW()
+    `,
+  );
+
+  await pool.query(
+    `
+      INSERT INTO hunting_criteria (id, min_roi, min_profit, min_sold_count, fee_percent, asin_required)
+      VALUES (1, 30, 0, 1, 21, TRUE)
+      ON CONFLICT (id) DO NOTHING
+    `,
+  );
+
   console.log('Database schema applied and demo users seeded.');
   console.log('Demo password for all users: Password123!');
 };

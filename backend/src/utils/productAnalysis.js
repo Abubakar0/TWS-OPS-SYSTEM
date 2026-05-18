@@ -1,5 +1,3 @@
-const { env } = require('../config/env');
-
 const toNumber = (value) => {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
@@ -42,12 +40,12 @@ const normalizeProductPayload = (payload = {}) => ({
   title: String(payload.title || '').trim(),
   amazonPrice: toNumber(payload.amazonPrice),
   ebayPrice: toNumber(payload.ebayPrice),
-  fees: toNumber(payload.fees) || 0,
+  soldCount: toNumber(payload.soldCount) || 0,
   stockQuantity: toNumber(payload.stockQuantity),
   deliveryDays: toNumber(payload.deliveryDays),
 });
 
-const analyzeProduct = (input, options = {}) => {
+const analyzeProduct = (input, criteria, options = {}) => {
   const notes = [];
   const addNote = (rule, passed, message) => {
     notes.push({ rule, passed, message });
@@ -56,7 +54,8 @@ const analyzeProduct = (input, options = {}) => {
   const amazonUrlValid = isHttpUrl(input.amazonUrl);
   const ebayUrlValid = isHttpUrl(input.ebayUrl);
   const hasPrices = input.amazonPrice !== null && input.ebayPrice !== null;
-  const profit = hasPrices ? Number((input.ebayPrice - input.amazonPrice - input.fees).toFixed(2)) : 0;
+  const fees = hasPrices ? Number(((input.ebayPrice * criteria.feePercent) / 100).toFixed(2)) : 0;
+  const profit = hasPrices ? Number((input.ebayPrice - input.amazonPrice - fees).toFixed(2)) : 0;
   const roi =
     hasPrices && input.amazonPrice > 0
       ? Number(((profit / input.amazonPrice) * 100).toFixed(2))
@@ -64,25 +63,21 @@ const analyzeProduct = (input, options = {}) => {
 
   addNote('amazon_url', amazonUrlValid, 'Amazon product link must be a valid URL.');
   addNote('ebay_url', ebayUrlValid, 'eBay product link must be a valid URL.');
-  addNote('asin', Boolean(input.asin), 'ASIN should be present or parseable from the Amazon URL.');
+  addNote('asin', !criteria.asinRequired || Boolean(input.asin), 'ASIN is required for this hunting criteria.');
   addNote('duplicate_asin', !options.hasDuplicateAsin, 'ASIN already exists in the product queue.');
   addNote('prices', hasPrices && input.amazonPrice > 0 && input.ebayPrice > 0, 'Prices must be positive numbers.');
-  addNote('profit', profit >= env.validation.minProfit, `Profit must be at least ${env.validation.minProfit}.`);
-  addNote('roi', roi >= env.validation.minRoi, `ROI must be at least ${env.validation.minRoi}%.`);
+  addNote('profit', profit >= criteria.minProfit, `Profit must be at least ${criteria.minProfit}.`);
+  addNote('roi', roi >= criteria.minRoi, `ROI must be at least ${criteria.minRoi}%.`);
   addNote(
-    'stock',
-    input.stockQuantity !== null && input.stockQuantity >= env.validation.minStock,
-    `Stock must be at least ${env.validation.minStock}.`,
-  );
-  addNote(
-    'delivery',
-    input.deliveryDays !== null && input.deliveryDays <= env.validation.maxDeliveryDays,
-    `Delivery must be ${env.validation.maxDeliveryDays} days or less.`,
+    'sold_count',
+    input.soldCount >= criteria.minSoldCount,
+    `Sold count must be at least ${criteria.minSoldCount}.`,
   );
 
   const failures = notes.filter((note) => !note.passed);
 
   return {
+    fees,
     profit,
     roi,
     status: failures.length === 0 ? 'approved' : 'rejected',

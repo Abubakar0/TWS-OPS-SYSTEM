@@ -12,6 +12,8 @@ router
   .get(asyncHandler(productsController.listProducts))
   .post(requireRoles('hunter', 'admin'), asyncHandler(productsController.createProduct));
 
+router.get('/assigned-hunters', requireRoles('lister', 'admin'), asyncHandler(productsController.listAssignedHunters));
+router.patch('/bulk-listed', requireRoles('lister', 'admin'), asyncHandler(productsController.markProductsListed));
 router.get('/:id', asyncHandler(productsController.getProductById));
 
 module.exports = router;

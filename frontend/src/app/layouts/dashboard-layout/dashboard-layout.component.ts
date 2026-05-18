@@ -33,15 +33,15 @@ export class DashboardLayoutComponent {
     const items: NavItem[] = [];
 
     if (user.role === 'hunter' || user.role === 'admin') {
-      items.push({ label: 'Hunter', icon: 'add_box', route: '/hunter' });
+      items.push({ label: 'Hunter Queue', icon: 'travel_explore', route: '/hunter' });
     }
 
     if (user.role === 'lister' || user.role === 'admin') {
-      items.push({ label: 'Lister', icon: 'inventory_2', route: '/lister' });
+      items.push({ label: 'Listing Queue', icon: 'inventory_2', route: '/lister' });
     }
 
     if (user.role === 'admin') {
-      items.push({ label: 'Admin', icon: 'analytics', route: '/admin' });
+      items.push({ label: 'Admin Console', icon: 'admin_panel_settings', route: '/admin' });
     }
 
     return items;

@@ -1,5 +1,7 @@
 node_modules/
 dist/
+browser/
+frontend/browser/
 .angular/
 .env
 .DS_Store

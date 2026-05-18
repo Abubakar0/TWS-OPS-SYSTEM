@@ -12,9 +12,18 @@ p {
   margin: 0;
 }
 
+.eyebrow {
+  display: inline-block;
+  margin-bottom: 8px;
+  color: var(--tws-blue);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+}
+
 h1 {
-  font-size: 1.75rem;
-  font-weight: 700;
+  font-size: 1.9rem;
 }
 
 h2 {
@@ -22,8 +31,9 @@ h2 {
   font-size: 1.1rem;
 }
 
-p {
-  color: #667085;
+p,
+span {
+  color: var(--tws-muted);
 }
 
 .summary-grid {
@@ -35,7 +45,7 @@ p {
 
 .summary-tile,
 .panel {
-  border: 1px solid #d8dee8;
+  border: 1px solid var(--tws-border);
   border-radius: 8px;
   background: #ffffff;
 }
@@ -46,7 +56,6 @@ p {
 
 .summary-tile span {
   display: block;
-  color: #667085;
 }
 
 .summary-tile strong {
@@ -55,8 +64,70 @@ p {
   font-size: 1.8rem;
 }
 
+.tab-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.8fr) minmax(0, 1.2fr);
+  gap: 18px;
+  padding-top: 18px;
+}
+
 .panel {
   padding: 18px;
+}
+
+.stack-form,
+.inline-form,
+.report-form {
+  display: grid;
+  gap: 14px;
+}
+
+.inline-form {
+  grid-template-columns: 1fr 150px auto;
+  align-items: center;
+}
+
+.report-form {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  align-items: center;
+}
+
+.inline-form mat-form-field,
+.report-form mat-form-field {
+  margin-bottom: -20px;
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+}
+
+.list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid var(--tws-border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.list-row strong,
+.list-row span {
+  display: block;
+}
+
+.assignment-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+}
+
+.assignment-row mat-form-field {
+  margin-bottom: -20px;
+}
+
+.compact-list {
+  margin-top: 14px;
 }
 
 .error-message {
@@ -67,26 +138,26 @@ p {
   padding: 10px 12px;
 }
 
-.loading-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: #667085;
-}
-
 @media (max-width: 980px) {
-  .summary-grid {
+  .summary-grid,
+  .tab-grid,
+  .report-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 760px) {
-  .page-header {
+  .page-header,
+  .list-row {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .summary-grid {
+  .summary-grid,
+  .tab-grid,
+  .inline-form,
+  .report-form,
+  .assignment-row {
     grid-template-columns: 1fr;
   }
 }

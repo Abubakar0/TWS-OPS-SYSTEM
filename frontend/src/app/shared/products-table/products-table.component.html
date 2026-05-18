@@ -22,10 +22,11 @@
       </ng-container>
 
       <ng-container matColumnDef="numbers">
-        <th mat-header-cell *matHeaderCellDef>Profit / ROI</th>
+        <th mat-header-cell *matHeaderCellDef>Economics</th>
         <td mat-cell *matCellDef="let product">
           <strong>{{ product.profit | currency: 'USD' }}</strong>
           <span>{{ product.roi | number: '1.0-2' }}%</span>
+          <small>Fee {{ product.fees | currency: 'USD' }}</small>
         </td>
       </ng-container>
 
@@ -42,6 +43,14 @@
       <ng-container matColumnDef="owner">
         <th mat-header-cell *matHeaderCellDef>Hunter</th>
         <td mat-cell *matCellDef="let product">{{ product.hunterName }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="listing">
+        <th mat-header-cell *matHeaderCellDef>Listing</th>
+        <td mat-cell *matCellDef="let product">
+          <strong>{{ product.listedByName || product.assignedListerName || '-' }}</strong>
+          <span>{{ product.accountName || 'No account' }}</span>
+        </td>
       </ng-container>
 
       <ng-container matColumnDef="created">

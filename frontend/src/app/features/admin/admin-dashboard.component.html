@@ -1,46 +1,256 @@
 <section class="page-header">
   <div>
-    <h1>Admin Dashboard</h1>
-    <p>Daily operations snapshot and recent product activity.</p>
+    <span class="eyebrow">Operations control</span>
+    <h1>Admin Console</h1>
+    <p>Manage users, assignments, hunting criteria, accounts, and performance reporting.</p>
   </div>
-  <button mat-stroked-button type="button" (click)="loadProducts()" [disabled]="loading()">
+  <button mat-stroked-button type="button" (click)="loadAll()" [disabled]="loading()">
     <mat-icon>refresh</mat-icon>
     <span>Refresh</span>
   </button>
 </section>
 
+@if (error()) {
+  <div class="error-message">{{ error() }}</div>
+}
+
 <section class="summary-grid">
   <div class="summary-tile">
-    <span>Hunted Today</span>
-    <strong>{{ huntedToday() }}</strong>
+    <span>Hunted</span>
+    <strong>{{ stats()?.hunted || 0 }}</strong>
   </div>
   <div class="summary-tile">
-    <span>Approved Queue</span>
-    <strong>{{ approvedQueue() }}</strong>
+    <span>Ready</span>
+    <strong>{{ stats()?.ready || 0 }}</strong>
   </div>
   <div class="summary-tile">
-    <span>Rejected Today</span>
-    <strong>{{ rejectedToday() }}</strong>
+    <span>Listed</span>
+    <strong>{{ stats()?.listed || 0 }}</strong>
   </div>
   <div class="summary-tile">
-    <span>Listed Today</span>
-    <strong>{{ listedToday() }}</strong>
+    <span>Avg ROI</span>
+    <strong>{{ stats()?.averageRoi || 0 }}%</strong>
   </div>
 </section>
 
-<section class="panel">
-  <h2>Recent Activity</h2>
+<mat-tab-group>
+  <mat-tab label="Users">
+    <section class="tab-grid">
+      <div class="panel">
+        <h2>Add User</h2>
+        <form [formGroup]="userForm" (ngSubmit)="createUser()" class="stack-form">
+          <mat-form-field appearance="outline">
+            <mat-label>Name</mat-label>
+            <input matInput formControlName="name" />
+          </mat-form-field>
 
-  @if (error()) {
-    <div class="error-message">{{ error() }}</div>
-  }
+          <mat-form-field appearance="outline">
+            <mat-label>Email</mat-label>
+            <input matInput type="email" formControlName="email" />
+          </mat-form-field>
 
-  @if (loading()) {
-    <div class="loading-row">
-      <mat-spinner diameter="24"></mat-spinner>
-      <span>Loading activity</span>
-    </div>
-  } @else {
-    <app-products-table [products]="products()" emptyText="No product activity yet." />
-  }
-</section>
+          <mat-form-field appearance="outline">
+            <mat-label>Password</mat-label>
+            <input matInput formControlName="password" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Role</mat-label>
+            <mat-select formControlName="role">
+              <mat-option value="hunter">Hunter</mat-option>
+              <mat-option value="lister">Lister</mat-option>
+              <mat-option value="admin">Admin</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-checkbox formControlName="isActive">Can log in</mat-checkbox>
+
+          <button mat-flat-button color="primary" type="submit" [disabled]="saving()">
+            <mat-icon>person_add</mat-icon>
+            <span>Add User</span>
+          </button>
+        </form>
+      </div>
+
+      <div class="panel">
+        <h2>Users</h2>
+        <div class="list">
+          @for (user of users(); track user.id) {
+            <div class="list-row">
+              <div>
+                <strong>{{ user.name }}</strong>
+                <span>{{ user.email }} · {{ user.role }}</span>
+              </div>
+              <button mat-stroked-button type="button" (click)="toggleUser(user)">
+                <mat-icon>{{ user.isActive ? 'block' : 'check_circle' }}</mat-icon>
+                <span>{{ user.isActive ? 'Disable' : 'Enable' }}</span>
+              </button>
+            </div>
+          }
+        </div>
+      </div>
+    </section>
+  </mat-tab>
+
+  <mat-tab label="Assignments">
+    <section class="panel">
+      <h2>Hunter to Lister Assignments</h2>
+      <div class="list">
+        @for (assignment of assignments(); track assignment.hunterId) {
+          <div class="list-row assignment-row">
+            <div>
+              <strong>{{ assignment.hunterName }}</strong>
+              <span>{{ assignment.hunterEmail }}</span>
+            </div>
+            <mat-form-field appearance="outline">
+              <mat-label>Lister</mat-label>
+              <mat-select [value]="assignment.listerId || ''" (selectionChange)="setAssignment(assignment.hunterId, $event.value)">
+                <mat-option value="">Unassigned</mat-option>
+                @for (lister of listers(); track lister.id) {
+                  <mat-option [value]="lister.id">{{ lister.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          </div>
+        }
+      </div>
+    </section>
+  </mat-tab>
+
+  <mat-tab label="Criteria">
+    <section class="tab-grid">
+      <div class="panel">
+        <h2>Hunting Criteria</h2>
+        <form [formGroup]="criteriaForm" (ngSubmit)="saveCriteria()" class="stack-form">
+          <mat-form-field appearance="outline">
+            <mat-label>Minimum ROI %</mat-label>
+            <input matInput type="number" formControlName="minRoi" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Minimum profit</mat-label>
+            <input matInput type="number" formControlName="minProfit" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Minimum sold count</mat-label>
+            <input matInput type="number" formControlName="minSoldCount" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Fee percentage</mat-label>
+            <input matInput type="number" formControlName="feePercent" />
+          </mat-form-field>
+
+          <mat-checkbox formControlName="asinRequired">ASIN is mandatory</mat-checkbox>
+
+          <button mat-flat-button color="primary" type="submit">
+            <mat-icon>save</mat-icon>
+            <span>Save Criteria</span>
+          </button>
+        </form>
+      </div>
+
+      <div class="panel">
+        <h2>Accounts</h2>
+        <form [formGroup]="accountForm" (ngSubmit)="createAccount()" class="inline-form">
+          <mat-form-field appearance="outline">
+            <mat-label>Account name</mat-label>
+            <input matInput formControlName="name" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Marketplace</mat-label>
+            <input matInput formControlName="marketplace" />
+          </mat-form-field>
+          <button mat-flat-button color="primary" type="submit">
+            <mat-icon>add</mat-icon>
+            <span>Add</span>
+          </button>
+        </form>
+
+        <div class="list compact-list">
+          @for (account of accounts(); track account.id) {
+            <div class="list-row">
+              <div>
+                <strong>{{ account.name }}</strong>
+                <span>{{ account.marketplace }} · {{ account.isActive ? 'Active' : 'Disabled' }}</span>
+              </div>
+              <button mat-stroked-button type="button" (click)="toggleAccount(account)">
+                <mat-icon>{{ account.isActive ? 'block' : 'check_circle' }}</mat-icon>
+                <span>{{ account.isActive ? 'Disable' : 'Enable' }}</span>
+              </button>
+            </div>
+          }
+        </div>
+      </div>
+    </section>
+  </mat-tab>
+
+  <mat-tab label="Reports">
+    <section class="panel">
+      <h2>Stats Filters</h2>
+      <form [formGroup]="reportFilters" (ngSubmit)="loadStats()" class="report-form">
+        <mat-form-field appearance="outline">
+          <mat-label>From</mat-label>
+          <input matInput type="date" formControlName="from" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>To</mat-label>
+          <input matInput type="date" formControlName="to" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Hunter</mat-label>
+          <mat-select formControlName="hunterId">
+            <mat-option value="">All hunters</mat-option>
+            @for (hunter of hunters(); track hunter.id) {
+              <mat-option [value]="hunter.id">{{ hunter.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Lister</mat-label>
+          <mat-select formControlName="listerId">
+            <mat-option value="">All listers</mat-option>
+            @for (lister of listers(); track lister.id) {
+              <mat-option [value]="lister.id">{{ lister.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <button mat-flat-button color="primary" type="submit">
+          <mat-icon>analytics</mat-icon>
+          <span>Apply</span>
+        </button>
+      </form>
+    </section>
+
+    <section class="tab-grid">
+      <div class="panel">
+        <h2>Hunter Progress</h2>
+        <div class="list compact-list">
+          @for (row of stats()?.byHunter || []; track row.id) {
+            <div class="list-row">
+              <div>
+                <strong>{{ row.name }}</strong>
+                <span>Hunted {{ row.hunted }} · Listed {{ row.listed }}</span>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Lister Progress</h2>
+        <div class="list compact-list">
+          @for (row of stats()?.byLister || []; track row.id) {
+            <div class="list-row">
+              <div>
+                <strong>{{ row.name }}</strong>
+                <span>Listed {{ row.listed }} · Hunters {{ row.assignedHunters }}</span>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    </section>
+  </mat-tab>
+</mat-tab-group>
