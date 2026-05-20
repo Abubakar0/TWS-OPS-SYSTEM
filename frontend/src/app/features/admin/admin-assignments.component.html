@@ -1,0 +1,80 @@
+<section class="page-shell">
+  <header class="page-hero">
+    <div>
+      <span class="kicker">Admin Console</span>
+      <h1>Assignments</h1>
+      <p>Manage hunter-to-lister ownership in one place so approved products move to the right listing queue automatically.</p>
+    </div>
+
+    <div class="page-actions">
+      <button mat-stroked-button type="button" (click)="loadData()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <div class="inline-state inline-state--error">{{ error() }}</div>
+  }
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <span>Total hunters</span>
+      <strong>{{ assignments().length }}</strong>
+      <small>Hunters available for assignment management.</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Assigned</span>
+      <strong>{{ assignedCount() }}</strong>
+      <small>Hunters currently connected to a lister.</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Unassigned</span>
+      <strong>{{ unassignedCount() }}</strong>
+      <small>Hunters that still need a lister assignment.</small>
+    </article>
+  </section>
+
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h2>Hunter to lister assignments</h2>
+        <p>Changing an assignment updates the queue ownership for approved products tied to that hunter.</p>
+      </div>
+    </div>
+
+    @if (loading()) {
+      <div class="loading-state">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>Loading assignments.</span>
+      </div>
+    } @else {
+      <div class="assignment-list">
+        @for (assignment of assignments(); track assignment.hunterId) {
+          <div class="assignment-row">
+            <div class="assignment-row__content">
+              <strong>{{ assignment.hunterName }}</strong>
+              <span>{{ assignment.hunterEmail }}</span>
+              <small>{{ assignment.hunterActive ? 'Hunter enabled' : 'Hunter disabled' }}</small>
+            </div>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Lister</mat-label>
+              <mat-select [value]="assignment.listerId || ''" (selectionChange)="setAssignment(assignment.hunterId, $event.value)">
+                <mat-option value="">Unassigned</mat-option>
+                @for (lister of listers(); track lister.id) {
+                  <mat-option [value]="lister.id">{{ lister.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          </div>
+        } @empty {
+          <div class="empty-state">No hunter assignments are available yet.</div>
+        }
+      </div>
+    }
+  </article>
+</section>

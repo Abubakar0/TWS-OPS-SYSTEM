@@ -38,7 +38,7 @@ export class AuthService {
 
   homeForRole(role?: UserRole): string {
     if (role === 'admin') {
-      return '/admin';
+      return '/admin/dashboard';
     }
 
     if (role === 'lister') {

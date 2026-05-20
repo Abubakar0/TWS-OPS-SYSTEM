@@ -1,0 +1,139 @@
+<section class="page-shell">
+  <header class="page-hero">
+    <div>
+      <span class="kicker">Admin Console</span>
+      <h1>Users</h1>
+      <p>Create admin, hunter, and lister accounts, then enable or disable access without leaving the page.</p>
+    </div>
+
+    <div class="page-actions">
+      <button mat-stroked-button type="button" (click)="loadUsers()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <div class="inline-state inline-state--error">{{ error() }}</div>
+  }
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <span>Admins</span>
+      <strong>{{ adminCount() }}</strong>
+      <small>Active and inactive admin accounts.</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Hunters</span>
+      <strong>{{ hunterCount() }}</strong>
+      <small>Research users available in the system.</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Listers</span>
+      <strong>{{ listerCount() }}</strong>
+      <small>Listing users available in the system.</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Total users</span>
+      <strong>{{ users().length }}</strong>
+      <small>All user accounts currently stored.</small>
+    </article>
+  </section>
+
+  <section class="section-grid users-grid">
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Add user</h2>
+          <p>Front-end validation runs before the API call, and duplicate emails now return a clear error instead of a server failure.</p>
+        </div>
+      </div>
+
+      <form class="form-grid" [formGroup]="userForm" (ngSubmit)="createUser()">
+        <mat-form-field appearance="outline">
+          <mat-label>Name</mat-label>
+          <input matInput formControlName="name" autocomplete="off" />
+          @if (fieldError('name')) {
+            <mat-error>{{ fieldError('name') }}</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Email</mat-label>
+          <input matInput type="email" formControlName="email" autocomplete="off" />
+          @if (fieldError('email')) {
+            <mat-error>{{ fieldError('email') }}</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Password</mat-label>
+          <input matInput type="password" formControlName="password" autocomplete="new-password" />
+          <mat-hint>Minimum 8 characters.</mat-hint>
+          @if (fieldError('password')) {
+            <mat-error>{{ fieldError('password') }}</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Role</mat-label>
+          <mat-select formControlName="role">
+            <mat-option value="hunter">Hunter</mat-option>
+            <mat-option value="lister">Lister</mat-option>
+            <mat-option value="admin">Admin</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <label class="toggle-row field-span-2">
+          <mat-checkbox formControlName="isActive">Allow this user to log in immediately</mat-checkbox>
+        </label>
+
+        <div class="field-span-2 actions-row">
+          <button mat-flat-button color="primary" type="submit" [disabled]="saving() || userForm.invalid">
+            <mat-icon>person_add</mat-icon>
+            <span>{{ saving() ? 'Creating' : 'Create User' }}</span>
+          </button>
+        </div>
+      </form>
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Users</h2>
+          <p>Enable or disable account access one user at a time.</p>
+        </div>
+      </div>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading users.</span>
+        </div>
+      } @else {
+        <div class="list">
+          @for (user of users(); track user.id) {
+            <div class="list-row">
+              <div class="list-row__content">
+                <strong>{{ user.name }}</strong>
+                <span>{{ user.email }}</span>
+                <small>{{ user.role | titlecase }} | {{ user.isActive ? 'Enabled' : 'Disabled' }}</small>
+              </div>
+
+              <button mat-stroked-button type="button" (click)="toggleUser(user)">
+                <mat-icon>{{ user.isActive ? 'block' : 'check_circle' }}</mat-icon>
+                <span>{{ user.isActive ? 'Disable' : 'Enable' }}</span>
+              </button>
+            </div>
+          } @empty {
+            <div class="empty-state">No users are available yet.</div>
+          }
+        </div>
+      }
+    </article>
+  </section>
+</section>

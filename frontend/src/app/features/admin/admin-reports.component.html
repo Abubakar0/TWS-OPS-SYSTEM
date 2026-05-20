@@ -1,0 +1,215 @@
+<section class="page-shell">
+  <header class="page-hero">
+    <div>
+      <span class="kicker">Admin Console</span>
+      <h1>Reports</h1>
+      <p>Filter the operation by reporting range or user, then export the current view when you need to share it.</p>
+    </div>
+
+    <div class="page-actions">
+      <button mat-flat-button color="primary" type="button" (click)="exportReport()" [disabled]="loading() || !stats()">
+        <mat-icon>download</mat-icon>
+        <span>Export Excel</span>
+      </button>
+      <button mat-stroked-button type="button" (click)="applyUserFilter()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <div class="inline-state inline-state--error">{{ error() }}</div>
+  }
+
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h2>Report filters</h2>
+        <p>Presets cover daily, weekly, monthly, yearly, and custom reporting windows.</p>
+      </div>
+    </div>
+
+    <div class="range-toolbar">
+      @for (option of rangeButtons; track option.key) {
+        <button
+          type="button"
+          mat-stroked-button
+          class="range-chip"
+          [class.range-chip--active]="selectedRange() === option.key"
+          (click)="applyPreset(option.key)"
+        >
+          {{ option.label }}
+        </button>
+      }
+    </div>
+
+    <form class="report-controls" [formGroup]="filtersForm" (ngSubmit)="applyUserFilter()">
+      <mat-form-field appearance="outline">
+        <mat-label>User</mat-label>
+        <mat-select formControlName="userId">
+          <mat-option value="">All hunters and listers</mat-option>
+          @for (user of reportUsers(); track user.id) {
+            <mat-option [value]="user.id">{{ user.name }} ({{ user.role }})</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <button mat-flat-button color="primary" type="submit" [disabled]="loading()">
+        <mat-icon>filter_list</mat-icon>
+        <span>Apply User Filter</span>
+      </button>
+    </form>
+
+    @if (selectedRange() === 'custom') {
+      <form class="custom-range-form" [formGroup]="customRangeForm" (ngSubmit)="applyCustomRange()">
+        <mat-form-field appearance="outline">
+          <mat-label>From date</mat-label>
+          <input matInput type="date" formControlName="from" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>To date</mat-label>
+          <input matInput type="date" formControlName="to" />
+        </mat-form-field>
+
+        <button mat-flat-button color="primary" type="submit" [disabled]="loading() || customRangeForm.invalid">
+          <mat-icon>analytics</mat-icon>
+          <span>Apply Range</span>
+        </button>
+      </form>
+
+      @if (customRangeError()) {
+        <div class="inline-state inline-state--error">{{ customRangeError() }}</div>
+      }
+    }
+  </article>
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <span>Hunted</span>
+      <strong>{{ stats()?.hunted || 0 }}</strong>
+      <small>Products created in the selected reporting range.</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Ready</span>
+      <strong>{{ stats()?.ready || 0 }}</strong>
+      <small>Approved or assigned products in the reporting view.</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Listed</span>
+      <strong>{{ stats()?.listed || 0 }}</strong>
+      <small>Products that reached listed status in the reporting view.</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Rejected</span>
+      <strong>{{ stats()?.rejected || 0 }}</strong>
+      <small>Rejected products in the reporting view.</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Average ROI</span>
+      <strong>{{ stats()?.averageRoi || 0 }}%</strong>
+      <small>Average return across the filtered products.</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Total profit</span>
+      <strong>{{ (stats()?.totalProfit || 0) | number: '1.0-2' }}</strong>
+      <small>Total profit for the current report selection.</small>
+    </article>
+  </section>
+
+  <section class="section-grid section-grid--three">
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>By hunter</h2>
+          <p>Per-hunter hunted and listed volume.</p>
+        </div>
+      </div>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading reports.</span>
+        </div>
+      } @else if (stats()?.byHunter?.length) {
+        <div class="breakdown-list">
+          @for (row of stats()?.byHunter || []; track row.id) {
+            <div class="breakdown-row">
+              <div>
+                <strong>{{ row.name }}</strong>
+                <span>Hunted {{ row.hunted }} | Listed {{ row.listed }}</span>
+              </div>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="empty-state">No hunter report rows matched this filter.</div>
+      }
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>By lister</h2>
+          <p>Products listed and assigned hunter coverage by lister.</p>
+        </div>
+      </div>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading reports.</span>
+        </div>
+      } @else if (stats()?.byLister?.length) {
+        <div class="breakdown-list">
+          @for (row of stats()?.byLister || []; track row.id) {
+            <div class="breakdown-row">
+              <div>
+                <strong>{{ row.name }}</strong>
+                <span>Listed {{ row.listed }} | Assigned hunters {{ row.assignedHunters }}</span>
+              </div>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="empty-state">No lister report rows matched this filter.</div>
+      }
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>By account</h2>
+          <p>Products listed per account in the current report view.</p>
+        </div>
+      </div>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading reports.</span>
+        </div>
+      } @else if (stats()?.byAccount?.length) {
+        <div class="breakdown-list">
+          @for (row of stats()?.byAccount || []; track row.id) {
+            <div class="breakdown-row">
+              <div>
+                <strong>{{ row.name }}</strong>
+                <span>Listed products</span>
+              </div>
+              <strong class="breakdown-row__count">{{ row.listed }}</strong>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="empty-state">No account report rows matched this filter.</div>
+      }
+    </article>
+  </section>
+</section>

@@ -41,6 +41,13 @@ export class DashboardLayoutComponent {
     { label: 'Dashboard', route: '/lister/dashboard', exact: true },
     { label: 'Hunter Products', route: '/lister/products', exact: true },
   ];
+  readonly adminTabs: NavItem[] = [
+    { label: 'Dashboard', route: '/admin/dashboard', exact: true },
+    { label: 'Users', route: '/admin/users', exact: true },
+    { label: 'Assignments', route: '/admin/assignments', exact: true },
+    { label: 'Settings', route: '/admin/settings', exact: true },
+    { label: 'Reports', route: '/admin/reports', exact: true },
+  ];
 
   readonly primaryNavItems = computed<NavItem[]>(() => {
     const user = this.user();
@@ -62,7 +69,7 @@ export class DashboardLayoutComponent {
     if (user.role === 'admin') {
       items.push({ label: 'Hunter Workspace', route: '/hunter/dashboard', exact: false });
       items.push({ label: 'Lister Workspace', route: '/lister/dashboard', exact: false });
-      items.push({ label: 'Admin Console', route: '/admin', exact: true });
+      items.push({ label: 'Admin Console', route: '/admin/dashboard', exact: false });
       return items;
     }
 
@@ -81,6 +88,10 @@ export class DashboardLayoutComponent {
 
     if (this.currentUrl().startsWith('/lister')) {
       return this.listerTabs;
+    }
+
+    if (this.currentUrl().startsWith('/admin')) {
+      return this.adminTabs;
     }
 
     return [];

@@ -1,0 +1,39 @@
+.assignment-list {
+  display: grid;
+  gap: 12px;
+}
+
+.assignment-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+  gap: 18px;
+  align-items: center;
+  border: 1px solid var(--tws-border);
+  border-radius: 18px;
+  background: rgba(248, 250, 255, 0.92);
+  padding: 16px;
+}
+
+.assignment-row__content {
+  display: grid;
+  gap: 4px;
+}
+
+.assignment-row__content strong {
+  color: var(--tws-text);
+}
+
+.assignment-row__content span,
+.assignment-row__content small {
+  color: var(--tws-muted);
+}
+
+.assignment-row .mat-mdc-form-field {
+  margin-bottom: -20px;
+}
+
+@media (max-width: 760px) {
+  .assignment-row {
+    grid-template-columns: 1fr;
+  }
+}

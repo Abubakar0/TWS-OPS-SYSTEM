@@ -15,6 +15,7 @@ export interface AdminStats {
   totalProfit: number;
   byHunter: Array<{ id: string; name: string; hunted: number; listed: number }>;
   byLister: Array<{ id: string; name: string; listed: number; assignedHunters: number }>;
+  byAccount: Array<{ id: string; name: string; listed: number }>;
   daily: Array<{ date: string; hunted: number; listed: number }>;
 }
 

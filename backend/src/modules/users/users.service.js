@@ -17,6 +17,36 @@ const normalizeUser = (row) => ({
   isActive: Boolean(row.isActive),
 });
 
+const assertValidRole = (role) => {
+  if (!['admin', 'hunter', 'lister'].includes(role)) {
+    throw new AppError('Invalid user role.', 400);
+  }
+};
+
+const ensureEmailAvailable = async (email, currentUserId = null) => {
+  const params = [email];
+  let sql = 'SELECT id FROM users WHERE email = $1';
+
+  if (currentUserId) {
+    params.push(currentUserId);
+    sql += ' AND id <> $2';
+  }
+
+  const existing = await pool.query(sql, params);
+
+  if (existing.rowCount > 0) {
+    throw new AppError('A user with this email already exists.', 409);
+  }
+};
+
+const mapUserPersistenceError = (error) => {
+  if (error?.code === '23505') {
+    throw new AppError('A user with this email already exists.', 409);
+  }
+
+  throw error;
+};
+
 const listUsers = async ({ role } = {}) => {
   const params = [];
   let where = '';
@@ -42,19 +72,36 @@ const listUsers = async ({ role } = {}) => {
 const createUser = async (payload) => {
   const { name, email, password, role } = payload;
 
-  if (!name || !email || !password || !['admin', 'hunter', 'lister'].includes(role)) {
+  if (!name || !email || !password || !role) {
     throw new AppError('Name, email, password, and valid role are required.', 400);
   }
 
+  assertValidRole(role);
+
+  const normalizedName = String(name).trim();
+  const normalizedEmail = String(email).trim().toLowerCase();
+
+  if (!normalizedName || !normalizedEmail) {
+    throw new AppError('Name and email are required.', 400);
+  }
+
+  await ensureEmailAvailable(normalizedEmail);
+
   const passwordHash = await bcrypt.hash(password, 10);
-  const result = await pool.query(
-    `
-      INSERT INTO users (name, email, password_hash, role, is_active)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING ${userSelect}
-    `,
-    [name.trim(), email.trim().toLowerCase(), passwordHash, role, payload.isActive ?? true],
-  );
+  let result;
+
+  try {
+    result = await pool.query(
+      `
+        INSERT INTO users (name, email, password_hash, role, is_active)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING ${userSelect}
+      `,
+      [normalizedName, normalizedEmail, passwordHash, role, payload.isActive ?? true],
+    );
+  } catch (error) {
+    mapUserPersistenceError(error);
+  }
 
   return normalizeUser(result.rows[0]);
 };
@@ -79,14 +126,13 @@ const updateUser = async (id, payload) => {
   }
 
   if (payload.email !== undefined) {
-    addUpdate('email', String(payload.email).trim().toLowerCase());
+    const normalizedEmail = String(payload.email).trim().toLowerCase();
+    await ensureEmailAvailable(normalizedEmail, id);
+    addUpdate('email', normalizedEmail);
   }
 
   if (payload.role !== undefined) {
-    if (!['admin', 'hunter', 'lister'].includes(payload.role)) {
-      throw new AppError('Invalid user role.', 400);
-    }
-
+    assertValidRole(payload.role);
     addUpdate('role', payload.role);
   }
 
@@ -105,16 +151,22 @@ const updateUser = async (id, payload) => {
 
   params.push(id);
 
-  const result = await pool.query(
-    `
-      UPDATE users
-      SET ${updates.join(', ')},
-          updated_at = NOW()
-      WHERE id = $${params.length}
-      RETURNING ${userSelect}
-    `,
-    params,
-  );
+  let result;
+
+  try {
+    result = await pool.query(
+      `
+        UPDATE users
+        SET ${updates.join(', ')},
+            updated_at = NOW()
+        WHERE id = $${params.length}
+        RETURNING ${userSelect}
+      `,
+      params,
+    );
+  } catch (error) {
+    mapUserPersistenceError(error);
+  }
 
   return normalizeUser(result.rows[0]);
 };

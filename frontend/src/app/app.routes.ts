@@ -87,10 +87,48 @@ export const routes: Routes = [
         path: 'admin',
         canActivate: [roleGuard],
         data: { roles: ['admin'] },
-        loadComponent: () =>
-          import('./features/admin/admin-dashboard.component').then(
-            (m) => m.AdminDashboardComponent,
-          ),
+        children: [
+          {
+            path: '',
+            pathMatch: 'full',
+            redirectTo: 'dashboard',
+          },
+          {
+            path: 'dashboard',
+            loadComponent: () =>
+              import('./features/admin/admin-dashboard.component').then(
+                (m) => m.AdminDashboardComponent,
+              ),
+          },
+          {
+            path: 'users',
+            loadComponent: () =>
+              import('./features/admin/admin-users.component').then(
+                (m) => m.AdminUsersComponent,
+              ),
+          },
+          {
+            path: 'assignments',
+            loadComponent: () =>
+              import('./features/admin/admin-assignments.component').then(
+                (m) => m.AdminAssignmentsComponent,
+              ),
+          },
+          {
+            path: 'settings',
+            loadComponent: () =>
+              import('./features/admin/admin-settings.component').then(
+                (m) => m.AdminSettingsComponent,
+              ),
+          },
+          {
+            path: 'reports',
+            loadComponent: () =>
+              import('./features/admin/admin-reports.component').then(
+                (m) => m.AdminReportsComponent,
+              ),
+          },
+        ],
       },
     ],
   },

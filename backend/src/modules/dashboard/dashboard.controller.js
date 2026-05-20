@@ -15,48 +15,67 @@ const addDateFilters = ({ query, where, params, column = 'p.created_at' }) => {
   }
 };
 
-const buildAdminWhere = (query) => {
-  const where = [];
+const buildProductFilters = (query, column = 'p.created_at') => {
+  const clauses = [];
   const params = [];
 
-  const add = (sql, value) => {
-    params.push(value);
-    where.push(sql.replace('?', `$${params.length}`));
-  };
-
-  addDateFilters({ query, where, params, column: 'p.created_at' });
+  addDateFilters({ query, where: clauses, params, column });
 
   if (query.hunterId) {
-    add('p.hunter_id = ?', query.hunterId);
+    params.push(query.hunterId);
+    clauses.push(`p.hunter_id = $${params.length}`);
   }
 
   if (query.listerId) {
-    add('(p.assigned_lister_id = ? OR p.listed_by = ?)', query.listerId);
     params.push(query.listerId);
-    where[where.length - 1] = where[where.length - 1].replace('?', `$${params.length}`);
+    const assignedIndex = params.length;
+    params.push(query.listerId);
+    const listedIndex = params.length;
+    clauses.push(`(p.assigned_lister_id = $${assignedIndex} OR p.listed_by = $${listedIndex})`);
   }
 
   return {
-    where: where.length ? `WHERE ${where.join(' AND ')}` : '',
+    clauses,
     params,
   };
 };
 
-const admin = async (req, res) => {
-  const filters = buildAdminWhere(req.query);
+const toWhereSql = (clauses) => (clauses.length ? `WHERE ${clauses.join(' AND ')}` : '');
+const toJoinSql = (clauses) => (clauses.length ? ` AND ${clauses.join(' AND ')}` : '');
 
-  const [summary, byHunter, byLister, daily] = await Promise.all([
+const admin = async (req, res) => {
+  const filters = buildProductFilters(req.query, 'p.created_at');
+  const whereSql = toWhereSql(filters.clauses);
+  const joinSql = toJoinSql(filters.clauses);
+
+  const byHunterParams = [...filters.params];
+  const byListerParams = [...filters.params];
+
+  let hunterUserFilter = '';
+  let listerUserFilter = '';
+
+  if (req.query.hunterId) {
+    byHunterParams.push(req.query.hunterId);
+    hunterUserFilter = `AND hunter.id = $${byHunterParams.length}`;
+  }
+
+  if (req.query.listerId) {
+    byListerParams.push(req.query.listerId);
+    listerUserFilter = `AND lister.id = $${byListerParams.length}`;
+  }
+
+  const [summary, byHunter, byLister, byAccount, daily] = await Promise.all([
     pool.query(
       `
         SELECT
           COUNT(*)::int AS "hunted",
-          COUNT(*) FILTER (WHERE status IN ('approved', 'assigned'))::int AS "ready",
-          COUNT(*) FILTER (WHERE status = 'rejected')::int AS "rejected",
-          COUNT(*) FILTER (WHERE status = 'listed')::int AS "listed",
-          COALESCE(AVG(NULLIF(roi, 0)), 0)::numeric(8, 2) AS "averageRoi",
-          COALESCE(SUM(profit), 0)::numeric(10, 2) AS "totalProfit"
+          COUNT(*) FILTER (WHERE p.status IN ('approved', 'assigned'))::int AS "ready",
+          COUNT(*) FILTER (WHERE p.status = 'rejected')::int AS "rejected",
+          COUNT(*) FILTER (WHERE p.status = 'listed')::int AS "listed",
+          COALESCE(AVG(NULLIF(p.roi, 0)), 0)::numeric(8, 2) AS "averageRoi",
+          COALESCE(SUM(p.profit), 0)::numeric(10, 2) AS "totalProfit"
         FROM products p
-        ${filters.where}
+        ${whereSql}
       `,
       filters.params,
     ),
@@ -68,11 +87,13 @@ const admin = async (req, res) => {
           COUNT(p.id)::int AS "hunted",
           COUNT(p.id) FILTER (WHERE p.status = 'listed')::int AS "listed"
         FROM users hunter
-        LEFT JOIN products p ON p.hunter_id = hunter.id
+        LEFT JOIN products p ON p.hunter_id = hunter.id${joinSql}
         WHERE hunter.role = 'hunter'
+          ${hunterUserFilter}
         GROUP BY hunter.id, hunter.name
         ORDER BY hunter.name
       `,
+      byHunterParams,
     ),
     pool.query(
       `
@@ -82,12 +103,30 @@ const admin = async (req, res) => {
           COUNT(p.id) FILTER (WHERE p.status = 'listed')::int AS "listed",
           COUNT(DISTINCT hla.hunter_id)::int AS "assignedHunters"
         FROM users lister
-        LEFT JOIN products p ON p.listed_by = lister.id
+        LEFT JOIN products p
+          ON (p.listed_by = lister.id OR p.assigned_lister_id = lister.id)${joinSql}
         LEFT JOIN hunter_lister_assignments hla ON hla.lister_id = lister.id
         WHERE lister.role = 'lister'
+          ${listerUserFilter}
         GROUP BY lister.id, lister.name
         ORDER BY lister.name
       `,
+      byListerParams,
+    ),
+    pool.query(
+      `
+        SELECT
+          account.id::text AS "id",
+          account.name,
+          COUNT(p.id)::int AS "listed"
+        FROM accounts account
+        JOIN products p
+          ON p.account_used = account.id
+          AND p.status = 'listed'${joinSql}
+        GROUP BY account.id, account.name
+        ORDER BY "listed" DESC, account.name
+      `,
+      filters.params,
     ),
     pool.query(
       `
@@ -96,7 +135,7 @@ const admin = async (req, res) => {
           COUNT(*)::int AS "hunted",
           COUNT(*) FILTER (WHERE p.status = 'listed')::int AS "listed"
         FROM products p
-        ${filters.where}
+        ${whereSql}
         GROUP BY date_trunc('day', p.created_at)::date
         ORDER BY "date" DESC
         LIMIT 31
@@ -117,6 +156,7 @@ const admin = async (req, res) => {
       totalProfit: Number(row.totalProfit),
       byHunter: byHunter.rows,
       byLister: byLister.rows,
+      byAccount: byAccount.rows,
       daily: daily.rows,
     },
   });
