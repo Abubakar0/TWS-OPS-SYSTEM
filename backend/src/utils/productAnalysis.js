@@ -167,4 +167,5 @@ module.exports = {
   extractAsin,
   normalizeProductPayload,
   analyzeProduct,
+  isEbayUrl,
 };

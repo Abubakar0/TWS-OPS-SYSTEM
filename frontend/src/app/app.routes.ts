@@ -61,10 +61,27 @@ export const routes: Routes = [
         path: 'lister',
         canActivate: [roleGuard],
         data: { roles: ['lister', 'admin'] },
-        loadComponent: () =>
-          import('./features/lister/lister-dashboard.component').then(
-            (m) => m.ListerDashboardComponent,
-          ),
+        children: [
+          {
+            path: '',
+            pathMatch: 'full',
+            redirectTo: 'dashboard',
+          },
+          {
+            path: 'dashboard',
+            loadComponent: () =>
+              import('./features/lister/lister-dashboard.component').then(
+                (m) => m.ListerDashboardComponent,
+              ),
+          },
+          {
+            path: 'products',
+            loadComponent: () =>
+              import('./features/lister/lister-products.component').then(
+                (m) => m.ListerProductsComponent,
+              ),
+          },
+        ],
       },
       {
         path: 'admin',

@@ -42,7 +42,7 @@ export class AuthService {
     }
 
     if (role === 'lister') {
-      return '/lister';
+      return '/lister/dashboard';
     }
 
     return '/hunter/dashboard';

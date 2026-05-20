@@ -1,155 +1,158 @@
-<section class="page-header">
-  <div>
-    <span class="eyebrow">Manual listing</span>
-    <h1>Listing Queue</h1>
-    <p>Choose an assigned hunter, copy product details, and update listed items in bulk.</p>
-  </div>
-  <button mat-stroked-button type="button" (click)="loadProducts()" [disabled]="loading()">
-    <mat-icon>refresh</mat-icon>
-    <span>Refresh</span>
-  </button>
-</section>
+<section class="page-shell">
+  <header class="page-hero">
+    <div>
+      <span class="kicker">Lister Workspace</span>
+      <h1>Dashboard</h1>
+      <p>Track listing output, rejected items, and account performance across the selected activity range.</p>
+    </div>
 
-<section class="summary-grid">
-  <div class="summary-tile">
-    <span>Assigned Hunters</span>
-    <strong>{{ hunters().length }}</strong>
-  </div>
-  <div class="summary-tile">
-    <span>Ready</span>
-    <strong>{{ readyCount() }}</strong>
-  </div>
-  <div class="summary-tile">
-    <span>Listed</span>
-    <strong>{{ listedCount() }}</strong>
-  </div>
-  <div class="summary-tile">
-    <span>Selected</span>
-    <strong>{{ selectedCount() }}</strong>
-  </div>
-</section>
+    <div class="page-actions">
+      <a mat-stroked-button routerLink="/lister/products">
+        <mat-icon>table_view</mat-icon>
+        <span>Open Hunter Products</span>
+      </a>
+      <button mat-stroked-button type="button" (click)="refresh()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </header>
 
-<section class="lister-grid">
-  <aside class="panel hunter-panel">
-    <h2>Hunters</h2>
-    <div class="hunter-list">
-      @for (hunter of hunters(); track hunter.id) {
+  @if (error()) {
+    <div class="inline-state inline-state--error">{{ error() }}</div>
+  }
+
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h2>Dashboard filters</h2>
+        <p>These stats are filtered by listing and rejection activity dates.</p>
+      </div>
+    </div>
+
+    <div class="range-toolbar">
+      @for (option of rangeButtons; track option.key) {
         <button
           type="button"
-          class="hunter-button"
-          [class.active]="selectedHunterId() === hunter.id"
-          (click)="selectHunter(hunter.id)"
+          mat-stroked-button
+          class="range-chip"
+          [class.range-chip--active]="selectedRange() === option.key"
+          (click)="applyPreset(option.key)"
         >
-          <strong>{{ hunter.name }}</strong>
-          <span>{{ hunter.readyCount || 0 }} ready · {{ hunter.listedCount || 0 }} listed</span>
+          {{ option.label }}
         </button>
       }
     </div>
-  </aside>
 
-  <main class="panel">
-    <div class="queue-header">
-      <h2>Hunter Items</h2>
-      <form [formGroup]="filters" class="filters" (ngSubmit)="loadProducts()">
+    @if (selectedRange() === 'custom') {
+      <form class="custom-range-form" [formGroup]="customRangeForm" (ngSubmit)="applyCustomRange()">
         <mat-form-field appearance="outline">
-          <mat-label>Search</mat-label>
-          <input matInput formControlName="search" />
+          <mat-label>From date</mat-label>
+          <input matInput type="date" formControlName="from" />
         </mat-form-field>
+
         <mat-form-field appearance="outline">
-          <mat-label>Status</mat-label>
-          <mat-select formControlName="status">
-            <mat-option value="">All</mat-option>
-            <mat-option value="assigned">Assigned</mat-option>
-            <mat-option value="approved">Approved</mat-option>
-            <mat-option value="listed">Listed</mat-option>
-          </mat-select>
+          <mat-label>To date</mat-label>
+          <input matInput type="date" formControlName="to" />
         </mat-form-field>
-        <button mat-stroked-button type="submit">
-          <mat-icon>search</mat-icon>
-          <span>Filter</span>
+
+        <button mat-flat-button color="primary" type="submit" [disabled]="loading() || customRangeForm.invalid">
+          <mat-icon>filter_list</mat-icon>
+          <span>Apply Range</span>
         </button>
       </form>
-    </div>
 
-    <form [formGroup]="bulkForm" class="bulk-bar" (ngSubmit)="markSelectedListed()">
-      <mat-checkbox [checked]="selectedIds().size === products().length && products().length > 0" (change)="toggleAll($event.checked)">
-        Select all
-      </mat-checkbox>
-      <mat-form-field appearance="outline">
-        <mat-label>Account used</mat-label>
-        <mat-select formControlName="accountId">
-          @for (account of accounts(); track account.id) {
-            <mat-option [value]="account.id">{{ account.name }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
-      <button
-        mat-flat-button
-        color="primary"
-        type="submit"
-        [disabled]="saving() || selectedIds().size === 0 || bulkForm.invalid"
-      >
-        <mat-icon>done_all</mat-icon>
-        <span>Mark Selected Listed</span>
-      </button>
-    </form>
-
-    @if (copied()) {
-      <div class="copy-note">Copied {{ copied() }}</div>
+      @if (customRangeError()) {
+        <div class="inline-state inline-state--error">{{ customRangeError() }}</div>
+      }
     }
+  </article>
 
-    @if (error()) {
-      <div class="error-message">{{ error() }}</div>
-    }
+  <section class="stats-grid">
+    <article class="stat-card">
+      <span>Total listings done</span>
+      <strong>{{ totalListed() }}</strong>
+      <small>Products listed in the selected period.</small>
+    </article>
 
-    @if (loading()) {
-      <div class="loading-row">
-        <mat-spinner diameter="24"></mat-spinner>
-        <span>Loading products</span>
+    <article class="stat-card">
+      <span>Rejected items</span>
+      <strong>{{ rejectedCount() }}</strong>
+      <small>Products rejected back to hunters in the selected period.</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Hunters with listings</span>
+      <strong>{{ hunterCount() }}</strong>
+      <small>Hunters that contributed listed products.</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Accounts used</span>
+      <strong>{{ accountCount() }}</strong>
+      <small>Accounts used for completed listings.</small>
+    </article>
+  </section>
+
+  <section class="section-grid">
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Listings by hunter</h2>
+          <p>Completed listings grouped by hunter.</p>
+        </div>
       </div>
-    } @else {
-      <div class="product-list">
-        @for (product of products(); track product.id) {
-          <article class="product-row" [class.listed]="product.status === 'listed'">
-            <mat-checkbox [checked]="isSelected(product.id)" (change)="toggleSelection(product.id, $event.checked)" />
-            <div class="product-main">
-              <div class="product-title">
-                <strong>{{ product.title || product.asin || 'Untitled product' }}</strong>
-                <span class="status" [class]="product.status">{{ product.status }}</span>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Refreshing lister dashboard.</span>
+        </div>
+      } @else if (hunterBreakdown().length) {
+        <div class="breakdown-list">
+          @for (hunter of hunterBreakdown(); track hunter.hunterId) {
+            <div class="breakdown-row">
+              <div>
+                <strong>{{ hunter.hunterName }}</strong>
+                <span>Completed listings</span>
               </div>
-              <div class="detail-grid">
-                <button mat-stroked-button type="button" (click)="copy(product.amazonUrl, 'Amazon link')">
-                  <mat-icon>content_copy</mat-icon>
-                  <span>Amazon</span>
-                </button>
-                <button mat-stroked-button type="button" (click)="copy(product.ebayUrl, 'eBay link')">
-                  <mat-icon>content_copy</mat-icon>
-                  <span>eBay</span>
-                </button>
-                <button mat-stroked-button type="button" (click)="copy(product.asin, 'ASIN')">
-                  <mat-icon>content_copy</mat-icon>
-                  <span>{{ product.asin || 'No ASIN' }}</span>
-                </button>
-              </div>
-              <div class="metrics">
-                <span>Amazon {{ product.amazonPrice | currency: 'USD' }}</span>
-                <span>eBay {{ product.ebayPrice | currency: 'USD' }}</span>
-                <span>Fee {{ product.fees | currency: 'USD' }}</span>
-                <span>Profit {{ product.profit | currency: 'USD' }}</span>
-                <span>ROI {{ product.roi | number: '1.0-2' }}%</span>
-                <span>Sold {{ product.soldCount }}</span>
-              </div>
-              @if (product.status === 'listed') {
-                <div class="listed-note">
-                  Listed by {{ product.listedByName }} on {{ product.accountName }}
-                </div>
-              }
+              <strong class="breakdown-row__count">{{ hunter.listedCount }}</strong>
             </div>
-          </article>
-        } @empty {
-          <div class="empty-state">No products found for this hunter.</div>
-        }
+          }
+        </div>
+      } @else {
+        <div class="empty-state">No listed products were found for this date range.</div>
+      }
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Listings by account</h2>
+          <p>Completed listings grouped by account name.</p>
+        </div>
       </div>
-    }
-  </main>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Refreshing lister dashboard.</span>
+        </div>
+      } @else if (accountBreakdown().length) {
+        <div class="breakdown-list">
+          @for (account of accountBreakdown(); track account.accountId) {
+            <div class="breakdown-row">
+              <div>
+                <strong>{{ account.accountName }}</strong>
+                <span>Completed listings</span>
+              </div>
+              <strong class="breakdown-row__count">{{ account.listedCount }}</strong>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="empty-state">No account activity was found for this date range.</div>
+      }
+    </article>
+  </section>
 </section>

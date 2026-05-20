@@ -15,7 +15,7 @@
         <mat-icon>add_circle</mat-icon>
         <span>New Submission</span>
       </a>
-      <button mat-stroked-button type="button" (click)="loadProducts()" [disabled]="loading()">
+      <button mat-stroked-button type="button" (click)="refresh()" [disabled]="loading()">
         <mat-icon>refresh</mat-icon>
         <span>Refresh</span>
       </button>
@@ -26,23 +26,75 @@
     <div class="inline-state inline-state--error">{{ error() }}</div>
   }
 
-  <section class="stats-grid">
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h2>Dashboard filters</h2>
+        <p>These stats are filtered by product submission date.</p>
+      </div>
+    </div>
+
+    <div class="range-toolbar">
+      @for (option of rangeButtons; track option.key) {
+        <button
+          type="button"
+          mat-stroked-button
+          class="range-chip"
+          [class.range-chip--active]="selectedRange() === option.key"
+          (click)="applyPreset(option.key)"
+        >
+          {{ option.label }}
+        </button>
+      }
+    </div>
+
+    @if (selectedRange() === 'custom') {
+      <form class="custom-range-form" [formGroup]="customRangeForm" (ngSubmit)="applyCustomRange()">
+        <mat-form-field appearance="outline">
+          <mat-label>From date</mat-label>
+          <input matInput type="date" formControlName="from" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>To date</mat-label>
+          <input matInput type="date" formControlName="to" />
+        </mat-form-field>
+
+        <button mat-flat-button color="primary" type="submit" [disabled]="loading() || customRangeForm.invalid">
+          <mat-icon>filter_list</mat-icon>
+          <span>Apply Range</span>
+        </button>
+      </form>
+
+      @if (customRangeError()) {
+        <div class="inline-state inline-state--error">{{ customRangeError() }}</div>
+      }
+    }
+  </article>
+
+  <section class="stats-grid stats-grid--five">
     <article class="stat-card">
-      <span>Total submissions</span>
-      <strong>{{ products().length }}</strong>
-      <small>All products you have submitted.</small>
+      <span>Total hunted products</span>
+      <strong>{{ totalCount() }}</strong>
+      <small>All products submitted in the selected period.</small>
     </article>
 
     <article class="stat-card">
-      <span>Ready for listing</span>
-      <strong>{{ readyCount() }}</strong>
-      <small>Approved or assigned products.</small>
+      <span>Approved products</span>
+      <strong>{{ approvedCount() }}</strong>
+      <small>Approved and waiting for lister assignment.</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Pending products</span>
+      <strong>{{ pendingCount() }}</strong>
+      <small>Assigned to a lister and waiting to be listed.</small>
     </article>
 
     <article class="stat-card">
       <span>Listed</span>
       <strong>{{ listedCount() }}</strong>
-      <small>Products already completed by the listing team.</small>
+      <small>Products completed by the listing team.</small>
     </article>
 
     <article class="stat-card">
@@ -52,60 +104,33 @@
     </article>
   </section>
 
-  <section class="section-grid">
-    <article class="surface-card">
-      <div class="surface-card__header">
-        <div>
-          <h2>Queue snapshot</h2>
-          <p>A quick read on the current state of your hunting pipeline.</p>
-        </div>
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h2>Products listed per account</h2>
+        <p>Total listed count grouped by account name for the selected period.</p>
       </div>
+    </div>
 
-      @if (loading()) {
-        <div class="loading-state">
-          <mat-spinner diameter="24"></mat-spinner>
-          <span>Refreshing dashboard data.</span>
-        </div>
-      } @else {
-        <div class="snapshot-grid">
-          <div class="snapshot-row">
-            <span>Approved or assigned</span>
-            <strong>{{ readyCount() }}</strong>
-          </div>
-          <div class="snapshot-row">
-            <span>Listed successfully</span>
-            <strong>{{ listedCount() }}</strong>
-          </div>
-          <div class="snapshot-row">
-            <span>Rejected items</span>
-            <strong>{{ rejectedCount() }}</strong>
-          </div>
-        </div>
-      }
-    </article>
-
-    <article class="surface-card">
-      <div class="surface-card__header">
-        <div>
-          <h2>Workspace flow</h2>
-          <p>Use the hunter tabs at the top to move between dashboard, submission, and product history.</p>
-        </div>
+    @if (loading()) {
+      <div class="loading-state">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>Refreshing dashboard data.</span>
       </div>
-
-      <div class="flow-list">
-        <div>
-          <strong>Dashboard</strong>
-          <span>Monitor queue health and status totals.</span>
-        </div>
-        <div>
-          <strong>Product Submission</strong>
-          <span>Submit new research with current validation rules in view.</span>
-        </div>
-        <div>
-          <strong>Product List</strong>
-          <span>Review everything you have submitted from one clean grid.</span>
-        </div>
+    } @else if (accountStats().length) {
+      <div class="account-grid">
+        @for (account of accountStats(); track account.accountId) {
+          <div class="account-row">
+            <div>
+              <strong>{{ account.accountName }}</strong>
+              <span>Listed products</span>
+            </div>
+            <strong class="account-row__count">{{ account.listedCount }}</strong>
+          </div>
+        }
       </div>
-    </article>
-  </section>
+    } @else {
+      <div class="empty-state">No listed products were found for this date range.</div>
+    }
+  </article>
 </section>

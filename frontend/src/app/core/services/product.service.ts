@@ -47,4 +47,10 @@ export class ProductService {
       .patch<{ products: Product[] }>(`${environment.apiUrl}/products/bulk-listed`, payload)
       .pipe(map((response) => response.products));
   }
+
+  rejectProduct(id: string, rejectionReason: string) {
+    return this.http
+      .patch<{ product: Product }>(`${environment.apiUrl}/products/${id}/reject`, { rejectionReason })
+      .pipe(map((response) => response.product));
+  }
 }

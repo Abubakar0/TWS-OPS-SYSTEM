@@ -33,14 +33,14 @@
     </div>
   </div>
 
-  @if (showHunterTabs()) {
-    <nav class="secondary-nav" aria-label="Hunter navigation">
-      @for (item of hunterTabs; track item.route) {
+  @if (secondaryNavItems().length) {
+    <nav class="secondary-nav" aria-label="Workspace navigation">
+      @for (item of secondaryNavItems(); track item.route) {
         <a
           class="secondary-link"
           [routerLink]="item.route"
           routerLinkActive="active"
-          [routerLinkActiveOptions]="{ exact: true }"
+          [routerLinkActiveOptions]="{ exact: item.exact }"
         >
           {{ item.label }}
         </a>

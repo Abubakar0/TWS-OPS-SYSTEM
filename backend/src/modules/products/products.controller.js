@@ -25,10 +25,16 @@ const markProductsListed = async (req, res) => {
   res.json({ products });
 };
 
+const rejectProduct = async (req, res) => {
+  const product = await productsService.rejectProduct(req.user, req.params.id, req.body);
+  res.json({ product });
+};
+
 module.exports = {
   createProduct,
   listProducts,
   getProductById,
   listAssignedHunters,
   markProductsListed,
+  rejectProduct,
 };

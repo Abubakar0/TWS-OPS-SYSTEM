@@ -9,6 +9,6 @@ router.use(authenticate);
 
 router.get('/admin', requireRoles('admin'), asyncHandler(dashboardController.admin));
 router.get('/hunter', requireRoles('hunter'), asyncHandler(dashboardController.hunter));
-router.get('/lister', requireRoles('lister'), asyncHandler(dashboardController.lister));
+router.get('/lister', requireRoles('lister', 'admin'), asyncHandler(dashboardController.lister));
 
 module.exports = router;

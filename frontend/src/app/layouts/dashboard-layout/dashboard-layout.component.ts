@@ -37,6 +37,10 @@ export class DashboardLayoutComponent {
     { label: 'Product Submission', route: '/hunter/submission', exact: true },
     { label: 'Product List', route: '/hunter/products', exact: true },
   ];
+  readonly listerTabs: NavItem[] = [
+    { label: 'Dashboard', route: '/lister/dashboard', exact: true },
+    { label: 'Hunter Products', route: '/lister/products', exact: true },
+  ];
 
   readonly primaryNavItems = computed<NavItem[]>(() => {
     const user = this.user();
@@ -49,20 +53,37 @@ export class DashboardLayoutComponent {
       return this.hunterTabs;
     }
 
+    if (user.role === 'lister') {
+      return this.listerTabs;
+    }
+
     const items: NavItem[] = [];
 
     if (user.role === 'admin') {
       items.push({ label: 'Hunter Workspace', route: '/hunter/dashboard', exact: false });
-      items.push({ label: 'Lister Workspace', route: '/lister', exact: true });
+      items.push({ label: 'Lister Workspace', route: '/lister/dashboard', exact: false });
       items.push({ label: 'Admin Console', route: '/admin', exact: true });
       return items;
     }
 
-    return [{ label: 'Listing Queue', route: '/lister', exact: true }];
+    return [];
   });
-  readonly showHunterTabs = computed(() => {
+  readonly secondaryNavItems = computed<NavItem[]>(() => {
     const user = this.user();
-    return user?.role === 'admin' && this.currentUrl().startsWith('/hunter');
+
+    if (user?.role !== 'admin') {
+      return [];
+    }
+
+    if (this.currentUrl().startsWith('/hunter')) {
+      return this.hunterTabs;
+    }
+
+    if (this.currentUrl().startsWith('/lister')) {
+      return this.listerTabs;
+    }
+
+    return [];
   });
   readonly workspaceLabel = computed(() => {
     const url = this.currentUrl();

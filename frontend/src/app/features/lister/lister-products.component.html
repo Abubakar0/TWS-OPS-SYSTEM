@@ -1,0 +1,358 @@
+<section class="page-shell">
+  <header class="page-hero">
+    <div>
+      <span class="kicker">Lister Workspace</span>
+      <h1>Hunter Products</h1>
+      <p>Choose a hunter, work through the approved queue, and keep listing and rejection actions in one grid.</p>
+    </div>
+
+    <div class="page-actions">
+      <a mat-stroked-button routerLink="/lister/dashboard">
+        <mat-icon>space_dashboard</mat-icon>
+        <span>Open Dashboard</span>
+      </a>
+      <button mat-flat-button color="primary" type="button" (click)="exportProducts()" [disabled]="loading() || !products().length">
+        <mat-icon>download</mat-icon>
+        <span>Export Excel</span>
+      </button>
+      <button mat-stroked-button type="button" (click)="loadProducts()" [disabled]="loading() || !selectedHunterId()">
+        <mat-icon>refresh</mat-icon>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <div class="inline-state inline-state--error">{{ error() }}</div>
+  }
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <span>Assigned hunters</span>
+      <strong>{{ hunters().length }}</strong>
+      <small>Hunters currently available to this listing workspace.</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Total rows</span>
+      <strong>{{ totalCount() }}</strong>
+      <small>Products currently visible in the grid.</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Ready to list</span>
+      <strong>{{ readyCount() }}</strong>
+      <small>Approved queue items still available for listing.</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Selected rows</span>
+      <strong>{{ selectedCount() }}</strong>
+      <small>Rows queued for the next bulk listing action.</small>
+    </article>
+  </section>
+
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h2>Queue filters</h2>
+        <p>The default view stays focused on the approved queue already assigned for listing.</p>
+      </div>
+    </div>
+
+    <form class="filters-form" [formGroup]="filters" (ngSubmit)="applyFilters()">
+      <div class="filters-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Hunter</mat-label>
+          <mat-select [value]="selectedHunterId()" (valueChange)="selectHunter($event)">
+            @for (hunter of hunters(); track hunter.id) {
+              <mat-option [value]="hunter.id">{{ hunter.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filters-grid__search">
+          <mat-label>Search title, ASIN, Amazon link, or eBay link</mat-label>
+          <input matInput formControlName="search" autocomplete="off" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Listing status</mat-label>
+          <mat-select formControlName="status">
+            <mat-option value="assigned">Approved queue</mat-option>
+            <mat-option value="approved">Approved</mat-option>
+            <mat-option value="listed">Listed</mat-option>
+            <mat-option value="rejected">Rejected</mat-option>
+            <mat-option value="">All</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Account</mat-label>
+          <mat-select formControlName="accountId">
+            <mat-option value="">All accounts</mat-option>
+            @for (account of accounts(); track account.id) {
+              <mat-option [value]="account.id">{{ account.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>From date</mat-label>
+          <input matInput type="date" formControlName="from" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>To date</mat-label>
+          <input matInput type="date" formControlName="to" />
+        </mat-form-field>
+      </div>
+
+      <div class="filters-actions">
+        <button mat-flat-button color="primary" type="submit" [disabled]="loading() || !selectedHunterId()">
+          <mat-icon>filter_list</mat-icon>
+          <span>Apply Filters</span>
+        </button>
+        <button mat-stroked-button type="button" (click)="resetFilters()" [disabled]="loading()">
+          <mat-icon>restart_alt</mat-icon>
+          <span>Reset</span>
+        </button>
+      </div>
+    </form>
+  </article>
+
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h2>Listing actions</h2>
+        <p>Select rows, set the account used, and add the listed eBay link for each selected item before marking them listed.</p>
+      </div>
+    </div>
+
+    <form class="bulk-form" [formGroup]="bulkForm" (ngSubmit)="markSelectedListed()">
+      <mat-checkbox [checked]="allSelectableSelected()" (change)="toggleAll($event.checked)">
+        Select all ready rows
+      </mat-checkbox>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Listing account</mat-label>
+        <mat-select formControlName="accountId">
+          @for (account of accounts(); track account.id) {
+            <mat-option [value]="account.id">{{ account.name }}</mat-option>
+          }
+        </mat-select>
+        <mat-error>Choose the account used for the selected listings.</mat-error>
+      </mat-form-field>
+
+      <button mat-flat-button color="primary" type="submit" [disabled]="!canMarkSelectedListed()">
+        <mat-icon>done_all</mat-icon>
+        <span>Mark Selected Listed</span>
+      </button>
+    </form>
+
+    @if (copied()) {
+      <div class="inline-state inline-state--success">Copied {{ copied() }}</div>
+    }
+
+    @if (loading()) {
+      <div class="loading-state">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>Loading hunter products.</span>
+      </div>
+    } @else if (!selectedHunterId()) {
+      <div class="empty-state">Choose a hunter to load the grid.</div>
+    } @else if (!products().length) {
+      <div class="empty-state">No products found for this hunter and filter set.</div>
+    } @else {
+      <div class="table-wrap">
+        <table class="lister-table">
+          <thead>
+            <tr>
+              <th>Select</th>
+              <th>Product</th>
+              <th>Source links</th>
+              <th>Prices</th>
+              <th>Listing</th>
+              <th>Reject</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            @for (product of products(); track product.id) {
+              <tr
+                [class.row-selected]="isSelected(product.id)"
+                [class.row-listed]="product.status === 'listed'"
+                [class.row-rejected]="product.status === 'rejected'"
+              >
+                <td class="selection-cell">
+                  <mat-checkbox
+                    [checked]="isSelected(product.id)"
+                    [disabled]="!canMarkListed(product)"
+                    (change)="toggleSelection(product, $event.checked)"
+                  />
+                </td>
+
+                <td>
+                  <div class="cell-stack">
+                    <strong>{{ product.title || product.asin || 'Untitled product' }}</strong>
+                    <span>{{ product.hunterName }}</span>
+                    <div class="inline-meta">
+                      <span>ASIN {{ product.asin || 'No ASIN' }}</span>
+                      <button
+                        mat-icon-button
+                        type="button"
+                        (click)="copy(product.asin, 'ASIN')"
+                        [disabled]="!product.asin"
+                        matTooltip="Copy ASIN"
+                      >
+                        <mat-icon>content_copy</mat-icon>
+                      </button>
+                    </div>
+                    @if (product.customLabel) {
+                      <small class="label-note">Custom label: {{ product.customLabel }}</small>
+                    }
+                    <small>Submitted {{ product.createdAt | date: 'MMM d, y, h:mm a' }}</small>
+                  </div>
+                </td>
+
+                <td>
+                  <div class="source-stack">
+                    <div class="source-row">
+                      <div class="source-label">
+                        <img src="/brand-icons/amazon.svg" alt="" />
+                        <span>Amazon</span>
+                      </div>
+                      <div class="source-actions">
+                        <button mat-icon-button type="button" (click)="copy(product.amazonUrl, 'Amazon link')" matTooltip="Copy Amazon link">
+                          <mat-icon>content_copy</mat-icon>
+                        </button>
+                        <button mat-icon-button type="button" (click)="openLink(product.amazonUrl)" matTooltip="Open Amazon link">
+                          <mat-icon>open_in_new</mat-icon>
+                        </button>
+                      </div>
+                    </div>
+
+                    @if (product.amazonAltUrl) {
+                      <div class="source-row">
+                        <div class="source-label">
+                          <img src="/brand-icons/amazon.svg" alt="" />
+                          <span>Amazon Alt</span>
+                        </div>
+                        <div class="source-actions">
+                          <button mat-icon-button type="button" (click)="copy(product.amazonAltUrl, 'Amazon alternate link')" matTooltip="Copy alternate Amazon link">
+                            <mat-icon>content_copy</mat-icon>
+                          </button>
+                          <button mat-icon-button type="button" (click)="openLink(product.amazonAltUrl)" matTooltip="Open alternate Amazon link">
+                            <mat-icon>open_in_new</mat-icon>
+                          </button>
+                        </div>
+                      </div>
+                    }
+
+                    <div class="source-row">
+                      <div class="source-label">
+                        <img src="/brand-icons/ebay.svg" alt="" />
+                        <span>eBay Source</span>
+                      </div>
+                      <div class="source-actions">
+                        <button mat-icon-button type="button" (click)="copy(product.ebayUrl, 'eBay source link')" matTooltip="Copy eBay source link">
+                          <mat-icon>content_copy</mat-icon>
+                        </button>
+                        <button mat-icon-button type="button" (click)="openLink(product.ebayUrl)" matTooltip="Open eBay source link">
+                          <mat-icon>open_in_new</mat-icon>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+
+                <td>
+                  <div class="metric-stack">
+                    <span>Amazon {{ product.amazonPrice === null ? '—' : (product.amazonPrice | number: '1.2-2') }}</span>
+                    <span>eBay {{ product.ebayPrice === null ? '—' : (product.ebayPrice | number: '1.2-2') }}</span>
+                    <span>Fee {{ product.fees | number: '1.2-2' }}</span>
+                    <span>Profit {{ product.profit | number: '1.2-2' }}</span>
+                    <span>ROI {{ product.roi | number: '1.0-2' }}%</span>
+                    <span>Sold {{ product.soldCount }}</span>
+                  </div>
+                </td>
+
+                <td>
+                  @if (canMarkListed(product)) {
+                    <mat-form-field appearance="outline" class="table-field">
+                      <mat-label>Listed eBay link</mat-label>
+                      <input matInput [formControl]="listingLinkControl(product.id)" autocomplete="off" />
+                      <mat-hint>Required before marking selected rows listed.</mat-hint>
+                      @if (showListingLinkError(product.id)) {
+                        <mat-error>{{ listingLinkError(product.id) }}</mat-error>
+                      }
+                    </mat-form-field>
+                  } @else {
+                    <div class="cell-stack compact">
+                      <strong>{{ product.accountName || 'No account saved' }}</strong>
+                      <span>{{ product.listedByName || 'No lister recorded' }}</span>
+                      <small>{{ product.listedAt ? (product.listedAt | date: 'MMM d, y, h:mm a') : 'Not listed yet' }}</small>
+                      @if (product.listingUrl) {
+                        <div class="inline-meta">
+                          <span>Saved eBay link</span>
+                          <button mat-icon-button type="button" (click)="copy(product.listingUrl, 'listed eBay link')" matTooltip="Copy listed eBay link">
+                            <mat-icon>content_copy</mat-icon>
+                          </button>
+                          <button mat-icon-button type="button" (click)="openLink(product.listingUrl)" matTooltip="Open listed eBay link">
+                            <mat-icon>open_in_new</mat-icon>
+                          </button>
+                        </div>
+                      }
+                    </div>
+                  }
+                </td>
+
+                <td>
+                  @if (canReject(product)) {
+                    <div class="reject-cell">
+                      <mat-form-field appearance="outline" class="table-field">
+                        <mat-label>Rejection reason</mat-label>
+                        <textarea matInput rows="3" [formControl]="rejectionReasonControl(product.id)"></textarea>
+                        <mat-hint>Required before sending the product back to the hunter.</mat-hint>
+                        @if (rejectionReasonControl(product.id).invalid && rejectionReasonControl(product.id).touched) {
+                          <mat-error>{{ rejectionReasonError(product.id) }}</mat-error>
+                        }
+                      </mat-form-field>
+
+                      <button
+                        mat-stroked-button
+                        type="button"
+                        (click)="rejectProduct(product)"
+                        [disabled]="rejectionReasonControl(product.id).invalid || rejectingId() === product.id || saving()"
+                      >
+                        <mat-icon>block</mat-icon>
+                        <span>{{ rejectingId() === product.id ? 'Rejecting' : 'Reject' }}</span>
+                      </button>
+                    </div>
+                  } @else {
+                    <div class="cell-stack compact">
+                      <span>{{ product.status === 'listed' ? 'Already listed' : 'Already rejected' }}</span>
+                    </div>
+                  }
+                </td>
+
+                <td>
+                  <div class="cell-stack compact">
+                    <span class="status-pill" [class]="'status-pill status-pill--' + product.status">{{ product.status }}</span>
+                    @if (product.rejectionReason) {
+                      <div class="reason-note">
+                        <span>Reason</span>
+                        <strong>{{ product.rejectionReason }}</strong>
+                      </div>
+                    }
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </article>
+</section>

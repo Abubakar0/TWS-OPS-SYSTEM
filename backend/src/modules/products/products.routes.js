@@ -14,6 +14,7 @@ router
 
 router.get('/assigned-hunters', requireRoles('lister', 'admin'), asyncHandler(productsController.listAssignedHunters));
 router.patch('/bulk-listed', requireRoles('lister', 'admin'), asyncHandler(productsController.markProductsListed));
+router.patch('/:id/reject', requireRoles('lister', 'admin'), asyncHandler(productsController.rejectProduct));
 router.get('/:id', asyncHandler(productsController.getProductById));
 
 module.exports = router;

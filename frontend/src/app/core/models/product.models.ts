@@ -100,6 +100,7 @@ export interface ProductFilters {
   search?: string;
   status?: ProductStatus | '';
   hunterId?: string;
+  accountId?: string;
   from?: string;
   to?: string;
   listerName?: string;
@@ -112,7 +113,7 @@ export interface BulkListedPayload {
   accountId: string;
   items: Array<{
     id: string;
-    listingUrl?: string;
+    listingUrl: string;
     itemId?: string;
   }>;
 }

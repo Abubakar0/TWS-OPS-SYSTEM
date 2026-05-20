@@ -1,6 +1,6 @@
 const { pool } = require('../../db/pool');
 const { AppError } = require('../../middleware/error');
-const { analyzeProduct, normalizeProductPayload } = require('../../utils/productAnalysis');
+const { analyzeProduct, normalizeProductPayload, isEbayUrl } = require('../../utils/productAnalysis');
 const { getCriteria } = require('../criteria/criteria.service');
 
 const productSelect = `
@@ -177,7 +177,6 @@ const buildProductFilters = (user, query = {}) => {
 
   if (user.role === 'lister') {
     add('p.assigned_lister_id = ?', user.id);
-    where.push("p.status <> 'rejected'");
   }
 
   if (query.hunterId) {
@@ -218,6 +217,10 @@ const buildProductFilters = (user, query = {}) => {
 
   if (query.accountName) {
     addLike('account.name ILIKE ?', query.accountName);
+  }
+
+  if (query.accountId) {
+    add('p.account_used = ?', query.accountId);
   }
 
   if (query.from) {
@@ -328,9 +331,19 @@ const markProductsListed = async (user, payload) => {
     : (payload.productIds || []).map((id) => ({ id }));
   const productIds = [...new Set(items.map((item) => item.id || item.productId).filter(Boolean))];
   const accountId = payload.accountId;
+  const itemById = new Map(items.map((item) => [item.id || item.productId, item]));
 
   if (!accountId || productIds.length === 0) {
     throw new AppError('Account and at least one product are required.', 400);
+  }
+
+  for (const productId of productIds) {
+    const item = itemById.get(productId) || {};
+    const listingUrl = String(item.listingUrl || '').trim();
+
+    if (!listingUrl || !isEbayUrl(listingUrl)) {
+      throw new AppError('Each selected product must include a valid listed eBay link.', 400);
+    }
   }
 
   const account = await pool.query('SELECT id FROM accounts WHERE id = $1 AND is_active = TRUE', [accountId]);
@@ -361,7 +374,7 @@ const markProductsListed = async (user, payload) => {
             listed_at = NOW(),
             updated_at = NOW()
         WHERE id = ANY($1::uuid[])
-          AND status IN ('approved', 'assigned', 'listed')
+          AND status IN ('approved', 'assigned')
           ${accessSql}
         RETURNING id
       `,
@@ -371,8 +384,6 @@ const markProductsListed = async (user, payload) => {
     if (update.rowCount !== productIds.length) {
       throw new AppError('Some products could not be updated for this lister.', 403);
     }
-
-    const itemById = new Map(items.map((item) => [item.id || item.productId, item]));
 
     for (const productId of productIds) {
       const item = itemById.get(productId) || {};
@@ -388,7 +399,7 @@ const markProductsListed = async (user, payload) => {
               item_id = COALESCE(EXCLUDED.item_id, listings.item_id),
               updated_at = NOW()
         `,
-        [productId, user.id, accountId, item.listingUrl || null, item.itemId || null],
+        [productId, user.id, accountId, String(item.listingUrl || '').trim(), item.itemId || null],
       );
     }
 
@@ -403,10 +414,47 @@ const markProductsListed = async (user, payload) => {
   }
 };
 
+const rejectProduct = async (user, id, payload = {}) => {
+  const rejectionReason = String(payload.rejectionReason || '').trim();
+
+  if (!rejectionReason) {
+    throw new AppError('Rejection reason is required.', 400);
+  }
+
+  const params = [id, rejectionReason];
+  let accessSql = '';
+
+  if (user.role === 'lister') {
+    params.push(user.id);
+    accessSql = `AND assigned_lister_id = $${params.length}`;
+  }
+
+  const result = await pool.query(
+    `
+      UPDATE products
+      SET status = 'rejected',
+          rejection_reason = $2,
+          updated_at = NOW()
+      WHERE id = $1
+        AND status IN ('approved', 'assigned')
+        ${accessSql}
+      RETURNING id
+    `,
+    params,
+  );
+
+  if (result.rowCount === 0) {
+    throw new AppError('Product could not be rejected for this lister.', 403);
+  }
+
+  return getProductById(user, id);
+};
+
 module.exports = {
   createProduct,
   listProducts,
   getProductById,
   listAssignedHunters,
   markProductsListed,
+  rejectProduct,
 };
