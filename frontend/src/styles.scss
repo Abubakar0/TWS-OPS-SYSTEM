@@ -220,6 +220,73 @@ a {
   display: none;
 }
 
+.count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 120px;
+  border: 1px solid rgba(27, 102, 214, 0.12);
+  border-radius: 999px;
+  background: rgba(27, 102, 214, 0.08);
+  color: var(--tws-accent);
+  font-size: 0.86rem;
+  font-weight: 800;
+  padding: 10px 16px;
+}
+
+.grid-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: end;
+  margin-bottom: 18px;
+}
+
+.grid-toolbar__search {
+  min-width: min(320px, 100%);
+}
+
+.grid-toolbar__search .mat-mdc-form-field-subscript-wrapper,
+.page-size-field .mat-mdc-form-field-subscript-wrapper {
+  display: none;
+}
+
+.grid-toolbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.sort-chip {
+  gap: 6px;
+}
+
+.sort-chip--active {
+  border-color: rgba(27, 102, 214, 0.2) !important;
+  background: rgba(27, 102, 214, 0.08) !important;
+  color: var(--tws-accent) !important;
+}
+
+.page-size-field {
+  min-width: 124px;
+}
+
+.grid-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.grid-pager__status {
+  color: var(--tws-muted);
+  font-size: 0.92rem;
+}
+
 .inline-state,
 .loading-state,
 .empty-state {
@@ -252,6 +319,31 @@ a {
   color: var(--tws-rose);
 }
 
+.mat-mdc-snack-bar-container.toast-success .mdc-snackbar__surface {
+  background: #0f6c58 !important;
+  color: #ffffff !important;
+}
+
+.mat-mdc-snack-bar-container.toast-error .mdc-snackbar__surface {
+  background: #a83544 !important;
+  color: #ffffff !important;
+}
+
+.mat-mdc-snack-bar-container.toast-warning .mdc-snackbar__surface {
+  background: #8f5c12 !important;
+  color: #ffffff !important;
+}
+
+.mat-mdc-snack-bar-container.toast-info .mdc-snackbar__surface {
+  background: #194fa3 !important;
+  color: #ffffff !important;
+}
+
+.mat-mdc-snack-bar-container .mdc-button__label,
+.mat-mdc-snack-bar-container .mat-mdc-button-touch-target {
+  color: inherit !important;
+}
+
 .loading-state,
 .empty-state {
   border: 1px solid var(--tws-border);
@@ -270,6 +362,14 @@ a {
   .page-hero,
   .surface-card__header {
     flex-direction: column;
+  }
+
+  .grid-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .grid-pager {
+    align-items: flex-start;
   }
 
   .stats-grid,

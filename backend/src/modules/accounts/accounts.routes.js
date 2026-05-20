@@ -8,7 +8,7 @@ const router = express.Router();
 router.use(authenticate);
 
 router.get('/', asyncHandler(accountsController.listAccounts));
-router.post('/', requireRoles('admin'), asyncHandler(accountsController.createAccount));
-router.patch('/:id', requireRoles('admin'), asyncHandler(accountsController.updateAccount));
+router.post('/', requireRoles('admin', 'super_admin'), asyncHandler(accountsController.createAccount));
+router.patch('/:id', requireRoles('admin', 'super_admin'), asyncHandler(accountsController.updateAccount));
 
 module.exports = router;

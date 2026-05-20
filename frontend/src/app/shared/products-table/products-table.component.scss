@@ -1,7 +1,7 @@
 .table-wrap {
   overflow-x: auto;
   border: 1px solid var(--tws-border);
-  border-radius: 18px;
+  border-radius: 18px 18px 0 0;
   background: var(--tws-surface-strong);
 }
 
@@ -12,6 +12,7 @@
 
 .mat-mdc-header-cell {
   border-bottom-color: var(--tws-border);
+  background: #f8fbff;
   color: var(--tws-muted);
   font-size: 0.78rem;
   font-weight: 800;
@@ -140,6 +141,13 @@
   color: var(--tws-text);
   font-size: 0.9rem;
   line-height: 1.45;
+}
+
+.mat-mdc-paginator {
+  border: 1px solid var(--tws-border);
+  border-top: 0;
+  border-radius: 0 0 18px 18px;
+  background: var(--tws-surface-strong);
 }
 
 .empty-state {

@@ -7,8 +7,9 @@ const router = express.Router();
 
 router.use(authenticate);
 
-router.get('/admin', requireRoles('admin'), asyncHandler(dashboardController.admin));
-router.get('/hunter', requireRoles('hunter'), asyncHandler(dashboardController.hunter));
-router.get('/lister', requireRoles('lister', 'admin'), asyncHandler(dashboardController.lister));
+router.get('/super-admin', requireRoles('super_admin'), asyncHandler(dashboardController.superAdmin));
+router.get('/admin', requireRoles('admin', 'super_admin'), asyncHandler(dashboardController.admin));
+router.get('/hunter', requireRoles('hunter', 'admin', 'super_admin'), asyncHandler(dashboardController.hunter));
+router.get('/lister', requireRoles('lister', 'admin', 'super_admin'), asyncHandler(dashboardController.lister));
 
 module.exports = router;

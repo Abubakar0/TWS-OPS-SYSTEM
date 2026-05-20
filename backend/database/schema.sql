@@ -1,7 +1,13 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 DO $$ BEGIN
-  CREATE TYPE user_role AS ENUM ('admin', 'hunter', 'lister');
+  CREATE TYPE user_role AS ENUM ('super_admin', 'admin', 'hunter', 'lister');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'super_admin';
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
@@ -19,8 +25,27 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash TEXT NOT NULL,
   role user_role NOT NULL,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  status TEXT NOT NULL DEFAULT 'active',
+  permissions JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_by UUID REFERENCES users(id),
+  updated_by UUID REFERENCES users(id),
+  disabled_by UUID REFERENCES users(id),
+  last_login TIMESTAMPTZ,
+  deleted_at TIMESTAMPTZ,
+  parent_user_id UUID REFERENCES users(id),
+  tenant_id TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  actor_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  action TEXT NOT NULL,
+  target_type TEXT NOT NULL,
+  target_id UUID,
+  details JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS hunter_lister_assignments (
@@ -102,6 +127,18 @@ CREATE TABLE IF NOT EXISTS listings (
 
 ALTER TABLE products ADD COLUMN IF NOT EXISTS assigned_lister_id UUID REFERENCES users(id);
 ALTER TABLE products ADD COLUMN IF NOT EXISTS sold_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES users(id);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_by UUID REFERENCES users(id);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS disabled_by UUID REFERENCES users(id);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS parent_user_id UUID REFERENCES users(id);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS tenant_id TEXT;
+UPDATE users
+SET status = CASE WHEN is_active THEN 'active' ELSE 'disabled' END
+WHERE status IS NULL OR status = '';
 ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS min_stock_count INTEGER NOT NULL DEFAULT 8;
 ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS min_alt_stock_count INTEGER NOT NULL DEFAULT 8;
 ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS min_rating NUMERIC(4, 2) NOT NULL DEFAULT 0;
@@ -125,8 +162,11 @@ ON CONFLICT (id) DO NOTHING;
 CREATE INDEX IF NOT EXISTS idx_products_hunter_id ON products(hunter_id);
 CREATE INDEX IF NOT EXISTS idx_products_assigned_lister_id ON products(assigned_lister_id);
 CREATE INDEX IF NOT EXISTS idx_products_status ON products(status);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+CREATE INDEX IF NOT EXISTS idx_users_deleted_at ON users(deleted_at);
 CREATE INDEX IF NOT EXISTS idx_products_asin
   ON products(asin)
   WHERE asin IS NOT NULL AND asin <> '';
 CREATE INDEX IF NOT EXISTS idx_listings_account_id ON listings(account_id);
 CREATE INDEX IF NOT EXISTS idx_hunter_lister_lister_id ON hunter_lister_assignments(lister_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);

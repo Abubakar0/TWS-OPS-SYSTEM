@@ -22,10 +22,6 @@
     </div>
   </header>
 
-  @if (error()) {
-    <div class="inline-state inline-state--error">{{ error() }}</div>
-  }
-
   <section class="stats-grid">
     <article class="stat-card">
       <span>Assigned hunters</span>
@@ -159,11 +155,78 @@
         <mat-spinner diameter="24"></mat-spinner>
         <span>Loading hunter products.</span>
       </div>
+    } @else if (error()) {
+      <app-error-state [message]="error()" actionLabel="Retry" (action)="loadProducts()" />
     } @else if (!selectedHunterId()) {
-      <div class="empty-state">Choose a hunter to load the grid.</div>
+      <app-empty-state
+        title="Choose a hunter"
+        message="Select a hunter to load the listing queue."
+        icon="manage_search"
+      />
     } @else if (!products().length) {
-      <div class="empty-state">No products found for this hunter and filter set.</div>
+      <app-empty-state
+        title="No products found"
+        message="No products matched the current hunter and filter set."
+        icon="inventory_2"
+      />
     } @else {
+      <div class="grid-toolbar">
+        <div class="grid-toolbar__actions">
+          <button
+            mat-stroked-button
+            type="button"
+            class="sort-chip"
+            [class.sort-chip--active]="isSortedBy('createdAt')"
+            (click)="toggleSort('createdAt')"
+          >
+            <mat-icon>{{ sortIcon('createdAt') }}</mat-icon>
+            <span>Newest</span>
+          </button>
+          <button
+            mat-stroked-button
+            type="button"
+            class="sort-chip"
+            [class.sort-chip--active]="isSortedBy('title')"
+            (click)="toggleSort('title')"
+          >
+            <mat-icon>{{ sortIcon('title') }}</mat-icon>
+            <span>Product</span>
+          </button>
+          <button
+            mat-stroked-button
+            type="button"
+            class="sort-chip"
+            [class.sort-chip--active]="isSortedBy('profit')"
+            (click)="toggleSort('profit')"
+          >
+            <mat-icon>{{ sortIcon('profit') }}</mat-icon>
+            <span>Profit</span>
+          </button>
+          <button
+            mat-stroked-button
+            type="button"
+            class="sort-chip"
+            [class.sort-chip--active]="isSortedBy('status')"
+            (click)="toggleSort('status')"
+          >
+            <mat-icon>{{ sortIcon('status') }}</mat-icon>
+            <span>Status</span>
+          </button>
+          <mat-form-field appearance="outline" class="page-size-field">
+            <mat-label>Rows</mat-label>
+            <mat-select [value]="pageSize()" (valueChange)="setPageSize($event)">
+              @for (size of pageSizeOptions; track size) {
+                <mat-option [value]="size">{{ size }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <div class="grid-toolbar__actions">
+          <span class="count-badge">{{ sortedProducts().length }} rows</span>
+        </div>
+      </div>
+
       <div class="table-wrap">
         <table class="lister-table">
           <thead>
@@ -179,7 +242,7 @@
           </thead>
 
           <tbody>
-            @for (product of products(); track product.id) {
+            @for (product of pagedProducts(); track product.id) {
               <tr
                 [class.row-selected]="isSelected(product.id)"
                 [class.row-listed]="product.status === 'listed'"
@@ -352,6 +415,26 @@
             }
           </tbody>
         </table>
+      </div>
+
+      <div class="grid-pager">
+        <span class="grid-pager__status">{{ pageLabel() }}</span>
+
+        <div class="grid-toolbar__actions">
+          <button mat-stroked-button type="button" (click)="previousPage()" [disabled]="pageIndex() === 0">
+            <mat-icon>chevron_left</mat-icon>
+            <span>Previous</span>
+          </button>
+          <button
+            mat-stroked-button
+            type="button"
+            (click)="nextPage()"
+            [disabled]="pageIndex() >= pageCount() - 1"
+          >
+            <span>Next</span>
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+        </div>
       </div>
     }
   </article>

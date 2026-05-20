@@ -1,0 +1,28 @@
+.global-loader {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 1200;
+  height: 3px;
+  overflow: hidden;
+  background: rgba(27, 102, 214, 0.1);
+}
+
+.global-loader::after {
+  content: '';
+  display: block;
+  width: 38%;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #1b66d6 0%, #11a1a0 100%);
+  box-shadow: 0 0 16px rgba(27, 102, 214, 0.28);
+  animation: loader-slide 1.05s ease-in-out infinite;
+}
+
+@keyframes loader-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}

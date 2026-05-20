@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, computed, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Injector, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, ValidatorFn } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -9,6 +9,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { DashboardService, HunterDashboardFilters, ListerDashboardStats } from '../../core/services/dashboard.service';
+import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
 
 type RangePreset = 'today' | 'yesterday' | 'thisMonth' | 'lastMonth' | 'thisYear' | 'custom';
 
@@ -45,6 +46,7 @@ const customDateRangeValidator: ValidatorFn = (control): ValidationErrors | null
   ],
   templateUrl: './lister-dashboard.component.html',
   styleUrl: './lister-dashboard.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ListerDashboardComponent implements OnInit {
   readonly stats = signal<ListerDashboardStats | null>(null);
@@ -77,10 +79,24 @@ export class ListerDashboardComponent implements OnInit {
   readonly hunterCount = computed(() => this.hunterBreakdown().length);
   readonly accountCount = computed(() => this.accountBreakdown().length);
 
+  private readonly workspaceSync = inject(WorkspaceSyncService);
+  private readonly injector = inject(Injector);
+
   constructor(private readonly dashboardApi: DashboardService) {}
 
   ngOnInit(): void {
     this.applyPreset('thisMonth');
+
+    effect(
+      () => {
+        const version = this.workspaceSync.productsVersion();
+
+        if (version > 0) {
+          this.loadStats(this.activeFilters());
+        }
+      },
+      { allowSignalWrites: true, injector: this.injector },
+    );
   }
 
   applyPreset(range: RangePreset): void {

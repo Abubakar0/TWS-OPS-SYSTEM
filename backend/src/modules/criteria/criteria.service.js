@@ -1,5 +1,6 @@
 const { pool } = require('../../db/pool');
 const { env } = require('../../config/env');
+const { writeAuditLog } = require('../users/audit.service');
 
 const fallbackCriteria = {
   minRoi: env.validation.minRoi,
@@ -152,7 +153,17 @@ const updateCriteria = async (user, payload) => {
     ],
   );
 
-  return normalizeCriteria(result.rows[0]);
+  const criteria = normalizeCriteria(result.rows[0]);
+
+  await writeAuditLog({
+    actorUserId: user.id,
+    action: 'settings.criteria.update',
+    targetType: 'criteria',
+    targetId: user.id,
+    details: criteria,
+  });
+
+  return criteria;
 };
 
 module.exports = {

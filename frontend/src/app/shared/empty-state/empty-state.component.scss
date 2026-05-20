@@ -1,0 +1,28 @@
+.empty-shell {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+  border: 1px dashed var(--tws-border-strong);
+  border-radius: 18px;
+  background: var(--tws-surface-strong);
+  color: var(--tws-muted);
+  padding: 32px 24px;
+}
+
+.empty-shell mat-icon {
+  width: 32px;
+  height: 32px;
+  font-size: 32px;
+  color: var(--tws-muted-2);
+}
+
+.empty-shell strong {
+  display: block;
+  color: var(--tws-text);
+  margin-bottom: 4px;
+}
+
+.empty-shell p {
+  color: var(--tws-muted);
+}

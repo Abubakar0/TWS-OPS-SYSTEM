@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -10,6 +11,10 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { Account, HuntingCriteria } from '../../core/models/product.models';
 import { AdminService } from '../../core/services/admin.service';
+import { ReferenceDataService } from '../../core/state/reference-data.service';
+import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
+import { ConfirmService } from '../../core/ui/confirm.service';
+import { ToastService } from '../../core/ui/toast.service';
 
 @Component({
   selector: 'app-admin-settings',
@@ -25,12 +30,14 @@ import { AdminService } from '../../core/services/admin.service';
   ],
   templateUrl: './admin-settings.component.html',
   styleUrl: './admin-settings.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AdminSettingsComponent implements OnInit {
   readonly accounts = signal<Account[]>([]);
   readonly loading = signal(false);
   readonly saving = signal(false);
   readonly error = signal('');
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly criteriaForm = new FormGroup({
     minRoi: new FormControl(30, { nonNullable: true, validators: [Validators.required, Validators.min(0)] }),
@@ -59,7 +66,13 @@ export class AdminSettingsComponent implements OnInit {
     isActive: new FormControl(true, { nonNullable: true }),
   });
 
-  constructor(private readonly adminApi: AdminService) {}
+  constructor(
+    private readonly adminApi: AdminService,
+    private readonly referenceData: ReferenceDataService,
+    private readonly workspaceSync: WorkspaceSyncService,
+    private readonly confirm: ConfirmService,
+    private readonly toast: ToastService,
+  ) {}
 
   ngOnInit(): void {
     this.loadData();
@@ -69,7 +82,7 @@ export class AdminSettingsComponent implements OnInit {
     this.loading.set(true);
     this.error.set('');
 
-    this.adminApi.getCriteria().subscribe({
+    this.referenceData.getCriteria().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (criteria) => this.criteriaForm.patchValue(criteria),
       error: (error) => {
         this.error.set(error?.error?.message || 'Could not load settings.');
@@ -78,7 +91,7 @@ export class AdminSettingsComponent implements OnInit {
       complete: () => this.loading.set(false),
     });
 
-    this.adminApi.listAccounts(true).subscribe({
+    this.referenceData.getAccounts(true).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (accounts) => this.accounts.set(accounts),
       error: (error) => this.error.set(error?.error?.message || 'Could not load accounts.'),
     });
@@ -94,7 +107,12 @@ export class AdminSettingsComponent implements OnInit {
     this.error.set('');
 
     this.adminApi.updateCriteria(this.criteriaForm.getRawValue() as HuntingCriteria).subscribe({
-      next: (criteria) => this.criteriaForm.patchValue(criteria),
+      next: (criteria) => {
+        this.criteriaForm.patchValue(criteria);
+        this.referenceData.refreshCriteria();
+        this.workspaceSync.notifySettingsChanged();
+        this.toast.success('Settings saved.');
+      },
       error: (error) => {
         this.error.set(error?.error?.message || 'Could not save settings.');
         this.saving.set(false);
@@ -115,7 +133,9 @@ export class AdminSettingsComponent implements OnInit {
     this.adminApi.createAccount(this.accountForm.getRawValue()).subscribe({
       next: () => {
         this.accountForm.reset({ name: '', marketplace: 'ebay', isActive: true });
-        this.adminApi.listAccounts(true).subscribe((accounts) => this.accounts.set(accounts));
+        this.referenceData.refreshAccounts();
+        this.workspaceSync.notifySettingsChanged();
+        this.toast.success('Account created.');
       },
       error: (error) => {
         this.error.set(error?.error?.message || 'Could not create account.');
@@ -125,9 +145,26 @@ export class AdminSettingsComponent implements OnInit {
     });
   }
 
-  toggleAccount(account: Account): void {
+  async toggleAccount(account: Account): Promise<void> {
+    if (account.isActive) {
+      const confirmed = await this.confirm.ask({
+        title: 'Disable account?',
+        message: `${account.name} will no longer be available for listing actions.`,
+        confirmText: 'Disable',
+        tone: 'danger',
+      });
+
+      if (!confirmed) {
+        return;
+      }
+    }
+
     this.adminApi.updateAccount(account.id, { isActive: !account.isActive }).subscribe({
-      next: () => this.adminApi.listAccounts(true).subscribe((accounts) => this.accounts.set(accounts)),
+      next: () => {
+        this.referenceData.refreshAccounts();
+        this.workspaceSync.notifySettingsChanged();
+        this.toast.success(account.isActive ? 'Account disabled.' : 'Account enabled.');
+      },
       error: (error) => this.error.set(error?.error?.message || 'Could not update account.'),
     });
   }

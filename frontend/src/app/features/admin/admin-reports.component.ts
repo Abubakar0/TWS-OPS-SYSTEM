@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, computed, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, ValidatorFn } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -11,6 +12,8 @@ import { MatSelectModule } from '@angular/material/select';
 import { User } from '../../core/models/auth.models';
 import { AdminService, AdminStats } from '../../core/services/admin.service';
 import { ExportService } from '../../core/services/export.service';
+import { ReferenceDataService } from '../../core/state/reference-data.service';
+import { ToastService } from '../../core/ui/toast.service';
 
 type ReportRangePreset = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom';
 
@@ -47,6 +50,7 @@ const customDateRangeValidator: ValidatorFn = (control): ValidationErrors | null
   ],
   templateUrl: './admin-reports.component.html',
   styleUrl: './admin-reports.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AdminReportsComponent implements OnInit {
   readonly users = signal<User[]>([]);
@@ -55,6 +59,7 @@ export class AdminReportsComponent implements OnInit {
   readonly error = signal('');
   readonly selectedRange = signal<ReportRangePreset>('monthly');
   readonly activeDateFilters = signal<{ from?: string; to?: string }>({});
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly reportUsers = computed(() => this.users().filter((user) => user.role !== 'admin'));
 
@@ -81,10 +86,15 @@ export class AdminReportsComponent implements OnInit {
   constructor(
     private readonly adminApi: AdminService,
     private readonly exportService: ExportService,
+    private readonly referenceData: ReferenceDataService,
+    private readonly toast: ToastService,
   ) {}
 
   ngOnInit(): void {
-    this.adminApi.listUsers().subscribe({
+    this.referenceData
+      .getUsers()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
       next: (users) => this.users.set(users),
       error: (error) => this.error.set(error?.error?.message || 'Could not load users.'),
     });
@@ -170,6 +180,7 @@ export class AdminReportsComponent implements OnInit {
         { header: 'Notes', value: (row) => row.extra },
       ],
     });
+    this.toast.success('Report exported.');
   }
 
   customRangeError(): string {

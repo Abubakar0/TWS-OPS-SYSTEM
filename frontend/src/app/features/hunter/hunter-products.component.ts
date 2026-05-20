@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, DestroyRef, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, Injector, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -9,11 +9,14 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { RouterLink } from '@angular/router';
-import { Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
+import { Subject, catchError, debounceTime, distinctUntilChanged, finalize, of, switchMap } from 'rxjs';
 
 import { Product, ProductFilters, ProductStatus } from '../../core/models/product.models';
 import { ExportService } from '../../core/services/export.service';
 import { ProductService } from '../../core/services/product.service';
+import { ErrorStateComponent } from '../../shared/error-state/error-state.component';
+import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
+import { ToastService } from '../../core/ui/toast.service';
 import { ProductsTableComponent } from '../../shared/products-table/products-table.component';
 
 @Component({
@@ -28,12 +31,14 @@ import { ProductsTableComponent } from '../../shared/products-table/products-tab
     MatInputModule,
     MatProgressSpinnerModule,
     MatSelectModule,
+    ErrorStateComponent,
     ProductsTableComponent,
   ],
   templateUrl: './hunter-products.component.html',
   styleUrl: './hunter-products.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class HunterProductsComponent implements OnInit, OnDestroy {
+export class HunterProductsComponent implements OnInit {
   readonly products = signal<Product[]>([]);
   readonly loading = signal(false);
   readonly error = signal('');
@@ -43,7 +48,8 @@ export class HunterProductsComponent implements OnInit, OnDestroy {
   });
 
   private readonly destroyRef = inject(DestroyRef);
-  private listSubscription?: Subscription;
+  private readonly injector = inject(Injector);
+  private readonly reloadProducts$ = new Subject<void>();
   private readonly dateTimeFormatter = new Intl.DateTimeFormat('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
@@ -69,6 +75,8 @@ export class HunterProductsComponent implements OnInit, OnDestroy {
   constructor(
     private readonly productsApi: ProductService,
     private readonly exportService: ExportService,
+    private readonly workspaceSync: WorkspaceSyncService,
+    private readonly toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -76,11 +84,36 @@ export class HunterProductsComponent implements OnInit, OnDestroy {
       .pipe(debounceTime(350), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.loadProducts());
 
-    this.loadProducts();
-  }
+    this.reloadProducts$
+      .pipe(
+        switchMap(() => {
+          this.loading.set(true);
+          this.error.set('');
 
-  ngOnDestroy(): void {
-    this.listSubscription?.unsubscribe();
+          return this.productsApi.listProducts(this.buildFilters()).pipe(
+            catchError((error) => {
+              this.error.set(error?.error?.message || 'Could not load products.');
+              return of<Product[]>([]);
+            }),
+            finalize(() => this.loading.set(false)),
+          );
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((products) => this.products.set(products));
+
+    this.loadProducts();
+
+    effect(
+      () => {
+        const version = this.workspaceSync.productsVersion();
+
+        if (version > 0) {
+          this.loadProducts();
+        }
+      },
+      { allowSignalWrites: true, injector: this.injector },
+    );
   }
 
   applyFilters(): void {
@@ -132,21 +165,11 @@ export class HunterProductsComponent implements OnInit, OnDestroy {
         { header: 'Submitted At', value: (product) => this.formatDateTime(product.createdAt) },
       ],
     });
+    this.toast.success('Products exported.');
   }
 
   loadProducts(): void {
-    this.listSubscription?.unsubscribe();
-    this.loading.set(true);
-    this.error.set('');
-
-    this.listSubscription = this.productsApi.listProducts(this.buildFilters()).subscribe({
-      next: (products) => this.products.set(products),
-      error: (error) => {
-        this.error.set(error?.error?.message || 'Could not load products.');
-        this.loading.set(false);
-      },
-      complete: () => this.loading.set(false),
-    });
+    this.reloadProducts$.next();
   }
 
   private buildFilters(): ProductFilters {

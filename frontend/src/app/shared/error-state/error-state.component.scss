@@ -1,0 +1,38 @@
+.error-shell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid rgba(195, 70, 82, 0.16);
+  border-radius: 18px;
+  background: rgba(195, 70, 82, 0.08);
+  color: var(--tws-rose);
+  padding: 18px;
+}
+
+.error-shell__copy {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.error-shell__copy mat-icon {
+  color: currentColor;
+}
+
+.error-shell strong {
+  display: block;
+  color: var(--tws-text);
+  margin-bottom: 4px;
+}
+
+.error-shell p {
+  color: var(--tws-rose);
+}
+
+@media (max-width: 760px) {
+  .error-shell {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

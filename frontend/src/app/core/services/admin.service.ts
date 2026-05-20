@@ -3,7 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { map } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
-import { HunterAssignment, User, UserRole } from '../models/auth.models';
+import { HunterAssignment, LoginResponse, User, UserPermissions, UserRole } from '../models/auth.models';
 import { Account, HuntingCriteria } from '../models/product.models';
 
 export interface AdminStats {
@@ -19,18 +19,78 @@ export interface AdminStats {
   daily: Array<{ date: string; hunted: number; listed: number }>;
 }
 
+export interface SuperAdminStats {
+  totalAdmins: number;
+  totalListers: number;
+  totalHunters: number;
+  activeUsers: number;
+  disabledUsers: number;
+  deletedUsers: number;
+  totalListings: number;
+  totalHunting: number;
+  rejectedProducts: number;
+  systemActivity: number;
+  byHunter: Array<{ id: string; name: string; hunted: number; listed: number }>;
+  byLister: Array<{ id: string; name: string; listed: number; assignedHunters: number }>;
+  byAccount: Array<{ id: string; name: string; listed: number }>;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  action: string;
+  targetType: string;
+  targetId: string | null;
+  createdAt: string;
+  actorUserId: string | null;
+  actorName: string | null;
+  actorEmail: string | null;
+  targetName: string | null;
+  targetEmail: string | null;
+  details?: Record<string, unknown> | null;
+}
+
+export interface PermissionMatrixRow {
+  role: UserRole;
+  permissions: UserPermissions;
+}
+
+export interface UserFilters {
+  search?: string;
+  includeDeleted?: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AdminService {
   constructor(private readonly http: HttpClient) {}
 
-  listUsers(role?: UserRole) {
-    const params = role ? new HttpParams().set('role', role) : undefined;
+  listUsers(role?: UserRole, filters: UserFilters = {}) {
+    let params = new HttpParams();
+
+    if (role) {
+      params = params.set('role', role);
+    }
+
+    if (filters.search) {
+      params = params.set('search', filters.search);
+    }
+
+    if (filters.includeDeleted) {
+      params = params.set('includeDeleted', 'true');
+    }
+
     return this.http
       .get<{ users: User[] }>(`${environment.apiUrl}/users`, { params })
       .pipe(map((response) => response.users));
   }
 
-  createUser(payload: { name: string; email: string; password: string; role: UserRole; isActive: boolean }) {
+  createUser(payload: {
+    name: string;
+    email: string;
+    password: string;
+    role: UserRole;
+    isActive: boolean;
+    permissions?: Partial<UserPermissions>;
+  }) {
     return this.http
       .post<{ user: User }>(`${environment.apiUrl}/users`, payload)
       .pipe(map((response) => response.user));
@@ -40,6 +100,54 @@ export class AdminService {
     return this.http
       .patch<{ user: User }>(`${environment.apiUrl}/users/${id}`, payload)
       .pipe(map((response) => response.user));
+  }
+
+  deleteUser(id: string) {
+    return this.http.delete<{ user: User }>(`${environment.apiUrl}/users/${id}`).pipe(map((response) => response.user));
+  }
+
+  restoreUser(id: string) {
+    return this.http
+      .post<{ user: User }>(`${environment.apiUrl}/users/${id}/restore`, {})
+      .pipe(map((response) => response.user));
+  }
+
+  resetUserPassword(id: string, password?: string) {
+    return this.http
+      .post<{ user: User }>(`${environment.apiUrl}/users/${id}/reset-password`, { password })
+      .pipe(map((response) => response.user));
+  }
+
+  unlockUser(id: string) {
+    return this.http
+      .post<{ user: User }>(`${environment.apiUrl}/users/${id}/unlock`, {})
+      .pipe(map((response) => response.user));
+  }
+
+  impersonateUser(id: string) {
+    return this.http
+      .post<LoginResponse>(`${environment.apiUrl}/users/${id}/impersonate`, {})
+      .pipe(map((response) => response));
+  }
+
+  listAuditLogs(filters: { action?: string; actorUserId?: string; targetType?: string; search?: string; from?: string; to?: string } = {}) {
+    let params = new HttpParams();
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) {
+        params = params.set(key, value);
+      }
+    });
+
+    return this.http
+      .get<{ logs: AuditLogEntry[] }>(`${environment.apiUrl}/users/audit`, { params })
+      .pipe(map((response) => response.logs));
+  }
+
+  getPermissionMatrix() {
+    return this.http
+      .get<{ matrix: PermissionMatrixRow[] }>(`${environment.apiUrl}/users/permissions/matrix`)
+      .pipe(map((response) => response.matrix));
   }
 
   listAssignments() {
@@ -94,6 +202,20 @@ export class AdminService {
 
     return this.http
       .get<{ stats: AdminStats }>(`${environment.apiUrl}/dashboard/admin`, { params })
+      .pipe(map((response) => response.stats));
+  }
+
+  getSuperAdminStats(filters: { from?: string; to?: string } = {}) {
+    let params = new HttpParams();
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) {
+        params = params.set(key, value);
+      }
+    });
+
+    return this.http
+      .get<{ stats: SuperAdminStats }>(`${environment.apiUrl}/dashboard/super-admin`, { params })
       .pipe(map((response) => response.stats));
   }
 }

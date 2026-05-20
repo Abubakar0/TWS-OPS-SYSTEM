@@ -1,5 +1,6 @@
 import { CommonModule, CurrencyPipe, DecimalPipe } from '@angular/common';
-import { Component, OnInit, computed, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, Injector, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   AbstractControl,
   FormControl,
@@ -17,8 +18,10 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RouterLink } from '@angular/router';
 
 import { HuntingCriteria, Product, ProductCreatePayload } from '../../core/models/product.models';
-import { AdminService } from '../../core/services/admin.service';
 import { ProductService } from '../../core/services/product.service';
+import { ReferenceDataService } from '../../core/state/reference-data.service';
+import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
+import { ToastService } from '../../core/ui/toast.service';
 
 type SubmissionControlName =
   | 'title'
@@ -115,6 +118,7 @@ const economicsValidator = (getCriteria: () => HuntingCriteria): ValidatorFn => 
   ],
   templateUrl: './hunter-submission.component.html',
   styleUrl: './hunter-submission.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HunterSubmissionComponent implements OnInit {
   readonly saving = signal(false);
@@ -137,6 +141,8 @@ export class HunterSubmissionComponent implements OnInit {
     minSalesLastTwoMonths: 0,
   });
   readonly formVersion = signal(0);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly injector = inject(Injector);
 
   readonly form = new FormGroup({
     title: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
@@ -209,13 +215,40 @@ export class HunterSubmissionComponent implements OnInit {
 
   constructor(
     private readonly productsApi: ProductService,
-    private readonly adminApi: AdminService,
+    private readonly referenceData: ReferenceDataService,
+    private readonly workspaceSync: WorkspaceSyncService,
+    private readonly toast: ToastService,
   ) {}
 
   ngOnInit(): void {
     this.form.setValidators(economicsValidator(() => this.criteria()));
-    this.form.valueChanges.subscribe(() => this.formVersion.update((value) => value + 1));
-    this.loadCriteria();
+    this.form.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.formVersion.update((value) => value + 1));
+
+    this.criteriaLoading.set(true);
+    this.referenceData
+      .getCriteria()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (criteria) => {
+          this.criteria.set(criteria);
+          this.applyCriteriaValidators(criteria);
+          this.criteriaLoading.set(false);
+        },
+        error: () => this.criteriaLoading.set(false),
+      });
+
+    effect(
+      () => {
+        const version = this.workspaceSync.settingsVersion();
+
+        if (version > 0) {
+          this.referenceData.refreshCriteria();
+        }
+      },
+      { allowSignalWrites: true, injector: this.injector },
+    );
   }
 
   controlError(name: SubmissionControlName): string {
@@ -320,21 +353,6 @@ export class HunterSubmissionComponent implements OnInit {
     }
   }
 
-  loadCriteria(): void {
-    this.criteriaLoading.set(true);
-
-    this.adminApi.getCriteria().subscribe({
-      next: (criteria) => {
-        this.criteria.set(criteria);
-        this.applyCriteriaValidators(criteria);
-      },
-      error: () => {
-        this.criteriaLoading.set(false);
-      },
-      complete: () => this.criteriaLoading.set(false),
-    });
-  }
-
   submit(): void {
     this.attemptedSubmit.set(true);
 
@@ -350,6 +368,8 @@ export class HunterSubmissionComponent implements OnInit {
       next: (product) => {
         this.lastSubmitted.set(product);
         this.resetForm();
+        this.toast.success('Product submitted.');
+        this.workspaceSync.notifyProductsChanged();
       },
       error: (error) => this.error.set(error?.error?.message || 'Could not submit product.'),
       complete: () => this.saving.set(false),

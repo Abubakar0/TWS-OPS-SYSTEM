@@ -43,6 +43,20 @@ const buildProductFilters = (query, column = 'p.created_at') => {
 const toWhereSql = (clauses) => (clauses.length ? `WHERE ${clauses.join(' AND ')}` : '');
 const toJoinSql = (clauses) => (clauses.length ? ` AND ${clauses.join(' AND ')}` : '');
 
+const getSuperAdminDateFilters = (query) => {
+  const clauses = [];
+  const params = [];
+
+  addDateFilters({ query, where: clauses, params, column: 'p.created_at' });
+
+  return {
+    clauses,
+    params,
+    whereSql: toWhereSql(clauses),
+    joinSql: toJoinSql(clauses),
+  };
+};
+
 const admin = async (req, res) => {
   const filters = buildProductFilters(req.query, 'p.created_at');
   const whereSql = toWhereSql(filters.clauses);
@@ -163,12 +177,22 @@ const admin = async (req, res) => {
 };
 
 const hunter = async (req, res) => {
-  const where = ['p.hunter_id = $1'];
-  const params = [req.user.id];
+  const summaryWhere = [];
+  const summaryParams = [];
 
-  addDateFilters({ query: req.query, where, params, column: 'p.created_at' });
+  if (req.user.role === 'hunter') {
+    summaryParams.push(req.user.id);
+    summaryWhere.push(`p.hunter_id = $${summaryParams.length}`);
+  } else if (req.query.hunterId) {
+    summaryParams.push(req.query.hunterId);
+    summaryWhere.push(`p.hunter_id = $${summaryParams.length}`);
+  }
 
-  const whereClause = `WHERE ${where.join(' AND ')}`;
+  addDateFilters({ query: req.query, where: summaryWhere, params: summaryParams, column: 'p.created_at' });
+
+  const summaryClause = summaryWhere.length ? `WHERE ${summaryWhere.join(' AND ')}` : '';
+  const accountWhere = [...summaryWhere, "p.status = 'listed'"];
+  const accountClause = `WHERE ${accountWhere.join(' AND ')}`;
 
   const [summary, byAccount] = await Promise.all([
     pool.query(
@@ -180,9 +204,9 @@ const hunter = async (req, res) => {
           COUNT(*) FILTER (WHERE p.status = 'rejected')::int AS "rejected",
           COUNT(*) FILTER (WHERE p.status = 'listed')::int AS "listed"
         FROM products p
-        ${whereClause}
+        ${summaryClause}
       `,
-      params,
+      summaryParams,
     ),
     pool.query(
       `
@@ -192,12 +216,11 @@ const hunter = async (req, res) => {
           COUNT(p.id)::int AS "listedCount"
         FROM products p
         JOIN accounts account ON account.id = p.account_used
-        ${whereClause}
-          AND p.status = 'listed'
+        ${accountClause}
         GROUP BY account.id, account.name
         ORDER BY "listedCount" DESC, account.name
       `,
-      params,
+      summaryParams,
     ),
   ]);
 
@@ -296,8 +319,107 @@ const lister = async (req, res) => {
   });
 };
 
+const superAdmin = async (req, res) => {
+  const filters = getSuperAdminDateFilters(req.query);
+  const [userCounts, productCounts, byHunter, byLister, byAccount, systemActivity] = await Promise.all([
+    pool.query(
+      `
+        SELECT
+          COUNT(*) FILTER (WHERE role = 'admin' AND deleted_at IS NULL)::int AS "totalAdmins",
+          COUNT(*) FILTER (WHERE role = 'lister' AND deleted_at IS NULL)::int AS "totalListers",
+          COUNT(*) FILTER (WHERE role = 'hunter' AND deleted_at IS NULL)::int AS "totalHunters",
+          COUNT(*) FILTER (WHERE is_active = TRUE AND deleted_at IS NULL)::int AS "activeUsers",
+          COUNT(*) FILTER (WHERE is_active = FALSE AND deleted_at IS NULL)::int AS "disabledUsers",
+          COUNT(*) FILTER (WHERE deleted_at IS NOT NULL)::int AS "deletedUsers"
+        FROM users
+      `,
+    ),
+    pool.query(
+      `
+        SELECT
+          COUNT(*)::int AS "totalHunting",
+          COUNT(*) FILTER (WHERE p.status = 'listed')::int AS "totalListings",
+          COUNT(*) FILTER (WHERE p.status = 'rejected')::int AS "rejectedProducts"
+        FROM products p
+        ${filters.whereSql}
+      `,
+      filters.params,
+    ),
+    pool.query(
+      `
+        SELECT
+          hunter.id::text AS id,
+          hunter.name,
+          COUNT(p.id)::int AS "hunted",
+          COUNT(p.id) FILTER (WHERE p.status = 'listed')::int AS "listed"
+        FROM users hunter
+        LEFT JOIN products p ON p.hunter_id = hunter.id${filters.joinSql}
+        WHERE hunter.role = 'hunter'
+          AND hunter.deleted_at IS NULL
+        GROUP BY hunter.id, hunter.name
+        ORDER BY "listed" DESC, hunter.name
+      `,
+      filters.params,
+    ),
+    pool.query(
+      `
+        SELECT
+          lister.id::text AS id,
+          lister.name,
+          COUNT(p.id) FILTER (WHERE p.status = 'listed')::int AS "listed",
+          COUNT(DISTINCT hla.hunter_id)::int AS "assignedHunters"
+        FROM users lister
+        LEFT JOIN products p
+          ON (p.listed_by = lister.id OR p.assigned_lister_id = lister.id)${filters.joinSql}
+        LEFT JOIN hunter_lister_assignments hla ON hla.lister_id = lister.id
+        WHERE lister.role = 'lister'
+          AND lister.deleted_at IS NULL
+        GROUP BY lister.id, lister.name
+        ORDER BY "listed" DESC, lister.name
+      `,
+      filters.params,
+    ),
+    pool.query(
+      `
+        SELECT
+          account.id::text AS id,
+          account.name,
+          COUNT(p.id)::int AS "listed"
+        FROM accounts account
+        LEFT JOIN products p
+          ON p.account_used = account.id
+          AND p.status = 'listed'${filters.joinSql}
+        GROUP BY account.id, account.name
+        ORDER BY "listed" DESC, account.name
+      `,
+      filters.params,
+    ),
+    pool.query(
+      `
+        SELECT COUNT(*)::int AS "activityCount"
+        FROM audit_logs
+        WHERE created_at >= COALESCE($1::date, NOW() - INTERVAL '30 days')
+          AND created_at < COALESCE(($2::date + INTERVAL '1 day'), NOW() + INTERVAL '1 day')
+      `,
+      [req.query.from || null, req.query.to || null],
+    ),
+  ]);
+
+  res.json({
+    stats: {
+      ...userCounts.rows[0],
+      ...productCounts.rows[0],
+      systemActivity: systemActivity.rows[0].activityCount,
+      byHunter: byHunter.rows,
+      byLister: byLister.rows,
+      byAccount: byAccount.rows,
+    },
+  });
+};
+
 module.exports = {
   admin,
   hunter,
   lister,
+  superAdmin,
 };

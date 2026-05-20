@@ -1,0 +1,92 @@
+<section class="page-shell">
+  <header class="page-hero">
+    <div>
+      <span class="kicker">Super Admin</span>
+      <h1>System</h1>
+      <p>Review the health of the current control model, global defaults, and the operational shape of the platform.</p>
+    </div>
+
+    <div class="page-actions">
+      <a mat-stroked-button routerLink="/superadmin/settings">
+        <mat-icon>settings</mat-icon>
+        <span>Open Settings</span>
+      </a>
+      <button mat-stroked-button type="button" (click)="loadSystemState()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <div class="inline-state inline-state--error">{{ error() }}</div>
+  }
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <span>Active users</span>
+      <strong>{{ stats()?.activeUsers || 0 }}</strong>
+      <small>Users who can access the app right now.</small>
+    </article>
+    <article class="stat-card">
+      <span>Disabled users</span>
+      <strong>{{ stats()?.disabledUsers || 0 }}</strong>
+      <small>Users blocked from sign-in.</small>
+    </article>
+    <article class="stat-card">
+      <span>Deleted users</span>
+      <strong>{{ stats()?.deletedUsers || 0 }}</strong>
+      <small>Archived users that can still be restored.</small>
+    </article>
+    <article class="stat-card">
+      <span>Listing accounts</span>
+      <strong>{{ accountCount() }}</strong>
+      <small>Accounts available across listing workflows.</small>
+    </article>
+  </section>
+
+  <section class="section-grid">
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Default values</h2>
+          <p>The current global validation baseline.</p>
+        </div>
+      </div>
+
+      @if (loading() && !criteria()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading default values.</span>
+        </div>
+      } @else {
+        <div class="info-list">
+          @for (row of defaultValueRows(); track row.label) {
+            <div class="info-row">
+              <strong>{{ row.label }}</strong>
+              <span>{{ row.value }}</span>
+            </div>
+          }
+        </div>
+      }
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Security posture</h2>
+          <p>Current control assumptions already wired into the app.</p>
+        </div>
+      </div>
+
+      <div class="info-list">
+        @for (item of securityItems; track item) {
+          <div class="info-row">
+            <mat-icon>verified_user</mat-icon>
+            <span>{{ item }}</span>
+          </div>
+        }
+      </div>
+    </article>
+  </section>
+</section>

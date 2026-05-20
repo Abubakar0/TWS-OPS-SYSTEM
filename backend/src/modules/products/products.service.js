@@ -2,6 +2,7 @@ const { pool } = require('../../db/pool');
 const { AppError } = require('../../middleware/error');
 const { analyzeProduct, normalizeProductPayload, isEbayUrl } = require('../../utils/productAnalysis');
 const { getCriteria } = require('../criteria/criteria.service');
+const { writeAuditLog } = require('../users/audit.service');
 
 const productSelect = `
   p.id,
@@ -154,7 +155,22 @@ const createProduct = async (user, payload) => {
     ],
   );
 
-  return getProductById(user, result.rows[0].id);
+  const product = await getProductById(user, result.rows[0].id);
+
+  await writeAuditLog({
+    actorUserId: user.id,
+    action: status === 'rejected' ? 'product.rejected' : 'product.approved',
+    targetType: 'product',
+    targetId: product.id,
+    details: {
+      status: product.status,
+      asin: product.asin,
+      title: product.title,
+      assignedListerId,
+    },
+  });
+
+  return product;
 };
 
 const buildProductFilters = (user, query = {}) => {
@@ -405,6 +421,19 @@ const markProductsListed = async (user, payload) => {
 
     await client.query('COMMIT');
 
+    for (const productId of productIds) {
+      await writeAuditLog({
+        actorUserId: user.id,
+        action: 'listing.complete',
+        targetType: 'product',
+        targetId: productId,
+        details: {
+          accountId,
+          listingUrl: String((itemById.get(productId) || {}).listingUrl || '').trim(),
+        },
+      });
+    }
+
     return listProducts(user, {});
   } catch (error) {
     await client.query('ROLLBACK');
@@ -447,7 +476,21 @@ const rejectProduct = async (user, id, payload = {}) => {
     throw new AppError('Product could not be rejected for this lister.', 403);
   }
 
-  return getProductById(user, id);
+  const product = await getProductById(user, id);
+
+  await writeAuditLog({
+    actorUserId: user.id,
+    action: 'product.rejected',
+    targetType: 'product',
+    targetId: product.id,
+    details: {
+      rejectionReason,
+      assignedListerId: product.assignedListerId,
+      hunterId: product.hunterId,
+    },
+  });
+
+  return product;
 };
 
 module.exports = {

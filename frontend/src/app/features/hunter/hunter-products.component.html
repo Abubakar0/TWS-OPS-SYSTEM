@@ -22,10 +22,6 @@
     </div>
   </header>
 
-  @if (error()) {
-    <div class="inline-state inline-state--error">{{ error() }}</div>
-  }
-
   <section class="stats-grid">
     <article class="stat-card">
       <span>Total submissions</span>
@@ -127,6 +123,8 @@
         <mat-spinner diameter="24"></mat-spinner>
         <span>Loading product list.</span>
       </div>
+    } @else if (error()) {
+      <app-error-state [message]="error()" actionLabel="Retry" (action)="loadProducts()" />
     } @else {
       <app-products-table [products]="products()" emptyText="No product submissions found." />
     }

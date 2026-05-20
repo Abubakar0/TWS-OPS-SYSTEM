@@ -6,6 +6,7 @@ const { pool } = require('../src/db/pool');
 const schemaPath = path.resolve(__dirname, '../database/schema.sql');
 
 const users = [
+  { name: 'Super Admin User', email: 'superadmin@example.com', role: 'super_admin' },
   { name: 'Admin User', email: 'admin@example.com', role: 'admin' },
   { name: 'Hunter User', email: 'hunter@example.com', role: 'hunter' },
   { name: 'Lister User', email: 'lister@example.com', role: 'lister' },

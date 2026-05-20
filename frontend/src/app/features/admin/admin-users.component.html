@@ -7,6 +7,10 @@
     </div>
 
     <div class="page-actions">
+      <button mat-flat-button color="primary" type="button" (click)="exportUsers()" [disabled]="!filteredUsers().length">
+        <mat-icon>download</mat-icon>
+        <span>Export Excel</span>
+      </button>
       <button mat-stroked-button type="button" (click)="loadUsers()" [disabled]="loading()">
         <mat-icon>refresh</mat-icon>
         <span>Refresh</span>
@@ -15,7 +19,7 @@
   </header>
 
   @if (error()) {
-    <div class="inline-state inline-state--error">{{ error() }}</div>
+    <app-error-state [message]="error()" actionLabel="Retry" (action)="loadUsers()" />
   }
 
   <section class="stats-grid">
@@ -49,7 +53,7 @@
       <div class="surface-card__header">
         <div>
           <h2>Add user</h2>
-          <p>Front-end validation runs before the API call, and duplicate emails now return a clear error instead of a server failure.</p>
+          <p>Front-end validation runs before the API call, and the available roles follow the current operator scope.</p>
         </div>
       </div>
 
@@ -82,9 +86,9 @@
         <mat-form-field appearance="outline">
           <mat-label>Role</mat-label>
           <mat-select formControlName="role">
-            <mat-option value="hunter">Hunter</mat-option>
-            <mat-option value="lister">Lister</mat-option>
-            <mat-option value="admin">Admin</mat-option>
+            @for (role of availableRoles(); track role) {
+              <mat-option [value]="role">{{ role | titlecase }}</mat-option>
+            }
           </mat-select>
         </mat-form-field>
 
@@ -103,9 +107,69 @@
 
     <article class="surface-card">
       <div class="surface-card__header">
-        <div>
+      <div>
           <h2>Users</h2>
-          <p>Enable or disable account access one user at a time.</p>
+          <p>Search updates while you type, and the current filtered list can be exported directly.</p>
+        </div>
+        <span class="count-badge">{{ filteredUsers().length }} matching</span>
+      </div>
+
+      <div class="grid-toolbar">
+        <mat-form-field appearance="outline" class="grid-toolbar__search">
+          <mat-label>Search name, email, role, or status</mat-label>
+          <input matInput [formControl]="searchControl" autocomplete="off" />
+          <mat-icon matSuffix>search</mat-icon>
+        </mat-form-field>
+
+        <div class="grid-toolbar__actions">
+          <button
+            mat-stroked-button
+            type="button"
+            class="sort-chip"
+            [class.sort-chip--active]="isSortedBy('name')"
+            (click)="toggleSort('name')"
+          >
+            <mat-icon>{{ sortIcon('name') }}</mat-icon>
+            <span>Name</span>
+          </button>
+          <button
+            mat-stroked-button
+            type="button"
+            class="sort-chip"
+            [class.sort-chip--active]="isSortedBy('email')"
+            (click)="toggleSort('email')"
+          >
+            <mat-icon>{{ sortIcon('email') }}</mat-icon>
+            <span>Email</span>
+          </button>
+          <button
+            mat-stroked-button
+            type="button"
+            class="sort-chip"
+            [class.sort-chip--active]="isSortedBy('role')"
+            (click)="toggleSort('role')"
+          >
+            <mat-icon>{{ sortIcon('role') }}</mat-icon>
+            <span>Role</span>
+          </button>
+          <button
+            mat-stroked-button
+            type="button"
+            class="sort-chip"
+            [class.sort-chip--active]="isSortedBy('status')"
+            (click)="toggleSort('status')"
+          >
+            <mat-icon>{{ sortIcon('status') }}</mat-icon>
+            <span>Status</span>
+          </button>
+          <mat-form-field appearance="outline" class="page-size-field">
+            <mat-label>Rows</mat-label>
+            <mat-select [value]="pageSize()" (valueChange)="setPageSize($event)">
+              @for (size of pageSizeOptions; track size) {
+                <mat-option [value]="size">{{ size }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
         </div>
       </div>
 
@@ -116,7 +180,7 @@
         </div>
       } @else {
         <div class="list">
-          @for (user of users(); track user.id) {
+          @for (user of pagedUsers(); track user.id) {
             <div class="list-row">
               <div class="list-row__content">
                 <strong>{{ user.name }}</strong>
@@ -130,8 +194,32 @@
               </button>
             </div>
           } @empty {
-            <div class="empty-state">No users are available yet.</div>
+            <app-empty-state
+              title="No users found"
+              message="No users match the current search or filter."
+              icon="group_off"
+            />
           }
+        </div>
+
+        <div class="grid-pager">
+          <span class="grid-pager__status">{{ pageLabel() }}</span>
+
+          <div class="grid-toolbar__actions">
+            <button mat-stroked-button type="button" (click)="previousPage()" [disabled]="pageIndex() === 0">
+              <mat-icon>chevron_left</mat-icon>
+              <span>Previous</span>
+            </button>
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="nextPage()"
+              [disabled]="pageIndex() >= pageCount() - 1"
+            >
+              <span>Next</span>
+              <mat-icon>chevron_right</mat-icon>
+            </button>
+          </div>
         </div>
       }
     </article>

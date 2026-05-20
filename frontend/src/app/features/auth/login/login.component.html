@@ -1,41 +1,16 @@
 <main class="login-shell">
-  <section class="login-showcase">
-    <div class="showcase-copy">
-      <span class="kicker">TrendWave Operations</span>
-      <h1>Role-based control for hunting, listing, and admin workflows.</h1>
-      <p>
-        Sign in to manage product research, listing queues, user assignments, and approval rules from
-        one internal workspace.
-      </p>
+  <div class="login-stage">
+    <div class="login-stage__waves" aria-hidden="true">
+      <span class="wave wave--1"></span>
+      <span class="wave wave--2"></span>
+      <span class="wave wave--3"></span>
+      <span class="wave wave--4"></span>
     </div>
 
-    <div class="showcase-grid">
-      <article class="showcase-card">
-        <span>Hunter flow</span>
-        <strong>Submit and track product research</strong>
-        <p>Current validation rules and queue status stay in view while you work.</p>
-      </article>
-
-      <article class="showcase-card">
-        <span>Lister flow</span>
-        <strong>Work assigned products with clean handoff</strong>
-        <p>Listing teams see the right hunter queues without extra navigation noise.</p>
-      </article>
-
-      <article class="showcase-card">
-        <span>Admin flow</span>
-        <strong>Control users, criteria, and reporting</strong>
-        <p>Operational settings stay protected behind role-based access.</p>
-      </article>
-    </div>
-  </section>
-
-  <section class="login-panel">
-    <div class="login-card">
-      <div class="login-copy">
-        <span class="kicker">Secure Sign-In</span>
-        <h2>Welcome back</h2>
-        <p>Use your assigned account to enter the operations workspace.</p>
+    <section class="login-card">
+      <div class="login-brand">
+        <span class="login-brand__eyebrow">TrendWave</span>
+        <h1>Ops System</h1>
       </div>
 
       @if (redirecting()) {
@@ -80,6 +55,6 @@
           <span>{{ redirecting() ? 'Opening Workspace' : 'Sign In' }}</span>
         </button>
       </form>
-    </div>
-  </section>
+    </section>
+  </div>
 </main>

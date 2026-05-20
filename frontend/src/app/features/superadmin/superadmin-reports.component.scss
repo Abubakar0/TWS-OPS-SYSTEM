@@ -1,0 +1,65 @@
+.range-toolbar,
+.report-controls,
+.custom-range-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.report-controls,
+.custom-range-form {
+  margin-top: 18px;
+  align-items: flex-start;
+}
+
+.range-chip {
+  border-radius: 999px !important;
+}
+
+.range-chip--active {
+  border-color: rgba(27, 102, 214, 0.18) !important;
+  background: rgba(27, 102, 214, 0.08) !important;
+  color: var(--tws-accent) !important;
+}
+
+.section-grid--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.breakdown-list {
+  display: grid;
+  gap: 14px;
+}
+
+.breakdown-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  border: 1px solid rgba(23, 40, 74, 0.08);
+  border-radius: 16px;
+  background: rgba(249, 251, 255, 0.92);
+  padding: 16px;
+}
+
+.breakdown-row span {
+  color: var(--tws-muted);
+}
+
+.breakdown-row__count {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+@media (max-width: 1180px) {
+  .section-grid--three {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .section-grid--three,
+  .breakdown-row {
+    grid-template-columns: 1fr;
+  }
+}

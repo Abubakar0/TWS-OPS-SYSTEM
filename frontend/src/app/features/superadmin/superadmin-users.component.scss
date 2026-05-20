@@ -1,0 +1,38 @@
+.list {
+  display: grid;
+  gap: 12px;
+}
+
+.list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid var(--tws-border);
+  border-radius: 18px;
+  background: rgba(248, 250, 255, 0.92);
+  padding: 16px;
+}
+
+.list-row__content {
+  display: grid;
+  gap: 4px;
+}
+
+.list-row__content span,
+.list-row__content small {
+  color: var(--tws-muted);
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+@media (max-width: 760px) {
+  .list-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

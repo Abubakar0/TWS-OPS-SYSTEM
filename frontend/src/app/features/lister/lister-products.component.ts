@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, DestroyRef, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, Injector, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   FormControl,
@@ -19,12 +19,18 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
+import { Subject, catchError, debounceTime, distinctUntilChanged, finalize, of, switchMap } from 'rxjs';
 
 import { ExportService } from '../../core/services/export.service';
-import { AdminService } from '../../core/services/admin.service';
 import { ProductService } from '../../core/services/product.service';
+import { ReferenceDataService } from '../../core/state/reference-data.service';
+import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
+import { ConfirmService } from '../../core/ui/confirm.service';
+import { ToastService } from '../../core/ui/toast.service';
 import { Account, AssignedHunter, Product, ProductFilters, ProductStatus } from '../../core/models/product.models';
+import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
+import { ErrorStateComponent } from '../../shared/error-state/error-state.component';
+import { GridSortState, clampPageIndex, paginateRecords, sortRecords } from '../../shared/grid/grid.utils';
 
 const ebayUrlValidator: ValidatorFn = (control): ValidationErrors | null => {
   const value = String(control.value || '').trim();
@@ -55,16 +61,23 @@ const ebayUrlValidator: ValidatorFn = (control): ValidationErrors | null => {
     MatProgressSpinnerModule,
     MatSelectModule,
     MatTooltipModule,
+    EmptyStateComponent,
+    ErrorStateComponent,
   ],
   templateUrl: './lister-products.component.html',
   styleUrl: './lister-products.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ListerProductsComponent implements OnInit, OnDestroy {
+export class ListerProductsComponent implements OnInit {
+  readonly pageSizeOptions = [10, 25, 50];
   readonly hunters = signal<AssignedHunter[]>([]);
   readonly accounts = signal<Account[]>([]);
   readonly products = signal<Product[]>([]);
   readonly selectedHunterId = signal('');
   readonly selectedIds = signal<Set<string>>(new Set());
+  readonly sortState = signal<GridSortState>({ active: 'createdAt', direction: 'desc' });
+  readonly pageIndex = signal(0);
+  readonly pageSize = signal(this.pageSizeOptions[0]);
   readonly loading = signal(false);
   readonly saving = signal(false);
   readonly copied = signal('');
@@ -94,6 +107,39 @@ export class ListerProductsComponent implements OnInit, OnDestroy {
   readonly listedCount = computed(() => this.products().filter((product) => product.status === 'listed').length);
   readonly rejectedCount = computed(() => this.products().filter((product) => product.status === 'rejected').length);
   readonly selectedCount = computed(() => this.selectedIds().size);
+  readonly sortedProducts = computed(() =>
+    sortRecords(this.products(), this.sortState(), (product, key) => {
+      switch (key) {
+        case 'title':
+          return `${product.title || ''} ${product.asin || ''}`.trim().toLowerCase();
+        case 'hunterName':
+          return product.hunterName.toLowerCase();
+        case 'profit':
+          return product.profit;
+        case 'status':
+          return product.status;
+        case 'listedAt':
+          return product.listedAt ? new Date(product.listedAt).getTime() : 0;
+        case 'createdAt':
+          return new Date(product.createdAt).getTime();
+        default:
+          return '';
+      }
+    }),
+  );
+  readonly pagedProducts = computed(() => paginateRecords(this.sortedProducts(), this.pageIndex(), this.pageSize()));
+  readonly pageCount = computed(() => Math.max(1, Math.ceil(this.sortedProducts().length / this.pageSize())));
+  readonly pageLabel = computed(() => {
+    const total = this.sortedProducts().length;
+
+    if (!total) {
+      return 'No products to show';
+    }
+
+    const start = this.pageIndex() * this.pageSize() + 1;
+    const end = Math.min(total, start + this.pageSize() - 1);
+    return `Showing ${start}-${end} of ${total}`;
+  });
   readonly selectableIds = computed(() =>
     this.products()
       .filter((product) => this.canMarkListed(product))
@@ -118,12 +164,17 @@ export class ListerProductsComponent implements OnInit, OnDestroy {
   });
 
   private readonly destroyRef = inject(DestroyRef);
-  private productsSubscription?: Subscription;
+  private readonly injector = inject(Injector);
+  private readonly reloadProducts$ = new Subject<void>();
+  private accountsSubscribed = false;
 
   constructor(
     private readonly productsApi: ProductService,
-    private readonly adminApi: AdminService,
+    private readonly referenceData: ReferenceDataService,
     private readonly exportService: ExportService,
+    private readonly workspaceSync: WorkspaceSyncService,
+    private readonly confirm: ConfirmService,
+    private readonly toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -131,11 +182,51 @@ export class ListerProductsComponent implements OnInit, OnDestroy {
       .pipe(debounceTime(350), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.loadProducts());
 
-    this.loadInitial();
-  }
+    this.reloadProducts$
+      .pipe(
+        switchMap(() => {
+          if (!this.selectedHunterId()) {
+            this.products.set([]);
+            return of<Product[]>([]);
+          }
 
-  ngOnDestroy(): void {
-    this.productsSubscription?.unsubscribe();
+          this.loading.set(true);
+          this.error.set('');
+
+          return this.productsApi
+            .listProducts({
+              ...this.buildFilters(),
+              hunterId: this.selectedHunterId(),
+            })
+            .pipe(
+              catchError((error) => {
+                this.error.set(error?.error?.message || 'Could not load products.');
+                return of<Product[]>([]);
+              }),
+              finalize(() => this.loading.set(false)),
+            );
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((products) => {
+        this.products.set(products);
+        this.syncRowControls(products);
+        this.pruneSelection(products);
+        this.pageIndex.set(clampPageIndex(products.length, this.pageSize(), this.pageIndex()));
+      });
+
+    this.loadInitial();
+
+    effect(
+      () => {
+        const version = this.workspaceSync.productsVersion();
+
+        if (version > 0 && this.selectedHunterId()) {
+          this.loadProducts();
+        }
+      },
+      { allowSignalWrites: true, injector: this.injector },
+    );
   }
 
   loadInitial(): void {
@@ -152,16 +243,24 @@ export class ListerProductsComponent implements OnInit, OnDestroy {
       error: (error) => this.error.set(error?.error?.message || 'Could not load assigned hunters.'),
     });
 
-    this.adminApi.listAccounts().subscribe({
-      next: (accounts) => this.accounts.set(accounts),
-      error: (error) => this.error.set(error?.error?.message || 'Could not load accounts.'),
-    });
+    if (!this.accountsSubscribed) {
+      this.accountsSubscribed = true;
+
+      this.referenceData
+        .getAccounts()
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (accounts) => this.accounts.set(accounts),
+          error: (error) => this.error.set(error?.error?.message || 'Could not load accounts.'),
+        });
+    }
   }
 
   selectHunter(hunterId: string): void {
     this.selectedHunterId.set(hunterId);
     this.selectedIds.set(new Set());
     this.attemptedBulkSubmit.set(false);
+    this.pageIndex.set(0);
     this.loadProducts();
   }
 
@@ -183,6 +282,7 @@ export class ListerProductsComponent implements OnInit, OnDestroy {
 
     this.selectedIds.set(new Set());
     this.attemptedBulkSubmit.set(false);
+    this.pageIndex.set(0);
     this.loadProducts();
   }
 
@@ -203,7 +303,7 @@ export class ListerProductsComponent implements OnInit, OnDestroy {
         { header: 'Amazon Link', value: (product) => product.amazonUrl },
         { header: 'Amazon Alternate Link', value: (product) => product.amazonAltUrl || '' },
         { header: 'eBay Source Link', value: (product) => product.ebayUrl },
-        { header: 'Listed eBay Link', value: (product) => product.listingUrl || this.listingLinkControl(product.id)?.value || '' },
+        { header: 'Listed eBay Link', value: (product) => product.listingUrl || this.listingLinkControl(product.id).value || '' },
         { header: 'Amazon Price', value: (product) => product.amazonPrice ?? '' },
         { header: 'eBay Price', value: (product) => product.ebayPrice ?? '' },
         { header: 'Profit', value: (product) => product.profit },
@@ -216,35 +316,11 @@ export class ListerProductsComponent implements OnInit, OnDestroy {
         { header: 'Listed At', value: (product) => product.listedAt || '' },
       ],
     });
+    this.toast.success('Products exported.');
   }
 
   loadProducts(): void {
-    if (!this.selectedHunterId()) {
-      this.products.set([]);
-      return;
-    }
-
-    this.productsSubscription?.unsubscribe();
-    this.loading.set(true);
-    this.error.set('');
-
-    this.productsSubscription = this.productsApi
-      .listProducts({
-        ...this.buildFilters(),
-        hunterId: this.selectedHunterId(),
-      })
-      .subscribe({
-        next: (products) => {
-          this.products.set(products);
-          this.syncRowControls(products);
-          this.pruneSelection(products);
-        },
-        error: (error) => {
-          this.error.set(error?.error?.message || 'Could not load products.');
-          this.loading.set(false);
-        },
-        complete: () => this.loading.set(false),
-      });
+    this.reloadProducts$.next();
   }
 
   isSelected(productId: string): boolean {
@@ -364,7 +440,7 @@ export class ListerProductsComponent implements OnInit, OnDestroy {
       this.bulkForm.markAllAsTouched();
 
       for (const productId of this.selectedIds()) {
-        this.listingLinkControl(productId)?.markAsTouched();
+        this.listingLinkControl(productId).markAsTouched();
       }
 
       return;
@@ -378,7 +454,7 @@ export class ListerProductsComponent implements OnInit, OnDestroy {
         accountId: this.bulkForm.getRawValue().accountId,
         items: [...this.selectedIds()].map((productId) => ({
           id: productId,
-          listingUrl: this.listingLinkControl(productId)?.value.trim() || '',
+          listingUrl: this.listingLinkControl(productId).value.trim(),
         })),
       })
       .subscribe({
@@ -387,17 +463,30 @@ export class ListerProductsComponent implements OnInit, OnDestroy {
           this.attemptedBulkSubmit.set(false);
           this.loadProducts();
           this.loadInitial();
+          this.workspaceSync.notifyProductsChanged();
+          this.toast.success('Products listed.');
         },
         error: (error) => this.error.set(error?.error?.message || 'Could not mark products as listed.'),
         complete: () => this.saving.set(false),
       });
   }
 
-  rejectProduct(product: Product): void {
+  async rejectProduct(product: Product): Promise<void> {
     const control = this.rejectionReasonControl(product.id);
 
     if (control.invalid || !this.canReject(product) || this.saving()) {
       control.markAsTouched();
+      return;
+    }
+
+    const confirmed = await this.confirm.ask({
+      title: 'Reject product?',
+      message: 'This will send the product back to the hunter with the entered rejection reason.',
+      confirmText: 'Reject',
+      tone: 'danger',
+    });
+
+    if (!confirmed) {
       return;
     }
 
@@ -412,6 +501,8 @@ export class ListerProductsComponent implements OnInit, OnDestroy {
         this.selectedIds.set(next);
         this.loadProducts();
         this.loadInitial();
+        this.workspaceSync.notifyProductsChanged();
+        this.toast.success('Product rejected.');
       },
       error: (error) => {
         this.error.set(error?.error?.message || 'Could not reject product.');
@@ -419,6 +510,43 @@ export class ListerProductsComponent implements OnInit, OnDestroy {
       },
       complete: () => this.rejectingId.set(''),
     });
+  }
+
+  toggleSort(active: GridSortState['active']): void {
+    const current = this.sortState();
+
+    this.sortState.set({
+      active,
+      direction: current.active === active && current.direction === 'asc' ? 'desc' : 'asc',
+    });
+    this.pageIndex.set(0);
+  }
+
+  isSortedBy(active: GridSortState['active']): boolean {
+    return this.sortState().active === active;
+  }
+
+  sortIcon(active: GridSortState['active']): string {
+    const current = this.sortState();
+
+    if (current.active !== active) {
+      return 'unfold_more';
+    }
+
+    return current.direction === 'asc' ? 'north' : 'south';
+  }
+
+  setPageSize(value: string): void {
+    this.pageSize.set(Number(value));
+    this.pageIndex.set(0);
+  }
+
+  previousPage(): void {
+    this.pageIndex.update((pageIndex) => Math.max(pageIndex - 1, 0));
+  }
+
+  nextPage(): void {
+    this.pageIndex.update((pageIndex) => Math.min(pageIndex + 1, this.pageCount() - 1));
   }
 
   private buildFilters(): ProductFilters {
@@ -439,29 +567,13 @@ export class ListerProductsComponent implements OnInit, OnDestroy {
     for (const product of products) {
       const listingControl = this.listingLinkControl(product.id);
 
-      if (!listingControl) {
-        this.listingLinkControls.addControl(
-          product.id,
-          new FormControl(product.listingUrl || '', {
-            nonNullable: true,
-            validators: [ebayUrlValidator],
-          }),
-        );
-      } else if (!listingControl.dirty && product.listingUrl && !listingControl.value) {
+      if (!listingControl.dirty && product.listingUrl && !listingControl.value) {
         listingControl.setValue(product.listingUrl, { emitEvent: false });
       }
 
       const rejectionControl = this.rejectionReasonControl(product.id);
 
-      if (!rejectionControl) {
-        this.rejectionReasonControls.addControl(
-          product.id,
-          new FormControl(product.rejectionReason || '', {
-            nonNullable: true,
-            validators: [Validators.required, Validators.minLength(3)],
-          }),
-        );
-      } else if (!rejectionControl.dirty && product.status === 'rejected') {
+      if (!rejectionControl.dirty && product.status === 'rejected') {
         rejectionControl.setValue(product.rejectionReason || '', { emitEvent: false });
       }
     }
