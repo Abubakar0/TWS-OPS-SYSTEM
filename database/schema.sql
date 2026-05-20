@@ -37,6 +37,13 @@ CREATE TABLE IF NOT EXISTS hunting_criteria (
   min_sold_count INTEGER NOT NULL DEFAULT 1,
   fee_percent NUMERIC(8, 2) NOT NULL DEFAULT 21,
   asin_required BOOLEAN NOT NULL DEFAULT TRUE,
+  min_stock_count INTEGER NOT NULL DEFAULT 8,
+  min_alt_stock_count INTEGER NOT NULL DEFAULT 8,
+  min_rating NUMERIC(4, 2) NOT NULL DEFAULT 0,
+  custom_label_required BOOLEAN NOT NULL DEFAULT FALSE,
+  watchers_required BOOLEAN NOT NULL DEFAULT FALSE,
+  min_watcher_count INTEGER NOT NULL DEFAULT 0,
+  min_sales_last_two_months INTEGER NOT NULL DEFAULT 0,
   updated_by UUID REFERENCES users(id),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -57,14 +64,20 @@ CREATE TABLE IF NOT EXISTS products (
   listed_by UUID REFERENCES users(id),
   account_used UUID REFERENCES accounts(id),
   amazon_url TEXT NOT NULL,
+  amazon_alt_url TEXT,
   ebay_url TEXT NOT NULL,
   asin TEXT,
   title TEXT,
+  custom_label TEXT,
   amazon_price NUMERIC(10, 2),
   ebay_price NUMERIC(10, 2),
   fees NUMERIC(10, 2) NOT NULL DEFAULT 0,
   sold_count INTEGER NOT NULL DEFAULT 0,
   stock_quantity INTEGER,
+  alternate_stock_quantity INTEGER,
+  rating NUMERIC(4, 2),
+  product_watchers INTEGER,
+  sales_last_two_months INTEGER,
   delivery_days INTEGER,
   profit NUMERIC(10, 2) NOT NULL DEFAULT 0,
   roi NUMERIC(8, 2) NOT NULL DEFAULT 0,
@@ -89,6 +102,19 @@ CREATE TABLE IF NOT EXISTS listings (
 
 ALTER TABLE products ADD COLUMN IF NOT EXISTS assigned_lister_id UUID REFERENCES users(id);
 ALTER TABLE products ADD COLUMN IF NOT EXISTS sold_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS min_stock_count INTEGER NOT NULL DEFAULT 8;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS min_alt_stock_count INTEGER NOT NULL DEFAULT 8;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS min_rating NUMERIC(4, 2) NOT NULL DEFAULT 0;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS custom_label_required BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS watchers_required BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS min_watcher_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS min_sales_last_two_months INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS amazon_alt_url TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS custom_label TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS alternate_stock_quantity INTEGER;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS rating NUMERIC(4, 2);
+ALTER TABLE products ADD COLUMN IF NOT EXISTS product_watchers INTEGER;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS sales_last_two_months INTEGER;
 ALTER TABLE listings ALTER COLUMN listing_url DROP NOT NULL;
 ALTER TABLE listings ALTER COLUMN item_id DROP NOT NULL;
 

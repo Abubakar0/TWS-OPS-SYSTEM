@@ -19,13 +19,20 @@ export interface Product {
   listingUrl: string | null;
   itemId: string | null;
   amazonUrl: string;
+  amazonAltUrl: string | null;
   ebayUrl: string;
   asin: string | null;
   title: string | null;
+  customLabel: string | null;
   amazonPrice: number | null;
   ebayPrice: number | null;
   fees: number;
   soldCount: number;
+  amazonStockCount: number | null;
+  alternateAmazonStockCount: number | null;
+  rating: number | null;
+  productWatchers: number | null;
+  salesLastTwoMonths: number | null;
   stockQuantity: number | null;
   deliveryDays: number | null;
   profit: number;
@@ -39,13 +46,20 @@ export interface Product {
 }
 
 export interface ProductCreatePayload {
+  title: string;
+  customLabel?: string | null;
   amazonUrl: string;
+  amazonAltUrl?: string | null;
   ebayUrl: string;
-  title?: string;
   asin?: string;
-  amazonPrice: number;
-  ebayPrice: number;
+  amazonStockCount: number;
+  alternateAmazonStockCount?: number | null;
   soldCount: number;
+  rating: number;
+  productWatchers?: number | null;
+  salesLastTwoMonths: number;
+  amazonPrice: number | null;
+  ebayPrice: number | null;
 }
 
 export interface Account {
@@ -71,6 +85,13 @@ export interface HuntingCriteria {
   minSoldCount: number;
   feePercent: number;
   asinRequired: boolean;
+  minStockCount: number;
+  minAlternateStockCount: number;
+  minRating: number;
+  customLabelRequired: boolean;
+  watchersRequired: boolean;
+  minWatcherCount: number;
+  minSalesLastTwoMonths: number;
   updatedAt?: string | null;
   updatedBy?: string | null;
 }
@@ -81,6 +102,10 @@ export interface ProductFilters {
   hunterId?: string;
   from?: string;
   to?: string;
+  listerName?: string;
+  accountName?: string;
+  listedFrom?: string;
+  listedTo?: string;
 }
 
 export interface BulkListedPayload {

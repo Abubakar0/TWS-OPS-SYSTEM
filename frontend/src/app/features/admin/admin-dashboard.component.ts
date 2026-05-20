@@ -57,6 +57,19 @@ export class AdminDashboardComponent implements OnInit {
     minSoldCount: new FormControl(1, { nonNullable: true, validators: [Validators.required, Validators.min(0)] }),
     feePercent: new FormControl(21, { nonNullable: true, validators: [Validators.required, Validators.min(0)] }),
     asinRequired: new FormControl(true, { nonNullable: true }),
+    minStockCount: new FormControl(8, { nonNullable: true, validators: [Validators.required, Validators.min(0)] }),
+    minAlternateStockCount: new FormControl(8, {
+      nonNullable: true,
+      validators: [Validators.required, Validators.min(0)],
+    }),
+    minRating: new FormControl(0, { nonNullable: true, validators: [Validators.required, Validators.min(0)] }),
+    customLabelRequired: new FormControl(false, { nonNullable: true }),
+    watchersRequired: new FormControl(false, { nonNullable: true }),
+    minWatcherCount: new FormControl(0, { nonNullable: true, validators: [Validators.required, Validators.min(0)] }),
+    minSalesLastTwoMonths: new FormControl(0, {
+      nonNullable: true,
+      validators: [Validators.required, Validators.min(0)],
+    }),
   });
 
   readonly accountForm = new FormGroup({

@@ -1,61 +1,105 @@
 @if (products.length > 0) {
   <div class="table-wrap">
-    <table mat-table [dataSource]="products">
+    <table mat-table [dataSource]="products" class="products-table">
       <ng-container matColumnDef="product">
         <th mat-header-cell *matHeaderCellDef>Product</th>
         <td mat-cell *matCellDef="let product">
-          <strong>{{ product.title || product.asin || 'Untitled product' }}</strong>
-          <span>{{ product.asin || 'No ASIN' }}</span>
+          <div class="cell-stack">
+            <strong>{{ product.title || product.asin || 'Untitled product' }}</strong>
+            <span>{{ product.asin || 'No ASIN' }}</span>
+            @if (product.customLabel) {
+              <small class="label-note">Custom label: {{ product.customLabel }}</small>
+            }
+          </div>
         </td>
       </ng-container>
 
       <ng-container matColumnDef="links">
         <th mat-header-cell *matHeaderCellDef>Links</th>
         <td mat-cell *matCellDef="let product">
-          <a mat-icon-button [href]="product.amazonUrl" target="_blank" rel="noreferrer" aria-label="Open Amazon link">
-            <mat-icon>shopping_cart</mat-icon>
-          </a>
-          <a mat-icon-button [href]="product.ebayUrl" target="_blank" rel="noreferrer" aria-label="Open eBay link">
-            <mat-icon>open_in_new</mat-icon>
-          </a>
+          <div class="link-list">
+            <a
+              class="market-link market-link--amazon"
+              [href]="product.amazonUrl"
+              target="_blank"
+              rel="noreferrer"
+              matTooltip="Open Amazon product"
+            >
+              <img class="market-link__icon" src="/brand-icons/amazon.svg" alt="" />
+              <span>Amazon</span>
+            </a>
+            @if (product.amazonAltUrl) {
+              <a
+                class="market-link market-link--amazon"
+                [href]="product.amazonAltUrl"
+                target="_blank"
+                rel="noreferrer"
+                matTooltip="Open alternate Amazon product"
+              >
+                <img class="market-link__icon" src="/brand-icons/amazon.svg" alt="" />
+                <span>Amazon Alt</span>
+              </a>
+            }
+            <a
+              class="market-link market-link--ebay"
+              [href]="product.ebayUrl"
+              target="_blank"
+              rel="noreferrer"
+              matTooltip="Open eBay product"
+            >
+              <img class="market-link__icon" src="/brand-icons/ebay.svg" alt="" />
+              <span>eBay</span>
+            </a>
+          </div>
         </td>
       </ng-container>
 
       <ng-container matColumnDef="numbers">
         <th mat-header-cell *matHeaderCellDef>Economics</th>
         <td mat-cell *matCellDef="let product">
-          <strong>{{ product.profit | currency: 'USD' }}</strong>
-          <span>{{ product.roi | number: '1.0-2' }}%</span>
-          <small>Fee {{ product.fees | currency: 'USD' }}</small>
+          <div class="cell-stack">
+            <strong>{{ product.profit | currency: 'USD' }}</strong>
+            <span>{{ product.roi | number: '1.0-2' }}% ROI</span>
+            <small>Amazon {{ product.amazonPrice | currency: 'USD' }} | eBay {{ product.ebayPrice | currency: 'USD' }}</small>
+            <small>Fee {{ product.fees | currency: 'USD' }}</small>
+          </div>
         </td>
       </ng-container>
 
       <ng-container matColumnDef="status">
         <th mat-header-cell *matHeaderCellDef>Status</th>
         <td mat-cell *matCellDef="let product">
-          <span class="status" [class]="product.status">{{ product.status }}</span>
-          @if (product.rejectionReason) {
-            <small>{{ product.rejectionReason }}</small>
-          }
+          <div class="cell-stack">
+            <span class="status-pill" [class]="'status-pill status-pill--' + product.status">{{ product.status }}</span>
+            @if (product.rejectionReason) {
+              <div class="reason-note">
+                <span>Rejection reason</span>
+                <strong>{{ product.rejectionReason }}</strong>
+              </div>
+            }
+          </div>
         </td>
-      </ng-container>
-
-      <ng-container matColumnDef="owner">
-        <th mat-header-cell *matHeaderCellDef>Hunter</th>
-        <td mat-cell *matCellDef="let product">{{ product.hunterName }}</td>
       </ng-container>
 
       <ng-container matColumnDef="listing">
         <th mat-header-cell *matHeaderCellDef>Listing</th>
         <td mat-cell *matCellDef="let product">
-          <strong>{{ product.listedByName || product.assignedListerName || '-' }}</strong>
-          <span>{{ product.accountName || 'No account' }}</span>
+          <div class="cell-stack">
+            <strong>{{ product.accountName || 'No account selected' }}</strong>
+            <span>{{ product.listedByName || product.assignedListerName || 'No lister assigned' }}</span>
+            <small>{{ product.listedAt ? (product.listedAt | date: 'MMM d, y, h:mm a') : 'Not listed yet' }}</small>
+          </div>
         </td>
       </ng-container>
 
       <ng-container matColumnDef="created">
-        <th mat-header-cell *matHeaderCellDef>Created</th>
-        <td mat-cell *matCellDef="let product">{{ product.createdAt | date: 'MMM d, h:mm a' }}</td>
+        <th mat-header-cell *matHeaderCellDef>Submitted</th>
+        <td mat-cell *matCellDef="let product">
+          <div class="cell-stack compact">
+            <strong>{{ product.createdAt | date: 'MMM d, y' }}</strong>
+            <span>{{ product.createdAt | date: 'h:mm a' }}</span>
+          </div>
+        </td>
       </ng-container>
 
       <tr mat-header-row *matHeaderRowDef="columns"></tr>

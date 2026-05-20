@@ -17,6 +17,7 @@ export const routes: Routes = [
     children: [
       {
         path: '',
+        pathMatch: 'full',
         canActivate: [dashboardRedirectGuard],
         loadComponent: () =>
           import('./features/hunter/hunter-dashboard.component').then(
@@ -27,10 +28,34 @@ export const routes: Routes = [
         path: 'hunter',
         canActivate: [roleGuard],
         data: { roles: ['hunter', 'admin'] },
-        loadComponent: () =>
-          import('./features/hunter/hunter-dashboard.component').then(
-            (m) => m.HunterDashboardComponent,
-          ),
+        children: [
+          {
+            path: '',
+            pathMatch: 'full',
+            redirectTo: 'dashboard',
+          },
+          {
+            path: 'dashboard',
+            loadComponent: () =>
+              import('./features/hunter/hunter-dashboard.component').then(
+                (m) => m.HunterDashboardComponent,
+              ),
+          },
+          {
+            path: 'submission',
+            loadComponent: () =>
+              import('./features/hunter/hunter-submission.component').then(
+                (m) => m.HunterSubmissionComponent,
+              ),
+          },
+          {
+            path: 'products',
+            loadComponent: () =>
+              import('./features/hunter/hunter-products.component').then(
+                (m) => m.HunterProductsComponent,
+              ),
+          },
+        ],
       },
       {
         path: 'lister',

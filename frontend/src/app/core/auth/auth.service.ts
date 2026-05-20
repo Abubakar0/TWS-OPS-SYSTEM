@@ -45,7 +45,7 @@ export class AuthService {
       return '/lister';
     }
 
-    return '/hunter';
+    return '/hunter/dashboard';
   }
 
   private readStoredUser(): User | null {

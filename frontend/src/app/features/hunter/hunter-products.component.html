@@ -1,0 +1,134 @@
+<section class="page-shell">
+  <header class="page-hero">
+    <div>
+      <span class="kicker">Hunter Workspace</span>
+      <h1>Product List</h1>
+      <p>Review your existing submissions, filter quickly, and keep the full queue visible in one place.</p>
+    </div>
+
+    <div class="page-actions">
+      <a mat-stroked-button routerLink="/hunter/submission">
+        <mat-icon>add_circle</mat-icon>
+        <span>New Submission</span>
+      </a>
+      <button mat-flat-button color="primary" type="button" (click)="exportProducts()" [disabled]="loading() || !products().length">
+        <mat-icon>download</mat-icon>
+        <span>Export Excel</span>
+      </button>
+      <button mat-stroked-button type="button" (click)="loadProducts()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <div class="inline-state inline-state--error">{{ error() }}</div>
+  }
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <span>Total submissions</span>
+      <strong>{{ products().length }}</strong>
+      <small>All products currently in your queue.</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Ready for listing</span>
+      <strong>{{ readyCount() }}</strong>
+      <small>Approved and assigned products.</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Listed</span>
+      <strong>{{ listedCount() }}</strong>
+      <small>Products already completed by listers.</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Rejected</span>
+      <strong>{{ rejectedCount() }}</strong>
+      <small>Submissions that need review before resubmission.</small>
+    </article>
+  </section>
+
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h2>Queue filters</h2>
+        <p>Search updates automatically after a short pause. Use the rest of the filters to narrow the queue when needed.</p>
+      </div>
+      <span class="count-badge">{{ resultLabel() }}</span>
+    </div>
+
+    <form class="filters-form" [formGroup]="filters" (ngSubmit)="applyFilters()">
+      <div class="filters-grid">
+        <mat-form-field appearance="outline" class="filters-grid__search">
+          <mat-label>Search title, ASIN, or link</mat-label>
+          <input matInput formControlName="search" autocomplete="off" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Status</mat-label>
+          <mat-select formControlName="status">
+            <mat-option value="">All</mat-option>
+            <mat-option value="approved">Approved</mat-option>
+            <mat-option value="assigned">Assigned</mat-option>
+            <mat-option value="listed">Listed</mat-option>
+            <mat-option value="rejected">Rejected</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>From date</mat-label>
+          <input matInput type="date" formControlName="from" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>To date</mat-label>
+          <input matInput type="date" formControlName="to" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Lister name</mat-label>
+          <input matInput formControlName="listerName" autocomplete="off" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Account name</mat-label>
+          <input matInput formControlName="accountName" autocomplete="off" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Listed from</mat-label>
+          <input matInput type="datetime-local" formControlName="listedFrom" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Listed to</mat-label>
+          <input matInput type="datetime-local" formControlName="listedTo" />
+        </mat-form-field>
+      </div>
+
+      <div class="filters-actions">
+        <button mat-flat-button color="primary" type="submit" [disabled]="loading()">
+          <mat-icon>filter_list</mat-icon>
+          <span>Apply Filters</span>
+        </button>
+        <button mat-stroked-button type="button" (click)="resetFilters()" [disabled]="loading()">
+          <mat-icon>restart_alt</mat-icon>
+          <span>Reset</span>
+        </button>
+      </div>
+    </form>
+
+    @if (loading()) {
+      <div class="loading-state">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>Loading product list.</span>
+      </div>
+    } @else {
+      <app-products-table [products]="products()" emptyText="No product submissions found." />
+    }
+  </article>
+</section>

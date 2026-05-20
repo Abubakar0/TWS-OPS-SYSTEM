@@ -1,35 +1,56 @@
-<mat-toolbar class="topbar">
-  <div class="brand">
-    <span class="brand-logo">Trend<span>Wave</span><sub>Solutions</sub></span>
-    <span class="brand-product">Ops</span>
+<header class="app-topbar">
+  <div class="topbar-row">
+    <div class="brand-block">
+      <a class="brand-mark" routerLink="/">
+        <span class="brand-name">TrendWave Ops</span>
+        <span class="brand-pill">{{ workspaceLabel() }}</span>
+      </a>
+
+      <nav class="primary-nav" aria-label="Primary navigation">
+        @for (item of primaryNavItems(); track item.route) {
+          <a
+            class="nav-link"
+            [routerLink]="item.route"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{ exact: item.exact }"
+          >
+            {{ item.label }}
+          </a>
+        }
+      </nav>
+    </div>
+
+    <div class="header-actions">
+      <div class="user-block">
+        <strong>{{ user()?.name }}</strong>
+        <span>{{ user()?.email }}</span>
+      </div>
+
+      <button mat-stroked-button type="button" (click)="logout()">
+        <mat-icon>logout</mat-icon>
+        <span>Logout</span>
+      </button>
+    </div>
   </div>
 
-  <span class="spacer"></span>
-
-  <div class="user-block">
-    <span>{{ user()?.name }}</span>
-    <small>{{ user()?.role }}</small>
-  </div>
-
-  <button mat-button type="button" (click)="logout()">
-    <mat-icon>logout</mat-icon>
-    <span>Logout</span>
-  </button>
-</mat-toolbar>
-
-<div class="dashboard-shell">
-  <aside class="sidebar">
-    <nav>
-      @for (item of navItems(); track item.route) {
-        <a mat-button [routerLink]="item.route" routerLinkActive="active-link">
-          <mat-icon>{{ item.icon }}</mat-icon>
-          <span>{{ item.label }}</span>
+  @if (showHunterTabs()) {
+    <nav class="secondary-nav" aria-label="Hunter navigation">
+      @for (item of hunterTabs; track item.route) {
+        <a
+          class="secondary-link"
+          [routerLink]="item.route"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: true }"
+        >
+          {{ item.label }}
         </a>
       }
     </nav>
-  </aside>
+  }
+</header>
 
-  <main class="content">
+<main class="app-content">
+  <div class="content-shell">
     <router-outlet />
-  </main>
-</div>
+  </div>
+</main>

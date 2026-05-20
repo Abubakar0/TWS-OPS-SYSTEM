@@ -1,35 +1,85 @@
-<main class="login-page">
-  <mat-card class="login-card">
-    <mat-card-header>
-      <mat-card-title>Trend<span>Wave</span><sub>Solutions</sub> Ops</mat-card-title>
-      <mat-card-subtitle>Internal ecommerce operations</mat-card-subtitle>
-    </mat-card-header>
+<main class="login-shell">
+  <section class="login-showcase">
+    <div class="showcase-copy">
+      <span class="kicker">TrendWave Operations</span>
+      <h1>Role-based control for hunting, listing, and admin workflows.</h1>
+      <p>
+        Sign in to manage product research, listing queues, user assignments, and approval rules from
+        one internal workspace.
+      </p>
+    </div>
 
-    <mat-card-content>
+    <div class="showcase-grid">
+      <article class="showcase-card">
+        <span>Hunter flow</span>
+        <strong>Submit and track product research</strong>
+        <p>Current validation rules and queue status stay in view while you work.</p>
+      </article>
+
+      <article class="showcase-card">
+        <span>Lister flow</span>
+        <strong>Work assigned products with clean handoff</strong>
+        <p>Listing teams see the right hunter queues without extra navigation noise.</p>
+      </article>
+
+      <article class="showcase-card">
+        <span>Admin flow</span>
+        <strong>Control users, criteria, and reporting</strong>
+        <p>Operational settings stay protected behind role-based access.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="login-panel">
+    <div class="login-card">
+      <div class="login-copy">
+        <span class="kicker">Secure Sign-In</span>
+        <h2>Welcome back</h2>
+        <p>Use your assigned account to enter the operations workspace.</p>
+      </div>
+
+      @if (redirecting()) {
+        <div class="status-banner">
+          <mat-spinner diameter="20"></mat-spinner>
+          <span>Opening your workspace.</span>
+        </div>
+      }
+
       <form [formGroup]="form" (ngSubmit)="submit()">
         <mat-form-field appearance="outline">
           <mat-label>Email</mat-label>
           <input matInput type="email" formControlName="email" autocomplete="email" />
+          @if (fieldError('email')) {
+            <mat-error>{{ fieldError('email') }}</mat-error>
+          }
         </mat-form-field>
 
         <mat-form-field appearance="outline">
           <mat-label>Password</mat-label>
           <input matInput type="password" formControlName="password" autocomplete="current-password" />
+          @if (fieldError('password')) {
+            <mat-error>{{ fieldError('password') }}</mat-error>
+          }
         </mat-form-field>
 
         @if (error()) {
           <div class="error-message">{{ error() }}</div>
         }
 
-        <button mat-flat-button color="primary" type="submit" [disabled]="loading()">
-          @if (loading()) {
+        <button
+          mat-flat-button
+          color="primary"
+          type="submit"
+          [disabled]="form.invalid || loading() || redirecting()"
+        >
+          @if (loading() || redirecting()) {
             <mat-spinner diameter="18"></mat-spinner>
           } @else {
             <mat-icon>login</mat-icon>
           }
-          <span>Sign in</span>
+          <span>{{ redirecting() ? 'Opening Workspace' : 'Sign In' }}</span>
         </button>
       </form>
-    </mat-card-content>
-  </mat-card>
+    </div>
+  </section>
 </main>

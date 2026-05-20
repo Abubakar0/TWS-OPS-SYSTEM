@@ -57,8 +57,22 @@ const run = async () => {
 
   await pool.query(
     `
-      INSERT INTO hunting_criteria (id, min_roi, min_profit, min_sold_count, fee_percent, asin_required)
-      VALUES (1, 30, 0, 1, 21, TRUE)
+      INSERT INTO hunting_criteria (
+        id,
+        min_roi,
+        min_profit,
+        min_sold_count,
+        fee_percent,
+        asin_required,
+        min_stock_count,
+        min_alt_stock_count,
+        min_rating,
+        custom_label_required,
+        watchers_required,
+        min_watcher_count,
+        min_sales_last_two_months
+      )
+      VALUES (1, 30, 0, 1, 21, TRUE, 8, 8, 0, FALSE, FALSE, 0, 0)
       ON CONFLICT (id) DO NOTHING
     `,
   );

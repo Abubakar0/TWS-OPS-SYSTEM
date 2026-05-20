@@ -65,7 +65,7 @@
 
           <mat-checkbox formControlName="isActive">Can log in</mat-checkbox>
 
-          <button mat-flat-button color="primary" type="submit" [disabled]="saving()">
+          <button mat-flat-button color="primary" type="submit" [disabled]="saving() || userForm.invalid">
             <mat-icon>person_add</mat-icon>
             <span>Add User</span>
           </button>
@@ -138,13 +138,40 @@
           </mat-form-field>
 
           <mat-form-field appearance="outline">
+            <mat-label>Minimum Amazon stock</mat-label>
+            <input matInput type="number" formControlName="minStockCount" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Minimum alternate stock</mat-label>
+            <input matInput type="number" formControlName="minAlternateStockCount" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Minimum rating</mat-label>
+            <input matInput type="number" formControlName="minRating" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Minimum watcher count</mat-label>
+            <input matInput type="number" formControlName="minWatcherCount" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Minimum sales in past two months</mat-label>
+            <input matInput type="number" formControlName="minSalesLastTwoMonths" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
             <mat-label>Fee percentage</mat-label>
             <input matInput type="number" formControlName="feePercent" />
           </mat-form-field>
 
           <mat-checkbox formControlName="asinRequired">ASIN is mandatory</mat-checkbox>
+          <mat-checkbox formControlName="customLabelRequired">Custom label is mandatory</mat-checkbox>
+          <mat-checkbox formControlName="watchersRequired">Product watchers are mandatory</mat-checkbox>
 
-          <button mat-flat-button color="primary" type="submit">
+          <button mat-flat-button color="primary" type="submit" [disabled]="criteriaForm.invalid">
             <mat-icon>save</mat-icon>
             <span>Save Criteria</span>
           </button>
@@ -162,7 +189,7 @@
             <mat-label>Marketplace</mat-label>
             <input matInput formControlName="marketplace" />
           </mat-form-field>
-          <button mat-flat-button color="primary" type="submit">
+          <button mat-flat-button color="primary" type="submit" [disabled]="accountForm.invalid">
             <mat-icon>add</mat-icon>
             <span>Add</span>
           </button>

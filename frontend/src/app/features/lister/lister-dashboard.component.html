@@ -83,7 +83,12 @@
           }
         </mat-select>
       </mat-form-field>
-      <button mat-flat-button color="primary" type="submit" [disabled]="saving() || selectedIds().size === 0">
+      <button
+        mat-flat-button
+        color="primary"
+        type="submit"
+        [disabled]="saving() || selectedIds().size === 0 || bulkForm.invalid"
+      >
         <mat-icon>done_all</mat-icon>
         <span>Mark Selected Listed</span>
       </button>

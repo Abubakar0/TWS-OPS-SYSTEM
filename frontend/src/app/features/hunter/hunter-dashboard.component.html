@@ -1,162 +1,111 @@
-<section class="page-header">
-  <div>
-    <span class="eyebrow">Product research</span>
-    <h1>Hunter Dashboard</h1>
-    <p>Submit Amazon and eBay product pairs, preview economics, and track listing progress.</p>
-  </div>
-  <button mat-stroked-button type="button" (click)="loadProducts()" [disabled]="loading()">
-    <mat-icon>refresh</mat-icon>
-    <span>Refresh</span>
-  </button>
-</section>
-
-<section class="summary-grid">
-  <div class="summary-tile">
-    <span>Total</span>
-    <strong>{{ products().length }}</strong>
-  </div>
-  <div class="summary-tile">
-    <span>Ready</span>
-    <strong>{{ approvedCount() }}</strong>
-  </div>
-  <div class="summary-tile">
-    <span>Listed</span>
-    <strong>{{ listedCount() }}</strong>
-  </div>
-  <div class="summary-tile">
-    <span>Rejected</span>
-    <strong>{{ rejectedCount() }}</strong>
-  </div>
-</section>
-
-<section class="workspace-grid">
-  <div class="panel">
-    <h2>Product Submission</h2>
-
-    <form [formGroup]="form" (ngSubmit)="submit()">
-      <mat-form-field appearance="outline" class="span-2">
-        <mat-label>Amazon product link</mat-label>
-        <input matInput formControlName="amazonUrl" />
-      </mat-form-field>
-
-      <mat-form-field appearance="outline" class="span-2">
-        <mat-label>eBay product link</mat-label>
-        <input matInput formControlName="ebayUrl" />
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>Product title</mat-label>
-        <input matInput formControlName="title" />
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>ASIN</mat-label>
-        <input matInput formControlName="asin" />
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>Amazon price</mat-label>
-        <input matInput type="number" formControlName="amazonPrice" />
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>eBay price</mat-label>
-        <input matInput type="number" formControlName="ebayPrice" />
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>Sold count</mat-label>
-        <input matInput type="number" formControlName="soldCount" />
-      </mat-form-field>
-
-      <div class="form-actions span-2">
-        <button mat-flat-button color="primary" type="submit" [disabled]="saving()">
-          @if (saving()) {
-            <mat-spinner diameter="18"></mat-spinner>
-          } @else {
-            <mat-icon>send</mat-icon>
-          }
-          <span>Submit Product</span>
-        </button>
-      </div>
-    </form>
-
-    @if (lastSubmitted()) {
-      <div class="result" [class.rejected]="lastSubmitted()?.status === 'rejected'">
-        <strong>Submitted: {{ lastSubmitted()?.status }}</strong>
-        <span>Profit {{ lastSubmitted()?.profit | currency: 'USD' }} · ROI {{ lastSubmitted()?.roi | number: '1.0-2' }}%</span>
-      </div>
-    }
-
-    @if (error()) {
-      <div class="error-message">{{ error() }}</div>
-    }
-  </div>
-
-  <aside class="panel economics-panel">
-    <h2>Economics Preview</h2>
-    <div class="economics-grid">
-      <div>
-        <span>Fees</span>
-        <strong>{{ economics().fees | currency: 'USD' }}</strong>
-        <small>{{ criteria().feePercent }}% of eBay price</small>
-      </div>
-      <div>
-        <span>Profit</span>
-        <strong>{{ economics().profit | currency: 'USD' }}</strong>
-        <small>eBay - Amazon - fee</small>
-      </div>
-      <div>
-        <span>ROI</span>
-        <strong>{{ economics().roi | number: '1.0-2' }}%</strong>
-        <small>Minimum {{ criteria().minRoi }}%</small>
-      </div>
-      <div>
-        <span>Target profit</span>
-        <strong>{{ economics().targetProfit | currency: 'USD' }}</strong>
-        <small>Amazon price x {{ criteria().minRoi }}%</small>
-      </div>
+<section class="page-shell">
+  <header class="page-hero">
+    <div>
+      <span class="kicker">Hunter Workspace</span>
+      <h1>Dashboard</h1>
+      <p>Track your queue, follow approval outcomes, and move quickly between research and follow-up.</p>
     </div>
-    <div class="criteria-note">
-      Sold count minimum: {{ criteria().minSoldCount }} · ASIN:
-      {{ criteria().asinRequired ? 'required' : 'optional' }}
-    </div>
-  </aside>
-</section>
 
-<section class="panel">
-  <div class="queue-header">
-    <h2>My Product Queue</h2>
-    <form [formGroup]="filters" class="filters" (ngSubmit)="loadProducts()">
-      <mat-form-field appearance="outline">
-        <mat-label>Search</mat-label>
-        <input matInput formControlName="search" />
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>Status</mat-label>
-        <mat-select formControlName="status">
-          <mat-option value="">All</mat-option>
-          <mat-option value="approved">Approved</mat-option>
-          <mat-option value="assigned">Assigned</mat-option>
-          <mat-option value="listed">Listed</mat-option>
-          <mat-option value="rejected">Rejected</mat-option>
-        </mat-select>
-      </mat-form-field>
-
-      <button mat-stroked-button type="submit">
-        <mat-icon>search</mat-icon>
-        <span>Filter</span>
+    <div class="page-actions">
+      <a mat-stroked-button routerLink="/hunter/products">
+        <mat-icon>table_view</mat-icon>
+        <span>Open Product List</span>
+      </a>
+      <a mat-flat-button color="primary" routerLink="/hunter/submission">
+        <mat-icon>add_circle</mat-icon>
+        <span>New Submission</span>
+      </a>
+      <button mat-stroked-button type="button" (click)="loadProducts()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        <span>Refresh</span>
       </button>
-    </form>
-  </div>
-
-  @if (loading()) {
-    <div class="loading-row">
-      <mat-spinner diameter="24"></mat-spinner>
-      <span>Loading products</span>
     </div>
-  } @else {
-    <app-products-table [products]="products()" emptyText="No product submissions found." />
+  </header>
+
+  @if (error()) {
+    <div class="inline-state inline-state--error">{{ error() }}</div>
   }
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <span>Total submissions</span>
+      <strong>{{ products().length }}</strong>
+      <small>All products you have submitted.</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Ready for listing</span>
+      <strong>{{ readyCount() }}</strong>
+      <small>Approved or assigned products.</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Listed</span>
+      <strong>{{ listedCount() }}</strong>
+      <small>Products already completed by the listing team.</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Rejected</span>
+      <strong>{{ rejectedCount() }}</strong>
+      <small>Items that need another pass before resubmission.</small>
+    </article>
+  </section>
+
+  <section class="section-grid">
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Queue snapshot</h2>
+          <p>A quick read on the current state of your hunting pipeline.</p>
+        </div>
+      </div>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Refreshing dashboard data.</span>
+        </div>
+      } @else {
+        <div class="snapshot-grid">
+          <div class="snapshot-row">
+            <span>Approved or assigned</span>
+            <strong>{{ readyCount() }}</strong>
+          </div>
+          <div class="snapshot-row">
+            <span>Listed successfully</span>
+            <strong>{{ listedCount() }}</strong>
+          </div>
+          <div class="snapshot-row">
+            <span>Rejected items</span>
+            <strong>{{ rejectedCount() }}</strong>
+          </div>
+        </div>
+      }
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Workspace flow</h2>
+          <p>Use the hunter tabs at the top to move between dashboard, submission, and product history.</p>
+        </div>
+      </div>
+
+      <div class="flow-list">
+        <div>
+          <strong>Dashboard</strong>
+          <span>Monitor queue health and status totals.</span>
+        </div>
+        <div>
+          <strong>Product Submission</strong>
+          <span>Submit new research with current validation rules in view.</span>
+        </div>
+        <div>
+          <strong>Product List</strong>
+          <span>Review everything you have submitted from one clean grid.</span>
+        </div>
+      </div>
+    </article>
+  </section>
 </section>

@@ -16,14 +16,21 @@ const productSelect = `
   listing.listing_url AS "listingUrl",
   listing.item_id AS "itemId",
   p.amazon_url AS "amazonUrl",
+  p.amazon_alt_url AS "amazonAltUrl",
   p.ebay_url AS "ebayUrl",
   p.asin,
   p.title,
+  p.custom_label AS "customLabel",
   p.amazon_price AS "amazonPrice",
   p.ebay_price AS "ebayPrice",
   p.fees,
   p.sold_count AS "soldCount",
+  p.stock_quantity AS "amazonStockCount",
   p.stock_quantity AS "stockQuantity",
+  p.alternate_stock_quantity AS "alternateAmazonStockCount",
+  p.rating,
+  p.product_watchers AS "productWatchers",
+  p.sales_last_two_months AS "salesLastTwoMonths",
   p.delivery_days AS "deliveryDays",
   p.profit,
   p.roi,
@@ -48,6 +55,13 @@ const productFromRow = (row) => ({
   ...row,
   amazonPrice: row.amazonPrice === null ? null : Number(row.amazonPrice),
   ebayPrice: row.ebayPrice === null ? null : Number(row.ebayPrice),
+  amazonStockCount: row.amazonStockCount === null ? null : Number(row.amazonStockCount),
+  stockQuantity: row.stockQuantity === null ? null : Number(row.stockQuantity),
+  alternateAmazonStockCount:
+    row.alternateAmazonStockCount === null ? null : Number(row.alternateAmazonStockCount),
+  rating: row.rating === null ? null : Number(row.rating),
+  productWatchers: row.productWatchers === null ? null : Number(row.productWatchers),
+  salesLastTwoMonths: row.salesLastTwoMonths === null ? null : Number(row.salesLastTwoMonths),
   fees: Number(row.fees),
   soldCount: Number(row.soldCount || 0),
   profit: Number(row.profit),
@@ -85,14 +99,20 @@ const createProduct = async (user, payload) => {
         hunter_id,
         assigned_lister_id,
         amazon_url,
+        amazon_alt_url,
         ebay_url,
         asin,
         title,
+        custom_label,
         amazon_price,
         ebay_price,
         fees,
         sold_count,
         stock_quantity,
+        alternate_stock_quantity,
+        rating,
+        product_watchers,
+        sales_last_two_months,
         delivery_days,
         profit,
         roi,
@@ -100,21 +120,31 @@ const createProduct = async (user, payload) => {
         rejection_reason,
         validation_notes
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb)
+      VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+        $11, $12, $13, $14, $15, $16, $17, $18,
+        $19, $20, $21, $22, $23::jsonb
+      )
       RETURNING id
     `,
     [
       user.id,
       assignedListerId,
       input.amazonUrl,
+      input.amazonAltUrl || null,
       input.ebayUrl,
       input.asin || null,
       input.title || null,
+      input.customLabel || null,
       input.amazonPrice,
       input.ebayPrice,
       analysis.fees,
       input.soldCount,
-      input.stockQuantity,
+      input.amazonStockCount,
+      input.alternateAmazonStockCount,
+      input.rating,
+      input.productWatchers,
+      input.salesLastTwoMonths,
       input.deliveryDays,
       analysis.profit,
       analysis.roi,
@@ -133,6 +163,11 @@ const buildProductFilters = (user, query = {}) => {
 
   const add = (sql, value) => {
     params.push(value);
+    where.push(sql.replace('?', `$${params.length}`));
+  };
+
+  const addLike = (sql, value) => {
+    params.push(`%${String(value).trim()}%`);
     where.push(sql.replace('?', `$${params.length}`));
   };
 
@@ -158,12 +193,31 @@ const buildProductFilters = (user, query = {}) => {
     const index = params.length;
     where.push(`(
       p.title ILIKE $${index}
+      OR p.custom_label ILIKE $${index}
       OR p.asin ILIKE $${index}
       OR p.amazon_url ILIKE $${index}
+      OR p.amazon_alt_url ILIKE $${index}
       OR p.ebay_url ILIKE $${index}
+      OR listing.listing_url ILIKE $${index}
+      OR p.rejection_reason ILIKE $${index}
       OR hunter.name ILIKE $${index}
+      OR assigned_lister.name ILIKE $${index}
+      OR lister.name ILIKE $${index}
       OR account.name ILIKE $${index}
     )`);
+  }
+
+  if (query.listerName) {
+    params.push(`%${String(query.listerName).trim()}%`);
+    const index = params.length;
+    where.push(`(
+      assigned_lister.name ILIKE $${index}
+      OR lister.name ILIKE $${index}
+    )`);
+  }
+
+  if (query.accountName) {
+    addLike('account.name ILIKE ?', query.accountName);
   }
 
   if (query.from) {
@@ -172,6 +226,14 @@ const buildProductFilters = (user, query = {}) => {
 
   if (query.to) {
     add('p.created_at < (?::date + INTERVAL \'1 day\')', query.to);
+  }
+
+  if (query.listedFrom) {
+    add('p.listed_at >= ?', query.listedFrom);
+  }
+
+  if (query.listedTo) {
+    add('p.listed_at <= ?', query.listedTo);
   }
 
   return {

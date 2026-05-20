@@ -43,8 +43,12 @@ const login = async ({ email, password }) => {
 
   const user = result.rows[0];
 
-  if (!user || !user.is_active) {
+  if (!user) {
     throw new AppError('Invalid email or password.', 401);
+  }
+
+  if (!user.is_active) {
+    throw new AppError('Your account is disabled. Please contact an administrator.', 403);
   }
 
   const isValidPassword = await bcrypt.compare(password, user.password_hash);
