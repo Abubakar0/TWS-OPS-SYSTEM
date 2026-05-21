@@ -9,7 +9,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { debounceTime, distinctUntilChanged } from 'rxjs';
+import { debounceTime, distinctUntilChanged, finalize } from 'rxjs';
 
 import { AuthService } from '../../core/auth/auth.service';
 import { User } from '../../core/models/auth.models';
@@ -44,6 +44,7 @@ export class SuperAdminAdminsComponent implements OnInit {
   readonly loading = signal(false);
   readonly saving = signal(false);
   readonly error = signal('');
+  readonly passwordHidden = signal(true);
   readonly searchControl = new FormControl('', { nonNullable: true });
   readonly searchTerm = signal('');
   readonly destroyRef = inject(DestroyRef);
@@ -110,6 +111,7 @@ export class SuperAdminAdminsComponent implements OnInit {
         ...this.adminForm.getRawValue(),
         role: 'admin',
       })
+      .pipe(finalize(() => this.saving.set(false)))
       .subscribe({
         next: () => {
           this.adminForm.reset({
@@ -118,6 +120,7 @@ export class SuperAdminAdminsComponent implements OnInit {
             password: 'Password123!',
             isActive: true,
           });
+          this.passwordHidden.set(true);
           this.referenceData.refreshUsers();
           this.workspaceSync.notifyUsersChanged();
           this.toast.success('Admin created.');
@@ -125,10 +128,12 @@ export class SuperAdminAdminsComponent implements OnInit {
         },
         error: (error) => {
           this.error.set(error?.error?.message || 'Could not create admin.');
-          this.saving.set(false);
         },
-        complete: () => this.saving.set(false),
       });
+  }
+
+  togglePasswordVisibility(): void {
+    this.passwordHidden.update((value) => !value);
   }
 
   async toggleAdmin(user: User): Promise<void> {

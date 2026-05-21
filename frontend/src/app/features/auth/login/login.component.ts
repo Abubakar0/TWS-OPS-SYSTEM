@@ -27,6 +27,7 @@ export class LoginComponent implements OnInit {
   readonly loading = signal(false);
   readonly redirecting = signal(false);
   readonly error = signal('');
+  readonly passwordHidden = signal(true);
 
   readonly form = new FormGroup({
     email: new FormControl('', {
@@ -87,6 +88,10 @@ export class LoginComponent implements OnInit {
     }
 
     return '';
+  }
+
+  togglePasswordVisibility(): void {
+    this.passwordHidden.update((value) => !value);
   }
 
   async submit(): Promise<void> {

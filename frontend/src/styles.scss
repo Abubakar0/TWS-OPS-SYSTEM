@@ -722,6 +722,7 @@ textarea.mat-mdc-input-element {
   font-size: 0.74rem;
   font-weight: 700;
   text-transform: capitalize;
+  text-align: center;
 }
 
 .status-pill--approved,
@@ -821,7 +822,9 @@ textarea.mat-mdc-input-element {
 
 .data-table tbody tr {
   background: var(--tws-surface);
-  transition: background-color 150ms ease, box-shadow 150ms ease;
+  transition:
+    background-color 150ms ease,
+    box-shadow 150ms ease;
 }
 
 .data-table tbody tr:hover {
@@ -1004,9 +1007,16 @@ textarea.mat-mdc-input-element {
 
 .mat-mdc-snack-bar-container .mdc-snackbar__surface {
   border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 999px !important;
+  border-radius: 18px !important;
   box-shadow: var(--tws-shadow-md) !important;
-  padding-inline: 14px !important;
+  padding-inline: 18px !important;
+}
+
+.mat-mdc-snack-bar-container .mdc-snackbar__label {
+  padding: 14px 4px !important;
+  font-size: 0.96rem !important;
+  font-weight: 700 !important;
+  line-height: 1.45 !important;
 }
 
 .mat-mdc-snack-bar-container.toast-success .mdc-snackbar__surface {

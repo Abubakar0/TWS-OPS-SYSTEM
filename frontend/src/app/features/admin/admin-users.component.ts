@@ -58,6 +58,7 @@ export class AdminUsersComponent implements OnInit {
   readonly pageSize = signal(this.pageSizeOptions[0]);
   readonly userModalOpen = signal(false);
   readonly editingUser = signal<User | null>(null);
+  readonly passwordHidden = signal(true);
 
   readonly searchControl = new FormControl('', { nonNullable: true });
   readonly roleFilterControl = new FormControl<UserRole | 'all'>('all', { nonNullable: true });
@@ -199,6 +200,7 @@ export class AdminUsersComponent implements OnInit {
 
   openCreateModal(): void {
     this.editingUser.set(null);
+    this.passwordHidden.set(true);
     this.userForm.reset({
       name: '',
       email: '',
@@ -213,6 +215,7 @@ export class AdminUsersComponent implements OnInit {
 
   openEditModal(user: User): void {
     this.editingUser.set(user);
+    this.passwordHidden.set(true);
     this.userForm.reset({
       name: user.name,
       email: user.email,
@@ -232,6 +235,7 @@ export class AdminUsersComponent implements OnInit {
 
     this.userModalOpen.set(false);
     this.editingUser.set(null);
+    this.passwordHidden.set(true);
     this.userForm.reset({
       name: '',
       email: '',
@@ -427,5 +431,9 @@ export class AdminUsersComponent implements OnInit {
     }
 
     return '';
+  }
+
+  togglePasswordVisibility(): void {
+    this.passwordHidden.update((value) => !value);
   }
 }

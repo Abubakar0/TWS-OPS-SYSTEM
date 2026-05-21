@@ -15,7 +15,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 14px;
-  align-items: end;
+  align-items: center;
 }
 
 .submission-workspace {
@@ -63,6 +63,7 @@
   border: 1px solid rgba(226, 232, 240, 0.88);
   border-radius: 14px;
   background: rgba(248, 250, 252, 0.86);
+  overflow-wrap: break-word;
 }
 
 .mini-stats strong {

@@ -172,6 +172,19 @@
   min-height: 62px;
 }
 
+.sidebar-user .mdc-button__label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+
+.sidebar-user mat-icon:last-child {
+  margin-left: auto;
+  color: var(--tws-muted);
+}
+
 .sidebar-user__meta {
   display: grid;
   min-width: 0;

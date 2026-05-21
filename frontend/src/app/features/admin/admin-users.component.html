@@ -169,7 +169,16 @@
 
         <mat-form-field appearance="outline">
           <mat-label>{{ isEditing() ? 'New password' : 'Password' }}</mat-label>
-          <input matInput type="password" formControlName="password" autocomplete="new-password" />
+          <input matInput [type]="passwordHidden() ? 'password' : 'text'" formControlName="password" autocomplete="new-password" />
+          <button
+            mat-icon-button
+            matSuffix
+            type="button"
+            (click)="togglePasswordVisibility()"
+            [attr.aria-label]="passwordHidden() ? 'Show password' : 'Hide password'"
+          >
+            <mat-icon>{{ passwordHidden() ? 'visibility' : 'visibility_off' }}</mat-icon>
+          </button>
           <mat-hint>{{ isEditing() ? 'Leave blank to keep the current password.' : 'Minimum 8 characters.' }}</mat-hint>
           @if (fieldError('password')) {
             <mat-error>{{ fieldError('password') }}</mat-error>

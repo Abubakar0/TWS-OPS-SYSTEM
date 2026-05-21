@@ -495,12 +495,16 @@ export class HunterSubmissionComponent implements OnInit {
   });
 
   readonly canSubmit = computed(
-    () =>
-      this.asinVerified() &&
-      !this.asinDuplicate() &&
-      this.form.valid &&
-      !this.saving() &&
-      !this.criteriaLoading(),
+    () => {
+      this.formVersion();
+      return (
+        this.asinVerified() &&
+        !this.asinDuplicate() &&
+        this.form.valid &&
+        !this.saving() &&
+        !this.criteriaLoading()
+      );
+    },
   );
 
   readonly defaultCustomLabel = computed(() => this.auth.currentUser()?.name || 'Trend Wave Hunter');

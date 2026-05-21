@@ -232,6 +232,7 @@ export class ListerProductsComponent implements OnInit {
   private readonly injector = inject(Injector);
   private readonly reloadProducts$ = new Subject<void>();
   private accountsSubscribed = false;
+  private suppressNextWorkspaceProductsRefresh = false;
 
   constructor(
     private readonly productsApi: ProductService,
@@ -296,6 +297,11 @@ export class ListerProductsComponent implements OnInit {
         const version = this.workspaceSync.productsVersion();
 
         if (version > 0 && this.selectedHunterId()) {
+          if (this.suppressNextWorkspaceProductsRefresh) {
+            this.suppressNextWorkspaceProductsRefresh = false;
+            return;
+          }
+
           this.loadProducts();
         }
       },
@@ -558,22 +564,24 @@ export class ListerProductsComponent implements OnInit {
 
     this.saving.set(true);
     this.error.set('');
+    const accountId = this.bulkForm.getRawValue().accountId;
+    const listedItems = [...this.selectedIds()].map((productId) => ({
+      id: productId,
+      listingUrl: this.listingLinkControl(productId).value.trim(),
+    }));
 
     this.productsApi
       .markBulkListed({
-        accountId: this.bulkForm.getRawValue().accountId,
-        items: [...this.selectedIds()].map((productId) => ({
-          id: productId,
-          listingUrl: this.listingLinkControl(productId).value.trim(),
-        })),
+        accountId,
+        items: listedItems,
       })
       .pipe(finalize(() => this.saving.set(false)))
       .subscribe({
         next: () => {
+          this.applyListedUpdates(listedItems, accountId);
           this.selectedIds.set(new Set());
           this.attemptedBulkSubmit.set(false);
-          this.loadProducts();
-          this.loadInitial();
+          this.suppressNextWorkspaceProductsRefresh = true;
           this.workspaceSync.notifyProductsChanged();
           this.toast.success('Products listed.');
         },
@@ -749,5 +757,46 @@ export class ListerProductsComponent implements OnInit {
     }
 
     this.actionFormVersion.update((value) => value + 1);
+  }
+
+  private applyListedUpdates(items: Array<{ id: string; listingUrl: string }>, accountId: string): void {
+    const listedLookup = new Map(items.map((item) => [item.id, item.listingUrl]));
+    const account = this.accounts().find((entry) => entry.id === accountId) || null;
+    const listedAt = new Date().toISOString();
+    const activeFilters = this.buildFilters();
+
+    const updatedProducts = this.products()
+      .map((product) => {
+        if (!listedLookup.has(product.id)) {
+          return product;
+        }
+
+        return {
+          ...product,
+          status: 'listed' as const,
+          listingUrl: listedLookup.get(product.id) || product.listingUrl,
+          accountUsed: accountId,
+          accountName: account?.name || product.accountName,
+          listedAt,
+        };
+      })
+      .filter((product) => !listedLookup.has(product.id) || this.shouldKeepListedProduct(product, activeFilters, accountId));
+
+    this.products.set(updatedProducts);
+    this.pruneSelection(updatedProducts);
+    this.syncCurrentProduct(updatedProducts);
+    this.pageIndex.set(clampPageIndex(updatedProducts.length, this.pageSize(), this.pageIndex()));
+  }
+
+  private shouldKeepListedProduct(product: Product, filters: ProductFilters, accountId: string): boolean {
+    if (filters.status === 'assigned' || filters.status === 'approved' || filters.status === 'rejected') {
+      return false;
+    }
+
+    if (filters.accountId && filters.accountId !== accountId) {
+      return false;
+    }
+
+    return true;
   }
 }
