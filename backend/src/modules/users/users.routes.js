@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.use(authenticate);
 
-router.get('/audit', requireRoles('super_admin'), asyncHandler(usersController.listAuditLogs));
+router.get('/audit', requireRoles('admin', 'super_admin'), asyncHandler(usersController.listAuditLogs));
 router.get(
   '/permissions/matrix',
   requireRoles('super_admin'),

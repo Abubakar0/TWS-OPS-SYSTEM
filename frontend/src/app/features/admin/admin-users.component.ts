@@ -364,6 +364,12 @@ export class AdminUsersComponent implements OnInit {
     this.toast.success('User list exported.');
   }
 
+  resetFilters(): void {
+    this.searchControl.setValue('', { emitEvent: true });
+    this.roleFilterControl.setValue('all');
+    this.statusFilterControl.setValue('all');
+  }
+
   toggleSort(active: GridSortState['active']): void {
     const current = this.sortState();
 

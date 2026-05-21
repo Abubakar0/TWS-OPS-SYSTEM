@@ -1,4 +1,9 @@
 export type ProductStatus = 'approved' | 'rejected' | 'assigned' | 'listed';
+export type ProductQualityLabel =
+  | 'Excellent Hunting'
+  | 'Good Hunting'
+  | 'Average Hunting'
+  | 'Rejected';
 
 export interface ValidationNote {
   rule: string;
@@ -40,6 +45,8 @@ export interface Product {
   status: ProductStatus;
   rejectionReason: string | null;
   validationNotes: ValidationNote[];
+  primaryFailure?: string | null;
+  qualityLabel?: ProductQualityLabel;
   listedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -67,6 +74,30 @@ export interface Account {
   name: string;
   marketplace: string;
   isActive: boolean;
+  totalProductsListed?: number;
+  assignedListers?: Array<{
+    id: string;
+    name: string;
+    email: string;
+    isActive: boolean;
+  }>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ProductDuplicateInfo {
+  id: string;
+  asin: string | null;
+  title: string | null;
+  status: ProductStatus;
+  listedAt: string | null;
+  accountName: string | null;
+}
+
+export interface AsinCheckResult {
+  asin: string;
+  isDuplicate: boolean;
+  product: ProductDuplicateInfo | null;
 }
 
 export interface AssignedHunter {

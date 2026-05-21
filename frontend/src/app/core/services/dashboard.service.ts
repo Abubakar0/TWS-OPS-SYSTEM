@@ -15,13 +15,23 @@ export interface HunterAccountStat {
   listedCount: number;
 }
 
+export interface HunterListerStat {
+  listerId: string;
+  listerName: string;
+  productCount: number;
+}
+
 export interface HunterDashboardStats {
   totalHunted: number;
   approved: number;
   pending: number;
   rejected: number;
   listed: number;
+  excellent: number;
+  good: number;
+  average: number;
   byAccount: HunterAccountStat[];
+  byLister: HunterListerStat[];
 }
 
 export interface ListerHunterStat {

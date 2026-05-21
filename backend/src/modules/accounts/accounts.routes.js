@@ -10,5 +10,10 @@ router.use(authenticate);
 router.get('/', asyncHandler(accountsController.listAccounts));
 router.post('/', requireRoles('admin', 'super_admin'), asyncHandler(accountsController.createAccount));
 router.patch('/:id', requireRoles('admin', 'super_admin'), asyncHandler(accountsController.updateAccount));
+router.put(
+  '/:id/listers',
+  requireRoles('admin', 'super_admin'),
+  asyncHandler(accountsController.assignAccountListers),
+);
 
 module.exports = router;

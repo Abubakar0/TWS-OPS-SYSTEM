@@ -51,19 +51,22 @@ export class AdminAssignmentsComponent implements OnInit {
 
   readonly searchControl = new FormControl('', { nonNullable: true });
   readonly statusFilter = new FormControl<'all' | 'assigned' | 'unassigned'>('all', { nonNullable: true });
+  readonly listerFilter = new FormControl('', { nonNullable: true });
 
   readonly assignedCount = computed(() => this.assignments().filter((assignment) => Boolean(assignment.listerId)).length);
   readonly unassignedCount = computed(() => this.assignments().filter((assignment) => !assignment.listerId).length);
   readonly filteredAssignments = computed(() => {
     const term = this.searchTerm();
     const status = this.statusFilter.value;
+    const listerId = this.listerFilter.value;
     const filtered = this.assignments().filter((assignment) => {
       const matchesStatus =
         status === 'all' ||
         (status === 'assigned' && Boolean(assignment.listerId)) ||
         (status === 'unassigned' && !assignment.listerId);
+      const matchesLister = !listerId ? true : (assignment.listerId || '') === listerId;
 
-      if (!matchesStatus) {
+      if (!matchesStatus || !matchesLister) {
         return false;
       }
 
@@ -126,6 +129,7 @@ export class AdminAssignmentsComponent implements OnInit {
       });
 
     this.statusFilter.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.pageIndex.set(0));
+    this.listerFilter.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.pageIndex.set(0));
   }
 
   ngOnInit(): void {
@@ -190,6 +194,12 @@ export class AdminAssignmentsComponent implements OnInit {
       ],
     });
     this.toast.success('Assignments exported.');
+  }
+
+  resetFilters(): void {
+    this.searchControl.setValue('', { emitEvent: true });
+    this.statusFilter.setValue('all');
+    this.listerFilter.setValue('');
   }
 
   toggleSort(active: GridSortState['active']): void {

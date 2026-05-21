@@ -82,6 +82,14 @@ CREATE TABLE IF NOT EXISTS accounts (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS lister_account_assignments (
+  account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  lister_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (account_id, lister_id)
+);
+
 CREATE TABLE IF NOT EXISTS products (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   hunter_id UUID NOT NULL REFERENCES users(id),
@@ -169,4 +177,5 @@ CREATE INDEX IF NOT EXISTS idx_products_asin
   WHERE asin IS NOT NULL AND asin <> '';
 CREATE INDEX IF NOT EXISTS idx_listings_account_id ON listings(account_id);
 CREATE INDEX IF NOT EXISTS idx_hunter_lister_lister_id ON hunter_lister_assignments(lister_id);
+CREATE INDEX IF NOT EXISTS idx_lister_account_assignments_lister_id ON lister_account_assignments(lister_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);

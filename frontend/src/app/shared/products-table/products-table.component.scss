@@ -40,6 +40,14 @@
   font-size: 0.96rem;
 }
 
+.product-title {
+  display: block;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .cell-stack span,
 .cell-stack small {
   color: var(--tws-muted);
@@ -120,6 +128,20 @@
 .label-note {
   color: var(--tws-accent);
   font-weight: 600;
+}
+
+.listing-link {
+  display: inline-block;
+  max-width: 260px;
+  overflow: hidden;
+  color: var(--tws-primary-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.listing-link:hover {
+  text-decoration: underline;
 }
 
 .reason-note {

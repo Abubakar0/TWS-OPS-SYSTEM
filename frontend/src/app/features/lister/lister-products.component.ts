@@ -10,7 +10,6 @@ import {
   ValidatorFn,
   Validators,
 } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -52,7 +51,6 @@ const ebayUrlValidator: ValidatorFn = (control): ValidationErrors | null => {
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    RouterLink,
     MatButtonModule,
     MatCheckboxModule,
     MatFormFieldModule,
@@ -108,6 +106,7 @@ export class ListerProductsComponent implements OnInit {
   readonly listedCount = computed(() => this.products().filter((product) => product.status === 'listed').length);
   readonly rejectedCount = computed(() => this.products().filter((product) => product.status === 'rejected').length);
   readonly selectedCount = computed(() => this.selectedIds().size);
+  readonly hasAssignedAccounts = computed(() => this.accounts().length > 0);
   readonly sortedProducts = computed(() =>
     sortRecords(this.products(), this.sortState(), (product, key) => {
       switch (key) {
@@ -159,25 +158,58 @@ export class ListerProductsComponent implements OnInit {
   );
   readonly canMarkSelectedListed = computed(() => {
     const selectedIds = [...this.selectedIds()];
+    const accountId = this.bulkForm.controls.accountId.value.trim();
 
-    if (!selectedIds.length || this.bulkForm.invalid || this.saving()) {
+    if (!selectedIds.length || !accountId || this.saving()) {
       return false;
     }
 
     return selectedIds.every((productId) => {
       const control = this.listingLinkControl(productId);
-      return Boolean(control.value.trim() && control.valid);
+      return Boolean(control.value.trim() && !control.hasError('ebayUrl'));
     });
   });
   readonly canMarkCurrentListed = computed(() => {
     const product = this.selectedProduct();
+    const accountId = this.bulkForm.controls.accountId.value.trim();
 
-    if (!product || !this.canMarkListed(product) || this.bulkForm.invalid || this.saving()) {
+    if (!product || !this.canMarkListed(product) || !accountId || this.saving()) {
       return false;
     }
 
     const control = this.listingLinkControl(product.id);
-    return Boolean(control.value.trim() && control.valid);
+    return Boolean(control.value.trim() && !control.hasError('ebayUrl'));
+  });
+  readonly currentListingBlockingMessage = computed(() => {
+    const product = this.selectedProduct();
+
+    if (!product) {
+      return 'Select a product to start listing.';
+    }
+
+    if (!this.hasAssignedAccounts()) {
+      return 'No listing accounts are assigned to you yet.';
+    }
+
+    if (!this.canMarkListed(product)) {
+      return product.status === 'listed' ? 'This product is already listed.' : 'This product cannot be listed from this queue.';
+    }
+
+    if (!this.bulkForm.controls.accountId.value.trim()) {
+      return 'Choose a listing account to continue.';
+    }
+
+    const control = this.listingLinkControl(product.id);
+
+    if (!control.value.trim()) {
+      return 'Enter the listed eBay link to enable Mark as Listed.';
+    }
+
+    if (control.hasError('ebayUrl')) {
+      return 'Enter a valid eBay URL for the listed product.';
+    }
+
+    return '';
   });
 
   private readonly destroyRef = inject(DestroyRef);
@@ -268,7 +300,10 @@ export class ListerProductsComponent implements OnInit {
         .getAccounts()
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe({
-          next: (accounts) => this.accounts.set(accounts),
+          next: (accounts) => {
+            this.accounts.set(accounts);
+            this.syncAccountControls(accounts);
+          },
           error: (error) => this.error.set(error?.error?.message || 'Could not load accounts.'),
         });
     }
@@ -664,5 +699,17 @@ export class ListerProductsComponent implements OnInit {
     }
 
     this.currentProductId.set(products[0]?.id || '');
+  }
+
+  private syncAccountControls(accounts: Account[]): void {
+    const allowedIds = new Set(accounts.map((account) => account.id));
+
+    if (this.filters.controls.accountId.value && !allowedIds.has(this.filters.controls.accountId.value)) {
+      this.filters.controls.accountId.setValue('', { emitEvent: false });
+    }
+
+    if (this.bulkForm.controls.accountId.value && !allowedIds.has(this.bulkForm.controls.accountId.value)) {
+      this.bulkForm.controls.accountId.setValue('', { emitEvent: false });
+    }
   }
 }

@@ -1,6 +1,11 @@
 const { pool } = require('../../db/pool');
 const { AppError } = require('../../middleware/error');
-const { analyzeProduct, normalizeProductPayload, isEbayUrl } = require('../../utils/productAnalysis');
+const {
+  analyzeProduct,
+  normalizeProductPayload,
+  isEbayUrl,
+  getQualityLabel,
+} = require('../../utils/productAnalysis');
 const { getCriteria } = require('../criteria/criteria.service');
 const { writeAuditLog } = require('../users/audit.service');
 
@@ -52,22 +57,44 @@ const productJoins = `
   LEFT JOIN listings listing ON listing.product_id = p.id
 `;
 
-const productFromRow = (row) => ({
-  ...row,
-  amazonPrice: row.amazonPrice === null ? null : Number(row.amazonPrice),
-  ebayPrice: row.ebayPrice === null ? null : Number(row.ebayPrice),
-  amazonStockCount: row.amazonStockCount === null ? null : Number(row.amazonStockCount),
-  stockQuantity: row.stockQuantity === null ? null : Number(row.stockQuantity),
-  alternateAmazonStockCount:
-    row.alternateAmazonStockCount === null ? null : Number(row.alternateAmazonStockCount),
-  rating: row.rating === null ? null : Number(row.rating),
-  productWatchers: row.productWatchers === null ? null : Number(row.productWatchers),
-  salesLastTwoMonths: row.salesLastTwoMonths === null ? null : Number(row.salesLastTwoMonths),
-  fees: Number(row.fees),
-  soldCount: Number(row.soldCount || 0),
-  profit: Number(row.profit),
-  roi: Number(row.roi),
-});
+const productFromRow = (row, criteria = null) => {
+  const normalized = {
+    ...row,
+    amazonPrice: row.amazonPrice === null ? null : Number(row.amazonPrice),
+    ebayPrice: row.ebayPrice === null ? null : Number(row.ebayPrice),
+    amazonStockCount: row.amazonStockCount === null ? null : Number(row.amazonStockCount),
+    stockQuantity: row.stockQuantity === null ? null : Number(row.stockQuantity),
+    alternateAmazonStockCount:
+      row.alternateAmazonStockCount === null ? null : Number(row.alternateAmazonStockCount),
+    rating: row.rating === null ? null : Number(row.rating),
+    productWatchers: row.productWatchers === null ? null : Number(row.productWatchers),
+    salesLastTwoMonths: row.salesLastTwoMonths === null ? null : Number(row.salesLastTwoMonths),
+    fees: Number(row.fees),
+    soldCount: Number(row.soldCount || 0),
+    profit: Number(row.profit),
+    roi: Number(row.roi),
+    validationNotes: Array.isArray(row.validationNotes) ? row.validationNotes : [],
+  };
+
+  if (!criteria) {
+    return normalized;
+  }
+
+  return {
+    ...normalized,
+    qualityLabel: getQualityLabel(
+      {
+        amazonStockCount: normalized.amazonStockCount,
+        salesLastTwoMonths: normalized.salesLastTwoMonths,
+        rating: normalized.rating,
+      },
+      criteria,
+      normalized,
+    ),
+    primaryFailure:
+      normalized.validationNotes.find((note) => !note.passed)?.message || normalized.rejectionReason,
+  };
+};
 
 const findDuplicateAsin = async (asin) => {
   if (!asin) {
@@ -76,6 +103,33 @@ const findDuplicateAsin = async (asin) => {
 
   const result = await pool.query('SELECT id FROM products WHERE asin = $1 LIMIT 1', [asin]);
   return result.rowCount > 0;
+};
+
+const getDuplicateProductByAsin = async (asin) => {
+  if (!asin) {
+    return null;
+  }
+
+  const criteria = await getCriteria();
+  const result = await pool.query(
+    `
+      SELECT ${productSelect}
+      ${productJoins}
+      WHERE p.asin = $1
+      ORDER BY
+        CASE p.status
+          WHEN 'listed' THEN 1
+          WHEN 'assigned' THEN 2
+          WHEN 'approved' THEN 3
+          ELSE 4
+        END,
+        p.created_at DESC
+      LIMIT 1
+    `,
+    [asin],
+  );
+
+  return result.rows[0] ? productFromRow(result.rows[0], criteria) : null;
 };
 
 const getAssignedListerId = async (hunterId) => {
@@ -89,8 +143,22 @@ const getAssignedListerId = async (hunterId) => {
 const createProduct = async (user, payload) => {
   const input = normalizeProductPayload(payload);
   const criteria = await getCriteria();
-  const hasDuplicateAsin = await findDuplicateAsin(input.asin);
-  const analysis = analyzeProduct(input, criteria, { hasDuplicateAsin });
+  const duplicateProduct = await getDuplicateProductByAsin(input.asin);
+
+  if (duplicateProduct) {
+    throw new AppError('ASIN already exists in the system.', 409, {
+      product: {
+        id: duplicateProduct.id,
+        title: duplicateProduct.title,
+        asin: duplicateProduct.asin,
+        status: duplicateProduct.status,
+        listedAt: duplicateProduct.listedAt,
+        accountName: duplicateProduct.accountName,
+      },
+    });
+  }
+
+  const analysis = analyzeProduct(input, criteria, { hasDuplicateAsin: false });
   const assignedListerId = await getAssignedListerId(user.id);
   const status = analysis.status === 'approved' && assignedListerId ? 'assigned' : analysis.status;
 
@@ -150,7 +218,7 @@ const createProduct = async (user, payload) => {
       analysis.profit,
       analysis.roi,
       status,
-      analysis.rejectionReason || null,
+      status === 'rejected' ? analysis.primaryFailure || analysis.rejectionReason || null : null,
       JSON.stringify(analysis.validationNotes),
     ],
   );
@@ -262,6 +330,7 @@ const buildProductFilters = (user, query = {}) => {
 };
 
 const listProducts = async (user, query = {}) => {
+  const criteria = await getCriteria();
   const filters = buildProductFilters(user, query);
   const result = await pool.query(
     `
@@ -274,10 +343,11 @@ const listProducts = async (user, query = {}) => {
     filters.params,
   );
 
-  return result.rows.map(productFromRow);
+  return result.rows.map((row) => productFromRow(row, criteria));
 };
 
 const getProductById = async (user, id) => {
+  const criteria = await getCriteria();
   const result = await pool.query(
     `
       SELECT ${productSelect}
@@ -288,7 +358,7 @@ const getProductById = async (user, id) => {
     [id],
   );
 
-  const product = result.rows[0] && productFromRow(result.rows[0]);
+  const product = result.rows[0] && productFromRow(result.rows[0], criteria);
 
   if (!product) {
     throw new AppError('Product not found.', 404);
@@ -303,6 +373,26 @@ const getProductById = async (user, id) => {
   }
 
   return product;
+};
+
+const checkAsinAvailability = async (asin) => {
+  const normalizedAsin = String(asin || '').trim().toUpperCase();
+
+  if (!normalizedAsin) {
+    throw new AppError('ASIN is required.', 400);
+  }
+
+  if (!/^[A-Z0-9]{10}$/.test(normalizedAsin)) {
+    throw new AppError('Enter a valid 10-character ASIN.', 400);
+  }
+
+  const product = await getDuplicateProductByAsin(normalizedAsin);
+
+  return {
+    asin: normalizedAsin,
+    isDuplicate: Boolean(product),
+    product,
+  };
 };
 
 const listAssignedHunters = async (user) => {
@@ -362,10 +452,27 @@ const markProductsListed = async (user, payload) => {
     }
   }
 
-  const account = await pool.query('SELECT id FROM accounts WHERE id = $1 AND is_active = TRUE', [accountId]);
+  const account = await pool.query(
+    user.role === 'lister'
+      ? `
+          SELECT account.id
+          FROM accounts account
+          JOIN lister_account_assignments assignment ON assignment.account_id = account.id
+          WHERE account.id = $1
+            AND account.is_active = TRUE
+            AND assignment.lister_id = $2
+        `
+      : 'SELECT id FROM accounts WHERE id = $1 AND is_active = TRUE',
+    user.role === 'lister' ? [accountId, user.id] : [accountId],
+  );
 
   if (account.rowCount === 0) {
-    throw new AppError('Active account not found.', 404);
+    throw new AppError(
+      user.role === 'lister'
+        ? 'This listing account is not assigned to you.'
+        : 'Active account not found.',
+      user.role === 'lister' ? 403 : 404,
+    );
   }
 
   const client = await pool.connect();
@@ -497,6 +604,7 @@ module.exports = {
   createProduct,
   listProducts,
   getProductById,
+  checkAsinAvailability,
   listAssignedHunters,
   markProductsListed,
   rejectProduct,

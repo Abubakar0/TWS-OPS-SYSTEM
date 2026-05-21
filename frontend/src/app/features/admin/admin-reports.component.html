@@ -1,23 +1,4 @@
 <section class="page-shell">
-  <header class="page-hero">
-    <div>
-      <span class="kicker">Admin Console</span>
-      <h1>Reports</h1>
-      <p>Operational reporting with export-ready output.</p>
-    </div>
-
-    <div class="page-actions">
-      <button mat-flat-button color="primary" type="button" (click)="exportReport()" [disabled]="loading() || !stats()">
-        <mat-icon>download</mat-icon>
-        <span>Export Excel</span>
-      </button>
-      <button mat-stroked-button type="button" (click)="applyUserFilter()" [disabled]="loading()">
-        <mat-icon>refresh</mat-icon>
-        <span>Refresh</span>
-      </button>
-    </div>
-  </header>
-
   @if (error()) {
     <div class="inline-state inline-state--error">{{ error() }}</div>
   }
@@ -25,8 +6,18 @@
   <article class="surface-card">
     <div class="surface-card__header">
       <div>
-        <h2>Report filters</h2>
-        <p>Range and user filters.</p>
+        <h1>Reports</h1>
+        <p>Analytics and export for the selected range.</p>
+      </div>
+      <div class="page-actions">
+        <button mat-flat-button color="primary" type="button" (click)="exportReport()" [disabled]="loading() || !stats()">
+          <mat-icon>download</mat-icon>
+          <span>Export Excel</span>
+        </button>
+        <button mat-stroked-button type="button" (click)="applyUserFilter()" [disabled]="loading()">
+          <mat-icon>refresh</mat-icon>
+          <span>Refresh</span>
+        </button>
       </div>
     </div>
 
@@ -44,7 +35,7 @@
       }
     </div>
 
-    <form class="report-controls" [formGroup]="filtersForm" (ngSubmit)="applyUserFilter()">
+    <form class="reports-toolbar" [formGroup]="filtersForm" (ngSubmit)="applyUserFilter()">
       <mat-form-field appearance="outline">
         <mat-label>User</mat-label>
         <mat-select formControlName="userId">
@@ -55,26 +46,28 @@
         </mat-select>
       </mat-form-field>
 
-      <button mat-flat-button color="primary" type="submit" [disabled]="loading()">
-        <mat-icon>filter_list</mat-icon>
-        <span>Apply User Filter</span>
-      </button>
+      <div class="grid-toolbar__actions">
+        <button mat-flat-button color="primary" type="submit" [disabled]="loading()">
+          <mat-icon>filter_list</mat-icon>
+          <span>Apply</span>
+        </button>
+      </div>
     </form>
 
     @if (selectedRange() === 'custom') {
       <form class="custom-range-form" [formGroup]="customRangeForm" (ngSubmit)="applyCustomRange()">
         <mat-form-field appearance="outline">
-          <mat-label>From date</mat-label>
+          <mat-label>From</mat-label>
           <input matInput type="date" formControlName="from" />
         </mat-form-field>
 
         <mat-form-field appearance="outline">
-          <mat-label>To date</mat-label>
+          <mat-label>To</mat-label>
           <input matInput type="date" formControlName="to" />
         </mat-form-field>
 
         <button mat-flat-button color="primary" type="submit" [disabled]="loading() || customRangeForm.invalid">
-          <mat-icon>analytics</mat-icon>
+          <mat-icon>calendar_month</mat-icon>
           <span>Apply Range</span>
         </button>
       </form>
@@ -85,41 +78,121 @@
     }
   </article>
 
-  <section class="stats-grid">
+  <section class="stats-grid stats-grid--six">
     <article class="stat-card">
       <span>Hunted</span>
       <strong>{{ stats()?.hunted || 0 }}</strong>
-      <small>Products created in the selected reporting range.</small>
+      <small class="stat-card__trend">Research volume</small>
     </article>
 
     <article class="stat-card">
       <span>Ready</span>
       <strong>{{ stats()?.ready || 0 }}</strong>
-      <small>Approved or assigned products in the reporting view.</small>
+      <small class="stat-card__trend">Approved or assigned</small>
     </article>
 
     <article class="stat-card">
       <span>Listed</span>
       <strong>{{ stats()?.listed || 0 }}</strong>
-      <small>Products that reached listed status in the reporting view.</small>
+      <small class="stat-card__trend">Completed listings</small>
     </article>
 
     <article class="stat-card">
       <span>Rejected</span>
       <strong>{{ stats()?.rejected || 0 }}</strong>
-      <small>Rejected products in the reporting view.</small>
+      <small class="stat-card__trend">Rejected products</small>
     </article>
 
     <article class="stat-card">
       <span>Average ROI</span>
       <strong>{{ stats()?.averageRoi || 0 }}%</strong>
-      <small>Average return across the filtered products.</small>
+      <small class="stat-card__trend">Across current range</small>
     </article>
 
     <article class="stat-card">
       <span>Total profit</span>
-      <strong>{{ (stats()?.totalProfit || 0) | number: '1.0-2' }}</strong>
-      <small>Total profit for the current report selection.</small>
+      <strong>{{ (stats()?.totalProfit || 0) | number: '1.2-2' }}</strong>
+      <small class="stat-card__trend">Filtered profit total</small>
+    </article>
+  </section>
+
+  <section class="section-grid">
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Daily summary</h2>
+          <p>Readable output by date.</p>
+        </div>
+      </div>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading reports.</span>
+        </div>
+      } @else if (stats()?.daily?.length) {
+        <div class="table-wrap">
+          <table class="data-table data-table--compact">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Hunted</th>
+                <th>Listed</th>
+                <th>Rejected</th>
+                <th>Profit</th>
+                <th>ROI</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of stats()?.daily || []; track row.date) {
+                <tr>
+                  <td>{{ row.date | date: 'MMM d, y' }}</td>
+                  <td>{{ row.hunted }}</td>
+                  <td>{{ row.listed }}</td>
+                  <td>{{ row.rejected }}</td>
+                  <td>{{ row.profit | number: '1.2-2' }}</td>
+                  <td>{{ row.roi | number: '1.0-2' }}%</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <div class="empty-state">No daily report rows matched this filter.</div>
+      }
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Products by account</h2>
+          <p>Listing distribution by account.</p>
+        </div>
+      </div>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading account data.</span>
+        </div>
+      } @else if (stats()?.byAccount?.length) {
+        <div class="simple-table">
+          <div class="simple-table__header">
+            <span>Account</span>
+            <span>Listed</span>
+            <span>Share</span>
+          </div>
+          @for (row of stats()?.byAccount || []; track row.id) {
+            <div class="simple-table__row">
+              <strong>{{ row.name }}</strong>
+              <span>{{ row.listed }}</span>
+              <span>{{ stats()?.listed ? ((row.listed / (stats()?.listed || 1)) * 100 | number: '1.0-0') : 0 }}%</span>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="empty-state">No account report rows matched this filter.</div>
+      }
     </article>
   </section>
 
@@ -135,16 +208,20 @@
       @if (loading()) {
         <div class="loading-state">
           <mat-spinner diameter="24"></mat-spinner>
-          <span>Loading reports.</span>
+          <span>Loading hunter rows.</span>
         </div>
       } @else if (stats()?.byHunter?.length) {
-        <div class="breakdown-list">
+        <div class="simple-table">
+          <div class="simple-table__header">
+            <span>Hunter</span>
+            <span>Hunted</span>
+            <span>Listed</span>
+          </div>
           @for (row of stats()?.byHunter || []; track row.id) {
-            <div class="breakdown-row">
-              <div>
-                <strong>{{ row.name }}</strong>
-                <span>Hunted {{ row.hunted }} | Listed {{ row.listed }}</span>
-              </div>
+            <div class="simple-table__row">
+              <strong>{{ row.name }}</strong>
+              <span>{{ row.hunted }}</span>
+              <span>{{ row.listed }}</span>
             </div>
           }
         </div>
@@ -164,16 +241,20 @@
       @if (loading()) {
         <div class="loading-state">
           <mat-spinner diameter="24"></mat-spinner>
-          <span>Loading reports.</span>
+          <span>Loading lister rows.</span>
         </div>
       } @else if (stats()?.byLister?.length) {
-        <div class="breakdown-list">
+        <div class="simple-table">
+          <div class="simple-table__header">
+            <span>Lister</span>
+            <span>Listed</span>
+            <span>Hunters</span>
+          </div>
           @for (row of stats()?.byLister || []; track row.id) {
-            <div class="breakdown-row">
-              <div>
-                <strong>{{ row.name }}</strong>
-                <span>Listed {{ row.listed }} | Assigned hunters {{ row.assignedHunters }}</span>
-              </div>
+            <div class="simple-table__row">
+              <strong>{{ row.name }}</strong>
+              <span>{{ row.listed }}</span>
+              <span>{{ row.assignedHunters }}</span>
             </div>
           }
         </div>
@@ -185,31 +266,25 @@
     <article class="surface-card">
       <div class="surface-card__header">
         <div>
-          <h2>By account</h2>
-          <p>Listings by account.</p>
+          <h2>Current selection</h2>
+          <p>Quick summary of the report scope.</p>
         </div>
       </div>
 
-      @if (loading()) {
-        <div class="loading-state">
-          <mat-spinner diameter="24"></mat-spinner>
-          <span>Loading reports.</span>
+      <div class="soft-card report-summary-card">
+        <div class="report-summary-row">
+          <span>Range</span>
+          <strong>{{ selectedRange() | titlecase }}</strong>
         </div>
-      } @else if (stats()?.byAccount?.length) {
-        <div class="breakdown-list">
-          @for (row of stats()?.byAccount || []; track row.id) {
-            <div class="breakdown-row">
-              <div>
-                <strong>{{ row.name }}</strong>
-                <span>Listed products</span>
-              </div>
-              <strong class="breakdown-row__count">{{ row.listed }}</strong>
-            </div>
-          }
+        <div class="report-summary-row">
+          <span>User filter</span>
+          <strong>{{ filtersForm.controls.userId.value ? 'Single user' : 'All users' }}</strong>
         </div>
-      } @else {
-        <div class="empty-state">No account report rows matched this filter.</div>
-      }
+        <div class="report-summary-row">
+          <span>Rows</span>
+          <strong>{{ stats()?.daily?.length || 0 }}</strong>
+        </div>
+      </div>
     </article>
   </section>
 </section>

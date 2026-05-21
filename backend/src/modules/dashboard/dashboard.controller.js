@@ -1,4 +1,5 @@
 const { pool } = require('../../db/pool');
+const { getCriteria } = require('../criteria/criteria.service');
 
 const addDateFilters = ({ query, where, params, column = 'p.created_at' }) => {
   const add = (sql, value) => {
@@ -147,7 +148,10 @@ const admin = async (req, res) => {
         SELECT
           date_trunc('day', p.created_at)::date AS "date",
           COUNT(*)::int AS "hunted",
-          COUNT(*) FILTER (WHERE p.status = 'listed')::int AS "listed"
+          COUNT(*) FILTER (WHERE p.status = 'listed')::int AS "listed",
+          COUNT(*) FILTER (WHERE p.status = 'rejected')::int AS "rejected",
+          COALESCE(SUM(p.profit), 0)::numeric(10, 2) AS "profit",
+          COALESCE(AVG(NULLIF(p.roi, 0)), 0)::numeric(8, 2) AS "roi"
         FROM products p
         ${whereSql}
         GROUP BY date_trunc('day', p.created_at)::date
@@ -171,12 +175,17 @@ const admin = async (req, res) => {
       byHunter: byHunter.rows,
       byLister: byLister.rows,
       byAccount: byAccount.rows,
-      daily: daily.rows,
+      daily: daily.rows.map((entry) => ({
+        ...entry,
+        profit: Number(entry.profit),
+        roi: Number(entry.roi),
+      })),
     },
   });
 };
 
 const hunter = async (req, res) => {
+  const criteria = await getCriteria();
   const summaryWhere = [];
   const summaryParams = [];
 
@@ -193,18 +202,59 @@ const hunter = async (req, res) => {
   const summaryClause = summaryWhere.length ? `WHERE ${summaryWhere.join(' AND ')}` : '';
   const accountWhere = [...summaryWhere, "p.status = 'listed'"];
   const accountClause = `WHERE ${accountWhere.join(' AND ')}`;
+  const listerWhere = [...summaryWhere, 'p.assigned_lister_id IS NOT NULL'];
+  const listerClause = `WHERE ${listerWhere.join(' AND ')}`;
 
-  const [summary, byAccount] = await Promise.all([
+  const excellentRoi = Math.max(criteria.minRoi + 15, criteria.minRoi * 1.35, 35);
+  const excellentProfit = Math.max(criteria.minProfit + 5, criteria.minProfit * 1.5, 5);
+  const excellentSales = Math.max(
+    criteria.minSalesLastTwoMonths + 12,
+    criteria.minSalesLastTwoMonths * 1.4,
+    12,
+  );
+  const excellentStock = Math.max(criteria.minStockCount + 4, criteria.minStockCount * 1.3, 12);
+  const excellentRating = Math.max(criteria.minRating + 0.5, 4.2);
+  const qualityCase = `
+    CASE
+      WHEN p.status = 'rejected' THEN 'Rejected'
+      WHEN p.roi >= ${excellentRoi}
+        AND p.profit >= ${excellentProfit}
+        AND COALESCE(p.sales_last_two_months, 0) >= ${excellentSales}
+        AND COALESCE(p.stock_quantity, 0) >= ${excellentStock}
+        AND COALESCE(p.rating, 0) >= ${excellentRating}
+      THEN 'Excellent Hunting'
+      WHEN (
+        CASE WHEN p.roi >= ${excellentRoi} THEN 1 ELSE 0 END
+        + CASE WHEN p.profit >= ${excellentProfit} THEN 1 ELSE 0 END
+        + CASE WHEN COALESCE(p.sales_last_two_months, 0) >= ${excellentSales} THEN 1 ELSE 0 END
+        + CASE WHEN COALESCE(p.stock_quantity, 0) >= ${excellentStock} THEN 1 ELSE 0 END
+        + CASE WHEN COALESCE(p.rating, 0) >= ${excellentRating} THEN 1 ELSE 0 END
+      ) >= 2
+      THEN 'Good Hunting'
+      ELSE 'Average Hunting'
+    END
+  `;
+
+  const [summary, byAccount, byLister] = await Promise.all([
     pool.query(
       `
+        WITH scoped AS (
+          SELECT
+            p.*,
+            ${qualityCase} AS quality_label
+          FROM products p
+          ${summaryClause}
+        )
         SELECT
           COUNT(*)::int AS "totalHunted",
-          COUNT(*) FILTER (WHERE p.status = 'approved')::int AS "approved",
-          COUNT(*) FILTER (WHERE p.status = 'assigned')::int AS "pending",
-          COUNT(*) FILTER (WHERE p.status = 'rejected')::int AS "rejected",
-          COUNT(*) FILTER (WHERE p.status = 'listed')::int AS "listed"
-        FROM products p
-        ${summaryClause}
+          COUNT(*) FILTER (WHERE scoped.status = 'approved')::int AS "approved",
+          COUNT(*) FILTER (WHERE scoped.status = 'assigned')::int AS "pending",
+          COUNT(*) FILTER (WHERE scoped.status = 'rejected')::int AS "rejected",
+          COUNT(*) FILTER (WHERE scoped.status = 'listed')::int AS "listed",
+          COUNT(*) FILTER (WHERE scoped.quality_label = 'Excellent Hunting')::int AS "excellent",
+          COUNT(*) FILTER (WHERE scoped.quality_label = 'Good Hunting')::int AS "good",
+          COUNT(*) FILTER (WHERE scoped.quality_label = 'Average Hunting')::int AS "average"
+        FROM scoped
       `,
       summaryParams,
     ),
@@ -222,6 +272,20 @@ const hunter = async (req, res) => {
       `,
       summaryParams,
     ),
+    pool.query(
+      `
+        SELECT
+          assigned_lister.id::text AS "listerId",
+          assigned_lister.name AS "listerName",
+          COUNT(p.id)::int AS "productCount"
+        FROM products p
+        JOIN users assigned_lister ON assigned_lister.id = p.assigned_lister_id
+        ${listerClause}
+        GROUP BY assigned_lister.id, assigned_lister.name
+        ORDER BY "productCount" DESC, assigned_lister.name
+      `,
+      summaryParams,
+    ),
   ]);
 
   const row = summary.rows[0];
@@ -233,7 +297,11 @@ const hunter = async (req, res) => {
       pending: row.pending,
       rejected: row.rejected,
       listed: row.listed,
+      excellent: row.excellent,
+      good: row.good,
+      average: row.average,
       byAccount: byAccount.rows,
+      byLister: byLister.rows,
     },
   });
 };

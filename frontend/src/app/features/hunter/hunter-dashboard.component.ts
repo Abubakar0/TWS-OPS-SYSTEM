@@ -77,7 +77,11 @@ export class HunterDashboardComponent implements OnInit {
   readonly pendingCount = computed(() => this.stats()?.pending ?? 0);
   readonly rejectedCount = computed(() => this.stats()?.rejected ?? 0);
   readonly listedCount = computed(() => this.stats()?.listed ?? 0);
+  readonly excellentCount = computed(() => this.stats()?.excellent ?? 0);
+  readonly goodCount = computed(() => this.stats()?.good ?? 0);
+  readonly averageCount = computed(() => this.stats()?.average ?? 0);
   readonly accountStats = computed(() => this.stats()?.byAccount ?? []);
+  readonly listerStats = computed(() => this.stats()?.byLister ?? []);
 
   private readonly workspaceSync = inject(WorkspaceSyncService);
   private readonly injector = inject(Injector);

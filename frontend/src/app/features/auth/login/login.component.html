@@ -12,29 +12,11 @@
 
         <div class="login-copy">
           <span class="login-copy__eyebrow">E-Commerce Operations Platform</span>
-          <h1>Smarter hunting, better listing, higher profits.</h1>
-          <p>One connected workspace for research, approvals, listings, and reporting.</p>
-        </div>
-
-        <div class="brand-wave-panel" aria-hidden="true">
-          <span class="brand-wave brand-wave--1"></span>
-          <span class="brand-wave brand-wave--2"></span>
-          <span class="brand-wave brand-wave--3"></span>
-          <span class="brand-wave brand-wave--4"></span>
-          <div class="brand-stats">
-            <div>
-              <strong>24K+</strong>
-              <span>Products processed</span>
-            </div>
-            <div>
-              <strong>1.2K+</strong>
-              <span>Active hunters</span>
-            </div>
-            <div>
-              <strong>98%</strong>
-              <span>Success rate</span>
-            </div>
-          </div>
+          <h1><i>Smarter hunting, better listing, higher profits.</i></h1>
+          <p>
+            One focused platform for product research, listing flow, and performance visibility.
+          </p>
+          <span class="login-copy__tagline">Back the hustle. Stack the wins.</span>
         </div>
       </div>
     </aside>
@@ -42,9 +24,7 @@
     <section class="login-form-panel">
       <div class="login-card">
         <div class="login-card__header">
-          <span class="login-card__eyebrow">Sign in</span>
           <h2>Welcome back</h2>
-          <p>Use your admin-created account to open your workspace.</p>
         </div>
 
         @if (redirecting()) {
@@ -58,7 +38,13 @@
           <div class="login-field">
             <label for="email">Email</label>
             <mat-form-field appearance="outline">
-              <input id="email" matInput type="email" formControlName="email" autocomplete="email" />
+              <input
+                id="email"
+                matInput
+                type="email"
+                formControlName="email"
+                autocomplete="email"
+              />
               <mat-icon matSuffix>mail</mat-icon>
               @if (fieldError('email')) {
                 <mat-error>{{ fieldError('email') }}</mat-error>
@@ -69,7 +55,13 @@
           <div class="login-field">
             <label for="password">Password</label>
             <mat-form-field appearance="outline">
-              <input id="password" matInput type="password" formControlName="password" autocomplete="current-password" />
+              <input
+                id="password"
+                matInput
+                type="password"
+                formControlName="password"
+                autocomplete="current-password"
+              />
               <mat-icon matSuffix>lock</mat-icon>
               @if (fieldError('password')) {
                 <mat-error>{{ fieldError('password') }}</mat-error>
@@ -84,6 +76,7 @@
           <button
             mat-flat-button
             color="primary"
+            class="login-submit"
             type="submit"
             [disabled]="form.invalid || loading() || redirecting()"
           >
@@ -92,14 +85,9 @@
             } @else {
               <mat-icon>arrow_forward</mat-icon>
             }
-            <span>{{ redirecting() ? 'Opening Workspace' : 'Open Workspace' }}</span>
+            <span>{{ redirecting() ? 'Opening Workspace' : 'Sign In' }}</span>
           </button>
         </form>
-
-        <div class="login-card__footer">
-          <span>Need help?</span>
-          <strong>Contact your administrator.</strong>
-        </div>
       </div>
     </section>
   </section>

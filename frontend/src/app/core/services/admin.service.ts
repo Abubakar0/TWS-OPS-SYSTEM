@@ -16,7 +16,7 @@ export interface AdminStats {
   byHunter: Array<{ id: string; name: string; hunted: number; listed: number }>;
   byLister: Array<{ id: string; name: string; listed: number; assignedHunters: number }>;
   byAccount: Array<{ id: string; name: string; listed: number }>;
-  daily: Array<{ date: string; hunted: number; listed: number }>;
+  daily: Array<{ date: string; hunted: number; listed: number; rejected: number; profit: number; roi: number }>;
 }
 
 export interface SuperAdminStats {
@@ -44,8 +44,13 @@ export interface AuditLogEntry {
   actorUserId: string | null;
   actorName: string | null;
   actorEmail: string | null;
+  actorRole?: string | null;
   targetName: string | null;
   targetEmail: string | null;
+  targetRole?: string | null;
+  productTitle?: string | null;
+  productAsin?: string | null;
+  accountName?: string | null;
   details?: Record<string, unknown> | null;
 }
 
@@ -130,7 +135,7 @@ export class AdminService {
       .pipe(map((response) => response));
   }
 
-  listAuditLogs(filters: { action?: string; actorUserId?: string; targetType?: string; search?: string; from?: string; to?: string } = {}) {
+  listAuditLogs(filters: { action?: string; actorUserId?: string; actorRole?: string; targetType?: string; search?: string; from?: string; to?: string } = {}) {
     let params = new HttpParams();
 
     Object.entries(filters).forEach(([key, value]) => {
@@ -176,6 +181,12 @@ export class AdminService {
   updateAccount(id: string, payload: Partial<Account>) {
     return this.http
       .patch<{ account: Account }>(`${environment.apiUrl}/accounts/${id}`, payload)
+      .pipe(map((response) => response.account));
+  }
+
+  setAccountListers(id: string, listerIds: string[]) {
+    return this.http
+      .put<{ account: Account }>(`${environment.apiUrl}/accounts/${id}/listers`, { listerIds })
       .pipe(map((response) => response.account));
   }
 

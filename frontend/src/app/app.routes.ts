@@ -128,6 +128,20 @@ export const routes: Routes = [
                 (m) => m.AdminReportsComponent,
               ),
           },
+          {
+            path: 'accounts',
+            loadComponent: () =>
+              import('./features/admin/admin-accounts.component').then(
+                (m) => m.AdminAccountsComponent,
+              ),
+          },
+          {
+            path: 'activity',
+            loadComponent: () =>
+              import('./features/admin/admin-activity.component').then(
+                (m) => m.AdminActivityComponent,
+              ),
+          },
         ],
       },
       {

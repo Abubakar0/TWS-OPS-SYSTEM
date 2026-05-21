@@ -1,79 +1,19 @@
 <section class="page-shell">
-  <header class="page-hero">
-    <div>
-      <span class="kicker">Lister Workspace</span>
-      <h1>Hunter Products</h1>
-      <p>Work through approved queue items with a faster listing panel.</p>
-    </div>
-
-    <div class="page-actions">
-      <a mat-stroked-button routerLink="/lister/dashboard">
-        <mat-icon>space_dashboard</mat-icon>
-        <span>Dashboard</span>
-      </a>
-      <button mat-flat-button color="primary" type="button" (click)="exportProducts()" [disabled]="loading() || !products().length">
-        <mat-icon>download</mat-icon>
-        <span>Export Excel</span>
-      </button>
-      <button mat-stroked-button type="button" (click)="loadProducts()" [disabled]="loading() || !selectedHunterId()">
-        <mat-icon>refresh</mat-icon>
-        <span>Refresh</span>
-      </button>
-    </div>
-  </header>
-
-  <section class="stats-grid stats-grid--five">
-    <article class="stat-card">
-      <div class="stat-card__header">
-        <div class="stat-card__icon"><mat-icon>inventory_2</mat-icon></div>
-      </div>
-      <span>Total products</span>
-      <strong>{{ totalCount() }}</strong>
-      <small class="stat-card__trend">Current queue size</small>
-    </article>
-
-    <article class="stat-card">
-      <div class="stat-card__header">
-        <div class="stat-card__icon stat-card__icon--success"><mat-icon>verified</mat-icon></div>
-      </div>
-      <span>Approved queue</span>
-      <strong>{{ readyCount() }}</strong>
-      <small class="stat-card__trend">Ready for listing</small>
-    </article>
-
-    <article class="stat-card">
-      <div class="stat-card__header">
-        <div class="stat-card__icon"><mat-icon>sell</mat-icon></div>
-      </div>
-      <span>Listed</span>
-      <strong>{{ listedCount() }}</strong>
-      <small class="stat-card__trend">Completed by listers</small>
-    </article>
-
-    <article class="stat-card">
-      <div class="stat-card__header">
-        <div class="stat-card__icon stat-card__icon--danger"><mat-icon>block</mat-icon></div>
-      </div>
-      <span>Rejected</span>
-      <strong>{{ rejectedCount() }}</strong>
-      <small class="stat-card__trend">Returned to hunters</small>
-    </article>
-
-    <article class="stat-card">
-      <div class="stat-card__header">
-        <div class="stat-card__icon stat-card__icon--warning"><mat-icon>groups</mat-icon></div>
-      </div>
-      <span>Hunters</span>
-      <strong>{{ hunters().length }}</strong>
-      <small class="stat-card__trend">Assigned to you</small>
-    </article>
-  </section>
-
   <article class="surface-card">
     <div class="surface-card__header">
       <div>
-        <h2>Queue filters</h2>
-        <p>Search, filter, and export the current queue.</p>
+        <h2>Listing queue</h2>
+        <p>Filter and move through products quickly.</p>
+      </div>
+      <div class="page-actions">
+        <button mat-flat-button color="primary" type="button" (click)="exportProducts()" [disabled]="loading() || !products().length">
+          <mat-icon>download</mat-icon>
+          <span>Export Excel</span>
+        </button>
+        <button mat-stroked-button type="button" (click)="loadProducts()" [disabled]="loading() || !selectedHunterId()">
+          <mat-icon>refresh</mat-icon>
+          <span>Refresh</span>
+        </button>
       </div>
     </div>
 
@@ -90,7 +30,7 @@
 
         <mat-form-field appearance="outline">
           <mat-label>Account</mat-label>
-          <mat-select formControlName="accountId">
+          <mat-select formControlName="accountId" [disabled]="!hasAssignedAccounts()">
             <mat-option value="">All accounts</mat-option>
             @for (account of accounts(); track account.id) {
               <mat-option [value]="account.id">{{ account.name }}</mat-option>
@@ -128,13 +68,17 @@
       <div class="filters-actions">
         <button mat-flat-button color="primary" type="submit" [disabled]="loading() || !selectedHunterId()">
           <mat-icon>filter_list</mat-icon>
-          <span>Filters</span>
+          <span>Apply</span>
         </button>
         <button mat-stroked-button type="button" (click)="resetFilters()" [disabled]="loading()">
           <mat-icon>restart_alt</mat-icon>
           <span>Reset</span>
         </button>
       </div>
+
+      @if (!hasAssignedAccounts()) {
+        <div class="inline-state inline-state--warning">No listing accounts are assigned to this lister yet.</div>
+      }
     </form>
   </article>
 
@@ -304,7 +248,7 @@
             <div class="action-stack">
               <mat-form-field appearance="outline">
                 <mat-label>Listing account</mat-label>
-                <mat-select [formControl]="bulkForm.controls.accountId">
+                <mat-select [formControl]="bulkForm.controls.accountId" [disabled]="!hasAssignedAccounts()">
                   @for (account of accounts(); track account.id) {
                     <mat-option [value]="account.id">{{ account.name }}</mat-option>
                   }
@@ -318,6 +262,10 @@
                   <mat-error>{{ listingLinkError(currentProduct.id) }}</mat-error>
                 }
               </mat-form-field>
+
+              @if (currentListingBlockingMessage()) {
+                <div class="inline-state inline-state--warning">{{ currentListingBlockingMessage() }}</div>
+              }
 
               <button mat-flat-button color="primary" type="button" (click)="markCurrentListed()" [disabled]="!canMarkCurrentListed()">
                 <mat-icon>done</mat-icon>

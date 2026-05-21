@@ -15,6 +15,11 @@ const getProductById = async (req, res) => {
   res.json({ product });
 };
 
+const checkAsinAvailability = async (req, res) => {
+  const result = await productsService.checkAsinAvailability(req.query.asin);
+  res.json(result);
+};
+
 const listAssignedHunters = async (req, res) => {
   const hunters = await productsService.listAssignedHunters(req.user);
   res.json({ hunters });
@@ -34,6 +39,7 @@ module.exports = {
   createProduct,
   listProducts,
   getProductById,
+  checkAsinAvailability,
   listAssignedHunters,
   markProductsListed,
   rejectProduct,

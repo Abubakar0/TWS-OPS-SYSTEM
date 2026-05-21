@@ -35,6 +35,10 @@ const listAuditLogs = async (filters = {}) => {
     add('log.actor_user_id = ?', filters.actorUserId);
   }
 
+  if (filters.actorRole) {
+    add('actor.role = ?', filters.actorRole);
+  }
+
   if (filters.targetType) {
     add('log.target_type = ?', filters.targetType);
   }
@@ -57,6 +61,10 @@ const listAuditLogs = async (filters = {}) => {
       OR COALESCE(target_user.name, '') ILIKE $${index}
       OR COALESCE(target_user.email, '') ILIKE $${index}
       OR COALESCE(log.target_type, '') ILIKE $${index}
+      OR COALESCE(target_product.title, '') ILIKE $${index}
+      OR COALESCE(target_product.asin, '') ILIKE $${index}
+      OR COALESCE(target_account.name, '') ILIKE $${index}
+      OR COALESCE(log.details::text, '') ILIKE $${index}
     )`);
   }
 
@@ -73,13 +81,24 @@ const listAuditLogs = async (filters = {}) => {
         actor.id AS "actorUserId",
         actor.name AS "actorName",
         actor.email AS "actorEmail",
+        actor.role AS "actorRole",
         target_user.name AS "targetName",
-        target_user.email AS "targetEmail"
+        target_user.email AS "targetEmail",
+        target_user.role AS "targetRole",
+        target_product.title AS "productTitle",
+        target_product.asin AS "productAsin",
+        target_account.name AS "accountName"
       FROM audit_logs log
       LEFT JOIN users actor ON actor.id = log.actor_user_id
       LEFT JOIN users target_user
         ON log.target_type = 'user'
         AND target_user.id = log.target_id
+      LEFT JOIN products target_product
+        ON log.target_type = 'product'
+        AND target_product.id = log.target_id
+      LEFT JOIN accounts target_account
+        ON log.target_type = 'account'
+        AND target_account.id = log.target_id
       ${whereSql}
       ORDER BY log.created_at DESC
       LIMIT 250

@@ -2,10 +2,6 @@
   display: block;
 }
 
-.stats-grid--five {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-}
-
 .filters-form {
   display: grid;
   gap: 18px;
@@ -41,7 +37,7 @@
 
 .listing-sidebar {
   position: sticky;
-  top: 122px;
+  top: 16px;
 }
 
 .listing-table {
@@ -235,10 +231,6 @@
 }
 
 @media (max-width: 1180px) {
-  .stats-grid--five {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .listing-layout {
     grid-template-columns: 1fr;
   }
@@ -265,8 +257,7 @@
 
 @media (max-width: 760px) {
   .filters-grid,
-  .detail-metrics,
-  .stats-grid--five {
+  .detail-metrics {
     grid-template-columns: 1fr;
   }
 

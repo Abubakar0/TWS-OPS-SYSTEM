@@ -1,7 +1,7 @@
 const accountsService = require('./accounts.service');
 
 const listAccounts = async (req, res) => {
-  const accounts = await accountsService.listAccounts(req.query);
+  const accounts = await accountsService.listAccounts(req.user, req.query);
   res.json({ accounts });
 };
 
@@ -15,8 +15,18 @@ const updateAccount = async (req, res) => {
   res.json({ account });
 };
 
+const assignAccountListers = async (req, res) => {
+  const account = await accountsService.assignListersToAccount(
+    req.user.id,
+    req.params.id,
+    req.body.listerIds,
+  );
+  res.json({ account });
+};
+
 module.exports = {
   listAccounts,
   createAccount,
   updateAccount,
+  assignAccountListers,
 };

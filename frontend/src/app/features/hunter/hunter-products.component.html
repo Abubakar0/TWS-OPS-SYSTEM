@@ -1,60 +1,21 @@
 <section class="page-shell">
-  <div class="hero-banner">
-    <div>
-      <span class="hero-banner__eyebrow">Hunter workspace</span>
-      <h1 class="hero-banner__title">Submission queue</h1>
-      <p class="hero-banner__subtitle">Review outcomes, listing progress, and rejection reasons in one place.</p>
-    </div>
-
-    <div class="hero-banner__meta">
-      <a mat-stroked-button routerLink="/hunter/submission">
-        <mat-icon>add_circle</mat-icon>
-        <span>New Submission</span>
-      </a>
-      <button mat-flat-button color="primary" type="button" (click)="exportProducts()" [disabled]="loading() || !products().length">
-        <mat-icon>download</mat-icon>
-        <span>Export Excel</span>
-      </button>
-      <button mat-stroked-button type="button" (click)="loadProducts()" [disabled]="loading()">
-        <mat-icon>refresh</mat-icon>
-        <span>Refresh</span>
-      </button>
-    </div>
-  </div>
-
-  <section class="stats-grid">
-    <article class="stat-card">
-      <span>Total submissions</span>
-      <strong>{{ products().length }}</strong>
-      <small>All products currently in your queue.</small>
-    </article>
-
-    <article class="stat-card">
-      <span>Ready for listing</span>
-      <strong>{{ readyCount() }}</strong>
-      <small>Approved and assigned products.</small>
-    </article>
-
-    <article class="stat-card">
-      <span>Listed</span>
-      <strong>{{ listedCount() }}</strong>
-      <small>Products already completed by listers.</small>
-    </article>
-
-    <article class="stat-card">
-      <span>Rejected</span>
-      <strong>{{ rejectedCount() }}</strong>
-      <small>Submissions that need review before resubmission.</small>
-    </article>
-  </section>
-
   <article class="surface-card">
     <div class="surface-card__header">
       <div>
-        <h2>Queue filters</h2>
+        <h2>Product list</h2>
         <p>Search updates while you type.</p>
       </div>
-      <span class="count-badge">{{ resultLabel() }}</span>
+      <div class="page-actions">
+        <span class="count-badge">{{ resultLabel() }}</span>
+        <a mat-stroked-button routerLink="/hunter/submission">
+          <mat-icon>add_circle</mat-icon>
+          <span>New Submission</span>
+        </a>
+        <button mat-flat-button color="primary" type="button" (click)="exportProducts()" [disabled]="loading() || !products().length">
+          <mat-icon>download</mat-icon>
+          <span>Export Excel</span>
+        </button>
+      </div>
     </div>
 
     <form class="filters-form" [formGroup]="filters" (ngSubmit)="applyFilters()">
@@ -94,26 +55,20 @@
           <mat-label>Account name</mat-label>
           <input matInput formControlName="accountName" autocomplete="off" />
         </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Listed from</mat-label>
-          <input matInput type="datetime-local" formControlName="listedFrom" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Listed to</mat-label>
-          <input matInput type="datetime-local" formControlName="listedTo" />
-        </mat-form-field>
       </div>
 
       <div class="filters-actions">
         <button mat-flat-button color="primary" type="submit" [disabled]="loading()">
           <mat-icon>filter_list</mat-icon>
-          <span>Apply Filters</span>
+          <span>Apply</span>
         </button>
         <button mat-stroked-button type="button" (click)="resetFilters()" [disabled]="loading()">
           <mat-icon>restart_alt</mat-icon>
           <span>Reset</span>
+        </button>
+        <button mat-stroked-button type="button" (click)="loadProducts()" [disabled]="loading()">
+          <mat-icon>refresh</mat-icon>
+          <span>Refresh</span>
         </button>
       </div>
     </form>

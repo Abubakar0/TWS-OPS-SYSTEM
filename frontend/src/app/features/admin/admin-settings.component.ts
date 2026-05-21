@@ -2,46 +2,46 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSelectModule } from '@angular/material/select';
 
-import { Account, HuntingCriteria } from '../../core/models/product.models';
+import { HuntingCriteria } from '../../core/models/product.models';
 import { AdminService } from '../../core/services/admin.service';
 import { ReferenceDataService } from '../../core/state/reference-data.service';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
 import { ConfirmService } from '../../core/ui/confirm.service';
 import { ToastService } from '../../core/ui/toast.service';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
+import { ErrorStateComponent } from '../../shared/error-state/error-state.component';
 
 @Component({
   selector: 'app-admin-settings',
   imports: [
     CommonModule,
     ReactiveFormsModule,
+    RouterLink,
     MatButtonModule,
     MatCheckboxModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
     MatProgressSpinnerModule,
-    MatSelectModule,
     EmptyStateComponent,
+    ErrorStateComponent,
   ],
   templateUrl: './admin-settings.component.html',
   styleUrl: './admin-settings.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AdminSettingsComponent implements OnInit {
-  readonly accounts = signal<Account[]>([]);
   readonly loading = signal(false);
   readonly saving = signal(false);
   readonly error = signal('');
-  readonly accountModalOpen = signal(false);
   readonly formVersion = signal(0);
   readonly criteriaSnapshot = signal<string>('');
   private readonly destroyRef = inject(DestroyRef);
@@ -67,15 +67,11 @@ export class AdminSettingsComponent implements OnInit {
     watchersRequired: new FormControl(false, { nonNullable: true }),
   });
 
-  readonly accountForm = new FormGroup({
-    name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-    marketplace: new FormControl('ebay', { nonNullable: true, validators: [Validators.required] }),
-    isActive: new FormControl(true, { nonNullable: true }),
-  });
   readonly hasUnsavedChanges = computed(() => {
     this.formVersion();
     return this.serializeCriteriaForm() !== this.criteriaSnapshot();
   });
+  readonly hasCriteria = computed(() => Boolean(this.criteriaSnapshot()));
 
   constructor(
     private readonly adminApi: AdminService,
@@ -96,22 +92,18 @@ export class AdminSettingsComponent implements OnInit {
     this.loading.set(true);
     this.error.set('');
 
-    this.referenceData.getCriteria().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+    this.adminApi.getCriteria().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (criteria) => {
         this.criteriaForm.patchValue(criteria, { emitEvent: false });
         this.criteriaSnapshot.set(JSON.stringify(criteria));
         this.formVersion.update((value) => value + 1);
+        this.loading.set(false);
       },
       error: (error) => {
         this.error.set(error?.error?.message || 'Could not load settings.');
         this.loading.set(false);
       },
       complete: () => this.loading.set(false),
-    });
-
-    this.referenceData.getAccounts(true).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (accounts) => this.accounts.set(accounts),
-      error: (error) => this.error.set(error?.error?.message || 'Could not load accounts.'),
     });
   }
 
@@ -139,69 +131,6 @@ export class AdminSettingsComponent implements OnInit {
       },
       complete: () => this.saving.set(false),
     });
-  }
-
-  createAccount(): void {
-    if (this.accountForm.invalid || this.saving()) {
-      this.accountForm.markAllAsTouched();
-      return;
-    }
-
-    this.saving.set(true);
-    this.error.set('');
-
-    this.adminApi.createAccount(this.accountForm.getRawValue()).subscribe({
-      next: () => {
-        this.accountForm.reset({ name: '', marketplace: 'ebay', isActive: true });
-        this.referenceData.refreshAccounts();
-        this.workspaceSync.notifySettingsChanged();
-        this.toast.success('Account created.');
-        this.closeAccountModal(true);
-      },
-      error: (error) => {
-        this.error.set(error?.error?.message || 'Could not create account.');
-        this.saving.set(false);
-      },
-      complete: () => this.saving.set(false),
-    });
-  }
-
-  async toggleAccount(account: Account): Promise<void> {
-    if (account.isActive) {
-      const confirmed = await this.confirm.ask({
-        title: 'Disable account?',
-        message: `${account.name} will no longer be available for listing actions.`,
-        confirmText: 'Disable',
-        tone: 'danger',
-      });
-
-      if (!confirmed) {
-        return;
-      }
-    }
-
-    this.adminApi.updateAccount(account.id, { isActive: !account.isActive }).subscribe({
-      next: () => {
-        this.referenceData.refreshAccounts();
-        this.workspaceSync.notifySettingsChanged();
-        this.toast.success(account.isActive ? 'Account disabled.' : 'Account enabled.');
-      },
-      error: (error) => this.error.set(error?.error?.message || 'Could not update account.'),
-    });
-  }
-
-  openAccountModal(): void {
-    this.accountForm.reset({ name: '', marketplace: 'ebay', isActive: true });
-    this.accountModalOpen.set(true);
-  }
-
-  closeAccountModal(force = false): void {
-    if (this.saving() && !force) {
-      return;
-    }
-
-    this.accountModalOpen.set(false);
-    this.accountForm.reset({ name: '', marketplace: 'ebay', isActive: true });
   }
 
   async resetCriteria(): Promise<void> {

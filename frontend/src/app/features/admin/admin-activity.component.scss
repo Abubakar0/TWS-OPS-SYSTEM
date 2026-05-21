@@ -1,0 +1,30 @@
+.activity-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(160px, 190px)) repeat(2, minmax(150px, 170px)) auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+.toolbar-select,
+.date-field {
+  width: 100%;
+}
+
+.activity-details {
+  min-width: 240px;
+  color: var(--tws-muted);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 1180px) {
+  .activity-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .activity-toolbar {
+    grid-template-columns: 1fr;
+  }
+}

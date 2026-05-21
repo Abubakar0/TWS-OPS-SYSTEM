@@ -1,64 +1,31 @@
 <section class="page-shell">
-  <header class="page-hero">
-    <div>
-      <span class="kicker">Admin Console</span>
-      <h1>Users</h1>
-      <p>Manage access, roles, and account status from one compact control surface.</p>
-    </div>
-
-    <div class="page-actions">
-      <button mat-flat-button color="primary" type="button" (click)="openCreateModal()">
-        <mat-icon>person_add</mat-icon>
-        <span>Add User</span>
-      </button>
-      <button mat-stroked-button type="button" (click)="exportUsers()" [disabled]="!filteredUsers().length">
-        <mat-icon>download</mat-icon>
-        <span>Export</span>
-      </button>
-      <button mat-stroked-button type="button" (click)="loadUsers()" [disabled]="loading()">
-        <mat-icon>refresh</mat-icon>
-        <span>Refresh</span>
-      </button>
-    </div>
-  </header>
-
   @if (error()) {
     <app-error-state [message]="error()" actionLabel="Retry" (action)="loadUsers()" />
   }
 
-  <section class="stats-grid">
-    <article class="stat-card">
-      <span>Total users</span>
-      <strong>{{ users().length }}</strong>
-      <small>All workspace accounts.</small>
-    </article>
-    <article class="stat-card">
-      <span>Active</span>
-      <strong>{{ activeCount() }}</strong>
-      <small>Users who can sign in.</small>
-    </article>
-    <article class="stat-card">
-      <span>Disabled</span>
-      <strong>{{ disabledCount() }}</strong>
-      <small>Accounts paused from access.</small>
-    </article>
-    <article class="stat-card">
-      <span>Admins</span>
-      <strong>{{ adminCount() }}</strong>
-      <small>Administrative operators.</small>
-    </article>
-  </section>
-
   <article class="surface-card">
     <div class="surface-card__header">
       <div>
-        <h2>Directory</h2>
-        <p>Search, filter, and act without leaving the page.</p>
+        <h1>Users</h1>
+        <p>{{ filteredUsers().length }} users in view</p>
       </div>
-      <span class="count-badge">{{ filteredUsers().length }} results</span>
+      <div class="page-actions">
+        <button mat-flat-button color="primary" type="button" (click)="openCreateModal()">
+          <mat-icon>person_add</mat-icon>
+          <span>Add User</span>
+        </button>
+        <button mat-stroked-button type="button" (click)="exportUsers()" [disabled]="!filteredUsers().length">
+          <mat-icon>download</mat-icon>
+          <span>Export</span>
+        </button>
+        <button mat-stroked-button type="button" (click)="loadUsers()" [disabled]="loading()">
+          <mat-icon>refresh</mat-icon>
+          <span>Refresh</span>
+        </button>
+      </div>
     </div>
 
-    <div class="grid-toolbar">
+    <div class="users-toolbar">
       <mat-form-field appearance="outline" class="grid-toolbar__search">
         <mat-label>Search users</mat-label>
         <input matInput [formControl]="searchControl" autocomplete="off" />
@@ -85,34 +52,10 @@
       </mat-form-field>
 
       <div class="grid-toolbar__actions">
-        <button
-          mat-stroked-button
-          type="button"
-          class="sort-chip"
-          [class.sort-chip--active]="isSortedBy('name')"
-          (click)="toggleSort('name')"
-        >
-          <mat-icon>{{ sortIcon('name') }}</mat-icon>
-          <span>Name</span>
+        <button mat-stroked-button type="button" (click)="resetFilters()">
+          <mat-icon>restart_alt</mat-icon>
+          <span>Reset</span>
         </button>
-        <button
-          mat-stroked-button
-          type="button"
-          class="sort-chip"
-          [class.sort-chip--active]="isSortedBy('role')"
-          (click)="toggleSort('role')"
-        >
-          <mat-icon>{{ sortIcon('role') }}</mat-icon>
-          <span>Role</span>
-        </button>
-        <mat-form-field appearance="outline" class="page-size-field">
-          <mat-label>Rows</mat-label>
-          <mat-select [value]="pageSize()" (valueChange)="setPageSize($event)">
-            @for (size of pageSizeOptions; track size) {
-              <mat-option [value]="size">{{ size }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
       </div>
     </div>
 

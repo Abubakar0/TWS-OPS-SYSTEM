@@ -11,33 +11,18 @@
         </span>
       </a>
 
-      <button mat-icon-button type="button" class="app-sidebar__close" (click)="closeSidebar()" matTooltip="Close menu">
+      <button
+        mat-icon-button
+        type="button"
+        class="app-sidebar__close"
+        (click)="closeSidebar()"
+        matTooltip="Close menu"
+      >
         <mat-icon>close</mat-icon>
       </button>
     </div>
 
-    @if (workspaceItems().length) {
-      <section class="sidebar-group">
-        <span class="sidebar-group__label">Workspace</span>
-        <div class="workspace-switcher">
-          @for (item of workspaceItems(); track item.route) {
-            <a
-              class="workspace-switcher__item"
-              [routerLink]="item.route"
-              routerLinkActive="is-active"
-              [routerLinkActiveOptions]="{ exact: false }"
-              (click)="closeSidebar()"
-            >
-              <mat-icon>{{ item.icon }}</mat-icon>
-              <span>{{ item.label }}</span>
-            </a>
-          }
-        </div>
-      </section>
-    }
-
-    <section class="sidebar-group">
-      <span class="sidebar-group__label">Navigation</span>
+    <div class="app-sidebar__body">
       <nav class="sidebar-nav" aria-label="Sidebar navigation">
         @for (item of sidebarNavItems(); track item.route) {
           <a
@@ -52,130 +37,35 @@
           </a>
         }
       </nav>
-    </section>
+    </div>
 
     <div class="app-sidebar__footer">
-      <div class="sidebar-help-card">
-        <div class="sidebar-help-card__icon">
-          <mat-icon>support_agent</mat-icon>
-        </div>
-        <div>
-          <strong>{{ supportCard().title }}</strong>
-          <p>{{ supportCard().message }}</p>
-        </div>
-        <a mat-stroked-button [routerLink]="supportCard().route" (click)="closeSidebar()">
-          <span>{{ supportCard().actionLabel }}</span>
-        </a>
-      </div>
+      <button mat-button type="button" class="sidebar-user" [matMenuTriggerFor]="userMenu">
+        <span class="user-avatar">{{ userInitials() }}</span>
+        <span class="sidebar-user__meta">
+          <strong>{{ user()?.name }}</strong>
+          <small>{{ user()?.email }}</small>
+        </span>
+        <mat-icon>expand_more</mat-icon>
+      </button>
     </div>
   </aside>
 
   <div class="app-frame">
-    <header class="app-header">
-      <div class="app-header__left">
-        <button mat-icon-button type="button" class="header-icon mobile-only" (click)="toggleSidebar()" matTooltip="Open menu">
-          <mat-icon>menu</mat-icon>
-        </button>
-
-        <div class="workspace-pill-row">
-          @for (item of workspaceItems(); track item.route) {
-            <a
-              class="workspace-pill"
-              [routerLink]="item.route"
-              routerLinkActive="is-active"
-              [routerLinkActiveOptions]="{ exact: false }"
-            >
-              <mat-icon>{{ item.icon }}</mat-icon>
-              <span>{{ item.label }}</span>
-            </a>
-          }
-        </div>
-      </div>
-
-      <div class="app-header__center">
-        <form class="header-search" (ngSubmit)="submitQuickSearch()">
-          <mat-icon>search</mat-icon>
-          <input
-            type="text"
-            [formControl]="quickSearchControl"
-            placeholder="Search pages"
-            aria-label="Search pages"
-            autocomplete="off"
-          />
-
-          @if (searchMatches().length) {
-            <div class="header-search__results">
-              @for (item of searchMatches(); track item.route) {
-                <button type="button" class="search-result" (click)="openSearchResult(item.route)">
-                  <mat-icon>{{ item.icon }}</mat-icon>
-                  <span>{{ item.label }}</span>
-                </button>
-              }
-            </div>
-          }
-        </form>
-      </div>
-
-      <div class="app-header__right">
-        <button mat-icon-button type="button" class="header-icon" [matMenuTriggerFor]="notificationsMenu" matBadge="2" matBadgeSize="small" matBadgeColor="primary">
-          <mat-icon>notifications</mat-icon>
-        </button>
-
-        <button mat-button type="button" class="user-trigger" [matMenuTriggerFor]="userMenu">
-          <span class="user-avatar">{{ userInitials() }}</span>
-          <span class="user-trigger__meta">
-            <strong>{{ user()?.name }}</strong>
-            <small>{{ currentSectionLabel() }}</small>
-          </span>
-          <mat-icon>expand_more</mat-icon>
-        </button>
-      </div>
-    </header>
-
-    @if (headerNavItems().length) {
-      <nav class="workspace-tabs" aria-label="Workspace tabs">
-        @for (item of headerNavItems(); track item.route) {
-          <a
-            class="workspace-tabs__item"
-            [routerLink]="item.route"
-            routerLinkActive="is-active"
-            [routerLinkActiveOptions]="{ exact: item.exact }"
-          >
-            <mat-icon>{{ item.icon }}</mat-icon>
-            <span>{{ item.label }}</span>
-          </a>
-        }
-      </nav>
-    }
-
+    <button
+      mat-icon-button
+      type="button"
+      class="app-mobile-toggle mobile-only"
+      (click)="toggleSidebar()"
+      matTooltip="Open menu"
+    >
+      <mat-icon>menu</mat-icon>
+    </button>
     <main class="app-main">
       <router-outlet />
     </main>
   </div>
 </div>
-
-<mat-menu #notificationsMenu="matMenu" xPosition="before" class="tw-menu">
-  <div class="menu-panel menu-panel--notifications">
-    <div class="menu-panel__header">
-      <strong>Notifications</strong>
-      <span>Workspace updates</span>
-    </div>
-    <div class="menu-item">
-      <mat-icon>bolt</mat-icon>
-      <div>
-        <strong>Quick links are ready</strong>
-        <span>Search any workspace page from the header.</span>
-      </div>
-    </div>
-    <div class="menu-item">
-      <mat-icon>inventory_2</mat-icon>
-      <div>
-        <strong>Export updates applied</strong>
-        <span>Excel downloads now use real .xlsx files.</span>
-      </div>
-    </div>
-  </div>
-</mat-menu>
 
 <mat-menu #userMenu="matMenu" xPosition="before" class="tw-menu">
   <div class="menu-panel">
@@ -183,13 +73,13 @@
       <strong>{{ user()?.name }}</strong>
       <span>{{ user()?.email }}</span>
     </div>
-
-    @for (item of workspaceItems(); track item.route) {
-      <button mat-menu-item [routerLink]="item.route">
-        <mat-icon>{{ item.icon }}</mat-icon>
-        <span>{{ item.label }}</span>
-      </button>
-    }
+    <div class="menu-item menu-item--compact">
+      <mat-icon>badge</mat-icon>
+      <div>
+        <strong>{{ roleLabel() }}</strong>
+        <span>Assigned role</span>
+      </div>
+    </div>
 
     <button mat-menu-item type="button" (click)="logout()">
       <mat-icon>logout</mat-icon>

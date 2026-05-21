@@ -5,7 +5,9 @@
         <th mat-header-cell *matHeaderCellDef mat-sort-header>Product</th>
         <td mat-cell *matCellDef="let product">
           <div class="cell-stack">
-            <strong>{{ product.title || product.asin || 'Untitled product' }}</strong>
+            <strong class="product-title" [matTooltip]="product.title || product.asin || 'Untitled product'">
+              {{ product.title || product.asin || 'Untitled product' }}
+            </strong>
             <span>{{ product.asin || 'No ASIN' }}</span>
             @if (product.customLabel) {
               <small class="label-note">Custom label: {{ product.customLabel }}</small>
@@ -71,6 +73,9 @@
         <td mat-cell *matCellDef="let product">
           <div class="cell-stack">
             <span class="status-pill" [class]="'status-pill status-pill--' + product.status">{{ product.status }}</span>
+            @if (product.qualityLabel) {
+              <span class="status-badge status-badge--neutral">{{ product.qualityLabel }}</span>
+            }
             @if (product.rejectionReason) {
               <div class="reason-note">
                 <span>Rejection reason</span>
@@ -85,9 +90,18 @@
         <th mat-header-cell *matHeaderCellDef mat-sort-header>Listing</th>
         <td mat-cell *matCellDef="let product">
           <div class="cell-stack">
-            <strong>{{ product.accountName || 'No account selected' }}</strong>
-            <span>{{ product.listedByName || product.assignedListerName || 'No lister assigned' }}</span>
-            <small>{{ product.listedAt ? (product.listedAt | date: 'MMM d, y, h:mm a') : 'Not listed yet' }}</small>
+            <strong>{{ product.accountName || '—' }}</strong>
+            <span>{{ product.listedByName || product.assignedListerName || '—' }}</span>
+            @if (product.listedAt) {
+              <small>{{ product.listedAt | date: 'MMM d, y, h:mm a' }}</small>
+            } @else {
+              <small>Not listed yet</small>
+            }
+            @if (product.listingUrl) {
+              <a class="listing-link" [href]="product.listingUrl" target="_blank" rel="noreferrer">
+                {{ product.listingUrl }}
+              </a>
+            }
           </div>
         </td>
       </ng-container>

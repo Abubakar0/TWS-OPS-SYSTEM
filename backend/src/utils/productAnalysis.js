@@ -35,6 +35,63 @@ const isAmazonUrl = (value) =>
 
 const isEbayUrl = (value) => hostnameMatches(value, (hostname) => hostname.includes('ebay.'));
 
+const calculateEconomics = (input, criteria) => {
+  const hasPrices = input.amazonPrice !== null && input.ebayPrice !== null;
+
+  if (!hasPrices) {
+    return {
+      hasPrices: false,
+      fees: 0,
+      profit: 0,
+      roi: 0,
+    };
+  }
+
+  const fees = Number(((input.ebayPrice * criteria.feePercent) / 100).toFixed(2));
+  const profit = Number((input.ebayPrice - input.amazonPrice - fees).toFixed(2));
+  const roi =
+    input.amazonPrice > 0 ? Number(((profit / input.amazonPrice) * 100).toFixed(2)) : 0;
+
+  return {
+    hasPrices,
+    fees,
+    profit,
+    roi,
+  };
+};
+
+const getQualityLabel = (input, criteria, analysis) => {
+  if (!analysis || analysis.status === 'rejected') {
+    return 'Rejected';
+  }
+
+  let strongSignals = 0;
+  const strongChecks = [
+    analysis.roi >= Math.max(criteria.minRoi + 15, criteria.minRoi * 1.35, 35),
+    analysis.profit >= Math.max(criteria.minProfit + 5, criteria.minProfit * 1.5, 5),
+    (input.salesLastTwoMonths || 0) >=
+      Math.max(criteria.minSalesLastTwoMonths + 12, criteria.minSalesLastTwoMonths * 1.4, 12),
+    (input.amazonStockCount || 0) >=
+      Math.max(criteria.minStockCount + 4, criteria.minStockCount * 1.3, 12),
+    (input.rating || 0) >= Math.max(criteria.minRating + 0.5, 4.2),
+  ];
+
+  strongSignals = strongChecks.filter(Boolean).length;
+
+  if (strongSignals >= 4) {
+    return 'Excellent Hunting';
+  }
+
+  if (strongSignals >= 2) {
+    return 'Good Hunting';
+  }
+
+  return 'Average Hunting';
+};
+
+const getPrimaryValidationFailure = (notes = []) =>
+  notes.find((note) => !note.passed)?.message || 'This product did not pass the current rules.';
+
 const extractAsin = (amazonUrl) => {
   if (!amazonUrl) {
     return '';
@@ -86,13 +143,7 @@ const analyzeProduct = (input, criteria, options = {}) => {
   const amazonAltUrlValid =
     !input.amazonAltUrl || (isHttpUrl(input.amazonAltUrl) && isAmazonUrl(input.amazonAltUrl));
   const ebayUrlValid = isHttpUrl(input.ebayUrl) && isEbayUrl(input.ebayUrl);
-  const hasPrices = input.amazonPrice !== null && input.ebayPrice !== null;
-  const fees = hasPrices ? Number(((input.ebayPrice * criteria.feePercent) / 100).toFixed(2)) : 0;
-  const profit = hasPrices ? Number((input.ebayPrice - input.amazonPrice - fees).toFixed(2)) : 0;
-  const roi =
-    hasPrices && input.amazonPrice > 0
-      ? Number(((profit / input.amazonPrice) * 100).toFixed(2))
-      : 0;
+  const { hasPrices, fees, profit, roi } = calculateEconomics(input, criteria);
 
   addNote('title', Boolean(input.title), 'Product title is required.');
   addNote('amazon_url', amazonUrlValid, 'Amazon product link must be a valid Amazon URL.');
@@ -152,13 +203,19 @@ const analyzeProduct = (input, criteria, options = {}) => {
   addNote('roi', roi >= criteria.minRoi, `ROI must be at least ${criteria.minRoi}%.`);
 
   const failures = notes.filter((note) => !note.passed);
+  const status = failures.length === 0 ? 'approved' : 'rejected';
+  const rejectionReason =
+    status === 'rejected' ? failures.map((failure) => failure.message).join(' ') : null;
+  const qualityLabel = getQualityLabel(input, criteria, { status, profit, roi });
 
   return {
     fees,
     profit,
     roi,
-    status: failures.length === 0 ? 'approved' : 'rejected',
-    rejectionReason: failures.map((failure) => failure.message).join(' '),
+    status,
+    rejectionReason,
+    primaryFailure: getPrimaryValidationFailure(notes),
+    qualityLabel,
     validationNotes: notes,
   };
 };
@@ -168,4 +225,7 @@ module.exports = {
   normalizeProductPayload,
   analyzeProduct,
   isEbayUrl,
+  calculateEconomics,
+  getQualityLabel,
+  getPrimaryValidationFailure,
 };

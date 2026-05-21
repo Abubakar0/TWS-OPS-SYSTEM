@@ -1,0 +1,207 @@
+<section class="page-shell">
+  @if (pageError()) {
+    <app-error-state [message]="error()" actionLabel="Retry" (action)="loadAccounts()" />
+  }
+
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h1>Accounts</h1>
+        <p>Manage listing accounts and decide which listers can use them.</p>
+      </div>
+      <div class="page-actions">
+        <button mat-flat-button color="primary" type="button" (click)="openAccountModal()">
+          <mat-icon>add</mat-icon>
+          <span>Add Account</span>
+        </button>
+        <button mat-stroked-button type="button" (click)="loadAccounts()" [disabled]="loading()">
+          <mat-icon>refresh</mat-icon>
+          <span>Refresh</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="grid-toolbar">
+      <mat-form-field appearance="outline" class="grid-toolbar__search">
+        <mat-label>Search account name</mat-label>
+        <input matInput [formControl]="searchControl" autocomplete="off" />
+        <mat-icon matSuffix>search</mat-icon>
+      </mat-form-field>
+
+      <div class="grid-toolbar__actions">
+        <mat-form-field appearance="outline" class="page-size-field">
+          <mat-label>Marketplace</mat-label>
+          <mat-select [formControl]="marketplaceControl">
+            <mat-option value="all">All</mat-option>
+            <mat-option value="ebay">eBay</mat-option>
+            <mat-option value="amazon">Amazon</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="page-size-field">
+          <mat-label>Status</mat-label>
+          <mat-select [formControl]="statusControl">
+            <mat-option value="all">All</mat-option>
+            <mat-option value="active">Active</mat-option>
+            <mat-option value="disabled">Disabled</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <button mat-stroked-button type="button" (click)="resetFilters()">
+          <mat-icon>restart_alt</mat-icon>
+          <span>Reset</span>
+        </button>
+      </div>
+    </div>
+
+    @if (loading()) {
+      <div class="loading-state">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>Loading accounts.</span>
+      </div>
+    } @else if (!filteredAccounts().length) {
+      <app-empty-state
+        title="No accounts found"
+        message="Try a different search or filter combination."
+        icon="storefront"
+      />
+    } @else {
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Account</th>
+              <th>Marketplace</th>
+              <th>Assigned Listers</th>
+              <th>Status</th>
+              <th>Total Listed</th>
+              <th>Created</th>
+              <th class="actions-col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (account of filteredAccounts(); track account.id) {
+              <tr>
+                <td>
+                  <div class="table-primary">
+                    <strong>{{ account.name }}</strong>
+                    <span>Listing account</span>
+                  </div>
+                </td>
+                <td>{{ account.marketplace | titlecase }}</td>
+                <td>
+                  @if (account.assignedListers?.length) {
+                    <div class="lister-chip-row">
+                      @for (lister of account.assignedListers || []; track lister.id) {
+                        <span class="status-badge status-badge--neutral">{{ lister.name }}</span>
+                      }
+                    </div>
+                  } @else {
+                    <span class="table-muted">No listers assigned</span>
+                  }
+                </td>
+                <td>
+                  <span class="status-badge" [class.status-badge--success]="account.isActive" [class.status-badge--danger]="!account.isActive">
+                    {{ account.isActive ? 'Active' : 'Disabled' }}
+                  </span>
+                </td>
+                <td>{{ account.totalProductsListed || 0 }}</td>
+                <td>{{ account.createdAt ? (account.createdAt | date: 'MMM d, y') : '—' }}</td>
+                <td class="actions-col">
+                  <div class="table-actions">
+                    <button mat-icon-button type="button" (click)="openListerModal(account)" matTooltip="Assign listers">
+                      <mat-icon>group_add</mat-icon>
+                    </button>
+                    <button mat-icon-button type="button" (click)="toggleAccount(account)" matTooltip="{{ account.isActive ? 'Disable account' : 'Enable account' }}">
+                      <mat-icon>{{ account.isActive ? 'block' : 'check_circle' }}</mat-icon>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </article>
+</section>
+
+@if (accountModalOpen()) {
+  <div class="app-modal-backdrop" (click)="closeAccountModal()">
+    <section class="app-modal" (click)="$event.stopPropagation()">
+      <div class="app-modal__header">
+        <div>
+          <h2>Add account</h2>
+          <p>Create a listing account for the lister workflow.</p>
+        </div>
+        <button mat-icon-button type="button" (click)="closeAccountModal()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <form class="form-grid" [formGroup]="accountForm" (ngSubmit)="createAccount()">
+        <mat-form-field appearance="outline">
+          <mat-label>Account name</mat-label>
+          <input matInput formControlName="name" autocomplete="off" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Marketplace</mat-label>
+          <mat-select formControlName="marketplace">
+            <mat-option value="ebay">eBay</mat-option>
+            <mat-option value="amazon">Amazon</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <label class="toggle-row field-span-2">
+          <mat-checkbox formControlName="isActive">Enable immediately</mat-checkbox>
+        </label>
+
+        <div class="field-span-2 app-modal__footer">
+          <button mat-stroked-button type="button" (click)="closeAccountModal()">Cancel</button>
+          <button mat-flat-button color="primary" type="submit" [disabled]="accountForm.invalid || saving()">
+            <mat-icon>add</mat-icon>
+            <span>{{ saving() ? 'Saving' : 'Create Account' }}</span>
+          </button>
+        </div>
+      </form>
+    </section>
+  </div>
+}
+
+@if (listerModalOpen()) {
+  <div class="app-modal-backdrop" (click)="closeListerModal()">
+    <section class="app-modal assignment-modal" (click)="$event.stopPropagation()">
+      <div class="app-modal__header">
+        <div>
+          <h2>Assign listers</h2>
+          <p>{{ activeAccount()?.name }} will only be available to the selected listers.</p>
+        </div>
+        <button mat-icon-button type="button" (click)="closeListerModal()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <div class="assignment-list">
+        @for (lister of listers(); track lister.id) {
+          <label class="assignment-list__item">
+            <mat-checkbox [checked]="isListerSelected(lister.id)" (change)="toggleListerSelection(lister.id, $event.checked)">
+              {{ lister.name }}
+            </mat-checkbox>
+            <small>{{ lister.email }}</small>
+          </label>
+        } @empty {
+          <div class="empty-state">No listers are available yet.</div>
+        }
+      </div>
+
+      <div class="app-modal__footer">
+        <button mat-stroked-button type="button" (click)="closeListerModal()">Cancel</button>
+        <button mat-flat-button color="primary" type="button" (click)="saveListerAssignments()" [disabled]="saving()">
+          <mat-icon>save</mat-icon>
+          <span>{{ saving() ? 'Saving' : 'Save Assignments' }}</span>
+        </button>
+      </div>
+    </section>
+  </div>
+}

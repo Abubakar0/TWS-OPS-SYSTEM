@@ -1,27 +1,4 @@
 <section class="page-shell">
-  <div class="hero-banner">
-    <div>
-      <span class="hero-banner__eyebrow">Hunter workspace</span>
-      <h1 class="hero-banner__title">Your hunting performance</h1>
-      <p class="hero-banner__subtitle">Track approvals, listings, and account output across your submission window.</p>
-    </div>
-
-    <div class="hero-banner__meta">
-      <a mat-stroked-button routerLink="/hunter/products">
-        <mat-icon>table_view</mat-icon>
-        <span>Open Product List</span>
-      </a>
-      <a mat-flat-button color="primary" routerLink="/hunter/submission">
-        <mat-icon>add_circle</mat-icon>
-        <span>New Submission</span>
-      </a>
-      <button mat-stroked-button type="button" (click)="refresh()" [disabled]="loading()">
-        <mat-icon>refresh</mat-icon>
-        <span>Refresh</span>
-      </button>
-    </div>
-  </div>
-
   @if (error()) {
     <div class="inline-state inline-state--error">{{ error() }}</div>
   }
@@ -29,8 +6,18 @@
   <article class="surface-card">
     <div class="surface-card__header">
       <div>
-        <h2>Dashboard filters</h2>
+        <h2>Hunter dashboard</h2>
         <p>Stats by submission date.</p>
+      </div>
+      <div class="page-actions">
+        <a mat-stroked-button routerLink="/hunter/products">
+          <mat-icon>table_view</mat-icon>
+          <span>Product List</span>
+        </a>
+        <a mat-flat-button color="primary" routerLink="/hunter/submission">
+          <mat-icon>add_circle</mat-icon>
+          <span>New Submission</span>
+        </a>
       </div>
     </div>
 
@@ -72,7 +59,7 @@
     }
   </article>
 
-  <section class="stats-grid stats-grid--five">
+  <section class="stats-grid stats-grid--four">
     <article class="stat-card">
       <div class="stat-card__header">
         <div class="stat-card__icon"><mat-icon>inventory_2</mat-icon></div>
@@ -119,7 +106,76 @@
     </article>
   </section>
 
-  <article class="surface-card">
+  <section class="stats-grid stats-grid--four">
+    <article class="stat-card">
+      <div class="stat-card__header">
+        <div class="stat-card__icon stat-card__icon--success"><mat-icon>workspace_premium</mat-icon></div>
+      </div>
+      <span>Excellent hunted</span>
+      <strong>{{ excellentCount() }}</strong>
+      <small>Well above the current approval baseline.</small>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-card__header">
+        <div class="stat-card__icon"><mat-icon>thumb_up</mat-icon></div>
+      </div>
+      <span>Good hunted</span>
+      <strong>{{ goodCount() }}</strong>
+      <small>Solid submissions with healthy margins.</small>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-card__header">
+        <div class="stat-card__icon stat-card__icon--warning"><mat-icon>balance</mat-icon></div>
+      </div>
+      <span>Average hunted</span>
+      <strong>{{ averageCount() }}</strong>
+      <small>Passed, but close to the minimum thresholds.</small>
+    </article>
+
+    <article class="stat-card">
+      <div class="stat-card__header">
+        <div class="stat-card__icon stat-card__icon--danger"><mat-icon>block</mat-icon></div>
+      </div>
+      <span>Rejected</span>
+      <strong>{{ rejectedCount() }}</strong>
+      <small>Products that failed required checks.</small>
+    </article>
+  </section>
+
+  <section class="section-grid">
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Assigned listers</h2>
+          <p>Current lister ownership across your queue.</p>
+        </div>
+      </div>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Refreshing dashboard data.</span>
+        </div>
+      } @else if (listerStats().length) {
+        <div class="breakdown-list">
+          @for (lister of listerStats(); track lister.listerId) {
+            <div class="breakdown-row">
+              <div>
+                <strong>{{ lister.listerName }}</strong>
+                <span>Products assigned</span>
+              </div>
+              <strong class="breakdown-row__count">{{ lister.productCount }}</strong>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="empty-state">No lister assignments are active for this range.</div>
+      }
+    </article>
+
+    <article class="surface-card">
     <div class="surface-card__header">
       <div>
         <h2>Products listed per account</h2>
@@ -147,5 +203,6 @@
     } @else {
       <div class="empty-state">No listed products were found for this date range.</div>
     }
-  </article>
+    </article>
+  </section>
 </section>

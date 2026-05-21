@@ -1,26 +1,22 @@
 <section class="page-shell">
-  <header class="page-hero">
-    <div>
-      <span class="kicker">Admin Console</span>
-      <h1>Settings</h1>
-      <p>Control submission rules, pricing thresholds, required fields, and listing accounts.</p>
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h1>Settings</h1>
+        <p>Approval rules, stock thresholds, pricing limits, and required fields.</p>
+      </div>
+      <div class="page-actions">
+        <a mat-stroked-button routerLink="/admin/accounts">
+          <mat-icon>storefront</mat-icon>
+          <span>Accounts</span>
+        </a>
+        <button mat-stroked-button type="button" (click)="loadData()" [disabled]="loading()">
+          <mat-icon>refresh</mat-icon>
+          <span>Refresh</span>
+        </button>
+      </div>
     </div>
-
-    <div class="page-actions">
-      <button mat-flat-button color="primary" type="button" (click)="openAccountModal()">
-        <mat-icon>add</mat-icon>
-        <span>Add Account</span>
-      </button>
-      <button mat-stroked-button type="button" (click)="loadData()" [disabled]="loading()">
-        <mat-icon>refresh</mat-icon>
-        <span>Refresh</span>
-      </button>
-    </div>
-  </header>
-
-  @if (error()) {
-    <div class="inline-state inline-state--error">{{ error() }}</div>
-  }
+  </article>
 
   @if (loading()) {
     <article class="surface-card">
@@ -29,13 +25,23 @@
         <span>Loading settings.</span>
       </div>
     </article>
+  } @else if (error()) {
+    <app-error-state [message]="error()" actionLabel="Retry" (action)="loadData()" />
+  } @else if (!hasCriteria()) {
+    <article class="surface-card">
+      <app-empty-state
+        title="No settings found"
+        message="Refresh to fetch the current approval rules."
+        icon="tune"
+      />
+    </article>
   } @else {
     <section class="section-grid settings-sections">
       <article class="surface-card">
         <div class="surface-card__header">
           <div>
             <h2>Approval rules</h2>
-            <p>Outcome thresholds used by the system approval engine.</p>
+            <p>System approval thresholds.</p>
           </div>
         </div>
 
@@ -49,7 +55,18 @@
             <mat-label>Minimum profit</mat-label>
             <input matInput type="number" [formControl]="criteriaForm.controls.minProfit" />
           </mat-form-field>
+        </div>
+      </article>
 
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Pricing & ROI</h2>
+            <p>Economics values used by the review engine.</p>
+          </div>
+        </div>
+
+        <div class="form-grid">
           <mat-form-field appearance="outline">
             <mat-label>Fee percentage</mat-label>
             <input matInput type="number" [formControl]="criteriaForm.controls.feePercent" />
@@ -60,8 +77,8 @@
       <article class="surface-card">
         <div class="surface-card__header">
           <div>
-            <h2>Stock and sales</h2>
-            <p>Volume gates used before a product moves forward.</p>
+            <h2>Stock & sales</h2>
+            <p>Minimum volume checks.</p>
           </div>
         </div>
 
@@ -102,7 +119,7 @@
         <div class="surface-card__header">
           <div>
             <h2>Required fields</h2>
-            <p>Control which optional values become mandatory on submission.</p>
+            <p>Controls for mandatory submission fields.</p>
           </div>
         </div>
 
@@ -112,45 +129,13 @@
           <label class="toggle-row"><mat-checkbox [formControl]="criteriaForm.controls.watchersRequired">Require watchers</mat-checkbox></label>
         </div>
       </article>
-
-      <article class="surface-card account-card">
-        <div class="surface-card__header">
-          <div>
-            <h2>Accounts</h2>
-            <p>Listing accounts available to the lister workspace.</p>
-          </div>
-          <span class="count-badge">{{ accounts().length }} accounts</span>
-        </div>
-
-        <div class="account-list">
-          @for (account of accounts(); track account.id) {
-            <div class="account-row">
-              <div class="account-row__content">
-                <strong>{{ account.name }}</strong>
-                <span>{{ account.marketplace | titlecase }}</span>
-              </div>
-              <div class="account-row__meta">
-                <span class="status-badge" [class.status-badge--success]="account.isActive" [class.status-badge--danger]="!account.isActive">
-                  {{ account.isActive ? 'Active' : 'Disabled' }}
-                </span>
-                <button mat-stroked-button type="button" (click)="toggleAccount(account)">
-                  <mat-icon>{{ account.isActive ? 'block' : 'check_circle' }}</mat-icon>
-                  <span>{{ account.isActive ? 'Disable' : 'Enable' }}</span>
-                </button>
-              </div>
-            </div>
-          } @empty {
-            <app-empty-state title="No accounts yet" message="Add a listing account to make it available for listers." icon="storefront" />
-          }
-        </div>
-      </article>
     </section>
   }
 
   <div class="settings-savebar" [class.is-visible]="hasUnsavedChanges()">
     <div>
       <strong>Unsaved changes</strong>
-      <span>Update rules before hunters and listers use the new settings.</span>
+      <span>Save before hunters and listers start using the updated rules.</span>
     </div>
     <div class="settings-savebar__actions">
       <button mat-stroked-button type="button" (click)="resetCriteria()">Reset</button>
@@ -161,46 +146,3 @@
     </div>
   </div>
 </section>
-
-@if (accountModalOpen()) {
-  <div class="app-modal-backdrop" (click)="closeAccountModal()">
-    <section class="app-modal account-modal" (click)="$event.stopPropagation()">
-      <div class="surface-card__header">
-        <div>
-          <h2>Add account</h2>
-          <p>Create a listing account for the lister workflow.</p>
-        </div>
-        <button mat-icon-button type="button" (click)="closeAccountModal()">
-          <mat-icon>close</mat-icon>
-        </button>
-      </div>
-
-      <form class="form-grid" [formGroup]="accountForm" (ngSubmit)="createAccount()">
-        <mat-form-field appearance="outline">
-          <mat-label>Account name</mat-label>
-          <input matInput formControlName="name" autocomplete="off" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Marketplace</mat-label>
-          <mat-select formControlName="marketplace">
-            <mat-option value="ebay">eBay</mat-option>
-            <mat-option value="amazon">Amazon</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <label class="toggle-row field-span-2">
-          <mat-checkbox formControlName="isActive">Enable immediately</mat-checkbox>
-        </label>
-
-        <div class="field-span-2 modal-actions">
-          <button mat-stroked-button type="button" (click)="closeAccountModal()">Cancel</button>
-          <button mat-flat-button color="primary" type="submit" [disabled]="accountForm.invalid || saving()">
-            <mat-icon>add</mat-icon>
-            <span>{{ saving() ? 'Saving' : 'Create Account' }}</span>
-          </button>
-        </div>
-      </form>
-    </section>
-  </div>
-}

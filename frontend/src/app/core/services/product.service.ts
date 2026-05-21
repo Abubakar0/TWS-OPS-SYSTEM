@@ -4,6 +4,7 @@ import { map } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import {
+  AsinCheckResult,
   AssignedHunter,
   BulkListedPayload,
   Product,
@@ -34,6 +35,13 @@ export class ProductService {
     return this.http
       .post<{ product: Product }>(`${environment.apiUrl}/products`, payload)
       .pipe(map((response) => response.product));
+  }
+
+  checkAsin(asin: string) {
+    const params = new URLSearchParams();
+    params.set('asin', asin);
+
+    return this.http.get<AsinCheckResult>(`${environment.apiUrl}/products/check-asin?${params.toString()}`);
   }
 
   listAssignedHunters() {

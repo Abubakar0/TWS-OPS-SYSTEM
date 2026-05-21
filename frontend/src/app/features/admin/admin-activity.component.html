@@ -1,0 +1,119 @@
+<section class="page-shell">
+  @if (error()) {
+    <app-error-state [message]="error()" actionLabel="Retry" (action)="loadLogs()" />
+  }
+
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h1>Activity Feed</h1>
+        <p>{{ logs().length }} activity rows in view</p>
+      </div>
+      <div class="page-actions">
+        <button mat-stroked-button type="button" (click)="loadLogs()" [disabled]="loading()">
+          <mat-icon>refresh</mat-icon>
+          <span>Refresh</span>
+        </button>
+      </div>
+    </div>
+
+    <form class="activity-toolbar" [formGroup]="filters" (ngSubmit)="loadLogs()">
+      <mat-form-field appearance="outline" class="grid-toolbar__search">
+        <mat-label>Search activity</mat-label>
+        <input matInput formControlName="search" autocomplete="off" />
+        <mat-icon matSuffix>search</mat-icon>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="toolbar-select">
+        <mat-label>User</mat-label>
+        <mat-select formControlName="actorUserId">
+          <mat-option value="">All users</mat-option>
+          @for (user of filterUsers(); track user.id) {
+            <mat-option [value]="user.id">{{ user.name }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="toolbar-select">
+        <mat-label>Role</mat-label>
+        <mat-select formControlName="actorRole">
+          <mat-option value="">All roles</mat-option>
+          <mat-option value="admin">Admin</mat-option>
+          <mat-option value="hunter">Hunter</mat-option>
+          <mat-option value="lister">Lister</mat-option>
+          <mat-option value="super_admin">Super Admin</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="toolbar-select">
+        <mat-label>Action</mat-label>
+        <mat-select formControlName="action">
+          @for (option of actionOptions; track option.value) {
+            <mat-option [value]="option.value">{{ option.label }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="date-field">
+        <mat-label>From</mat-label>
+        <input matInput type="date" formControlName="from" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="date-field">
+        <mat-label>To</mat-label>
+        <input matInput type="date" formControlName="to" />
+      </mat-form-field>
+
+      <div class="grid-toolbar__actions">
+        <button mat-stroked-button type="button" (click)="resetFilters()">
+          <mat-icon>restart_alt</mat-icon>
+          <span>Reset</span>
+        </button>
+        <button mat-flat-button color="primary" type="submit" [disabled]="loading()">
+          <mat-icon>filter_alt</mat-icon>
+          <span>Apply</span>
+        </button>
+      </div>
+    </form>
+
+    @if (loading()) {
+      <div class="loading-state">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>Loading activity feed.</span>
+      </div>
+    } @else if (!logs().length) {
+      <app-empty-state
+        title="No activity found"
+        message="Try a different date range or filter combination."
+        icon="history"
+      />
+    } @else {
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th>User</th>
+              <th>Role</th>
+              <th>Target</th>
+              <th>Timestamp</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (log of logs(); track log.id) {
+              <tr>
+                <td><span class="status-badge status-badge--neutral">{{ actionLabel(log.action) }}</span></td>
+                <td>{{ log.actorName || log.actorEmail || 'System' }}</td>
+                <td>{{ log.actorRole ? (log.actorRole.replace('_', ' ') | titlecase) : 'System' }}</td>
+                <td>{{ targetSummary(log) }}</td>
+                <td>{{ log.createdAt | date: 'MMM d, y, h:mm a' }}</td>
+                <td class="activity-details">{{ detailsLabel(log) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </article>
+</section>

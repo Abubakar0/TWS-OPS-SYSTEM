@@ -62,8 +62,6 @@ export class HunterProductsComponent implements OnInit {
     to: new FormControl('', { nonNullable: true }),
     listerName: new FormControl('', { nonNullable: true }),
     accountName: new FormControl('', { nonNullable: true }),
-    listedFrom: new FormControl('', { nonNullable: true }),
-    listedTo: new FormControl('', { nonNullable: true }),
   });
 
   readonly readyCount = computed(
@@ -129,8 +127,6 @@ export class HunterProductsComponent implements OnInit {
         to: '',
         listerName: '',
         accountName: '',
-        listedFrom: '',
-        listedTo: '',
       },
       { emitEvent: false },
     );
@@ -182,8 +178,6 @@ export class HunterProductsComponent implements OnInit {
       to: raw.to || undefined,
       listerName: raw.listerName.trim() || undefined,
       accountName: raw.accountName.trim() || undefined,
-      listedFrom: raw.listedFrom || undefined,
-      listedTo: raw.listedTo || undefined,
     };
   }
 

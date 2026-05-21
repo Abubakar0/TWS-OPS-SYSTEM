@@ -12,6 +12,7 @@ router
   .get(asyncHandler(productsController.listProducts))
   .post(requireRoles('hunter', 'admin'), asyncHandler(productsController.createProduct));
 
+router.get('/check-asin', requireRoles('hunter', 'admin'), asyncHandler(productsController.checkAsinAvailability));
 router.get('/assigned-hunters', requireRoles('lister', 'admin'), asyncHandler(productsController.listAssignedHunters));
 router.patch('/bulk-listed', requireRoles('lister', 'admin'), asyncHandler(productsController.markProductsListed));
 router.patch('/:id/reject', requireRoles('lister', 'admin'), asyncHandler(productsController.rejectProduct));
