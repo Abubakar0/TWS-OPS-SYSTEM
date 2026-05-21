@@ -20,6 +20,13 @@ interface NavItem {
   icon: string;
 }
 
+interface SupportCard {
+  title: string;
+  message: string;
+  actionLabel: string;
+  route: string;
+}
+
 @Component({
   selector: 'app-dashboard-layout',
   imports: [
@@ -168,6 +175,7 @@ export class DashboardLayoutComponent {
       .filter((item) => item.label.toLowerCase().includes(query))
       .slice(0, 6);
   });
+  readonly headerNavItems = computed(() => this.sidebarNavItems());
   readonly workspaceLabel = computed(() => {
     const url = this.currentUrl();
 
@@ -191,6 +199,43 @@ export class DashboardLayoutComponent {
     );
 
     return current?.label || this.workspaceLabel();
+  });
+  readonly supportCard = computed<SupportCard>(() => {
+    const url = this.currentUrl();
+
+    if (url.startsWith('/superadmin')) {
+      return {
+        title: 'Need oversight?',
+        message: 'Review reports, audit history, and system controls from one place.',
+        actionLabel: 'Open Reports',
+        route: '/superadmin/reports',
+      };
+    }
+
+    if (url.startsWith('/admin')) {
+      return {
+        title: 'Quick access',
+        message: 'Jump into users, settings, or reports without leaving the workspace.',
+        actionLabel: 'Add User',
+        route: '/admin/users',
+      };
+    }
+
+    if (url.startsWith('/lister')) {
+      return {
+        title: 'Need help?',
+        message: 'Keep queue actions moving with the latest listing workspace and filters.',
+        actionLabel: 'View Queue',
+        route: '/lister/products',
+      };
+    }
+
+    return {
+      title: 'Need help?',
+      message: 'Review current rules and keep submissions aligned with approval settings.',
+      actionLabel: 'New Submission',
+      route: '/hunter/submission',
+    };
   });
   readonly userInitials = computed(() => {
     const name = this.user()?.name?.trim();

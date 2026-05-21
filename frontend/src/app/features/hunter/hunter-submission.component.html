@@ -27,6 +27,7 @@
       <article class="surface-card form-section">
         <div class="surface-card__header">
           <div>
+            <span class="section-step">1</span>
             <h2>Product details</h2>
             <p>Core identifiers used across the workflow.</p>
           </div>
@@ -64,6 +65,7 @@
       <article class="surface-card form-section">
         <div class="surface-card__header">
           <div>
+            <span class="section-step">2</span>
             <h2>Links</h2>
             <p>Marketplace URLs are checked before the request is sent.</p>
           </div>
@@ -100,6 +102,7 @@
       <article class="surface-card form-section">
         <div class="surface-card__header">
           <div>
+            <span class="section-step">3</span>
             <h2>Stock and sales</h2>
             <p>Keep these values aligned with the current approval thresholds.</p>
           </div>
@@ -165,6 +168,7 @@
       <article class="surface-card form-section">
         <div class="surface-card__header">
           <div>
+            <span class="section-step">4</span>
             <h2>Pricing</h2>
             <p>Prices stay empty until you enter valid values.</p>
           </div>
@@ -195,18 +199,43 @@
           <span>{{ criteria().watchersRequired ? 'Watchers required' : 'Watchers optional' }}</span>
         </div>
 
-        <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || saving() || criteriaLoading()">
-          @if (saving()) {
-            <mat-spinner diameter="18"></mat-spinner>
-          } @else {
-            <mat-icon>send</mat-icon>
-          }
-          <span>Submit Product</span>
-        </button>
+        <div class="submission-stickybar__actions">
+          <button mat-stroked-button type="button" (click)="clearForm()" [disabled]="saving()">Clear Form</button>
+          <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || saving() || criteriaLoading()">
+            @if (saving()) {
+              <mat-spinner diameter="18"></mat-spinner>
+            } @else {
+              <mat-icon>send</mat-icon>
+            }
+            <span>Submit Product</span>
+          </button>
+        </div>
       </div>
     </form>
 
     <aside class="submission-sidebar">
+      <article class="surface-card submission-sidebar__card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Approval engine</h2>
+            <p>System decision preview.</p>
+          </div>
+          <span
+            class="status-badge"
+            [class.status-badge--success]="approvalPreview().tone === 'success'"
+            [class.status-badge--warning]="approvalPreview().tone === 'warning'"
+            [class.status-badge--danger]="approvalPreview().tone === 'danger'"
+          >
+            {{ approvalPreview().label }}
+          </span>
+        </div>
+
+        <div class="result-note" [class.is-failed]="approvalPreview().tone === 'danger'">
+          <mat-icon>{{ approvalPreview().tone === 'danger' ? 'error' : 'check_circle' }}</mat-icon>
+          <span>{{ approvalPreview().message }}</span>
+        </div>
+      </article>
+
       <article class="surface-card submission-sidebar__card">
         <div class="surface-card__header">
           <div>

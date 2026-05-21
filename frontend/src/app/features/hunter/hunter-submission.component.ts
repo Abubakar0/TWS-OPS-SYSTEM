@@ -212,6 +212,37 @@ export class HunterSubmissionComponent implements OnInit {
 
     return '';
   });
+  readonly approvalPreview = computed(() => {
+    if (this.criteriaLoading()) {
+      return {
+        tone: 'neutral',
+        label: 'Loading rules',
+        message: 'Fetching the latest approval settings.',
+      };
+    }
+
+    if (this.economicsError()) {
+      return {
+        tone: 'danger',
+        label: 'Needs review',
+        message: this.economicsError(),
+      };
+    }
+
+    if (this.form.valid) {
+      return {
+        tone: 'success',
+        label: 'Likely to approve',
+        message: 'Current values satisfy the active validation rules.',
+      };
+    }
+
+    return {
+      tone: 'warning',
+      label: 'Waiting for input',
+      message: 'Complete the required fields to finish the system check.',
+    };
+  });
 
   constructor(
     private readonly productsApi: ProductService,
@@ -374,6 +405,16 @@ export class HunterSubmissionComponent implements OnInit {
       error: (error) => this.error.set(error?.error?.message || 'Could not submit product.'),
       complete: () => this.saving.set(false),
     });
+  }
+
+  clearForm(): void {
+    if (this.saving()) {
+      return;
+    }
+
+    this.resetForm();
+    this.lastSubmitted.set(null);
+    this.error.set('');
   }
 
   private shouldShowControlError(control: AbstractControl | null): boolean {

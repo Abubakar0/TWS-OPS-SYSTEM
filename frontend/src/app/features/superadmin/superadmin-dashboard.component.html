@@ -1,12 +1,12 @@
 <section class="page-shell">
-  <header class="page-hero">
+  <div class="hero-banner">
     <div>
-      <span class="kicker">Super Admin</span>
-      <h1>Control Panel</h1>
-      <p>Global platform visibility across users, workflow, and activity.</p>
+      <span class="hero-banner__eyebrow">Super Admin</span>
+      <h1 class="hero-banner__title">Global control panel</h1>
+      <p class="hero-banner__subtitle">Track the full platform across users, workflow, and system activity.</p>
     </div>
 
-    <div class="page-actions">
+    <div class="hero-banner__meta">
       <a mat-stroked-button routerLink="/superadmin/reports">
         <mat-icon>analytics</mat-icon>
         <span>Open Reports</span>
@@ -16,7 +16,7 @@
         <span>Refresh</span>
       </button>
     </div>
-  </header>
+  </div>
 
   @if (error()) {
     <div class="inline-state inline-state--error">{{ error() }}</div>

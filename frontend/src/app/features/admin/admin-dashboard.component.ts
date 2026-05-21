@@ -22,6 +22,50 @@ export class AdminDashboardComponent implements OnInit {
   readonly topListers = computed(() => this.stats()?.byLister.slice(0, 5) ?? []);
   readonly topAccounts = computed(() => this.stats()?.byAccount.slice(0, 5) ?? []);
   readonly recentDays = computed(() => this.stats()?.daily.slice(0, 7) ?? []);
+  readonly activityFeed = computed(() => {
+    const feed: Array<{ icon: string; tone: 'success' | 'warning' | 'danger' | 'info'; title: string; meta: string }> = [];
+    const [leadHunter] = this.topHunters();
+    const [leadLister] = this.topListers();
+    const [leadAccount] = this.topAccounts();
+
+    if (leadLister) {
+      feed.push({
+        icon: 'check_circle',
+        tone: 'success',
+        title: `${leadLister.name} completed ${leadLister.listed} listings`,
+        meta: `${leadLister.assignedHunters} hunters assigned`,
+      });
+    }
+
+    if (leadHunter) {
+      feed.push({
+        icon: 'travel_explore',
+        tone: 'info',
+        title: `${leadHunter.name} hunted ${leadHunter.hunted} products`,
+        meta: `${leadHunter.listed} reached listed status`,
+      });
+    }
+
+    if (leadAccount) {
+      feed.push({
+        icon: 'storefront',
+        tone: 'warning',
+        title: `${leadAccount.name} leads with ${leadAccount.listed} listings`,
+        meta: 'Current top account output',
+      });
+    }
+
+    if ((this.stats()?.rejected ?? 0) > 0) {
+      feed.push({
+        icon: 'error',
+        tone: 'danger',
+        title: `${this.stats()?.rejected || 0} products were rejected`,
+        meta: 'Review pipeline quality and criteria fit',
+      });
+    }
+
+    return feed;
+  });
 
   constructor(private readonly adminApi: AdminService) {}
 

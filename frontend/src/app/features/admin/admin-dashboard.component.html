@@ -1,12 +1,12 @@
 <section class="page-shell">
-  <header class="page-hero">
+  <div class="hero-banner">
     <div>
-      <span class="kicker">Admin Console</span>
-      <h1>Dashboard</h1>
-      <p>Monitor performance, capacity, and output at a glance.</p>
+      <span class="hero-banner__eyebrow">Welcome back</span>
+      <h1 class="hero-banner__title">Good morning, Admin</h1>
+      <p class="hero-banner__subtitle">Here’s what is happening across Trend Wave Ops today.</p>
     </div>
 
-    <div class="page-actions">
+    <div class="hero-banner__meta">
       <a mat-stroked-button routerLink="/admin/reports">
         <mat-icon>analytics</mat-icon>
         <span>Open Reports</span>
@@ -16,7 +16,7 @@
         <span>Refresh</span>
       </button>
     </div>
-  </header>
+  </div>
 
   @if (error()) {
     <div class="inline-state inline-state--error">{{ error() }}</div>
@@ -24,39 +24,131 @@
 
   <section class="stats-grid">
     <article class="stat-card">
-      <span>Total hunted</span>
-      <strong>{{ stats()?.hunted || 0 }}</strong>
-      <small>All products in the current system view.</small>
+      <div class="stat-card__header">
+        <div class="stat-card__icon"><mat-icon>groups</mat-icon></div>
+      </div>
+      <span>Total users</span>
+      <strong>{{ (stats()?.byHunter?.length || 0) + (stats()?.byLister?.length || 0) + 1 }}</strong>
+      <small class="stat-card__trend">Operational user base</small>
     </article>
 
     <article class="stat-card">
-      <span>Ready</span>
-      <strong>{{ stats()?.ready || 0 }}</strong>
-      <small>Approved or assigned products still in motion.</small>
+      <div class="stat-card__header">
+        <div class="stat-card__icon stat-card__icon--success"><mat-icon>travel_explore</mat-icon></div>
+      </div>
+      <span>Hunters</span>
+      <strong>{{ stats()?.byHunter?.length || 0 }}</strong>
+      <small class="stat-card__trend">Active research coverage</small>
     </article>
 
     <article class="stat-card">
-      <span>Listed</span>
-      <strong>{{ stats()?.listed || 0 }}</strong>
-      <small>Products completed by the listing team.</small>
+      <div class="stat-card__header">
+        <div class="stat-card__icon"><mat-icon>sell</mat-icon></div>
+      </div>
+      <span>Listers</span>
+      <strong>{{ stats()?.byLister?.length || 0 }}</strong>
+      <small class="stat-card__trend">Listing team capacity</small>
     </article>
 
     <article class="stat-card">
-      <span>Rejected</span>
-      <strong>{{ stats()?.rejected || 0 }}</strong>
-      <small>Products sent back for review or correction.</small>
+      <div class="stat-card__header">
+        <div class="stat-card__icon stat-card__icon--warning"><mat-icon>admin_panel_settings</mat-icon></div>
+      </div>
+      <span>Admins</span>
+      <strong>1</strong>
+      <small class="stat-card__trend">Administrative control</small>
+    </article>
+  </section>
+
+  <section class="overview-grid">
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Overview</h2>
+          <p>Current output across the operation.</p>
+        </div>
+      </div>
+
+      <div class="mini-kpi-grid">
+        <div class="mini-kpi">
+          <span>Total activity</span>
+          <strong>{{ stats()?.hunted || 0 }}</strong>
+          <small>Products hunted</small>
+        </div>
+        <div class="mini-kpi">
+          <span>Listed</span>
+          <strong>{{ stats()?.listed || 0 }}</strong>
+          <small>Completed listings</small>
+        </div>
+        <div class="mini-kpi">
+          <span>Rejected</span>
+          <strong>{{ stats()?.rejected || 0 }}</strong>
+          <small>Needs review</small>
+        </div>
+        <div class="mini-kpi">
+          <span>Pending</span>
+          <strong>{{ stats()?.ready || 0 }}</strong>
+          <small>Approved or assigned</small>
+        </div>
+      </div>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading dashboard stats.</span>
+        </div>
+      } @else if (recentDays().length) {
+        <div class="breakdown-list">
+          @for (row of recentDays(); track row.date) {
+            <div class="breakdown-row">
+              <div>
+                <strong>{{ row.date | date: 'MMM d, y' }}</strong>
+                <span>Hunted {{ row.hunted }} | Listed {{ row.listed }}</span>
+              </div>
+              <strong class="breakdown-row__count">{{ row.hunted + row.listed }}</strong>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="empty-state">No daily activity is available yet.</div>
+      }
     </article>
 
-    <article class="stat-card">
-      <span>Average ROI</span>
-      <strong>{{ stats()?.averageRoi || 0 }}%</strong>
-      <small>Average return on products in the current reporting view.</small>
-    </article>
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Activity feed</h2>
+          <p>Latest operational highlights.</p>
+        </div>
+      </div>
 
-    <article class="stat-card">
-      <span>Total profit</span>
-      <strong>{{ (stats()?.totalProfit || 0) | number: '1.0-2' }}</strong>
-      <small>Aggregated profit from the current reporting set.</small>
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading highlights.</span>
+        </div>
+      } @else if (activityFeed().length) {
+        <div class="activity-list">
+          @for (item of activityFeed(); track item.title) {
+            <div class="activity-item">
+              <span
+                class="activity-item__icon"
+                [class.activity-item__icon--success]="item.tone === 'success'"
+                [class.activity-item__icon--warning]="item.tone === 'warning'"
+                [class.activity-item__icon--danger]="item.tone === 'danger'"
+              >
+                <mat-icon>{{ item.icon }}</mat-icon>
+              </span>
+              <div>
+                <strong>{{ item.title }}</strong>
+                <p>{{ item.meta }}</p>
+              </div>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="empty-state">No activity is available yet.</div>
+      }
     </article>
   </section>
 
@@ -64,117 +156,79 @@
     <article class="surface-card">
       <div class="surface-card__header">
         <div>
-          <h2>Hunter performance</h2>
-          <p>Top hunters in the current view.</p>
+          <h2>Users by role</h2>
+          <p>Active operator mix.</p>
         </div>
       </div>
 
-      @if (loading()) {
-        <div class="loading-state">
-          <mat-spinner diameter="24"></mat-spinner>
-          <span>Loading dashboard stats.</span>
+      <div class="soft-card role-stack">
+        <div class="role-row">
+          <span class="role-dot role-dot--admin"></span>
+          <strong>Admins</strong>
+          <span>1</span>
         </div>
-      } @else if (topHunters().length) {
-        <div class="breakdown-list">
-          @for (row of topHunters(); track row.id) {
-            <div class="breakdown-row">
-              <div>
-                <strong>{{ row.name }}</strong>
-                <span>Hunted {{ row.hunted }} | Listed {{ row.listed }}</span>
-              </div>
-            </div>
-          }
+        <div class="role-row">
+          <span class="role-dot role-dot--hunter"></span>
+          <strong>Hunters</strong>
+          <span>{{ stats()?.byHunter?.length || 0 }}</span>
         </div>
-      } @else {
-        <div class="empty-state">No hunter data is available yet.</div>
-      }
+        <div class="role-row">
+          <span class="role-dot role-dot--lister"></span>
+          <strong>Listers</strong>
+          <span>{{ stats()?.byLister?.length || 0 }}</span>
+        </div>
+      </div>
     </article>
 
     <article class="surface-card">
       <div class="surface-card__header">
         <div>
-          <h2>Lister performance</h2>
-          <p>Output and coverage by lister.</p>
+          <h2>Top accounts</h2>
+          <p>Listing output by account.</p>
         </div>
       </div>
 
-      @if (loading()) {
-        <div class="loading-state">
-          <mat-spinner diameter="24"></mat-spinner>
-          <span>Loading dashboard stats.</span>
-        </div>
-      } @else if (topListers().length) {
-        <div class="breakdown-list">
-          @for (row of topListers(); track row.id) {
-            <div class="breakdown-row">
-              <div>
-                <strong>{{ row.name }}</strong>
-                <span>Listed {{ row.listed }} | Assigned hunters {{ row.assignedHunters }}</span>
-              </div>
-            </div>
-          }
-        </div>
-      } @else {
-        <div class="empty-state">No lister activity is available yet.</div>
-      }
-    </article>
-
-    <article class="surface-card">
-      <div class="surface-card__header">
-        <div>
-          <h2>Accounts</h2>
-          <p>Listings by account.</p>
-        </div>
-      </div>
-
-      @if (loading()) {
-        <div class="loading-state">
-          <mat-spinner diameter="24"></mat-spinner>
-          <span>Loading dashboard stats.</span>
-        </div>
-      } @else if (topAccounts().length) {
-        <div class="breakdown-list">
-          @for (row of topAccounts(); track row.id) {
-            <div class="breakdown-row">
-              <div>
-                <strong>{{ row.name }}</strong>
-                <span>Listed products</span>
-              </div>
-              <strong class="breakdown-row__count">{{ row.listed }}</strong>
-            </div>
-          }
-        </div>
-      } @else {
-        <div class="empty-state">No account listing data is available yet.</div>
-      }
-    </article>
-  </section>
-
-  <article class="surface-card">
-    <div class="surface-card__header">
-      <div>
-        <h2>Daily activity</h2>
-        <p>Recent hunted and listed volume.</p>
-      </div>
-    </div>
-
-    @if (loading()) {
-      <div class="loading-state">
-        <mat-spinner diameter="24"></mat-spinner>
-        <span>Loading dashboard stats.</span>
-      </div>
-    } @else if (recentDays().length) {
-      <div class="daily-grid">
-        @for (row of recentDays(); track row.date) {
-          <div class="daily-card">
-            <strong>{{ row.date | date: 'MMM d, y' }}</strong>
-            <span>Hunted {{ row.hunted }}</span>
-            <span>Listed {{ row.listed }}</span>
+      @if (topAccounts().length) {
+        <div class="simple-table">
+          <div class="simple-table__header">
+            <span>Account</span>
+            <span>Listed</span>
+            <span>Share</span>
           </div>
+          @for (row of topAccounts(); track row.id) {
+            <div class="simple-table__row">
+              <strong>{{ row.name }}</strong>
+              <span>{{ row.listed }}</span>
+              <span>{{ stats()?.listed ? ((row.listed / (stats()?.listed || 1)) * 100 | number: '1.0-0') : 0 }}%</span>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="empty-state">No account data available.</div>
+      }
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Top operators</h2>
+          <p>Current top performers.</p>
+        </div>
+      </div>
+
+      <div class="activity-list">
+        @for (row of topHunters(); track row.id) {
+          <div class="activity-item">
+            <span class="activity-item__icon"><mat-icon>travel_explore</mat-icon></span>
+            <div>
+              <strong>{{ row.name }}</strong>
+              <span>{{ row.hunted }} hunted | {{ row.listed }} listed</span>
+            </div>
+          </div>
+        } @empty {
+          <div class="empty-state">No operator activity available.</div>
         }
       </div>
-    } @else {
-      <div class="empty-state">No recent daily activity is available yet.</div>
-    }
-  </article>
+    </article>
+  </section>
 </section>

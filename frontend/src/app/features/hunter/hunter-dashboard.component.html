@@ -1,12 +1,12 @@
 <section class="page-shell">
-  <header class="page-hero">
+  <div class="hero-banner">
     <div>
-      <span class="kicker">Hunter Workspace</span>
-      <h1>Dashboard</h1>
-      <p>Track approvals, listing progress, and account output.</p>
+      <span class="hero-banner__eyebrow">Hunter workspace</span>
+      <h1 class="hero-banner__title">Your hunting performance</h1>
+      <p class="hero-banner__subtitle">Track approvals, listings, and account output across your submission window.</p>
     </div>
 
-    <div class="page-actions">
+    <div class="hero-banner__meta">
       <a mat-stroked-button routerLink="/hunter/products">
         <mat-icon>table_view</mat-icon>
         <span>Open Product List</span>
@@ -20,7 +20,7 @@
         <span>Refresh</span>
       </button>
     </div>
-  </header>
+  </div>
 
   @if (error()) {
     <div class="inline-state inline-state--error">{{ error() }}</div>
@@ -74,30 +74,45 @@
 
   <section class="stats-grid stats-grid--five">
     <article class="stat-card">
+      <div class="stat-card__header">
+        <div class="stat-card__icon"><mat-icon>inventory_2</mat-icon></div>
+      </div>
       <span>Total hunted products</span>
       <strong>{{ totalCount() }}</strong>
       <small>All products submitted in the selected period.</small>
     </article>
 
     <article class="stat-card">
+      <div class="stat-card__header">
+        <div class="stat-card__icon stat-card__icon--success"><mat-icon>check_circle</mat-icon></div>
+      </div>
       <span>Approved products</span>
       <strong>{{ approvedCount() }}</strong>
       <small>Approved and waiting for lister assignment.</small>
     </article>
 
     <article class="stat-card">
+      <div class="stat-card__header">
+        <div class="stat-card__icon stat-card__icon--warning"><mat-icon>schedule</mat-icon></div>
+      </div>
       <span>Pending products</span>
       <strong>{{ pendingCount() }}</strong>
       <small>Assigned to a lister and waiting to be listed.</small>
     </article>
 
     <article class="stat-card">
+      <div class="stat-card__header">
+        <div class="stat-card__icon"><mat-icon>sell</mat-icon></div>
+      </div>
       <span>Listed</span>
       <strong>{{ listedCount() }}</strong>
       <small>Products completed by the listing team.</small>
     </article>
 
     <article class="stat-card">
+      <div class="stat-card__header">
+        <div class="stat-card__icon stat-card__icon--danger"><mat-icon>block</mat-icon></div>
+      </div>
       <span>Rejected</span>
       <strong>{{ rejectedCount() }}</strong>
       <small>Items that need another pass before resubmission.</small>

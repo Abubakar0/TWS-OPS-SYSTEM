@@ -55,12 +55,17 @@
     </section>
 
     <div class="app-sidebar__footer">
-      <div class="app-sidebar__user">
-        <span class="user-avatar">{{ userInitials() }}</span>
-        <div>
-          <strong>{{ user()?.name || 'Trend Wave User' }}</strong>
-          <span>{{ user()?.email }}</span>
+      <div class="sidebar-help-card">
+        <div class="sidebar-help-card__icon">
+          <mat-icon>support_agent</mat-icon>
         </div>
+        <div>
+          <strong>{{ supportCard().title }}</strong>
+          <p>{{ supportCard().message }}</p>
+        </div>
+        <a mat-stroked-button [routerLink]="supportCard().route" (click)="closeSidebar()">
+          <span>{{ supportCard().actionLabel }}</span>
+        </a>
       </div>
     </div>
   </aside>
@@ -72,9 +77,18 @@
           <mat-icon>menu</mat-icon>
         </button>
 
-        <div class="page-intro">
-          <span class="page-intro__eyebrow">{{ workspaceLabel() }}</span>
-          <strong>{{ currentSectionLabel() }}</strong>
+        <div class="workspace-pill-row">
+          @for (item of workspaceItems(); track item.route) {
+            <a
+              class="workspace-pill"
+              [routerLink]="item.route"
+              routerLinkActive="is-active"
+              [routerLinkActiveOptions]="{ exact: false }"
+            >
+              <mat-icon>{{ item.icon }}</mat-icon>
+              <span>{{ item.label }}</span>
+            </a>
+          }
         </div>
       </div>
 
@@ -117,6 +131,22 @@
         </button>
       </div>
     </header>
+
+    @if (headerNavItems().length) {
+      <nav class="workspace-tabs" aria-label="Workspace tabs">
+        @for (item of headerNavItems(); track item.route) {
+          <a
+            class="workspace-tabs__item"
+            [routerLink]="item.route"
+            routerLinkActive="is-active"
+            [routerLinkActiveOptions]="{ exact: item.exact }"
+          >
+            <mat-icon>{{ item.icon }}</mat-icon>
+            <span>{{ item.label }}</span>
+          </a>
+        }
+      </nav>
+    }
 
     <main class="app-main">
       <router-outlet />

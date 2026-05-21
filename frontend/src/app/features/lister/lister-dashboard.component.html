@@ -1,12 +1,12 @@
 <section class="page-shell">
-  <header class="page-hero">
+  <div class="hero-banner">
     <div>
-      <span class="kicker">Lister Workspace</span>
-      <h1>Dashboard</h1>
-      <p>Track listings, rejections, and account output.</p>
+      <span class="hero-banner__eyebrow">Lister workspace</span>
+      <h1 class="hero-banner__title">Listing output at a glance</h1>
+      <p class="hero-banner__subtitle">Review listing velocity, rejected items, and account usage.</p>
     </div>
 
-    <div class="page-actions">
+    <div class="hero-banner__meta">
       <a mat-stroked-button routerLink="/lister/products">
         <mat-icon>table_view</mat-icon>
         <span>Open Hunter Products</span>
@@ -16,7 +16,7 @@
         <span>Refresh</span>
       </button>
     </div>
-  </header>
+  </div>
 
   @if (error()) {
     <div class="inline-state inline-state--error">{{ error() }}</div>
@@ -70,24 +70,36 @@
 
   <section class="stats-grid">
     <article class="stat-card">
+      <div class="stat-card__header">
+        <div class="stat-card__icon"><mat-icon>sell</mat-icon></div>
+      </div>
       <span>Total listings done</span>
       <strong>{{ totalListed() }}</strong>
       <small>Products listed in the selected period.</small>
     </article>
 
     <article class="stat-card">
+      <div class="stat-card__header">
+        <div class="stat-card__icon stat-card__icon--danger"><mat-icon>block</mat-icon></div>
+      </div>
       <span>Rejected items</span>
       <strong>{{ rejectedCount() }}</strong>
       <small>Products rejected back to hunters in the selected period.</small>
     </article>
 
     <article class="stat-card">
+      <div class="stat-card__header">
+        <div class="stat-card__icon stat-card__icon--success"><mat-icon>travel_explore</mat-icon></div>
+      </div>
       <span>Hunters with listings</span>
       <strong>{{ hunterCount() }}</strong>
       <small>Hunters that contributed listed products.</small>
     </article>
 
     <article class="stat-card">
+      <div class="stat-card__header">
+        <div class="stat-card__icon stat-card__icon--warning"><mat-icon>storefront</mat-icon></div>
+      </div>
       <span>Accounts used</span>
       <strong>{{ accountCount() }}</strong>
       <small>Accounts used for completed listings.</small>

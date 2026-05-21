@@ -35,6 +35,19 @@
   gap: 12px;
 }
 
+.section-step {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-bottom: 10px;
+  border-radius: 999px;
+  background: rgba(81, 146, 229, 0.12);
+  color: var(--tws-primary-strong);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
 .mini-stats div {
   padding: 16px;
   border: 1px solid rgba(226, 232, 240, 0.88);
@@ -107,6 +120,12 @@
   gap: 4px;
 }
 
+.submission-stickybar__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .submission-stickybar__meta strong {
   color: var(--tws-text);
 }
@@ -172,6 +191,7 @@
 
 @media (max-width: 760px) {
   .submission-stickybar,
+  .submission-stickybar__actions,
   .result-meta {
     align-items: stretch;
     flex-direction: column;

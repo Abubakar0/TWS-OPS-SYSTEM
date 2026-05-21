@@ -2,58 +2,49 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.breakdown-list,
-.daily-grid {
+.role-stack {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
-.breakdown-row,
-.daily-card {
+.role-row {
   display: grid;
-  gap: 6px;
-  border: 1px solid rgba(23, 40, 74, 0.08);
-  border-radius: 16px;
-  background: rgba(249, 251, 255, 0.92);
-  padding: 16px;
-}
-
-.breakdown-row {
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 14px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
-.breakdown-row strong,
-.daily-card strong {
+.role-row strong,
+.role-row span:last-child {
   color: var(--tws-text);
 }
 
-.breakdown-row span,
-.daily-card span {
-  color: var(--tws-muted);
+.role-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
 }
 
-.breakdown-row__count {
-  font-size: 1.5rem;
-  line-height: 1;
+.role-dot--admin {
+  background: #2563eb;
 }
 
-.daily-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+.role-dot--hunter {
+  background: #10b981;
+}
+
+.role-dot--lister {
+  background: #f59e0b;
 }
 
 @media (max-width: 1180px) {
-  .section-grid--three,
-  .daily-grid {
+  .section-grid--three {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 760px) {
-  .section-grid--three,
-  .daily-grid,
-  .breakdown-row {
+  .section-grid--three {
     grid-template-columns: 1fr;
   }
 }
