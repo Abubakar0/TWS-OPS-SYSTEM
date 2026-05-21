@@ -1,13 +1,5 @@
 import { CommonModule, CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
-import {
-  AbstractControl,
-  FormControl,
-  FormGroup,
-  ReactiveFormsModule,
-  ValidationErrors,
-  ValidatorFn,
-  Validators,
-} from '@angular/forms';
+import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -26,6 +18,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RouterLink } from '@angular/router';
+import { finalize } from 'rxjs';
 
 import { AuthService } from '../../core/auth/auth.service';
 import {
@@ -134,32 +127,6 @@ const marketplaceUrlValidator = (marketplace: 'amazon' | 'ebay'): ValidatorFn =>
   }
 };
 
-const economicsValidator = (getCriteria: () => HuntingCriteria): ValidatorFn => (control) => {
-  const group = control as FormGroup;
-  const amazonPrice = decimalValue(group.get('amazonPrice')?.value);
-  const ebayPrice = decimalValue(group.get('ebayPrice')?.value);
-
-  if (amazonPrice === null || ebayPrice === null || amazonPrice <= 0 || ebayPrice <= 0) {
-    return { economicsMissing: true };
-  }
-
-  const criteria = getCriteria();
-  const fees = Number(((ebayPrice * criteria.feePercent) / 100).toFixed(2));
-  const profit = Number((ebayPrice - amazonPrice - fees).toFixed(2));
-  const roi = Number(((profit / amazonPrice) * 100).toFixed(2));
-  const errors: ValidationErrors = {};
-
-  if (profit < criteria.minProfit) {
-    errors['profitBelowMin'] = true;
-  }
-
-  if (!Number.isFinite(roi) || roi < criteria.minRoi) {
-    errors['roiBelowMin'] = true;
-  }
-
-  return Object.keys(errors).length > 0 ? errors : null;
-};
-
 interface SubmissionModalState {
   product: Product;
   qualityLabel: ProductQualityLabel;
@@ -263,39 +230,130 @@ export class HunterSubmissionComponent implements OnInit {
     return { fees, profit, roi };
   });
 
-  readonly economicsError = computed(() => {
+  readonly coreFieldIssues = computed(() => {
     this.formVersion();
-    const errors = this.form.errors;
-    const shouldShow =
-      this.attemptedSubmit() ||
-      this.form.controls.amazonPrice.touched ||
-      this.form.controls.ebayPrice.touched;
 
-    if (!errors || !shouldShow) {
-      return '';
-    }
-
-    if (errors['profitBelowMin']) {
-      return `Profit must be at least ${this.criteria().minProfit.toFixed(2)}.`;
-    }
-
-    if (errors['roiBelowMin']) {
-      return `ROI must be at least ${this.criteria().minRoi}%.`;
-    }
-
-    if (errors['economicsMissing']) {
-      return 'Enter valid Amazon and eBay prices to calculate profit and ROI.';
-    }
-
-    return '';
+    return [
+      this.controlProblem('title'),
+      this.controlProblem('amazonUrl'),
+      this.controlProblem('amazonAltUrl'),
+      this.controlProblem('ebayUrl'),
+      this.criteria().customLabelRequired ? this.controlProblem('customLabel') : '',
+    ].filter(Boolean);
   });
 
-  readonly qualityPreview = computed<ProductQualityLabel>(() => {
-    if (!this.asinVerified()) {
-      return 'Average Hunting';
+  readonly stockFieldIssues = computed(() => {
+    this.formVersion();
+
+    return [
+      this.controlProblem('amazonStockCount'),
+      this.controlProblem('alternateAmazonStockCount'),
+      this.controlProblem('soldCount'),
+      this.controlProblem('rating'),
+      this.controlProblem('productWatchers'),
+      this.controlProblem('salesLastTwoMonths'),
+    ].filter(Boolean);
+  });
+
+  readonly pricingFieldIssues = computed(() => {
+    this.formVersion();
+
+    return [this.controlProblem('amazonPrice'), this.controlProblem('ebayPrice')].filter(Boolean);
+  });
+
+  readonly stockSalesRuleFailures = computed(() => {
+    this.formVersion();
+    const failures: string[] = [];
+    const criteria = this.criteria();
+
+    if (
+      this.form.controls.amazonStockCount.valid &&
+      this.form.controls.amazonStockCount.value !== null &&
+      this.form.controls.amazonStockCount.value < criteria.minStockCount
+    ) {
+      failures.push(`Amazon stock must be at least ${criteria.minStockCount}.`);
     }
 
-    if (this.form.invalid || this.economicsError()) {
+    if (
+      this.form.controls.alternateAmazonStockCount.valid &&
+      this.form.controls.alternateAmazonStockCount.value !== null &&
+      this.form.controls.alternateAmazonStockCount.value < criteria.minAlternateStockCount
+    ) {
+      failures.push(`Alternate Amazon stock must be at least ${criteria.minAlternateStockCount}.`);
+    }
+
+    if (
+      this.form.controls.soldCount.valid &&
+      this.form.controls.soldCount.value !== null &&
+      this.form.controls.soldCount.value < criteria.minSoldCount
+    ) {
+      failures.push(`Sold count must be at least ${criteria.minSoldCount}.`);
+    }
+
+    if (
+      this.form.controls.rating.valid &&
+      this.form.controls.rating.value !== null &&
+      this.form.controls.rating.value < criteria.minRating
+    ) {
+      failures.push(`Rating must be at least ${criteria.minRating}.`);
+    }
+
+    if (
+      this.form.controls.productWatchers.valid &&
+      this.form.controls.productWatchers.value !== null &&
+      this.form.controls.productWatchers.value < criteria.minWatcherCount
+    ) {
+      failures.push(`Watchers must be at least ${criteria.minWatcherCount}.`);
+    }
+
+    if (
+      this.form.controls.salesLastTwoMonths.valid &&
+      this.form.controls.salesLastTwoMonths.value !== null &&
+      this.form.controls.salesLastTwoMonths.value < criteria.minSalesLastTwoMonths
+    ) {
+      failures.push(`Sales in the past 2 months must be at least ${criteria.minSalesLastTwoMonths}.`);
+    }
+
+    return failures;
+  });
+
+  readonly economicsRuleFailures = computed(() => {
+    this.formVersion();
+
+    if (this.pricingFieldIssues().length || this.economics().profit === null || this.economics().roi === null) {
+      return [];
+    }
+
+    const failures: string[] = [];
+
+    if ((this.economics().profit ?? 0) < this.criteria().minProfit) {
+      failures.push(`Profit must be at least ${this.criteria().minProfit.toFixed(2)}.`);
+    }
+
+    if ((this.economics().roi ?? 0) < this.criteria().minRoi) {
+      failures.push(`ROI must be at least ${this.criteria().minRoi}%.`);
+    }
+
+    return failures;
+  });
+
+  readonly validationReasons = computed(() => [
+    ...this.stockSalesRuleFailures(),
+    ...this.economicsRuleFailures(),
+  ]);
+
+  readonly qualityPreview = computed<ProductQualityLabel | null>(() => {
+    if (
+      !this.asinVerified() ||
+      this.asinDuplicate() ||
+      this.coreFieldIssues().length ||
+      this.stockFieldIssues().length ||
+      this.pricingFieldIssues().length
+    ) {
+      return null;
+    }
+
+    if (this.validationReasons().length) {
       return 'Rejected';
     }
 
@@ -338,7 +396,7 @@ export class HunterSubmissionComponent implements OnInit {
       return {
         tone: 'danger' as SummaryTone,
         label: 'Duplicate ASIN',
-        message: `This ASIN already exists with status ${this.asinDuplicate()?.status}.`,
+        message: `A matching product already exists with status ${this.asinDuplicate()?.status}.`,
       };
     }
 
@@ -350,18 +408,34 @@ export class HunterSubmissionComponent implements OnInit {
       };
     }
 
-    if (this.economicsError()) {
+    if (this.coreFieldIssues().length) {
       return {
-        tone: 'danger' as SummaryTone,
-        label: 'Needs review',
-        message: this.economicsError(),
+        tone: 'warning' as SummaryTone,
+        label: 'Finish required fields',
+        message: this.coreFieldIssues()[0],
       };
     }
 
-    if (this.form.valid) {
+    if (this.stockFieldIssues().length || this.pricingFieldIssues().length) {
+      return {
+        tone: 'warning' as SummaryTone,
+        label: 'Finish validation inputs',
+        message: this.stockFieldIssues()[0] || this.pricingFieldIssues()[0] || 'Complete the remaining required inputs.',
+      };
+    }
+
+    if (this.validationReasons().length) {
+      return {
+        tone: 'danger' as SummaryTone,
+        label: 'System Rejected',
+        message: this.validationReasons()[0],
+      };
+    }
+
+    if (this.qualityPreview()) {
       return {
         tone: 'success' as SummaryTone,
-        label: this.qualityPreview(),
+        label: 'System Approved',
         message: 'Current values satisfy the active validation rules.',
       };
     }
@@ -380,36 +454,42 @@ export class HunterSubmissionComponent implements OnInit {
       {
         label: 'ASIN verified',
         passed: this.asinVerified() && !this.asinDuplicate(),
-        detail: this.asinVerified() ? this.asinControl.value : 'Verify before submission',
+        detail: this.asinDuplicate()
+          ? `Already exists with status ${this.asinDuplicate()?.status}.`
+          : this.asinVerified()
+            ? this.asinControl.value
+            : 'Verify before submission',
       },
       {
         label: 'Required fields',
-        passed: ['title', 'amazonUrl', 'ebayUrl'].every(
-          (field) => !this.controlError(field as SubmissionControlName) && Boolean(this.form.get(field)?.value),
-        ),
-        detail: 'Core product and marketplace fields',
+        passed: this.coreFieldIssues().length === 0,
+        detail: this.coreFieldIssues()[0] || 'Core product and marketplace fields are ready.',
       },
       {
         label: 'Stock and sales rules',
-        passed:
-          !this.controlError('amazonStockCount') &&
-          !this.controlError('soldCount') &&
-          !this.controlError('salesLastTwoMonths') &&
-          !this.controlError('rating'),
-        detail: 'Uses the current admin thresholds',
+        passed: this.stockFieldIssues().length === 0 && this.stockSalesRuleFailures().length === 0,
+        detail:
+          this.stockFieldIssues()[0] ||
+          this.stockSalesRuleFailures()[0] ||
+          'Within the current admin thresholds.',
       },
       {
         label: 'Economics check',
-        passed: !this.economicsError() && this.economics().profit !== null,
+        passed: this.pricingFieldIssues().length === 0 && this.economicsRuleFailures().length === 0 && this.economics().profit !== null,
         detail:
-          this.economics().profit === null
-            ? 'Enter prices to calculate profit and ROI'
-            : `${this.economics().profit?.toFixed(2)} profit / ${this.economics().roi?.toFixed(2)}% ROI`,
+          this.pricingFieldIssues()[0] ||
+          this.economicsRuleFailures()[0] ||
+          (this.economics().profit === null
+            ? 'Enter prices to calculate profit and ROI.'
+            : `${this.economics().profit?.toFixed(2)} profit / ${this.economics().roi?.toFixed(2)}% ROI`),
       },
       {
         label: 'Quality label',
-        passed: this.qualityPreview() !== 'Rejected',
-        detail: this.qualityPreview(),
+        passed: this.qualityPreview() !== 'Rejected' && this.qualityPreview() !== null,
+        detail:
+          this.qualityPreview() === 'Rejected'
+            ? this.validationReasons()[0] || 'One or more rule checks failed.'
+            : this.qualityPreview() || 'Complete the form to grade hunting quality.',
       },
     ];
   });
@@ -418,7 +498,7 @@ export class HunterSubmissionComponent implements OnInit {
     () =>
       this.asinVerified() &&
       !this.asinDuplicate() &&
-      !this.form.invalid &&
+      this.form.valid &&
       !this.saving() &&
       !this.criteriaLoading(),
   );
@@ -433,7 +513,6 @@ export class HunterSubmissionComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.form.setValidators(economicsValidator(() => this.criteria()));
     this.form.disable({ emitEvent: false });
     this.resetFormFields();
 
@@ -480,8 +559,8 @@ export class HunterSubmissionComponent implements OnInit {
     );
   }
 
-  asinError(): string {
-    if (!this.asinControl.touched && !this.attemptedSubmit()) {
+  asinError(alwaysShow = false): string {
+    if (!alwaysShow && !this.asinControl.touched && !this.attemptedSubmit()) {
       return '';
     }
 
@@ -497,9 +576,115 @@ export class HunterSubmissionComponent implements OnInit {
   }
 
   controlError(name: SubmissionControlName): string {
+    return this.controlMessage(name, false);
+  }
+
+  checkAsin(): void {
+    if (this.asinControl.invalid || this.asinChecking()) {
+      this.asinControl.markAsTouched();
+      return;
+    }
+
+    this.asinChecking.set(true);
+    this.error.set('');
+    this.asinDuplicate.set(null);
+    this.asinVerified.set(false);
+
+    this.productsApi.checkAsin(this.asinControl.value).pipe(
+      finalize(() => this.asinChecking.set(false)),
+    ).subscribe({
+      next: (result: AsinCheckResult) => {
+        if (result.isDuplicate) {
+          this.asinDuplicate.set(result.product);
+          this.disableFormOnly();
+          return;
+        }
+
+        this.asinVerified.set(true);
+        this.asinDuplicate.set(null);
+        this.enableFormOnly();
+      },
+      error: (error) => {
+        this.error.set(error?.error?.message || 'Could not verify this ASIN.');
+        this.disableFormOnly();
+      },
+    });
+  }
+
+  submit(): void {
+    this.attemptedSubmit.set(true);
+
+    if (!this.canSubmit()) {
+      this.asinControl.markAsTouched();
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    this.saving.set(true);
+    this.error.set('');
+
+    const payload: ProductCreatePayload = {
+      ...(this.form.getRawValue() as Omit<ProductCreatePayload, 'asin' | 'amazonPrice' | 'ebayPrice'>),
+      asin: this.asinControl.value,
+      amazonPrice: decimalValue(this.form.controls.amazonPrice.value),
+      ebayPrice: decimalValue(this.form.controls.ebayPrice.value),
+    };
+
+    this.productsApi.createProduct(payload).pipe(
+      finalize(() => this.saving.set(false)),
+    ).subscribe({
+      next: (product) => {
+        this.lastSubmitted.set(product);
+        this.submissionModal.set({
+          product,
+          qualityLabel: (product.qualityLabel as ProductQualityLabel) || this.qualityPreview() || 'Average Hunting',
+          shortReason:
+            product.status === 'rejected'
+              ? product.primaryFailure || product.rejectionReason || 'This product did not pass the current rules.'
+              : 'All required checks passed and the product is ready for the listing workflow.',
+          nextAction:
+            product.status === 'rejected'
+              ? 'Review the rejection reason, update the product details, and submit again.'
+              : 'The product is now ready for listing. You can follow it from the product list.',
+        });
+        this.resetAll();
+        this.toast.success('Product submitted.');
+        this.workspaceSync.notifyProductsChanged();
+      },
+      error: (error) => {
+        this.error.set(error?.error?.message || 'Could not submit product.');
+
+        if (error?.status === 409 && error?.error?.details?.product) {
+          this.asinDuplicate.set(error.error.details.product);
+          this.asinVerified.set(false);
+          this.disableFormOnly();
+        }
+      },
+    });
+  }
+
+  clearForm(): void {
+    if (this.saving()) {
+      return;
+    }
+
+    this.resetAll();
+    this.lastSubmitted.set(null);
+    this.error.set('');
+  }
+
+  closeSubmissionModal(): void {
+    this.submissionModal.set(null);
+  }
+
+  private shouldShowControlError(control: AbstractControl | null): boolean {
+    return Boolean(control && (control.touched || this.attemptedSubmit()));
+  }
+
+  private controlMessage(name: SubmissionControlName, alwaysShow: boolean): string {
     const control = this.form.controls[name];
 
-    if (!this.shouldShowControlError(control)) {
+    if (!alwaysShow && !this.shouldShowControlError(control)) {
       return '';
     }
 
@@ -573,6 +758,10 @@ export class HunterSubmissionComponent implements OnInit {
     return '';
   }
 
+  private controlProblem(name: SubmissionControlName): string {
+    return this.controlMessage(name, true);
+  }
+
   helperText(name: SubmissionControlName): string {
     switch (name) {
       case 'customLabel':
@@ -601,106 +790,6 @@ export class HunterSubmissionComponent implements OnInit {
     }
   }
 
-  checkAsin(): void {
-    if (this.asinControl.invalid || this.asinChecking()) {
-      this.asinControl.markAsTouched();
-      return;
-    }
-
-    this.asinChecking.set(true);
-    this.error.set('');
-    this.asinDuplicate.set(null);
-    this.asinVerified.set(false);
-
-    this.productsApi.checkAsin(this.asinControl.value).subscribe({
-      next: (result: AsinCheckResult) => {
-        if (result.isDuplicate) {
-          this.asinDuplicate.set(result.product);
-          this.disableFormOnly();
-          return;
-        }
-
-        this.asinVerified.set(true);
-        this.asinDuplicate.set(null);
-        this.enableFormOnly();
-      },
-      error: (error) => {
-        this.error.set(error?.error?.message || 'Could not verify this ASIN.');
-        this.disableFormOnly();
-      },
-      complete: () => this.asinChecking.set(false),
-    });
-  }
-
-  submit(): void {
-    this.attemptedSubmit.set(true);
-
-    if (!this.canSubmit()) {
-      this.asinControl.markAsTouched();
-      this.form.markAllAsTouched();
-      return;
-    }
-
-    this.saving.set(true);
-    this.error.set('');
-
-    const payload: ProductCreatePayload = {
-      ...(this.form.getRawValue() as Omit<ProductCreatePayload, 'asin' | 'amazonPrice' | 'ebayPrice'>),
-      asin: this.asinControl.value,
-      amazonPrice: decimalValue(this.form.controls.amazonPrice.value),
-      ebayPrice: decimalValue(this.form.controls.ebayPrice.value),
-    };
-
-    this.productsApi.createProduct(payload).subscribe({
-      next: (product) => {
-        this.lastSubmitted.set(product);
-        this.submissionModal.set({
-          product,
-          qualityLabel: (product.qualityLabel as ProductQualityLabel) || this.qualityPreview(),
-          shortReason:
-            product.status === 'rejected'
-              ? product.primaryFailure || product.rejectionReason || 'This product did not pass the current rules.'
-              : 'All required checks passed and the product is ready for the listing workflow.',
-          nextAction:
-            product.status === 'rejected'
-              ? 'Review the rejection reason, update the product details, and submit again.'
-              : 'The product is now ready for listing. You can follow it from the product list.',
-        });
-        this.resetAll();
-        this.toast.success('Product submitted.');
-        this.workspaceSync.notifyProductsChanged();
-      },
-      error: (error) => {
-        this.error.set(error?.error?.message || 'Could not submit product.');
-
-        if (error?.status === 409 && error?.error?.details?.product) {
-          this.asinDuplicate.set(error.error.details.product);
-          this.asinVerified.set(false);
-          this.disableFormOnly();
-        }
-      },
-      complete: () => this.saving.set(false),
-    });
-  }
-
-  clearForm(): void {
-    if (this.saving()) {
-      return;
-    }
-
-    this.resetAll();
-    this.lastSubmitted.set(null);
-    this.error.set('');
-  }
-
-  closeSubmissionModal(): void {
-    this.submissionModal.set(null);
-  }
-
-  private shouldShowControlError(control: AbstractControl | null): boolean {
-    return Boolean(control && (control.touched || this.attemptedSubmit()));
-  }
-
   private applyCriteriaValidators(criteria: HuntingCriteria): void {
     this.form.controls.customLabel.setValidators(
       criteria.customLabelRequired ? [Validators.required] : [],
@@ -708,30 +797,24 @@ export class HunterSubmissionComponent implements OnInit {
     this.form.controls.amazonStockCount.setValidators([
       Validators.required,
       integerValidator,
-      Validators.min(criteria.minStockCount),
     ]);
     this.form.controls.alternateAmazonStockCount.setValidators([
       integerValidator,
-      Validators.min(criteria.minAlternateStockCount),
     ]);
     this.form.controls.soldCount.setValidators([
       Validators.required,
       integerValidator,
-      Validators.min(criteria.minSoldCount),
     ]);
     this.form.controls.rating.setValidators([
       Validators.required,
-      Validators.min(criteria.minRating),
     ]);
     this.form.controls.productWatchers.setValidators([
       ...(criteria.watchersRequired ? [Validators.required] : []),
       integerValidator,
-      Validators.min(criteria.minWatcherCount),
     ]);
     this.form.controls.salesLastTwoMonths.setValidators([
       Validators.required,
       integerValidator,
-      Validators.min(criteria.minSalesLastTwoMonths),
     ]);
     this.form.controls.amazonPrice.setValidators([
       Validators.required,

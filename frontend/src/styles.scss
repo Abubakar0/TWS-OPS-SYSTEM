@@ -56,7 +56,7 @@ body {
     linear-gradient(180deg, #f8fbff 0%, var(--tws-bg) 100%);
   color: var(--tws-text);
   font-family: var(--tws-body);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.5;
 }
 
@@ -73,7 +73,11 @@ select,
 .mat-mdc-table,
 .mat-mdc-cell,
 .mat-mdc-header-cell,
-.mat-mdc-menu-item {
+.mat-mdc-menu-item,
+.mdc-floating-label,
+.mdc-text-field__input,
+.mat-mdc-select-value-text,
+.mat-mdc-select-min-line {
   font-family: var(--tws-body) !important;
 }
 
@@ -94,12 +98,12 @@ h1 {
 }
 
 h2 {
-  font-size: 1rem;
+  font-size: 1.08rem;
   line-height: 1.25;
 }
 
 h3 {
-  font-size: 0.95rem;
+  font-size: 1rem;
 }
 
 p {
@@ -175,6 +179,25 @@ img {
   min-height: 44px !important;
   padding-top: 10px !important;
   padding-bottom: 10px !important;
+}
+
+.mdc-floating-label,
+.mat-mdc-form-field .mdc-text-field__input,
+.mat-mdc-select-value-text,
+.mat-mdc-select-min-line {
+  font-size: 0.96rem !important;
+  font-weight: 650 !important;
+  letter-spacing: 0 !important;
+}
+
+.mat-mdc-form-field .mdc-text-field__input,
+.mat-mdc-select-value-text,
+.mat-mdc-select-min-line {
+  color: var(--tws-text) !important;
+}
+
+.mat-mdc-form-field .mdc-text-field--outlined {
+  border-radius: 12px !important;
 }
 
 .mat-mdc-form-field-subscript-wrapper {
@@ -383,7 +406,7 @@ textarea.mat-mdc-input-element {
 .surface-card__header p {
   margin-top: 4px;
   color: var(--tws-muted);
-  font-size: 0.84rem;
+  font-size: 0.88rem;
 }
 
 .form-grid {
@@ -659,6 +682,11 @@ textarea.mat-mdc-input-element {
   color: currentColor;
 }
 
+.inline-state__content {
+  display: grid;
+  gap: 2px;
+}
+
 .inline-state--success {
   border-color: rgba(16, 185, 129, 0.18);
   background: var(--tws-success-soft);
@@ -730,6 +758,11 @@ textarea.mat-mdc-input-element {
   color: var(--tws-success);
 }
 
+.status-badge--success {
+  background: var(--tws-success-soft);
+  color: var(--tws-success);
+}
+
 .status-badge--warning {
   background: var(--tws-warning-soft);
   color: #9a6b12;
@@ -766,6 +799,12 @@ textarea.mat-mdc-input-element {
   border-bottom: 1px solid #edf2f7;
   vertical-align: top;
   text-align: left;
+}
+
+.data-table td {
+  color: var(--tws-text);
+  font-size: 0.93rem;
+  font-weight: 500;
 }
 
 .data-table th {
@@ -877,7 +916,7 @@ textarea.mat-mdc-input-element {
   justify-content: space-between;
   gap: 12px;
   margin-top: 18px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   border: 1px solid rgba(81, 146, 229, 0.16);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.96);
@@ -898,12 +937,19 @@ textarea.mat-mdc-input-element {
 
 .settings-savebar strong {
   display: block;
-  font-size: 0.92rem;
+  font-size: 0.94rem;
 }
 
 .settings-savebar span {
   color: var(--tws-muted);
   font-size: 0.82rem;
+}
+
+.settings-savebar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
 }
 
 .app-dialog-panel .mat-mdc-dialog-surface {

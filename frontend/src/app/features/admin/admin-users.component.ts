@@ -10,7 +10,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { debounceTime, distinctUntilChanged } from 'rxjs';
+import { debounceTime, distinctUntilChanged, finalize } from 'rxjs';
 
 import { User, UserRole } from '../../core/models/auth.models';
 import { AdminService } from '../../core/services/admin.service';
@@ -256,7 +256,9 @@ export class AdminUsersComponent implements OnInit {
       this.adminApi.createUser({
         ...raw,
         password: raw.password || 'Password123!',
-      }).subscribe({
+      }).pipe(
+        finalize(() => this.saving.set(false)),
+      ).subscribe({
         next: () => {
           this.referenceData.refreshUsers();
           this.workspaceSync.notifyUsersChanged();
@@ -265,9 +267,7 @@ export class AdminUsersComponent implements OnInit {
         },
         error: (error) => {
           this.error.set(error?.error?.message || 'Could not create user.');
-          this.saving.set(false);
         },
-        complete: () => this.saving.set(false),
       });
       return;
     }
@@ -283,7 +283,9 @@ export class AdminUsersComponent implements OnInit {
       payload.password = raw.password.trim();
     }
 
-    this.adminApi.updateUser(editingUser.id, payload).subscribe({
+    this.adminApi.updateUser(editingUser.id, payload).pipe(
+      finalize(() => this.saving.set(false)),
+    ).subscribe({
       next: () => {
         this.referenceData.refreshUsers();
         this.workspaceSync.notifyUsersChanged();
@@ -292,9 +294,7 @@ export class AdminUsersComponent implements OnInit {
       },
       error: (error) => {
         this.error.set(error?.error?.message || 'Could not update user.');
-        this.saving.set(false);
       },
-      complete: () => this.saving.set(false),
     });
   }
 

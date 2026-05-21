@@ -83,6 +83,7 @@ export class ListerProductsComponent implements OnInit {
   readonly error = signal('');
   readonly attemptedBulkSubmit = signal(false);
   readonly rejectingId = signal('');
+  readonly actionFormVersion = signal(0);
 
   readonly filters = new FormGroup({
     search: new FormControl('', { nonNullable: true }),
@@ -107,6 +108,14 @@ export class ListerProductsComponent implements OnInit {
   readonly rejectedCount = computed(() => this.products().filter((product) => product.status === 'rejected').length);
   readonly selectedCount = computed(() => this.selectedIds().size);
   readonly hasAssignedAccounts = computed(() => this.accounts().length > 0);
+  readonly selectedAccountId = computed(() => {
+    this.actionFormVersion();
+    return this.bulkForm.controls.accountId.value.trim();
+  });
+  readonly hasValidSelectedAccount = computed(() => {
+    const accountId = this.selectedAccountId();
+    return Boolean(accountId && this.accounts().some((account) => account.id === accountId));
+  });
   readonly sortedProducts = computed(() =>
     sortRecords(this.products(), this.sortState(), (product, key) => {
       switch (key) {
@@ -157,10 +166,11 @@ export class ListerProductsComponent implements OnInit {
       this.selectableIds().every((productId) => this.selectedIds().has(productId)),
   );
   readonly canMarkSelectedListed = computed(() => {
+    this.actionFormVersion();
     const selectedIds = [...this.selectedIds()];
-    const accountId = this.bulkForm.controls.accountId.value.trim();
+    const accountId = this.selectedAccountId();
 
-    if (!selectedIds.length || !accountId || this.saving()) {
+    if (!selectedIds.length || !accountId || !this.hasValidSelectedAccount() || this.saving()) {
       return false;
     }
 
@@ -170,10 +180,11 @@ export class ListerProductsComponent implements OnInit {
     });
   });
   readonly canMarkCurrentListed = computed(() => {
+    this.actionFormVersion();
     const product = this.selectedProduct();
-    const accountId = this.bulkForm.controls.accountId.value.trim();
+    const accountId = this.selectedAccountId();
 
-    if (!product || !this.canMarkListed(product) || !accountId || this.saving()) {
+    if (!product || !this.canMarkListed(product) || !accountId || !this.hasValidSelectedAccount() || this.saving()) {
       return false;
     }
 
@@ -181,6 +192,7 @@ export class ListerProductsComponent implements OnInit {
     return Boolean(control.value.trim() && !control.hasError('ebayUrl'));
   });
   readonly currentListingBlockingMessage = computed(() => {
+    this.actionFormVersion();
     const product = this.selectedProduct();
 
     if (!product) {
@@ -195,8 +207,12 @@ export class ListerProductsComponent implements OnInit {
       return product.status === 'listed' ? 'This product is already listed.' : 'This product cannot be listed from this queue.';
     }
 
-    if (!this.bulkForm.controls.accountId.value.trim()) {
+    if (!this.selectedAccountId()) {
       return 'Choose a listing account to continue.';
+    }
+
+    if (!this.hasValidSelectedAccount()) {
+      return 'Select an assigned listing account to continue.';
     }
 
     const control = this.listingLinkControl(product.id);
@@ -227,6 +243,14 @@ export class ListerProductsComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.bulkForm.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.actionFormVersion.update((value) => value + 1);
+    });
+
+    this.bulkForm.statusChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.actionFormVersion.update((value) => value + 1);
+    });
+
     this.filters.controls.search.valueChanges
       .pipe(debounceTime(350), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.loadProducts());
@@ -457,6 +481,14 @@ export class ListerProductsComponent implements OnInit {
       validators: [ebayUrlValidator],
     });
 
+    created.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.actionFormVersion.update((value) => value + 1);
+    });
+
+    created.statusChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.actionFormVersion.update((value) => value + 1);
+    });
+
     this.listingLinkControls.addControl(productId, created);
     return created;
   }
@@ -494,7 +526,7 @@ export class ListerProductsComponent implements OnInit {
   showListingLinkError(productId: string): boolean {
     const control = this.listingLinkControl(productId);
 
-    return this.isSelected(productId) && (control.touched || this.attemptedBulkSubmit()) && !control.valid;
+    return (this.isSelected(productId) || this.currentProductId() === productId) && (control.touched || this.attemptedBulkSubmit()) && !control.valid;
   }
 
   rejectionReasonError(productId: string): string {
@@ -535,6 +567,7 @@ export class ListerProductsComponent implements OnInit {
           listingUrl: this.listingLinkControl(productId).value.trim(),
         })),
       })
+      .pipe(finalize(() => this.saving.set(false)))
       .subscribe({
         next: () => {
           this.selectedIds.set(new Set());
@@ -545,7 +578,6 @@ export class ListerProductsComponent implements OnInit {
           this.toast.success('Products listed.');
         },
         error: (error) => this.error.set(error?.error?.message || 'Could not mark products as listed.'),
-        complete: () => this.saving.set(false),
       });
   }
 
@@ -711,5 +743,11 @@ export class ListerProductsComponent implements OnInit {
     if (this.bulkForm.controls.accountId.value && !allowedIds.has(this.bulkForm.controls.accountId.value)) {
       this.bulkForm.controls.accountId.setValue('', { emitEvent: false });
     }
+
+    if (!this.bulkForm.controls.accountId.value && accounts.length === 1) {
+      this.bulkForm.controls.accountId.setValue(accounts[0].id, { emitEvent: false });
+    }
+
+    this.actionFormVersion.update((value) => value + 1);
   }
 }

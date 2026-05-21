@@ -1,13 +1,13 @@
 .users-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) repeat(2, minmax(160px, 190px)) auto;
+  grid-template-columns: minmax(0, 1.45fr) repeat(2, minmax(150px, 180px)) auto;
   gap: 12px;
   align-items: end;
   margin-bottom: 16px;
 }
 
 .toolbar-select {
-  width: 170px;
+  width: 100%;
 }
 
 .table-primary {
@@ -17,11 +17,13 @@
 
 .table-primary strong {
   color: var(--tws-text);
+  font-size: 0.98rem;
+  font-weight: 700;
 }
 
 .table-primary span {
   color: var(--tws-muted);
-  font-size: 0.82rem;
+  font-size: 0.85rem;
 }
 
 .actions-col {

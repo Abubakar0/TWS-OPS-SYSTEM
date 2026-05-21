@@ -1,6 +1,6 @@
 .assignments-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) repeat(2, minmax(170px, 200px)) auto;
+  grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(150px, 190px)) auto;
   gap: 12px;
   align-items: end;
   margin-bottom: 16px;
@@ -41,6 +41,7 @@
 .assignment-row__content span,
 .assignment-row__content small {
   color: var(--tws-muted);
+  font-size: 0.85rem;
 }
 
 .assignment-row .mat-mdc-form-field {

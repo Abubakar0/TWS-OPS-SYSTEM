@@ -282,6 +282,11 @@ button[mat-flat-button] {
   gap: 10px;
 }
 
+.login-submit .mat-mdc-progress-spinner,
+.status-banner .mat-mdc-progress-spinner {
+  flex: 0 0 auto;
+}
+
 .status-banner,
 .error-message {
   display: flex;

@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, Injector, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, Injector, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, ValidatorFn } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -9,6 +10,8 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { DashboardService, HunterDashboardFilters, HunterDashboardStats } from '../../core/services/dashboard.service';
+import { HuntingCriteria } from '../../core/models/product.models';
+import { ReferenceDataService } from '../../core/state/reference-data.service';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
 
 type RangePreset = 'today' | 'yesterday' | 'thisMonth' | 'lastMonth' | 'thisYear' | 'custom';
@@ -52,6 +55,20 @@ export class HunterDashboardComponent implements OnInit {
   readonly stats = signal<HunterDashboardStats | null>(null);
   readonly loading = signal(false);
   readonly error = signal('');
+  readonly criteria = signal<HuntingCriteria>({
+    minRoi: 30,
+    minProfit: 0,
+    minSoldCount: 1,
+    feePercent: 21,
+    asinRequired: true,
+    minStockCount: 8,
+    minAlternateStockCount: 8,
+    minRating: 0,
+    customLabelRequired: false,
+    watchersRequired: false,
+    minWatcherCount: 0,
+    minSalesLastTwoMonths: 0,
+  });
   readonly selectedRange = signal<RangePreset>('thisMonth');
   readonly activeFilters = signal<HunterDashboardFilters>({});
 
@@ -82,13 +99,51 @@ export class HunterDashboardComponent implements OnInit {
   readonly averageCount = computed(() => this.stats()?.average ?? 0);
   readonly accountStats = computed(() => this.stats()?.byAccount ?? []);
   readonly listerStats = computed(() => this.stats()?.byLister ?? []);
+  readonly qualityGuide = computed(() => {
+    const criteria = this.criteria();
+    const excellentRoi = Math.max(criteria.minRoi + 15, criteria.minRoi * 1.35, 35);
+    const excellentProfit = Math.max(criteria.minProfit + 5, criteria.minProfit * 1.5, 5);
+    const excellentSales = Math.max(criteria.minSalesLastTwoMonths + 12, criteria.minSalesLastTwoMonths * 1.4, 12);
+    const excellentStock = Math.max(criteria.minStockCount + 4, criteria.minStockCount * 1.3, 12);
+    const excellentRating = Math.max(criteria.minRating + 0.5, 4.2);
 
+    return [
+      {
+        label: 'Excellent Hunting',
+        detail: `Passes every rule and hits at least 4 strong signals: ROI ${excellentRoi.toFixed(0)}%+, profit ${excellentProfit.toFixed(2)}+, sales ${excellentSales}+, stock ${excellentStock}+, rating ${excellentRating.toFixed(1)}+.`,
+      },
+      {
+        label: 'Good Hunting',
+        detail: 'Passes every rule and lands at least 2 strong signals above the current baseline.',
+      },
+      {
+        label: 'Average Hunting',
+        detail: 'Passes the required rules but stays close to the minimum thresholds.',
+      },
+      {
+        label: 'Rejected',
+        detail: 'Misses one or more required rules for approval.',
+      },
+    ];
+  });
+
+  private readonly destroyRef = inject(DestroyRef);
   private readonly workspaceSync = inject(WorkspaceSyncService);
   private readonly injector = inject(Injector);
 
-  constructor(private readonly dashboardApi: DashboardService) {}
+  constructor(
+    private readonly dashboardApi: DashboardService,
+    private readonly referenceData: ReferenceDataService,
+  ) {}
 
   ngOnInit(): void {
+    this.referenceData
+      .getCriteria()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (criteria) => this.criteria.set(criteria),
+      });
+
     this.applyPreset('thisMonth');
 
     effect(
@@ -97,6 +152,17 @@ export class HunterDashboardComponent implements OnInit {
 
         if (version > 0) {
           this.loadStats(this.activeFilters());
+        }
+      },
+      { allowSignalWrites: true, injector: this.injector },
+    );
+
+    effect(
+      () => {
+        const version = this.workspaceSync.settingsVersion();
+
+        if (version > 0) {
+          this.referenceData.refreshCriteria();
         }
       },
       { allowSignalWrites: true, injector: this.injector },

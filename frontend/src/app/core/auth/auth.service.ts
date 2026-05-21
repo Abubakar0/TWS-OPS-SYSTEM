@@ -114,6 +114,40 @@ export class AuthService {
     this.persistSession(response.token, response.user);
   }
 
+  canAccessUrl(role: UserRole | undefined, url: string | null | undefined): boolean {
+    if (!role || !url) {
+      return false;
+    }
+
+    const path = url.split('?')[0];
+
+    if (!path || path === '/' || path === '/login') {
+      return false;
+    }
+
+    if (role === 'super_admin') {
+      return path.startsWith('/superadmin') || path.startsWith('/admin');
+    }
+
+    if (role === 'admin') {
+      return path.startsWith('/admin') || path.startsWith('/hunter') || path.startsWith('/lister');
+    }
+
+    if (role === 'lister') {
+      return path.startsWith('/lister');
+    }
+
+    return path.startsWith('/hunter');
+  }
+
+  resolvePostLoginDestination(role: UserRole | undefined, returnUrl?: string | null): string {
+    if (returnUrl && this.canAccessUrl(role, returnUrl)) {
+      return returnUrl;
+    }
+
+    return this.homeForRole(role);
+  }
+
   homeForRole(role?: UserRole): string {
     if (role === 'super_admin') {
       return '/superadmin/dashboard';

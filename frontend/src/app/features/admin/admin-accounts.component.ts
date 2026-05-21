@@ -10,7 +10,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { debounceTime, distinctUntilChanged } from 'rxjs';
+import { debounceTime, distinctUntilChanged, finalize } from 'rxjs';
 
 import { User } from '../../core/models/auth.models';
 import { Account } from '../../core/models/product.models';
@@ -191,7 +191,9 @@ export class AdminAccountsComponent implements OnInit {
     this.saving.set(true);
     this.error.set('');
 
-    this.adminApi.createAccount(this.accountForm.getRawValue()).subscribe({
+    this.adminApi.createAccount(this.accountForm.getRawValue()).pipe(
+      finalize(() => this.saving.set(false)),
+    ).subscribe({
       next: () => {
         this.referenceData.refreshAccounts();
         this.workspaceSync.notifySettingsChanged();
@@ -201,9 +203,7 @@ export class AdminAccountsComponent implements OnInit {
       },
       error: (error) => {
         this.error.set(error?.error?.message || 'Could not create account.');
-        this.saving.set(false);
       },
-      complete: () => this.saving.set(false),
     });
   }
 
@@ -217,7 +217,9 @@ export class AdminAccountsComponent implements OnInit {
     this.saving.set(true);
     this.error.set('');
 
-    this.adminApi.setAccountListers(account.id, this.selectedListerIds()).subscribe({
+    this.adminApi.setAccountListers(account.id, this.selectedListerIds()).pipe(
+      finalize(() => this.saving.set(false)),
+    ).subscribe({
       next: () => {
         this.referenceData.refreshAccounts();
         this.workspaceSync.notifySettingsChanged();
@@ -227,9 +229,7 @@ export class AdminAccountsComponent implements OnInit {
       },
       error: (error) => {
         this.error.set(error?.error?.message || 'Could not update assigned listers.');
-        this.saving.set(false);
       },
-      complete: () => this.saving.set(false),
     });
   }
 

@@ -144,7 +144,25 @@
     </article>
   </section>
 
-  <section class="section-grid">
+  <section class="section-grid section-grid--three">
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Quality guide</h2>
+          <p>How the hunting labels are assigned.</p>
+        </div>
+      </div>
+
+      <div class="quality-guide">
+        @for (rule of qualityGuide(); track rule.label) {
+          <div class="quality-guide__row">
+            <strong>{{ rule.label }}</strong>
+            <span>{{ rule.detail }}</span>
+          </div>
+        }
+      </div>
+    </article>
+
     <article class="surface-card">
       <div class="surface-card__header">
         <div>
@@ -174,35 +192,37 @@
         <div class="empty-state">No lister assignments are active for this range.</div>
       }
     </article>
+  </section>
 
+  <section class="section-grid">
     <article class="surface-card">
-    <div class="surface-card__header">
-      <div>
-        <h2>Products listed per account</h2>
-        <p>Listed count by account.</p>
+      <div class="surface-card__header">
+        <div>
+          <h2>Products listed per account</h2>
+          <p>Listed count by account.</p>
+        </div>
       </div>
-    </div>
 
-    @if (loading()) {
-      <div class="loading-state">
-        <mat-spinner diameter="24"></mat-spinner>
-        <span>Refreshing dashboard data.</span>
-      </div>
-    } @else if (accountStats().length) {
-      <div class="account-grid">
-        @for (account of accountStats(); track account.accountId) {
-          <div class="account-row">
-            <div>
-              <strong>{{ account.accountName }}</strong>
-              <span>Listed products</span>
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Refreshing dashboard data.</span>
+        </div>
+      } @else if (accountStats().length) {
+        <div class="account-grid">
+          @for (account of accountStats(); track account.accountId) {
+            <div class="account-row">
+              <div>
+                <strong>{{ account.accountName }}</strong>
+                <span>Listed products</span>
+              </div>
+              <strong class="account-row__count">{{ account.listedCount }}</strong>
             </div>
-            <strong class="account-row__count">{{ account.listedCount }}</strong>
-          </div>
-        }
-      </div>
-    } @else {
-      <div class="empty-state">No listed products were found for this date range.</div>
-    }
+          }
+        </div>
+      } @else {
+        <div class="empty-state">No listed products were found for this date range.</div>
+      }
     </article>
   </section>
 </section>

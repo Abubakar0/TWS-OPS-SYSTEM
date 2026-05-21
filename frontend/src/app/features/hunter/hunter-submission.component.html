@@ -42,306 +42,324 @@
     @if (asinDuplicate(); as duplicate) {
       <div class="inline-state inline-state--error">
         <mat-icon>error</mat-icon>
-        <div>
+        <div class="inline-state__content">
           <strong>{{ duplicate.title || duplicate.asin }}</strong>
-          <span>Already exists with status {{ duplicate.status }}.</span>
+          <span>Already exists with status {{ duplicate.status | titlecase }}.</span>
         </div>
       </div>
     }
   </article>
 
-  <section class="submission-summary-bar">
-    <article class="surface-card summary-card">
-      <div class="summary-card__header">
-        <div>
-          <h2>Economics Preview</h2>
-          <p>Updates live as prices change.</p>
-        </div>
-        <span class="status-badge status-badge--neutral">{{ qualityPreview() }}</span>
-      </div>
-
-      <div class="mini-stats mini-stats--three">
-        <div>
-          <span>Fees</span>
-          <strong>{{ economics().fees === null ? '--' : (economics().fees | currency: 'USD') }}</strong>
-        </div>
-        <div>
-          <span>Profit</span>
-          <strong>{{ economics().profit === null ? '--' : (economics().profit | currency: 'USD') }}</strong>
-        </div>
-        <div>
-          <span>ROI</span>
-          <strong>{{ economics().roi === null ? '--' : ((economics().roi | number: '1.0-2') + '%') }}</strong>
-        </div>
-      </div>
-
-      @if (economicsError()) {
-        <div class="inline-state inline-state--error">{{ economicsError() }}</div>
-      }
-    </article>
-
-    <article class="surface-card summary-card">
-      <div class="summary-card__header">
-        <div>
-          <h2>Validation Summary</h2>
-          <p>Current system readiness.</p>
-        </div>
-        <span
-          class="status-badge"
-          [class.status-badge--success]="approvalSummary().tone === 'success'"
-          [class.status-badge--warning]="approvalSummary().tone === 'warning'"
-          [class.status-badge--danger]="approvalSummary().tone === 'danger'"
-          [class.status-badge--neutral]="approvalSummary().tone === 'neutral'"
-        >
-          {{ approvalSummary().label }}
-        </span>
-      </div>
-
-      <div class="checklist">
-        @for (item of validationItems(); track item.label) {
-          <div class="checklist__item" [class.is-done]="item.passed">
-            <mat-icon>{{ item.passed ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
-            <div>
-              <strong>{{ item.label }}</strong>
-              <span>{{ item.detail }}</span>
+  <section class="submission-workspace">
+    <section class="submission-form-wrap" [class.is-locked]="!asinVerified()">
+      <form class="submission-form" [formGroup]="form" (ngSubmit)="submit()">
+        @if (!asinVerified()) {
+          <div class="inline-state inline-state--warning">
+            <mat-icon>manage_search</mat-icon>
+            <div class="inline-state__content">
+              <strong>ASIN verification comes first</strong>
+              <span>Run the duplicate check to unlock the full submission form.</span>
             </div>
           </div>
         }
-      </div>
-    </article>
-  </section>
 
-  <section class="submission-form-wrap" [class.is-locked]="!asinVerified()">
-    <form class="submission-form" [formGroup]="form" (ngSubmit)="submit()">
-      <article class="surface-card form-section">
-        <div class="surface-card__header">
-          <div>
-            <h2>Product details</h2>
-            <p>Core product identifiers for the submission.</p>
+        <article class="surface-card form-section">
+          <div class="surface-card__header">
+            <div>
+              <h2>Product details</h2>
+              <p>Core product identifiers for the submission.</p>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="field-shell field-span-2">
+              <label class="field-label">Product title <span>*</span></label>
+              <mat-form-field appearance="outline">
+                <input matInput formControlName="title" autocomplete="off" />
+                @if (controlError('title')) {
+                  <mat-error>{{ controlError('title') }}</mat-error>
+                }
+              </mat-form-field>
+            </div>
+
+            <div class="field-shell">
+              <label class="field-label">Custom label</label>
+              <mat-form-field appearance="outline">
+                <input matInput formControlName="customLabel" autocomplete="off" />
+                @if (controlError('customLabel')) {
+                  <mat-error>{{ controlError('customLabel') }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ helperText('customLabel') }}</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="surface-card form-section">
+          <div class="surface-card__header">
+            <div>
+              <h2>Marketplace links</h2>
+              <p>Validated before the request is sent.</p>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="field-shell field-span-2">
+              <label class="field-label">Amazon link <span>*</span></label>
+              <mat-form-field appearance="outline">
+                <input matInput formControlName="amazonUrl" autocomplete="off" />
+                @if (controlError('amazonUrl')) {
+                  <mat-error>{{ controlError('amazonUrl') }}</mat-error>
+                }
+              </mat-form-field>
+            </div>
+
+            <div class="field-shell field-span-2">
+              <label class="field-label">Alternate Amazon link</label>
+              <mat-form-field appearance="outline">
+                <input matInput formControlName="amazonAltUrl" autocomplete="off" />
+                @if (controlError('amazonAltUrl')) {
+                  <mat-error>{{ controlError('amazonAltUrl') }}</mat-error>
+                }
+              </mat-form-field>
+            </div>
+
+            <div class="field-shell field-span-2">
+              <label class="field-label">eBay link <span>*</span></label>
+              <mat-form-field appearance="outline">
+                <input matInput formControlName="ebayUrl" autocomplete="off" />
+                @if (controlError('ebayUrl')) {
+                  <mat-error>{{ controlError('ebayUrl') }}</mat-error>
+                }
+              </mat-form-field>
+            </div>
+          </div>
+        </article>
+
+        <article class="surface-card form-section">
+          <div class="surface-card__header">
+            <div>
+              <h2>Stock and sales</h2>
+              <p>Thresholds use the current admin rules.</p>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="field-shell">
+              <label class="field-label">Amazon stock count <span>*</span></label>
+              <mat-form-field appearance="outline">
+                <input matInput type="number" formControlName="amazonStockCount" />
+                @if (controlError('amazonStockCount')) {
+                  <mat-error>{{ controlError('amazonStockCount') }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ helperText('amazonStockCount') }}</span>
+              </div>
+            </div>
+
+            <div class="field-shell">
+              <label class="field-label">Alternate Amazon stock</label>
+              <mat-form-field appearance="outline">
+                <input matInput type="number" formControlName="alternateAmazonStockCount" />
+                @if (controlError('alternateAmazonStockCount')) {
+                  <mat-error>{{ controlError('alternateAmazonStockCount') }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ helperText('alternateAmazonStockCount') }}</span>
+              </div>
+            </div>
+
+            <div class="field-shell">
+              <label class="field-label">Sold count <span>*</span></label>
+              <mat-form-field appearance="outline">
+                <input matInput type="number" formControlName="soldCount" />
+                @if (controlError('soldCount')) {
+                  <mat-error>{{ controlError('soldCount') }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ helperText('soldCount') }}</span>
+              </div>
+            </div>
+
+            <div class="field-shell">
+              <label class="field-label">Rating <span>*</span></label>
+              <mat-form-field appearance="outline">
+                <input matInput type="number" formControlName="rating" step="0.1" />
+                @if (controlError('rating')) {
+                  <mat-error>{{ controlError('rating') }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ helperText('rating') }}</span>
+              </div>
+            </div>
+
+            <div class="field-shell">
+              <label class="field-label">Product watchers</label>
+              <mat-form-field appearance="outline">
+                <input matInput type="number" formControlName="productWatchers" />
+                @if (controlError('productWatchers')) {
+                  <mat-error>{{ controlError('productWatchers') }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ helperText('productWatchers') }}</span>
+              </div>
+            </div>
+
+            <div class="field-shell">
+              <label class="field-label">Sales in past 2 months <span>*</span></label>
+              <mat-form-field appearance="outline">
+                <input matInput type="number" formControlName="salesLastTwoMonths" />
+                @if (controlError('salesLastTwoMonths')) {
+                  <mat-error>{{ controlError('salesLastTwoMonths') }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ helperText('salesLastTwoMonths') }}</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="surface-card form-section">
+          <div class="surface-card__header">
+            <div>
+              <h2>Pricing</h2>
+              <p>Decimals stay intact while you type.</p>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="field-shell">
+              <label class="field-label">Amazon price <span>*</span></label>
+              <mat-form-field appearance="outline">
+                <input matInput formControlName="amazonPrice" inputmode="decimal" autocomplete="off" />
+                @if (controlError('amazonPrice')) {
+                  <mat-error>{{ controlError('amazonPrice') }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ helperText('amazonPrice') }}</span>
+              </div>
+            </div>
+
+            <div class="field-shell">
+              <label class="field-label">eBay price <span>*</span></label>
+              <mat-form-field appearance="outline">
+                <input matInput formControlName="ebayPrice" inputmode="decimal" autocomplete="off" />
+                @if (controlError('ebayPrice')) {
+                  <mat-error>{{ controlError('ebayPrice') }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ helperText('ebayPrice') }}</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <div class="submission-stickybar">
+          <div class="submission-stickybar__meta">
+            <strong>{{ approvalSummary().label }}</strong>
+            <span>{{ approvalSummary().message }}</span>
+          </div>
+
+          <div class="submission-stickybar__actions">
+            <button mat-stroked-button type="button" (click)="clearForm()" [disabled]="saving()">Clear form</button>
+            <button mat-flat-button color="primary" type="submit" [disabled]="!canSubmit()">
+              @if (saving()) {
+                <mat-spinner diameter="18"></mat-spinner>
+              } @else {
+                <mat-icon>send</mat-icon>
+              }
+              <span>{{ saving() ? 'Submitting' : 'Submit Product' }}</span>
+            </button>
           </div>
         </div>
+      </form>
+    </section>
 
-        <div class="form-grid">
-          <div class="field-shell field-span-2">
-            <label class="field-label">Product title <span>*</span></label>
-            <mat-form-field appearance="outline">
-              <input matInput formControlName="title" autocomplete="off" />
-              @if (controlError('title')) {
-                <mat-error>{{ controlError('title') }}</mat-error>
-              }
-            </mat-form-field>
+    <aside class="submission-sidebar">
+      <article class="surface-card summary-card summary-card--sticky">
+        <div class="summary-card__header">
+          <div>
+            <h2>Economics Preview</h2>
+            <p>Updates live as prices change.</p>
           </div>
+          <span class="status-badge status-badge--neutral">{{ qualityPreview() || 'Pending quality' }}</span>
+        </div>
 
-          <div class="field-shell">
-            <label class="field-label">Custom label</label>
-            <mat-form-field appearance="outline">
-              <input matInput formControlName="customLabel" autocomplete="off" />
-              @if (controlError('customLabel')) {
-                <mat-error>{{ controlError('customLabel') }}</mat-error>
-              }
-            </mat-form-field>
-            <div class="field-helper">
-              <mat-icon>info</mat-icon>
-              <span>{{ helperText('customLabel') }}</span>
-            </div>
+        <div class="mini-stats mini-stats--three">
+          <div>
+            <span>Fees</span>
+            <strong>{{ economics().fees === null ? '--' : (economics().fees | currency: 'USD') }}</strong>
+          </div>
+          <div>
+            <span>Profit</span>
+            <strong>{{ economics().profit === null ? '--' : (economics().profit | currency: 'USD') }}</strong>
+          </div>
+          <div>
+            <span>ROI</span>
+            <strong>{{ economics().roi === null ? '--' : ((economics().roi | number: '1.0-2') + '%') }}</strong>
           </div>
         </div>
       </article>
 
-      <article class="surface-card form-section">
-        <div class="surface-card__header">
+      <article class="surface-card summary-card summary-card--sticky">
+        <div class="summary-card__header">
           <div>
-            <h2>Marketplace links</h2>
-            <p>Validated before the request is sent.</p>
+            <h2>Validation Summary</h2>
+            <p>Current system readiness.</p>
           </div>
+          <span
+            class="status-badge"
+            [class.status-badge--success]="approvalSummary().tone === 'success'"
+            [class.status-badge--warning]="approvalSummary().tone === 'warning'"
+            [class.status-badge--danger]="approvalSummary().tone === 'danger'"
+            [class.status-badge--neutral]="approvalSummary().tone === 'neutral'"
+          >
+            {{ approvalSummary().label }}
+          </span>
         </div>
 
-        <div class="form-grid">
-          <div class="field-shell field-span-2">
-            <label class="field-label">Amazon link <span>*</span></label>
-            <mat-form-field appearance="outline">
-              <input matInput formControlName="amazonUrl" autocomplete="off" />
-              @if (controlError('amazonUrl')) {
-                <mat-error>{{ controlError('amazonUrl') }}</mat-error>
-              }
-            </mat-form-field>
+        @if (validationReasons().length) {
+          <div class="inline-state inline-state--error">
+            <mat-icon>report_problem</mat-icon>
+            <div class="inline-state__content">
+              <strong>Why this is currently rejected</strong>
+              <span>{{ validationReasons()[0] }}</span>
+            </div>
           </div>
+        }
 
-          <div class="field-shell field-span-2">
-            <label class="field-label">Alternate Amazon link</label>
-            <mat-form-field appearance="outline">
-              <input matInput formControlName="amazonAltUrl" autocomplete="off" />
-              @if (controlError('amazonAltUrl')) {
-                <mat-error>{{ controlError('amazonAltUrl') }}</mat-error>
-              }
-            </mat-form-field>
-          </div>
-
-          <div class="field-shell field-span-2">
-            <label class="field-label">eBay link <span>*</span></label>
-            <mat-form-field appearance="outline">
-              <input matInput formControlName="ebayUrl" autocomplete="off" />
-              @if (controlError('ebayUrl')) {
-                <mat-error>{{ controlError('ebayUrl') }}</mat-error>
-              }
-            </mat-form-field>
-          </div>
+        <div class="checklist">
+          @for (item of validationItems(); track item.label) {
+            <div class="checklist__item" [class.is-done]="item.passed">
+              <mat-icon>{{ item.passed ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+              <div>
+                <strong>{{ item.label }}</strong>
+                <span>{{ item.detail }}</span>
+              </div>
+            </div>
+          }
         </div>
       </article>
-
-      <article class="surface-card form-section">
-        <div class="surface-card__header">
-          <div>
-            <h2>Stock and sales</h2>
-            <p>Thresholds use the current admin rules.</p>
-          </div>
-        </div>
-
-        <div class="form-grid">
-          <div class="field-shell">
-            <label class="field-label">Amazon stock count <span>*</span></label>
-            <mat-form-field appearance="outline">
-              <input matInput type="number" formControlName="amazonStockCount" />
-              @if (controlError('amazonStockCount')) {
-                <mat-error>{{ controlError('amazonStockCount') }}</mat-error>
-              }
-            </mat-form-field>
-            <div class="field-helper">
-              <mat-icon>info</mat-icon>
-              <span>{{ helperText('amazonStockCount') }}</span>
-            </div>
-          </div>
-
-          <div class="field-shell">
-            <label class="field-label">Alternate Amazon stock</label>
-            <mat-form-field appearance="outline">
-              <input matInput type="number" formControlName="alternateAmazonStockCount" />
-              @if (controlError('alternateAmazonStockCount')) {
-                <mat-error>{{ controlError('alternateAmazonStockCount') }}</mat-error>
-              }
-            </mat-form-field>
-            <div class="field-helper">
-              <mat-icon>info</mat-icon>
-              <span>{{ helperText('alternateAmazonStockCount') }}</span>
-            </div>
-          </div>
-
-          <div class="field-shell">
-            <label class="field-label">Sold count <span>*</span></label>
-            <mat-form-field appearance="outline">
-              <input matInput type="number" formControlName="soldCount" />
-              @if (controlError('soldCount')) {
-                <mat-error>{{ controlError('soldCount') }}</mat-error>
-              }
-            </mat-form-field>
-            <div class="field-helper">
-              <mat-icon>info</mat-icon>
-              <span>{{ helperText('soldCount') }}</span>
-            </div>
-          </div>
-
-          <div class="field-shell">
-            <label class="field-label">Rating <span>*</span></label>
-            <mat-form-field appearance="outline">
-              <input matInput type="number" formControlName="rating" step="0.1" />
-              @if (controlError('rating')) {
-                <mat-error>{{ controlError('rating') }}</mat-error>
-              }
-            </mat-form-field>
-            <div class="field-helper">
-              <mat-icon>info</mat-icon>
-              <span>{{ helperText('rating') }}</span>
-            </div>
-          </div>
-
-          <div class="field-shell">
-            <label class="field-label">Product watchers</label>
-            <mat-form-field appearance="outline">
-              <input matInput type="number" formControlName="productWatchers" />
-              @if (controlError('productWatchers')) {
-                <mat-error>{{ controlError('productWatchers') }}</mat-error>
-              }
-            </mat-form-field>
-            <div class="field-helper">
-              <mat-icon>info</mat-icon>
-              <span>{{ helperText('productWatchers') }}</span>
-            </div>
-          </div>
-
-          <div class="field-shell">
-            <label class="field-label">Sales in past 2 months <span>*</span></label>
-            <mat-form-field appearance="outline">
-              <input matInput type="number" formControlName="salesLastTwoMonths" />
-              @if (controlError('salesLastTwoMonths')) {
-                <mat-error>{{ controlError('salesLastTwoMonths') }}</mat-error>
-              }
-            </mat-form-field>
-            <div class="field-helper">
-              <mat-icon>info</mat-icon>
-              <span>{{ helperText('salesLastTwoMonths') }}</span>
-            </div>
-          </div>
-        </div>
-      </article>
-
-      <article class="surface-card form-section">
-        <div class="surface-card__header">
-          <div>
-            <h2>Pricing</h2>
-            <p>Decimals stay intact while you type.</p>
-          </div>
-        </div>
-
-        <div class="form-grid">
-          <div class="field-shell">
-            <label class="field-label">Amazon price <span>*</span></label>
-            <mat-form-field appearance="outline">
-              <input matInput formControlName="amazonPrice" inputmode="decimal" autocomplete="off" />
-              @if (controlError('amazonPrice')) {
-                <mat-error>{{ controlError('amazonPrice') }}</mat-error>
-              }
-            </mat-form-field>
-            <div class="field-helper">
-              <mat-icon>info</mat-icon>
-              <span>{{ helperText('amazonPrice') }}</span>
-            </div>
-          </div>
-
-          <div class="field-shell">
-            <label class="field-label">eBay price <span>*</span></label>
-            <mat-form-field appearance="outline">
-              <input matInput formControlName="ebayPrice" inputmode="decimal" autocomplete="off" />
-              @if (controlError('ebayPrice')) {
-                <mat-error>{{ controlError('ebayPrice') }}</mat-error>
-              }
-            </mat-form-field>
-            <div class="field-helper">
-              <mat-icon>info</mat-icon>
-              <span>{{ helperText('ebayPrice') }}</span>
-            </div>
-          </div>
-        </div>
-      </article>
-
-      <div class="submission-stickybar">
-        <div class="submission-stickybar__meta">
-          <strong>{{ approvalSummary().label }}</strong>
-          <span>{{ approvalSummary().message }}</span>
-        </div>
-
-        <div class="submission-stickybar__actions">
-          <button mat-stroked-button type="button" (click)="clearForm()" [disabled]="saving()">Clear form</button>
-          <button mat-flat-button color="primary" type="submit" [disabled]="!canSubmit()">
-            @if (saving()) {
-              <mat-spinner diameter="18"></mat-spinner>
-            } @else {
-              <mat-icon>send</mat-icon>
-            }
-            <span>{{ saving() ? 'Submitting' : 'Submit Product' }}</span>
-          </button>
-        </div>
-      </div>
-    </form>
+    </aside>
   </section>
 </section>
 
@@ -366,11 +384,6 @@
         >
           {{ modal.qualityLabel }}
         </span>
-
-        <div class="result-meta">
-          <span>Reference ID</span>
-          <strong>{{ modal.product.id }}</strong>
-        </div>
 
         <div class="result-meta">
           <span>Submitted time</span>

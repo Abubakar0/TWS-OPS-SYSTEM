@@ -24,7 +24,7 @@ export class ToastService {
   }
 
   private open(message: string, tone: ToastTone): void {
-    this.snackBar.open(message, 'Close', {
+    this.snackBar.open(message, undefined, {
       duration: 2600,
       panelClass: [`toast-${tone}`],
       horizontalPosition: 'center',

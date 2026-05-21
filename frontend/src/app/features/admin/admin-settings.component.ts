@@ -9,6 +9,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { finalize } from 'rxjs';
 
 import { HuntingCriteria } from '../../core/models/product.models';
 import { AdminService } from '../../core/services/admin.service';
@@ -92,18 +93,18 @@ export class AdminSettingsComponent implements OnInit {
     this.loading.set(true);
     this.error.set('');
 
-    this.adminApi.getCriteria().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+    this.adminApi.getCriteria().pipe(
+      takeUntilDestroyed(this.destroyRef),
+      finalize(() => this.loading.set(false)),
+    ).subscribe({
       next: (criteria) => {
         this.criteriaForm.patchValue(criteria, { emitEvent: false });
         this.criteriaSnapshot.set(JSON.stringify(criteria));
         this.formVersion.update((value) => value + 1);
-        this.loading.set(false);
       },
       error: (error) => {
         this.error.set(error?.error?.message || 'Could not load settings.');
-        this.loading.set(false);
       },
-      complete: () => this.loading.set(false),
     });
   }
 
@@ -116,7 +117,9 @@ export class AdminSettingsComponent implements OnInit {
     this.saving.set(true);
     this.error.set('');
 
-    this.adminApi.updateCriteria(this.criteriaForm.getRawValue() as HuntingCriteria).subscribe({
+    this.adminApi.updateCriteria(this.criteriaForm.getRawValue() as HuntingCriteria).pipe(
+      finalize(() => this.saving.set(false)),
+    ).subscribe({
       next: (criteria) => {
         this.criteriaForm.patchValue(criteria, { emitEvent: false });
         this.criteriaSnapshot.set(JSON.stringify(criteria));
@@ -127,9 +130,7 @@ export class AdminSettingsComponent implements OnInit {
       },
       error: (error) => {
         this.error.set(error?.error?.message || 'Could not save settings.');
-        this.saving.set(false);
       },
-      complete: () => this.saving.set(false),
     });
   }
 

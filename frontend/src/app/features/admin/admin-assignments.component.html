@@ -78,10 +78,7 @@
                 </span>
               </div>
               <span>{{ assignment.hunterEmail }}</span>
-              <small>
-                {{ assignment.hunterActive ? 'Hunter enabled' : 'Hunter disabled' }} •
-                {{ assignment.listerName ? assignment.listerName : 'No lister selected' }}
-              </small>
+              <small>{{ assignment.hunterActive ? 'Hunter enabled' : 'Hunter disabled' }} - {{ assignment.listerName ? assignment.listerName : 'No lister selected' }}</small>
             </div>
 
             <mat-form-field appearance="outline">

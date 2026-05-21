@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -23,7 +23,7 @@ import { AuthService } from '../../../core/auth/auth.service';
   styleUrl: './login.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class LoginComponent {
+export class LoginComponent implements OnInit {
   readonly loading = signal(false);
   readonly redirecting = signal(false);
   readonly error = signal('');
@@ -44,6 +44,32 @@ export class LoginComponent {
     private readonly router: Router,
     private readonly route: ActivatedRoute,
   ) {}
+
+  ngOnInit(): void {
+    if (!this.auth.hasActiveSession()) {
+      return;
+    }
+
+    this.redirecting.set(true);
+    const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+    const destination = this.auth.resolvePostLoginDestination(this.auth.currentUser()?.role, returnUrl);
+
+    void this.router.navigateByUrl(destination).then((navigated) => {
+      if (navigated) {
+        return;
+      }
+
+      return this.router.navigateByUrl(this.auth.homeForRole(this.auth.currentUser()?.role)).then((fallbackNavigated) => {
+        if (!fallbackNavigated) {
+          this.redirecting.set(false);
+          this.error.set('Your session is active, but the workspace could not be opened.');
+        }
+      });
+    }).catch(() => {
+      this.redirecting.set(false);
+      this.error.set('Your session is active, but the workspace could not be opened.');
+    });
+  }
 
   fieldError(name: 'email' | 'password'): string {
     const control = this.form.controls[name];
@@ -79,11 +105,20 @@ export class LoginComponent {
       next: async (response) => {
         this.redirecting.set(true);
         const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
-        const destination =
-          returnUrl && returnUrl !== '/' ? returnUrl : this.auth.homeForRole(response.user.role);
+        const destination = this.auth.resolvePostLoginDestination(response.user.role, returnUrl);
 
         try {
-          await this.router.navigateByUrl(destination);
+          const navigated = await this.router.navigateByUrl(destination);
+
+          if (!navigated) {
+            const fallbackNavigated = await this.router.navigateByUrl(this.auth.homeForRole(response.user.role));
+
+            if (!fallbackNavigated) {
+              this.error.set('Sign-in worked, but the workspace could not be opened.');
+              this.loading.set(false);
+              this.redirecting.set(false);
+            }
+          }
         } catch {
           this.error.set('Sign-in worked, but the workspace could not be opened.');
           this.loading.set(false);

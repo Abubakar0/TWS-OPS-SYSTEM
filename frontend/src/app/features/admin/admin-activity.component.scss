@@ -1,6 +1,6 @@
 .activity-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(160px, 190px)) repeat(2, minmax(150px, 170px)) auto;
+  grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(140px, 170px)) repeat(2, minmax(132px, 150px)) auto;
   gap: 12px;
   align-items: end;
   margin-bottom: 16px;
@@ -14,7 +14,9 @@
 .activity-details {
   min-width: 240px;
   color: var(--tws-muted);
-  font-size: 0.8rem;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  word-break: break-word;
 }
 
 @media (max-width: 1180px) {
