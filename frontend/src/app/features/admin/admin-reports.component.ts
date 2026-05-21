@@ -169,7 +169,7 @@ export class AdminReportsComponent implements OnInit {
     ];
 
     this.exportService.exportAsExcelTable({
-      filename: `admin-reports-${dateStamp}.xls`,
+      filename: `admin-reports-${dateStamp}.xlsx`,
       sheetName: 'Admin Reports',
       rows,
       columns: [

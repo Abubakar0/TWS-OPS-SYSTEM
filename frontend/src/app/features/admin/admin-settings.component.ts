@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -8,6 +8,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSelectModule } from '@angular/material/select';
 
 import { Account, HuntingCriteria } from '../../core/models/product.models';
 import { AdminService } from '../../core/services/admin.service';
@@ -15,6 +16,7 @@ import { ReferenceDataService } from '../../core/state/reference-data.service';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
 import { ConfirmService } from '../../core/ui/confirm.service';
 import { ToastService } from '../../core/ui/toast.service';
+import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 
 @Component({
   selector: 'app-admin-settings',
@@ -27,6 +29,8 @@ import { ToastService } from '../../core/ui/toast.service';
     MatIconModule,
     MatInputModule,
     MatProgressSpinnerModule,
+    MatSelectModule,
+    EmptyStateComponent,
   ],
   templateUrl: './admin-settings.component.html',
   styleUrl: './admin-settings.component.scss',
@@ -37,6 +41,9 @@ export class AdminSettingsComponent implements OnInit {
   readonly loading = signal(false);
   readonly saving = signal(false);
   readonly error = signal('');
+  readonly accountModalOpen = signal(false);
+  readonly formVersion = signal(0);
+  readonly criteriaSnapshot = signal<string>('');
   private readonly destroyRef = inject(DestroyRef);
 
   readonly criteriaForm = new FormGroup({
@@ -65,6 +72,10 @@ export class AdminSettingsComponent implements OnInit {
     marketplace: new FormControl('ebay', { nonNullable: true, validators: [Validators.required] }),
     isActive: new FormControl(true, { nonNullable: true }),
   });
+  readonly hasUnsavedChanges = computed(() => {
+    this.formVersion();
+    return this.serializeCriteriaForm() !== this.criteriaSnapshot();
+  });
 
   constructor(
     private readonly adminApi: AdminService,
@@ -75,6 +86,9 @@ export class AdminSettingsComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.criteriaForm.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.formVersion.update((value) => value + 1);
+    });
     this.loadData();
   }
 
@@ -83,7 +97,11 @@ export class AdminSettingsComponent implements OnInit {
     this.error.set('');
 
     this.referenceData.getCriteria().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (criteria) => this.criteriaForm.patchValue(criteria),
+      next: (criteria) => {
+        this.criteriaForm.patchValue(criteria, { emitEvent: false });
+        this.criteriaSnapshot.set(JSON.stringify(criteria));
+        this.formVersion.update((value) => value + 1);
+      },
       error: (error) => {
         this.error.set(error?.error?.message || 'Could not load settings.');
         this.loading.set(false);
@@ -108,7 +126,9 @@ export class AdminSettingsComponent implements OnInit {
 
     this.adminApi.updateCriteria(this.criteriaForm.getRawValue() as HuntingCriteria).subscribe({
       next: (criteria) => {
-        this.criteriaForm.patchValue(criteria);
+        this.criteriaForm.patchValue(criteria, { emitEvent: false });
+        this.criteriaSnapshot.set(JSON.stringify(criteria));
+        this.formVersion.update((value) => value + 1);
         this.referenceData.refreshCriteria();
         this.workspaceSync.notifySettingsChanged();
         this.toast.success('Settings saved.');
@@ -136,6 +156,7 @@ export class AdminSettingsComponent implements OnInit {
         this.referenceData.refreshAccounts();
         this.workspaceSync.notifySettingsChanged();
         this.toast.success('Account created.');
+        this.closeAccountModal(true);
       },
       error: (error) => {
         this.error.set(error?.error?.message || 'Could not create account.');
@@ -167,5 +188,44 @@ export class AdminSettingsComponent implements OnInit {
       },
       error: (error) => this.error.set(error?.error?.message || 'Could not update account.'),
     });
+  }
+
+  openAccountModal(): void {
+    this.accountForm.reset({ name: '', marketplace: 'ebay', isActive: true });
+    this.accountModalOpen.set(true);
+  }
+
+  closeAccountModal(force = false): void {
+    if (this.saving() && !force) {
+      return;
+    }
+
+    this.accountModalOpen.set(false);
+    this.accountForm.reset({ name: '', marketplace: 'ebay', isActive: true });
+  }
+
+  async resetCriteria(): Promise<void> {
+    if (!this.hasUnsavedChanges()) {
+      this.criteriaForm.patchValue(JSON.parse(this.criteriaSnapshot() || '{}'), { emitEvent: false });
+      this.formVersion.update((value) => value + 1);
+      return;
+    }
+
+    const confirmed = await this.confirm.ask({
+      title: 'Reset unsaved changes?',
+      message: 'Any edits on this page that have not been saved will be removed.',
+      confirmText: 'Reset',
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    this.criteriaForm.patchValue(JSON.parse(this.criteriaSnapshot() || '{}'), { emitEvent: false });
+    this.formVersion.update((value) => value + 1);
+  }
+
+  private serializeCriteriaForm(): string {
+    return JSON.stringify(this.criteriaForm.getRawValue());
   }
 }

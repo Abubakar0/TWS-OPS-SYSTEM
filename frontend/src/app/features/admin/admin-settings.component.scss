@@ -1,5 +1,10 @@
-.settings-grid {
-  grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
+.settings-sections {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.toggle-stack {
+  display: grid;
+  gap: 12px;
 }
 
 .toggle-row {
@@ -7,56 +12,66 @@
   align-items: center;
 }
 
-.actions-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+.account-card {
+  grid-column: 1 / -1;
 }
 
-.account-form,
 .account-list {
   display: grid;
-  gap: 14px;
-}
-
-.account-form .mat-mdc-form-field {
-  margin-bottom: -20px;
+  gap: 12px;
 }
 
 .account-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  border: 1px solid var(--tws-border);
-  border-radius: 18px;
-  background: rgba(248, 250, 255, 0.92);
-  padding: 16px;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  border-radius: 16px;
+  background: rgba(248, 250, 252, 0.78);
+}
+
+.account-row__content,
+.account-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
 .account-row__content {
-  display: grid;
-  gap: 4px;
+  min-width: 0;
 }
 
 .account-row__content strong {
   color: var(--tws-text);
 }
 
-.account-row__content span,
-.account-row__content small {
+.account-row__content span {
   color: var(--tws-muted);
+  font-size: 0.85rem;
 }
 
-@media (max-width: 1080px) {
-  .settings-grid {
+.account-modal {
+  width: min(520px, calc(100vw - 24px));
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+@media (max-width: 980px) {
+  .settings-sections {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 760px) {
-  .account-row {
-    flex-direction: column;
+  .account-row,
+  .account-row__meta {
     align-items: stretch;
+    flex-direction: column;
   }
 }

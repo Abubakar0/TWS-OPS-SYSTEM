@@ -9,6 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 
 import { User, UserRole } from '../../core/models/auth.models';
@@ -35,6 +36,7 @@ import { AuthService } from '../../core/auth/auth.service';
     MatInputModule,
     MatProgressSpinnerModule,
     MatSelectModule,
+    MatTooltipModule,
     EmptyStateComponent,
     ErrorStateComponent,
   ],
@@ -49,31 +51,50 @@ export class AdminUsersComponent implements OnInit {
   readonly saving = signal(false);
   readonly error = signal('');
   readonly searchTerm = signal('');
+  readonly roleFilter = signal<UserRole | 'all'>('all');
+  readonly statusFilter = signal<'all' | 'active' | 'disabled'>('all');
   readonly sortState = signal<GridSortState>({ active: 'name', direction: 'asc' });
   readonly pageIndex = signal(0);
   readonly pageSize = signal(this.pageSizeOptions[0]);
+  readonly userModalOpen = signal(false);
+  readonly editingUser = signal<User | null>(null);
 
   readonly searchControl = new FormControl('', { nonNullable: true });
+  readonly roleFilterControl = new FormControl<UserRole | 'all'>('all', { nonNullable: true });
+  readonly statusFilterControl = new FormControl<'all' | 'active' | 'disabled'>('all', { nonNullable: true });
 
   readonly adminCount = computed(() => this.users().filter((user) => user.role === 'admin').length);
   readonly hunterCount = computed(() => this.users().filter((user) => user.role === 'hunter').length);
   readonly listerCount = computed(() => this.users().filter((user) => user.role === 'lister').length);
+  readonly activeCount = computed(() => this.users().filter((user) => user.isActive).length);
+  readonly disabledCount = computed(() => this.users().filter((user) => !user.isActive).length);
   readonly availableRoles = computed<UserRole[]>(() =>
     this.auth.currentUser()?.role === 'super_admin' ? ['hunter', 'lister', 'admin'] : ['hunter', 'lister'],
   );
+  readonly isEditing = computed(() => Boolean(this.editingUser()));
   readonly filteredUsers = computed(() => {
     const term = this.searchTerm();
+    const role = this.roleFilter();
+    const status = this.statusFilter();
     const filtered = this.users().filter((user) => {
+      const matchesRole = role === 'all' ? true : user.role === role;
+      const matchesStatus =
+        status === 'all' ? true : status === 'active' ? user.isActive : !user.isActive;
+
       if (!term) {
-        return true;
+        return matchesRole && matchesStatus;
       }
 
-      return [
+      return (
+        matchesRole &&
+        matchesStatus &&
+        [
         user.name,
         user.email,
         user.role,
         user.isActive ? 'enabled' : 'disabled',
-      ].some((value) => value.toLowerCase().includes(term));
+        ].some((value) => value.toLowerCase().includes(term))
+      );
     });
 
     return sortRecords(filtered, this.sortState(), (user, key) => {
@@ -107,9 +128,9 @@ export class AdminUsersComponent implements OnInit {
   readonly userForm = new FormGroup({
     name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     email: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.email] }),
-    password: new FormControl('Password123!', {
+    password: new FormControl('', {
       nonNullable: true,
-      validators: [Validators.required, Validators.minLength(8)],
+      validators: [Validators.minLength(8)],
     }),
     role: new FormControl<UserRole>('hunter', { nonNullable: true, validators: [Validators.required] }),
     isActive: new FormControl(true, { nonNullable: true }),
@@ -133,6 +154,16 @@ export class AdminUsersComponent implements OnInit {
         this.searchTerm.set(value.trim().toLowerCase());
         this.pageIndex.set(0);
       });
+
+    this.roleFilterControl.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((value) => {
+      this.roleFilter.set(value);
+      this.pageIndex.set(0);
+    });
+
+    this.statusFilterControl.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((value) => {
+      this.statusFilter.set(value);
+      this.pageIndex.set(0);
+    });
   }
 
   ngOnInit(): void {
@@ -166,7 +197,51 @@ export class AdminUsersComponent implements OnInit {
     this.referenceData.refreshUsers();
   }
 
-  createUser(): void {
+  openCreateModal(): void {
+    this.editingUser.set(null);
+    this.userForm.reset({
+      name: '',
+      email: '',
+      password: '',
+      role: 'hunter',
+      isActive: true,
+    });
+    this.userForm.controls.password.setValidators([Validators.required, Validators.minLength(8)]);
+    this.userForm.controls.password.updateValueAndValidity({ emitEvent: false });
+    this.userModalOpen.set(true);
+  }
+
+  openEditModal(user: User): void {
+    this.editingUser.set(user);
+    this.userForm.reset({
+      name: user.name,
+      email: user.email,
+      password: '',
+      role: user.role,
+      isActive: user.isActive,
+    });
+    this.userForm.controls.password.setValidators([Validators.minLength(8)]);
+    this.userForm.controls.password.updateValueAndValidity({ emitEvent: false });
+    this.userModalOpen.set(true);
+  }
+
+  closeUserModal(force = false): void {
+    if (this.saving() && !force) {
+      return;
+    }
+
+    this.userModalOpen.set(false);
+    this.editingUser.set(null);
+    this.userForm.reset({
+      name: '',
+      email: '',
+      password: '',
+      role: 'hunter',
+      isActive: true,
+    });
+  }
+
+  submitUserForm(): void {
     if (this.userForm.invalid || this.saving()) {
       this.userForm.markAllAsTouched();
       return;
@@ -174,22 +249,49 @@ export class AdminUsersComponent implements OnInit {
 
     this.saving.set(true);
     this.error.set('');
+    const raw = this.userForm.getRawValue();
+    const editingUser = this.editingUser();
 
-    this.adminApi.createUser(this.userForm.getRawValue()).subscribe({
+    if (!editingUser) {
+      this.adminApi.createUser({
+        ...raw,
+        password: raw.password || 'Password123!',
+      }).subscribe({
+        next: () => {
+          this.referenceData.refreshUsers();
+          this.workspaceSync.notifyUsersChanged();
+          this.toast.success('User created.');
+          this.closeUserModal(true);
+        },
+        error: (error) => {
+          this.error.set(error?.error?.message || 'Could not create user.');
+          this.saving.set(false);
+        },
+        complete: () => this.saving.set(false),
+      });
+      return;
+    }
+
+    const payload: Partial<User> & { password?: string } = {
+      name: raw.name,
+      email: raw.email,
+      role: raw.role,
+      isActive: raw.isActive,
+    };
+
+    if (raw.password.trim()) {
+      payload.password = raw.password.trim();
+    }
+
+    this.adminApi.updateUser(editingUser.id, payload).subscribe({
       next: () => {
-        this.userForm.reset({
-          name: '',
-          email: '',
-          password: 'Password123!',
-          role: 'hunter',
-          isActive: true,
-        });
         this.referenceData.refreshUsers();
         this.workspaceSync.notifyUsersChanged();
-        this.toast.success('User created.');
+        this.toast.success('User updated.');
+        this.closeUserModal(true);
       },
       error: (error) => {
-        this.error.set(error?.error?.message || 'Could not create user.');
+        this.error.set(error?.error?.message || 'Could not update user.');
         this.saving.set(false);
       },
       complete: () => this.saving.set(false),
@@ -220,11 +322,36 @@ export class AdminUsersComponent implements OnInit {
     });
   }
 
+  async resetPassword(user: User): Promise<void> {
+    const confirmed = await this.confirm.ask({
+      title: 'Reset password?',
+      message: `${user.name} will get the temporary default password.`,
+      confirmText: 'Reset password',
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    this.adminApi.resetUserPassword(user.id).subscribe({
+      next: () => this.toast.success('Password reset.'),
+      error: (error) => this.error.set(error?.error?.message || 'Could not reset password.'),
+    });
+  }
+
+  userStatus(user: User): 'active' | 'disabled' {
+    return user.isActive ? 'active' : 'disabled';
+  }
+
+  canEditUser(user: User): boolean {
+    return user.role !== 'admin' || this.auth.currentUser()?.role === 'super_admin';
+  }
+
   exportUsers(): void {
     const dateStamp = new Date().toISOString().slice(0, 10);
 
     this.exportService.exportAsExcelTable({
-      filename: `admin-users-${dateStamp}.xls`,
+      filename: `admin-users-${dateStamp}.xlsx`,
       sheetName: 'Users',
       rows: this.filteredUsers(),
       columns: [

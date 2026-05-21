@@ -1,56 +1,169 @@
-<header class="app-topbar">
-  <div class="topbar-row">
-    <div class="brand-block">
-      <a class="brand-mark" routerLink="/">
-        <span class="brand-name">TrendWave Ops</span>
-        <span class="brand-pill">{{ workspaceLabel() }}</span>
+<div class="app-shell">
+  <div class="app-shell__backdrop" [class.is-open]="sidebarOpen()" (click)="closeSidebar()"></div>
+
+  <aside class="app-sidebar" [class.is-open]="sidebarOpen()">
+    <div class="app-sidebar__brand">
+      <a class="brand-lockup" routerLink="/">
+        <span class="brand-lockup__mark">TW</span>
+        <span class="brand-lockup__text">
+          <strong>Trend Wave</strong>
+          <small>Ops platform</small>
+        </span>
       </a>
 
-      <nav class="primary-nav" aria-label="Primary navigation">
-        @for (item of primaryNavItems(); track item.route) {
+      <button mat-icon-button type="button" class="app-sidebar__close" (click)="closeSidebar()" matTooltip="Close menu">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    @if (workspaceItems().length) {
+      <section class="sidebar-group">
+        <span class="sidebar-group__label">Workspace</span>
+        <div class="workspace-switcher">
+          @for (item of workspaceItems(); track item.route) {
+            <a
+              class="workspace-switcher__item"
+              [routerLink]="item.route"
+              routerLinkActive="is-active"
+              [routerLinkActiveOptions]="{ exact: false }"
+              (click)="closeSidebar()"
+            >
+              <mat-icon>{{ item.icon }}</mat-icon>
+              <span>{{ item.label }}</span>
+            </a>
+          }
+        </div>
+      </section>
+    }
+
+    <section class="sidebar-group">
+      <span class="sidebar-group__label">Navigation</span>
+      <nav class="sidebar-nav" aria-label="Sidebar navigation">
+        @for (item of sidebarNavItems(); track item.route) {
           <a
-            class="nav-link"
+            class="sidebar-nav__item"
             [routerLink]="item.route"
-            routerLinkActive="active"
+            routerLinkActive="is-active"
             [routerLinkActiveOptions]="{ exact: item.exact }"
+            (click)="closeSidebar()"
           >
-            {{ item.label }}
+            <mat-icon>{{ item.icon }}</mat-icon>
+            <span>{{ item.label }}</span>
           </a>
         }
       </nav>
-    </div>
+    </section>
 
-    <div class="header-actions">
-      <div class="user-block">
-        <strong>{{ user()?.name }}</strong>
-        <span>{{ user()?.email }}</span>
+    <div class="app-sidebar__footer">
+      <div class="app-sidebar__user">
+        <span class="user-avatar">{{ userInitials() }}</span>
+        <div>
+          <strong>{{ user()?.name || 'Trend Wave User' }}</strong>
+          <span>{{ user()?.email }}</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="app-frame">
+    <header class="app-header">
+      <div class="app-header__left">
+        <button mat-icon-button type="button" class="header-icon mobile-only" (click)="toggleSidebar()" matTooltip="Open menu">
+          <mat-icon>menu</mat-icon>
+        </button>
+
+        <div class="page-intro">
+          <span class="page-intro__eyebrow">{{ workspaceLabel() }}</span>
+          <strong>{{ currentSectionLabel() }}</strong>
+        </div>
       </div>
 
-      <button mat-stroked-button type="button" (click)="logout()">
-        <mat-icon>logout</mat-icon>
-        <span>Logout</span>
-      </button>
+      <div class="app-header__center">
+        <form class="header-search" (ngSubmit)="submitQuickSearch()">
+          <mat-icon>search</mat-icon>
+          <input
+            type="text"
+            [formControl]="quickSearchControl"
+            placeholder="Search pages"
+            aria-label="Search pages"
+            autocomplete="off"
+          />
+
+          @if (searchMatches().length) {
+            <div class="header-search__results">
+              @for (item of searchMatches(); track item.route) {
+                <button type="button" class="search-result" (click)="openSearchResult(item.route)">
+                  <mat-icon>{{ item.icon }}</mat-icon>
+                  <span>{{ item.label }}</span>
+                </button>
+              }
+            </div>
+          }
+        </form>
+      </div>
+
+      <div class="app-header__right">
+        <button mat-icon-button type="button" class="header-icon" [matMenuTriggerFor]="notificationsMenu" matBadge="2" matBadgeSize="small" matBadgeColor="primary">
+          <mat-icon>notifications</mat-icon>
+        </button>
+
+        <button mat-button type="button" class="user-trigger" [matMenuTriggerFor]="userMenu">
+          <span class="user-avatar">{{ userInitials() }}</span>
+          <span class="user-trigger__meta">
+            <strong>{{ user()?.name }}</strong>
+            <small>{{ currentSectionLabel() }}</small>
+          </span>
+          <mat-icon>expand_more</mat-icon>
+        </button>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <router-outlet />
+    </main>
+  </div>
+</div>
+
+<mat-menu #notificationsMenu="matMenu" xPosition="before" class="tw-menu">
+  <div class="menu-panel menu-panel--notifications">
+    <div class="menu-panel__header">
+      <strong>Notifications</strong>
+      <span>Workspace updates</span>
+    </div>
+    <div class="menu-item">
+      <mat-icon>bolt</mat-icon>
+      <div>
+        <strong>Quick links are ready</strong>
+        <span>Search any workspace page from the header.</span>
+      </div>
+    </div>
+    <div class="menu-item">
+      <mat-icon>inventory_2</mat-icon>
+      <div>
+        <strong>Export updates applied</strong>
+        <span>Excel downloads now use real .xlsx files.</span>
+      </div>
     </div>
   </div>
+</mat-menu>
 
-  @if (secondaryNavItems().length) {
-    <nav class="secondary-nav" aria-label="Workspace navigation">
-      @for (item of secondaryNavItems(); track item.route) {
-        <a
-          class="secondary-link"
-          [routerLink]="item.route"
-          routerLinkActive="active"
-          [routerLinkActiveOptions]="{ exact: item.exact }"
-        >
-          {{ item.label }}
-        </a>
-      }
-    </nav>
-  }
-</header>
+<mat-menu #userMenu="matMenu" xPosition="before" class="tw-menu">
+  <div class="menu-panel">
+    <div class="menu-panel__header">
+      <strong>{{ user()?.name }}</strong>
+      <span>{{ user()?.email }}</span>
+    </div>
 
-<main class="app-content">
-  <div class="content-shell">
-    <router-outlet />
+    @for (item of workspaceItems(); track item.route) {
+      <button mat-menu-item [routerLink]="item.route">
+        <mat-icon>{{ item.icon }}</mat-icon>
+        <span>{{ item.label }}</span>
+      </button>
+    }
+
+    <button mat-menu-item type="button" (click)="logout()">
+      <mat-icon>logout</mat-icon>
+      <span>Log out</span>
+    </button>
   </div>
-</main>
+</mat-menu>

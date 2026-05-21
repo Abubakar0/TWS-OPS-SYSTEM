@@ -142,7 +142,7 @@ export class HunterProductsComponent implements OnInit {
     const dateStamp = new Date().toISOString().slice(0, 10);
 
     this.exportService.exportAsExcelTable({
-      filename: `hunter-products-${dateStamp}.xls`,
+      filename: `hunter-products-${dateStamp}.xlsx`,
       sheetName: 'Hunter Products',
       rows: this.products(),
       columns: [

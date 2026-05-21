@@ -3,10 +3,14 @@
     <div>
       <span class="kicker">Admin Console</span>
       <h1>Settings</h1>
-      <p>Manage the validation rules that control hunter submissions, and keep listing accounts available for listers.</p>
+      <p>Control submission rules, pricing thresholds, required fields, and listing accounts.</p>
     </div>
 
     <div class="page-actions">
+      <button mat-flat-button color="primary" type="button" (click)="openAccountModal()">
+        <mat-icon>add</mat-icon>
+        <span>Add Account</span>
+      </button>
       <button mat-stroked-button type="button" (click)="loadData()" [disabled]="loading()">
         <mat-icon>refresh</mat-icon>
         <span>Refresh</span>
@@ -18,91 +22,160 @@
     <div class="inline-state inline-state--error">{{ error() }}</div>
   }
 
-  <section class="section-grid settings-grid">
+  @if (loading()) {
     <article class="surface-card">
-      <div class="surface-card__header">
-        <div>
-          <h2>Validation rules</h2>
-          <p>These settings feed the hunter submission form and product approval logic.</p>
-        </div>
+      <div class="loading-state">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>Loading settings.</span>
       </div>
-
-      <form class="form-grid" [formGroup]="criteriaForm" (ngSubmit)="saveCriteria()">
-        <mat-form-field appearance="outline">
-          <mat-label>Minimum Amazon stock count</mat-label>
-          <input matInput type="number" formControlName="minStockCount" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Minimum alternate stock count</mat-label>
-          <input matInput type="number" formControlName="minAlternateStockCount" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Minimum sold count</mat-label>
-          <input matInput type="number" formControlName="minSoldCount" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Minimum rating</mat-label>
-          <input matInput type="number" formControlName="minRating" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Minimum watcher count</mat-label>
-          <input matInput type="number" formControlName="minWatcherCount" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Minimum sales in past two months</mat-label>
-          <input matInput type="number" formControlName="minSalesLastTwoMonths" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Minimum ROI</mat-label>
-          <input matInput type="number" formControlName="minRoi" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Minimum profit</mat-label>
-          <input matInput type="number" formControlName="minProfit" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Fee percentage</mat-label>
-          <input matInput type="number" formControlName="feePercent" />
-        </mat-form-field>
-
-        <label class="toggle-row field-span-2">
-          <mat-checkbox formControlName="asinRequired">Require ASIN</mat-checkbox>
-        </label>
-
-        <label class="toggle-row field-span-2">
-          <mat-checkbox formControlName="customLabelRequired">Require custom label</mat-checkbox>
-        </label>
-
-        <label class="toggle-row field-span-2">
-          <mat-checkbox formControlName="watchersRequired">Require product watchers</mat-checkbox>
-        </label>
-
-        <div class="field-span-2 actions-row">
-          <button mat-flat-button color="primary" type="submit" [disabled]="criteriaForm.invalid || saving()">
-            <mat-icon>save</mat-icon>
-            <span>{{ saving() ? 'Saving' : 'Save Settings' }}</span>
-          </button>
-        </div>
-      </form>
     </article>
+  } @else {
+    <section class="section-grid settings-sections">
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Approval rules</h2>
+            <p>Outcome thresholds used by the system approval engine.</p>
+          </div>
+        </div>
 
-    <article class="surface-card">
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Minimum ROI</mat-label>
+            <input matInput type="number" [formControl]="criteriaForm.controls.minRoi" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Minimum profit</mat-label>
+            <input matInput type="number" [formControl]="criteriaForm.controls.minProfit" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Fee percentage</mat-label>
+            <input matInput type="number" [formControl]="criteriaForm.controls.feePercent" />
+          </mat-form-field>
+        </div>
+      </article>
+
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Stock and sales</h2>
+            <p>Volume gates used before a product moves forward.</p>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Minimum Amazon stock</mat-label>
+            <input matInput type="number" [formControl]="criteriaForm.controls.minStockCount" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Minimum alternate stock</mat-label>
+            <input matInput type="number" [formControl]="criteriaForm.controls.minAlternateStockCount" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Minimum sold count</mat-label>
+            <input matInput type="number" [formControl]="criteriaForm.controls.minSoldCount" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Minimum sales in 2 months</mat-label>
+            <input matInput type="number" [formControl]="criteriaForm.controls.minSalesLastTwoMonths" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Minimum rating</mat-label>
+            <input matInput type="number" [formControl]="criteriaForm.controls.minRating" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Minimum watcher count</mat-label>
+            <input matInput type="number" [formControl]="criteriaForm.controls.minWatcherCount" />
+          </mat-form-field>
+        </div>
+      </article>
+
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Required fields</h2>
+            <p>Control which optional values become mandatory on submission.</p>
+          </div>
+        </div>
+
+        <div class="toggle-stack">
+          <label class="toggle-row"><mat-checkbox [formControl]="criteriaForm.controls.asinRequired">Require ASIN</mat-checkbox></label>
+          <label class="toggle-row"><mat-checkbox [formControl]="criteriaForm.controls.customLabelRequired">Require custom label</mat-checkbox></label>
+          <label class="toggle-row"><mat-checkbox [formControl]="criteriaForm.controls.watchersRequired">Require watchers</mat-checkbox></label>
+        </div>
+      </article>
+
+      <article class="surface-card account-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Accounts</h2>
+            <p>Listing accounts available to the lister workspace.</p>
+          </div>
+          <span class="count-badge">{{ accounts().length }} accounts</span>
+        </div>
+
+        <div class="account-list">
+          @for (account of accounts(); track account.id) {
+            <div class="account-row">
+              <div class="account-row__content">
+                <strong>{{ account.name }}</strong>
+                <span>{{ account.marketplace | titlecase }}</span>
+              </div>
+              <div class="account-row__meta">
+                <span class="status-badge" [class.status-badge--success]="account.isActive" [class.status-badge--danger]="!account.isActive">
+                  {{ account.isActive ? 'Active' : 'Disabled' }}
+                </span>
+                <button mat-stroked-button type="button" (click)="toggleAccount(account)">
+                  <mat-icon>{{ account.isActive ? 'block' : 'check_circle' }}</mat-icon>
+                  <span>{{ account.isActive ? 'Disable' : 'Enable' }}</span>
+                </button>
+              </div>
+            </div>
+          } @empty {
+            <app-empty-state title="No accounts yet" message="Add a listing account to make it available for listers." icon="storefront" />
+          }
+        </div>
+      </article>
+    </section>
+  }
+
+  <div class="settings-savebar" [class.is-visible]="hasUnsavedChanges()">
+    <div>
+      <strong>Unsaved changes</strong>
+      <span>Update rules before hunters and listers use the new settings.</span>
+    </div>
+    <div class="settings-savebar__actions">
+      <button mat-stroked-button type="button" (click)="resetCriteria()">Reset</button>
+      <button mat-flat-button color="primary" type="button" (click)="saveCriteria()" [disabled]="criteriaForm.invalid || saving()">
+        <mat-icon>save</mat-icon>
+        <span>{{ saving() ? 'Saving' : 'Save Changes' }}</span>
+      </button>
+    </div>
+  </div>
+</section>
+
+@if (accountModalOpen()) {
+  <div class="app-modal-backdrop" (click)="closeAccountModal()">
+    <section class="app-modal account-modal" (click)="$event.stopPropagation()">
       <div class="surface-card__header">
         <div>
-          <h2>Accounts</h2>
-          <p>Create accounts for listers and enable or disable them as needed.</p>
+          <h2>Add account</h2>
+          <p>Create a listing account for the lister workflow.</p>
         </div>
+        <button mat-icon-button type="button" (click)="closeAccountModal()">
+          <mat-icon>close</mat-icon>
+        </button>
       </div>
 
-      <form class="account-form" [formGroup]="accountForm" (ngSubmit)="createAccount()">
+      <form class="form-grid" [formGroup]="accountForm" (ngSubmit)="createAccount()">
         <mat-form-field appearance="outline">
           <mat-label>Account name</mat-label>
           <input matInput formControlName="name" autocomplete="off" />
@@ -110,37 +183,24 @@
 
         <mat-form-field appearance="outline">
           <mat-label>Marketplace</mat-label>
-          <input matInput formControlName="marketplace" autocomplete="off" />
+          <mat-select formControlName="marketplace">
+            <mat-option value="ebay">eBay</mat-option>
+            <mat-option value="amazon">Amazon</mat-option>
+          </mat-select>
         </mat-form-field>
 
-        <label class="toggle-row">
-          <mat-checkbox formControlName="isActive">Enable account immediately</mat-checkbox>
+        <label class="toggle-row field-span-2">
+          <mat-checkbox formControlName="isActive">Enable immediately</mat-checkbox>
         </label>
 
-        <button mat-flat-button color="primary" type="submit" [disabled]="accountForm.invalid || saving()">
-          <mat-icon>add</mat-icon>
-          <span>Add Account</span>
-        </button>
+        <div class="field-span-2 modal-actions">
+          <button mat-stroked-button type="button" (click)="closeAccountModal()">Cancel</button>
+          <button mat-flat-button color="primary" type="submit" [disabled]="accountForm.invalid || saving()">
+            <mat-icon>add</mat-icon>
+            <span>{{ saving() ? 'Saving' : 'Create Account' }}</span>
+          </button>
+        </div>
       </form>
-
-      <div class="account-list">
-        @for (account of accounts(); track account.id) {
-          <div class="account-row">
-            <div class="account-row__content">
-              <strong>{{ account.name }}</strong>
-              <span>{{ account.marketplace }}</span>
-              <small>{{ account.isActive ? 'Enabled' : 'Disabled' }}</small>
-            </div>
-
-            <button mat-stroked-button type="button" (click)="toggleAccount(account)">
-              <mat-icon>{{ account.isActive ? 'block' : 'check_circle' }}</mat-icon>
-              <span>{{ account.isActive ? 'Disable' : 'Enable' }}</span>
-            </button>
-          </div>
-        } @empty {
-          <div class="empty-state">No accounts are available yet.</div>
-        }
-      </div>
-    </article>
-  </section>
-</section>
+    </section>
+  </div>
+}

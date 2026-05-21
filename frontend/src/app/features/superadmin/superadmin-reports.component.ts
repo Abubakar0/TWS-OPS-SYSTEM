@@ -142,7 +142,7 @@ export class SuperAdminReportsComponent implements OnInit {
     const dateStamp = new Date().toISOString().slice(0, 10);
 
     this.exportService.exportAsExcelTable({
-      filename: `superadmin-reports-${dateStamp}.xls`,
+      filename: `superadmin-reports-${dateStamp}.xlsx`,
       sheetName: 'Super Admin Reports',
       rows,
       columns: [

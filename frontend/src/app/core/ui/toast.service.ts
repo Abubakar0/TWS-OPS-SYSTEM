@@ -25,10 +25,10 @@ export class ToastService {
 
   private open(message: string, tone: ToastTone): void {
     this.snackBar.open(message, 'Close', {
-      duration: 2800,
+      duration: 2600,
       panelClass: [`toast-${tone}`],
-      horizontalPosition: 'right',
-      verticalPosition: 'top',
+      horizontalPosition: 'center',
+      verticalPosition: 'bottom',
     });
   }
 }

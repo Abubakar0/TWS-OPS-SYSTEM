@@ -3,13 +3,17 @@
     <div>
       <span class="kicker">Admin Console</span>
       <h1>Users</h1>
-      <p>Create admin, hunter, and lister accounts, then enable or disable access without leaving the page.</p>
+      <p>Manage access, roles, and account status from one compact control surface.</p>
     </div>
 
     <div class="page-actions">
-      <button mat-flat-button color="primary" type="button" (click)="exportUsers()" [disabled]="!filteredUsers().length">
+      <button mat-flat-button color="primary" type="button" (click)="openCreateModal()">
+        <mat-icon>person_add</mat-icon>
+        <span>Add User</span>
+      </button>
+      <button mat-stroked-button type="button" (click)="exportUsers()" [disabled]="!filteredUsers().length">
         <mat-icon>download</mat-icon>
-        <span>Export Excel</span>
+        <span>Export</span>
       </button>
       <button mat-stroked-button type="button" (click)="loadUsers()" [disabled]="loading()">
         <mat-icon>refresh</mat-icon>
@@ -24,40 +28,186 @@
 
   <section class="stats-grid">
     <article class="stat-card">
-      <span>Admins</span>
-      <strong>{{ adminCount() }}</strong>
-      <small>Active and inactive admin accounts.</small>
-    </article>
-
-    <article class="stat-card">
-      <span>Hunters</span>
-      <strong>{{ hunterCount() }}</strong>
-      <small>Research users available in the system.</small>
-    </article>
-
-    <article class="stat-card">
-      <span>Listers</span>
-      <strong>{{ listerCount() }}</strong>
-      <small>Listing users available in the system.</small>
-    </article>
-
-    <article class="stat-card">
       <span>Total users</span>
       <strong>{{ users().length }}</strong>
-      <small>All user accounts currently stored.</small>
+      <small>All workspace accounts.</small>
+    </article>
+    <article class="stat-card">
+      <span>Active</span>
+      <strong>{{ activeCount() }}</strong>
+      <small>Users who can sign in.</small>
+    </article>
+    <article class="stat-card">
+      <span>Disabled</span>
+      <strong>{{ disabledCount() }}</strong>
+      <small>Accounts paused from access.</small>
+    </article>
+    <article class="stat-card">
+      <span>Admins</span>
+      <strong>{{ adminCount() }}</strong>
+      <small>Administrative operators.</small>
     </article>
   </section>
 
-  <section class="section-grid users-grid">
-    <article class="surface-card">
-      <div class="surface-card__header">
-        <div>
-          <h2>Add user</h2>
-          <p>Front-end validation runs before the API call, and the available roles follow the current operator scope.</p>
-        </div>
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h2>Directory</h2>
+        <p>Search, filter, and act without leaving the page.</p>
+      </div>
+      <span class="count-badge">{{ filteredUsers().length }} results</span>
+    </div>
+
+    <div class="grid-toolbar">
+      <mat-form-field appearance="outline" class="grid-toolbar__search">
+        <mat-label>Search users</mat-label>
+        <input matInput [formControl]="searchControl" autocomplete="off" />
+        <mat-icon matSuffix>search</mat-icon>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="toolbar-select">
+        <mat-label>Role</mat-label>
+        <mat-select [formControl]="roleFilterControl">
+          <mat-option value="all">All roles</mat-option>
+          @for (role of availableRoles(); track role) {
+            <mat-option [value]="role">{{ role | titlecase }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="toolbar-select">
+        <mat-label>Status</mat-label>
+        <mat-select [formControl]="statusFilterControl">
+          <mat-option value="all">All statuses</mat-option>
+          <mat-option value="active">Active</mat-option>
+          <mat-option value="disabled">Disabled</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <div class="grid-toolbar__actions">
+        <button
+          mat-stroked-button
+          type="button"
+          class="sort-chip"
+          [class.sort-chip--active]="isSortedBy('name')"
+          (click)="toggleSort('name')"
+        >
+          <mat-icon>{{ sortIcon('name') }}</mat-icon>
+          <span>Name</span>
+        </button>
+        <button
+          mat-stroked-button
+          type="button"
+          class="sort-chip"
+          [class.sort-chip--active]="isSortedBy('role')"
+          (click)="toggleSort('role')"
+        >
+          <mat-icon>{{ sortIcon('role') }}</mat-icon>
+          <span>Role</span>
+        </button>
+        <mat-form-field appearance="outline" class="page-size-field">
+          <mat-label>Rows</mat-label>
+          <mat-select [value]="pageSize()" (valueChange)="setPageSize($event)">
+            @for (size of pageSizeOptions; track size) {
+              <mat-option [value]="size">{{ size }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
+    </div>
+
+    @if (loading()) {
+      <div class="loading-state">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>Loading users.</span>
+      </div>
+    } @else if (!filteredUsers().length) {
+      <app-empty-state
+        title="No users found"
+        message="Try a different search or filter combination."
+        icon="group_off"
+      />
+    } @else {
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Last login</th>
+              <th class="actions-col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (user of pagedUsers(); track user.id) {
+              <tr>
+                <td>
+                  <div class="table-primary">
+                    <strong>{{ user.name }}</strong>
+                    <span>{{ user.createdAt ? ('Created ' + (user.createdAt | date: 'MMM d, y')) : 'Workspace user' }}</span>
+                  </div>
+                </td>
+                <td>{{ user.email }}</td>
+                <td><span class="status-badge status-badge--neutral">{{ user.role | titlecase }}</span></td>
+                <td>
+                  <span class="status-badge" [class.status-badge--success]="user.isActive" [class.status-badge--danger]="!user.isActive">
+                    {{ userStatus(user) | titlecase }}
+                  </span>
+                </td>
+                <td>{{ user.lastLogin ? (user.lastLogin | date: 'MMM d, y, h:mm a') : 'No login yet' }}</td>
+                <td class="actions-col">
+                  <div class="table-actions">
+                    <button mat-icon-button type="button" (click)="openEditModal(user)" [disabled]="!canEditUser(user)" matTooltip="Edit user">
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                    <button mat-icon-button type="button" (click)="toggleUser(user)" matTooltip="{{ user.isActive ? 'Disable user' : 'Enable user' }}">
+                      <mat-icon>{{ user.isActive ? 'block' : 'check_circle' }}</mat-icon>
+                    </button>
+                    <button mat-icon-button type="button" (click)="resetPassword(user)" matTooltip="Reset password">
+                      <mat-icon>password</mat-icon>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
       </div>
 
-      <form class="form-grid" [formGroup]="userForm" (ngSubmit)="createUser()">
+      <div class="grid-pager">
+        <span class="grid-pager__status">{{ pageLabel() }}</span>
+
+        <div class="grid-toolbar__actions">
+          <button mat-stroked-button type="button" (click)="previousPage()" [disabled]="pageIndex() === 0">
+            <mat-icon>chevron_left</mat-icon>
+            <span>Previous</span>
+          </button>
+          <button mat-stroked-button type="button" (click)="nextPage()" [disabled]="pageIndex() >= pageCount() - 1">
+            <span>Next</span>
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+        </div>
+      </div>
+    }
+  </article>
+</section>
+
+@if (userModalOpen()) {
+  <div class="app-modal-backdrop" (click)="closeUserModal()">
+    <section class="app-modal user-modal" (click)="$event.stopPropagation()">
+      <div class="surface-card__header">
+        <div>
+          <h2>{{ isEditing() ? 'Edit user' : 'Add user' }}</h2>
+          <p>{{ isEditing() ? 'Update account details and access.' : 'Create a new workspace user.' }}</p>
+        </div>
+        <button mat-icon-button type="button" (click)="closeUserModal()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <form class="form-grid" [formGroup]="userForm" (ngSubmit)="submitUserForm()">
         <mat-form-field appearance="outline">
           <mat-label>Name</mat-label>
           <input matInput formControlName="name" autocomplete="off" />
@@ -75,9 +225,9 @@
         </mat-form-field>
 
         <mat-form-field appearance="outline">
-          <mat-label>Password</mat-label>
+          <mat-label>{{ isEditing() ? 'New password' : 'Password' }}</mat-label>
           <input matInput type="password" formControlName="password" autocomplete="new-password" />
-          <mat-hint>Minimum 8 characters.</mat-hint>
+          <mat-hint>{{ isEditing() ? 'Leave blank to keep the current password.' : 'Minimum 8 characters.' }}</mat-hint>
           @if (fieldError('password')) {
             <mat-error>{{ fieldError('password') }}</mat-error>
           }
@@ -93,135 +243,17 @@
         </mat-form-field>
 
         <label class="toggle-row field-span-2">
-          <mat-checkbox formControlName="isActive">Allow this user to log in immediately</mat-checkbox>
+          <mat-checkbox formControlName="isActive">Allow sign-in</mat-checkbox>
         </label>
 
-        <div class="field-span-2 actions-row">
+        <div class="field-span-2 modal-actions">
+          <button mat-stroked-button type="button" (click)="closeUserModal()">Cancel</button>
           <button mat-flat-button color="primary" type="submit" [disabled]="saving() || userForm.invalid">
-            <mat-icon>person_add</mat-icon>
-            <span>{{ saving() ? 'Creating' : 'Create User' }}</span>
+            <mat-icon>{{ isEditing() ? 'save' : 'person_add' }}</mat-icon>
+            <span>{{ saving() ? 'Saving' : (isEditing() ? 'Save Changes' : 'Create User') }}</span>
           </button>
         </div>
       </form>
-    </article>
-
-    <article class="surface-card">
-      <div class="surface-card__header">
-      <div>
-          <h2>Users</h2>
-          <p>Search updates while you type, and the current filtered list can be exported directly.</p>
-        </div>
-        <span class="count-badge">{{ filteredUsers().length }} matching</span>
-      </div>
-
-      <div class="grid-toolbar">
-        <mat-form-field appearance="outline" class="grid-toolbar__search">
-          <mat-label>Search name, email, role, or status</mat-label>
-          <input matInput [formControl]="searchControl" autocomplete="off" />
-          <mat-icon matSuffix>search</mat-icon>
-        </mat-form-field>
-
-        <div class="grid-toolbar__actions">
-          <button
-            mat-stroked-button
-            type="button"
-            class="sort-chip"
-            [class.sort-chip--active]="isSortedBy('name')"
-            (click)="toggleSort('name')"
-          >
-            <mat-icon>{{ sortIcon('name') }}</mat-icon>
-            <span>Name</span>
-          </button>
-          <button
-            mat-stroked-button
-            type="button"
-            class="sort-chip"
-            [class.sort-chip--active]="isSortedBy('email')"
-            (click)="toggleSort('email')"
-          >
-            <mat-icon>{{ sortIcon('email') }}</mat-icon>
-            <span>Email</span>
-          </button>
-          <button
-            mat-stroked-button
-            type="button"
-            class="sort-chip"
-            [class.sort-chip--active]="isSortedBy('role')"
-            (click)="toggleSort('role')"
-          >
-            <mat-icon>{{ sortIcon('role') }}</mat-icon>
-            <span>Role</span>
-          </button>
-          <button
-            mat-stroked-button
-            type="button"
-            class="sort-chip"
-            [class.sort-chip--active]="isSortedBy('status')"
-            (click)="toggleSort('status')"
-          >
-            <mat-icon>{{ sortIcon('status') }}</mat-icon>
-            <span>Status</span>
-          </button>
-          <mat-form-field appearance="outline" class="page-size-field">
-            <mat-label>Rows</mat-label>
-            <mat-select [value]="pageSize()" (valueChange)="setPageSize($event)">
-              @for (size of pageSizeOptions; track size) {
-                <mat-option [value]="size">{{ size }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-        </div>
-      </div>
-
-      @if (loading()) {
-        <div class="loading-state">
-          <mat-spinner diameter="24"></mat-spinner>
-          <span>Loading users.</span>
-        </div>
-      } @else {
-        <div class="list">
-          @for (user of pagedUsers(); track user.id) {
-            <div class="list-row">
-              <div class="list-row__content">
-                <strong>{{ user.name }}</strong>
-                <span>{{ user.email }}</span>
-                <small>{{ user.role | titlecase }} | {{ user.isActive ? 'Enabled' : 'Disabled' }}</small>
-              </div>
-
-              <button mat-stroked-button type="button" (click)="toggleUser(user)">
-                <mat-icon>{{ user.isActive ? 'block' : 'check_circle' }}</mat-icon>
-                <span>{{ user.isActive ? 'Disable' : 'Enable' }}</span>
-              </button>
-            </div>
-          } @empty {
-            <app-empty-state
-              title="No users found"
-              message="No users match the current search or filter."
-              icon="group_off"
-            />
-          }
-        </div>
-
-        <div class="grid-pager">
-          <span class="grid-pager__status">{{ pageLabel() }}</span>
-
-          <div class="grid-toolbar__actions">
-            <button mat-stroked-button type="button" (click)="previousPage()" [disabled]="pageIndex() === 0">
-              <mat-icon>chevron_left</mat-icon>
-              <span>Previous</span>
-            </button>
-            <button
-              mat-stroked-button
-              type="button"
-              (click)="nextPage()"
-              [disabled]="pageIndex() >= pageCount() - 1"
-            >
-              <span>Next</span>
-              <mat-icon>chevron_right</mat-icon>
-            </button>
-          </div>
-        </div>
-      }
-    </article>
-  </section>
-</section>
+    </section>
+  </div>
+}

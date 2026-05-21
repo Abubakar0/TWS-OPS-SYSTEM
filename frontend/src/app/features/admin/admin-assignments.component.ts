@@ -177,7 +177,7 @@ export class AdminAssignmentsComponent implements OnInit {
     const dateStamp = new Date().toISOString().slice(0, 10);
 
     this.exportService.exportAsExcelTable({
-      filename: `assignments-${dateStamp}.xls`,
+      filename: `assignments-${dateStamp}.xlsx`,
       sheetName: 'Assignments',
       rows: this.filteredAssignments(),
       columns: [

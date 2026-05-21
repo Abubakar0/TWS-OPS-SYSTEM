@@ -1,21 +1,21 @@
 .global-loader {
   position: fixed;
   inset: 0 0 auto;
-  z-index: 1200;
-  height: 3px;
+  z-index: 1400;
+  height: 4px;
   overflow: hidden;
-  background: rgba(27, 102, 214, 0.1);
+  background: rgba(81, 146, 229, 0.12);
 }
 
 .global-loader::after {
   content: '';
   display: block;
-  width: 38%;
+  width: 30%;
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #1b66d6 0%, #11a1a0 100%);
-  box-shadow: 0 0 16px rgba(27, 102, 214, 0.28);
-  animation: loader-slide 1.05s ease-in-out infinite;
+  background: linear-gradient(90deg, #5192e5 0%, #7c3aed 100%);
+  box-shadow: 0 0 18px rgba(81, 146, 229, 0.35);
+  animation: loader-slide 0.95s ease-in-out infinite;
 }
 
 @keyframes loader-slide {
@@ -23,6 +23,6 @@
     transform: translateX(-100%);
   }
   100% {
-    transform: translateX(320%);
+    transform: translateX(360%);
   }
 }

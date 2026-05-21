@@ -74,6 +74,7 @@ export class ListerProductsComponent implements OnInit {
   readonly accounts = signal<Account[]>([]);
   readonly products = signal<Product[]>([]);
   readonly selectedHunterId = signal('');
+  readonly currentProductId = signal('');
   readonly selectedIds = signal<Set<string>>(new Set());
   readonly sortState = signal<GridSortState>({ active: 'createdAt', direction: 'desc' });
   readonly pageIndex = signal(0);
@@ -127,6 +128,12 @@ export class ListerProductsComponent implements OnInit {
       }
     }),
   );
+  readonly selectedProduct = computed(
+    () => this.sortedProducts().find((product) => product.id === this.currentProductId()) || null,
+  );
+  readonly selectedQueueIndex = computed(() =>
+    this.sortedProducts().findIndex((product) => product.id === this.currentProductId()),
+  );
   readonly pagedProducts = computed(() => paginateRecords(this.sortedProducts(), this.pageIndex(), this.pageSize()));
   readonly pageCount = computed(() => Math.max(1, Math.ceil(this.sortedProducts().length / this.pageSize())));
   readonly pageLabel = computed(() => {
@@ -161,6 +168,16 @@ export class ListerProductsComponent implements OnInit {
       const control = this.listingLinkControl(productId);
       return Boolean(control.value.trim() && control.valid);
     });
+  });
+  readonly canMarkCurrentListed = computed(() => {
+    const product = this.selectedProduct();
+
+    if (!product || !this.canMarkListed(product) || this.bulkForm.invalid || this.saving()) {
+      return false;
+    }
+
+    const control = this.listingLinkControl(product.id);
+    return Boolean(control.value.trim() && control.valid);
   });
 
   private readonly destroyRef = inject(DestroyRef);
@@ -212,6 +229,7 @@ export class ListerProductsComponent implements OnInit {
         this.products.set(products);
         this.syncRowControls(products);
         this.pruneSelection(products);
+        this.syncCurrentProduct(products);
         this.pageIndex.set(clampPageIndex(products.length, this.pageSize(), this.pageIndex()));
       });
 
@@ -258,6 +276,7 @@ export class ListerProductsComponent implements OnInit {
 
   selectHunter(hunterId: string): void {
     this.selectedHunterId.set(hunterId);
+    this.currentProductId.set('');
     this.selectedIds.set(new Set());
     this.attemptedBulkSubmit.set(false);
     this.pageIndex.set(0);
@@ -291,7 +310,7 @@ export class ListerProductsComponent implements OnInit {
     const dateStamp = new Date().toISOString().slice(0, 10);
 
     this.exportService.exportAsExcelTable({
-      filename: `lister-products-${hunterName.replaceAll(/\s+/g, '-').toLowerCase()}-${dateStamp}.xls`,
+      filename: `lister-products-${hunterName.replaceAll(/\s+/g, '-').toLowerCase()}-${dateStamp}.xlsx`,
       sheetName: 'Lister Products',
       rows: this.products(),
       columns: [
@@ -321,6 +340,30 @@ export class ListerProductsComponent implements OnInit {
 
   loadProducts(): void {
     this.reloadProducts$.next();
+  }
+
+  selectProduct(productId: string): void {
+    this.currentProductId.set(productId);
+  }
+
+  goToPreviousProduct(): void {
+    const currentIndex = this.selectedQueueIndex();
+
+    if (currentIndex <= 0) {
+      return;
+    }
+
+    this.currentProductId.set(this.sortedProducts()[currentIndex - 1]?.id || '');
+  }
+
+  goToNextProduct(): void {
+    const currentIndex = this.selectedQueueIndex();
+
+    if (currentIndex < 0 || currentIndex >= this.sortedProducts().length - 1) {
+      return;
+    }
+
+    this.currentProductId.set(this.sortedProducts()[currentIndex + 1]?.id || '');
   }
 
   isSelected(productId: string): boolean {
@@ -471,6 +514,17 @@ export class ListerProductsComponent implements OnInit {
       });
   }
 
+  markCurrentListed(): void {
+    const product = this.selectedProduct();
+
+    if (!product) {
+      return;
+    }
+
+    this.selectedIds.set(new Set([product.id]));
+    this.markSelectedListed();
+  }
+
   async rejectProduct(product: Product): Promise<void> {
     const control = this.rejectionReasonControl(product.id);
 
@@ -595,5 +649,20 @@ export class ListerProductsComponent implements OnInit {
     const validIds = new Set(products.filter((product) => this.canMarkListed(product)).map((product) => product.id));
     const next = new Set([...this.selectedIds()].filter((productId) => validIds.has(productId)));
     this.selectedIds.set(next);
+  }
+
+  private syncCurrentProduct(products: Product[]): void {
+    if (!products.length) {
+      this.currentProductId.set('');
+      return;
+    }
+
+    const existing = products.some((product) => product.id === this.currentProductId());
+
+    if (existing) {
+      return;
+    }
+
+    this.currentProductId.set(products[0]?.id || '');
   }
 }

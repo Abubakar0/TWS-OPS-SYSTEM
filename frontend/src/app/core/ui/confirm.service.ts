@@ -13,8 +13,9 @@ export class ConfirmService {
 
   async ask(options: ConfirmationDialogData): Promise<boolean> {
     const dialogRef = this.dialog.open(ConfirmationDialogComponent, {
-      width: '420px',
-      maxWidth: 'calc(100vw - 32px)',
+      width: '440px',
+      maxWidth: 'calc(100vw - 28px)',
+      panelClass: ['app-dialog-panel', options.tone === 'danger' ? 'app-dialog-panel--danger' : 'app-dialog-panel--default'],
       data: options,
     });
 
