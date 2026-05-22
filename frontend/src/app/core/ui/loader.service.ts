@@ -1,25 +1,26 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable } from '@angular/core';
+
+import { LoadingService } from './loading.service';
 
 @Injectable({ providedIn: 'root' })
 export class LoaderService {
-  private readonly requestCount = signal(0);
-  private readonly navigationCount = signal(0);
+  readonly isVisible = this.loading.isVisible;
 
-  readonly isVisible = computed(() => this.requestCount() > 0 || this.navigationCount() > 0);
+  constructor(private readonly loading: LoadingService) {}
 
-  beginRequest(): void {
-    this.requestCount.update((count) => count + 1);
+  beginRequest(scope?: string): void {
+    this.loading.beginRequest(scope);
   }
 
-  endRequest(): void {
-    this.requestCount.update((count) => Math.max(0, count - 1));
+  endRequest(scope?: string): void {
+    this.loading.endRequest(scope);
   }
 
   beginNavigation(): void {
-    this.navigationCount.update((count) => count + 1);
+    this.loading.beginNavigation();
   }
 
   endNavigation(): void {
-    this.navigationCount.update((count) => Math.max(0, count - 1));
+    this.loading.endNavigation();
   }
 }

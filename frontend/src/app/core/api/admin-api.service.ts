@@ -1,0 +1,94 @@
+import { HttpClient, HttpParams } from '@angular/common/http';
+import { Injectable } from '@angular/core';
+import { map, Observable } from 'rxjs';
+
+import { environment } from '../../../environments/environment';
+import { LoginResponse, User, UserPermissions, UserRole } from '../models/auth.models';
+import { HuntingCriteria } from '../models/product.models';
+import { AuditLogEntry, PermissionMatrixRow, UserFilters } from '../services/admin.service';
+
+@Injectable({ providedIn: 'root' })
+export class AdminApiService {
+  constructor(private readonly http: HttpClient) {}
+
+  listUsers(role?: UserRole, filters: UserFilters = {}): Observable<User[]> {
+    let params = new HttpParams();
+
+    if (role) {
+      params = params.set('role', role);
+    }
+
+    if (filters.search) {
+      params = params.set('search', filters.search);
+    }
+
+    if (filters.includeDeleted) {
+      params = params.set('includeDeleted', 'true');
+    }
+
+    return this.http
+      .get<{ users: User[] }>(`${environment.apiUrl}/users`, { params })
+      .pipe(map((response) => response.users));
+  }
+
+  createUser(payload: {
+    name: string;
+    email: string;
+    password: string;
+    role: UserRole;
+    isActive: boolean;
+    permissions?: Partial<UserPermissions>;
+  }): Observable<User> {
+    return this.http
+      .post<{ user: User }>(`${environment.apiUrl}/users`, payload)
+      .pipe(map((response) => response.user));
+  }
+
+  updateUser(id: string, payload: Partial<User> & { password?: string }): Observable<User> {
+    return this.http
+      .patch<{ user: User }>(`${environment.apiUrl}/users/${id}`, payload)
+      .pipe(map((response) => response.user));
+  }
+
+  resetUserPassword(id: string, password?: string): Observable<User> {
+    return this.http
+      .post<{ user: User }>(`${environment.apiUrl}/users/${id}/reset-password`, { password })
+      .pipe(map((response) => response.user));
+  }
+
+  impersonateUser(id: string): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>(`${environment.apiUrl}/users/${id}/impersonate`, {});
+  }
+
+  listAuditLogs(filters: { action?: string; actorUserId?: string; actorRole?: string; targetType?: string; search?: string; from?: string; to?: string } = {}): Observable<AuditLogEntry[]> {
+    let params = new HttpParams();
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) {
+        params = params.set(key, value);
+      }
+    });
+
+    return this.http
+      .get<{ logs: AuditLogEntry[] }>(`${environment.apiUrl}/users/audit`, { params })
+      .pipe(map((response) => response.logs));
+  }
+
+  getPermissionMatrix(): Observable<PermissionMatrixRow[]> {
+    return this.http
+      .get<{ matrix: PermissionMatrixRow[] }>(`${environment.apiUrl}/users/permissions/matrix`)
+      .pipe(map((response) => response.matrix));
+  }
+
+  getCriteria(): Observable<HuntingCriteria> {
+    return this.http
+      .get<{ criteria: HuntingCriteria }>(`${environment.apiUrl}/criteria`)
+      .pipe(map((response) => response.criteria));
+  }
+
+  updateCriteria(payload: HuntingCriteria): Observable<HuntingCriteria> {
+    return this.http
+      .put<{ criteria: HuntingCriteria }>(`${environment.apiUrl}/criteria`, payload)
+      .pipe(map((response) => response.criteria));
+  }
+}

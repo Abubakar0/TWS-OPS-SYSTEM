@@ -1,6 +1,6 @@
 <section class="page-shell page-shell--flush">
-  @if (error()) {
-    <div class="inline-state inline-state--error">{{ error() }}</div>
+  @if (facade.error()) {
+    <div class="inline-state inline-state--error">{{ facade.error() }}</div>
   }
 
   <article class="surface-card asin-gate-card">
@@ -9,9 +9,9 @@
         <h2>ASIN verification</h2>
         <p>Check for duplicates before unlocking the full submission form.</p>
       </div>
-      @if (asinVerified()) {
+      @if (facade.asinVerified()) {
         <span class="status-badge status-badge--success">Verified</span>
-      } @else if (asinDuplicate()) {
+      } @else if (facade.asinDuplicate()) {
         <span class="status-badge status-badge--danger">Duplicate</span>
       } @else {
         <span class="status-badge status-badge--warning">Pending</span>
@@ -22,24 +22,24 @@
       <div class="field-shell">
         <label class="field-label" for="asin-check">ASIN <span>*</span></label>
         <mat-form-field appearance="outline">
-          <input id="asin-check" matInput [formControl]="asinControl" autocomplete="off" />
-          @if (asinError()) {
-            <mat-error>{{ asinError() }}</mat-error>
+          <input id="asin-check" matInput [formControl]="facade.asinControl" autocomplete="off" />
+          @if (facade.asinMessage()) {
+            <mat-error>{{ facade.asinMessage() }}</mat-error>
           }
         </mat-form-field>
       </div>
 
-      <button mat-flat-button color="primary" type="button" (click)="checkAsin()" [disabled]="asinChecking()">
-        @if (asinChecking()) {
+      <button mat-flat-button color="primary" type="button" (click)="facade.checkAsin()" [disabled]="facade.asinChecking()">
+        @if (facade.asinChecking()) {
           <mat-spinner diameter="18"></mat-spinner>
         } @else {
           <mat-icon>manage_search</mat-icon>
         }
-        <span>{{ asinChecking() ? 'Checking' : 'Check ASIN' }}</span>
+        <span>{{ facade.asinChecking() ? 'Checking' : 'Check ASIN' }}</span>
       </button>
     </div>
 
-    @if (asinDuplicate(); as duplicate) {
+    @if (facade.asinDuplicate(); as duplicate) {
       <div class="inline-state inline-state--error">
         <mat-icon>error</mat-icon>
         <div class="inline-state__content">
@@ -51,9 +51,9 @@
   </article>
 
   <section class="submission-workspace">
-    <section class="submission-form-wrap" [class.is-locked]="!asinVerified()">
-      <form class="submission-form" [formGroup]="form" (ngSubmit)="submit()">
-        @if (!asinVerified()) {
+    <section class="submission-form-wrap" [class.is-locked]="!facade.asinVerified()">
+      <form class="submission-form" [formGroup]="facade.form" (ngSubmit)="facade.submit()">
+        @if (!facade.asinVerified()) {
           <div class="inline-state inline-state--warning">
             <mat-icon>manage_search</mat-icon>
             <div class="inline-state__content">
@@ -76,8 +76,8 @@
               <label class="field-label">Product title <span>*</span></label>
               <mat-form-field appearance="outline">
                 <input matInput formControlName="title" autocomplete="off" />
-                @if (controlError('title')) {
-                  <mat-error>{{ controlError('title') }}</mat-error>
+                @if (facade.fieldStates().title.error) {
+                  <mat-error>{{ facade.fieldStates().title.error }}</mat-error>
                 }
               </mat-form-field>
             </div>
@@ -86,13 +86,13 @@
               <label class="field-label">Custom label</label>
               <mat-form-field appearance="outline">
                 <input matInput formControlName="customLabel" autocomplete="off" />
-                @if (controlError('customLabel')) {
-                  <mat-error>{{ controlError('customLabel') }}</mat-error>
+                @if (facade.fieldStates().customLabel.error) {
+                  <mat-error>{{ facade.fieldStates().customLabel.error }}</mat-error>
                 }
               </mat-form-field>
               <div class="field-helper">
                 <mat-icon>info</mat-icon>
-                <span>{{ helperText('customLabel') }}</span>
+                <span>{{ facade.fieldStates().customLabel.helper }}</span>
               </div>
             </div>
           </div>
@@ -111,8 +111,8 @@
               <label class="field-label">Amazon link <span>*</span></label>
               <mat-form-field appearance="outline">
                 <input matInput formControlName="amazonUrl" autocomplete="off" />
-                @if (controlError('amazonUrl')) {
-                  <mat-error>{{ controlError('amazonUrl') }}</mat-error>
+                @if (facade.fieldStates().amazonUrl.error) {
+                  <mat-error>{{ facade.fieldStates().amazonUrl.error }}</mat-error>
                 }
               </mat-form-field>
             </div>
@@ -121,8 +121,8 @@
               <label class="field-label">Alternate Amazon link</label>
               <mat-form-field appearance="outline">
                 <input matInput formControlName="amazonAltUrl" autocomplete="off" />
-                @if (controlError('amazonAltUrl')) {
-                  <mat-error>{{ controlError('amazonAltUrl') }}</mat-error>
+                @if (facade.fieldStates().amazonAltUrl.error) {
+                  <mat-error>{{ facade.fieldStates().amazonAltUrl.error }}</mat-error>
                 }
               </mat-form-field>
             </div>
@@ -131,8 +131,8 @@
               <label class="field-label">eBay link <span>*</span></label>
               <mat-form-field appearance="outline">
                 <input matInput formControlName="ebayUrl" autocomplete="off" />
-                @if (controlError('ebayUrl')) {
-                  <mat-error>{{ controlError('ebayUrl') }}</mat-error>
+                @if (facade.fieldStates().ebayUrl.error) {
+                  <mat-error>{{ facade.fieldStates().ebayUrl.error }}</mat-error>
                 }
               </mat-form-field>
             </div>
@@ -152,13 +152,13 @@
               <label class="field-label">Amazon stock count <span>*</span></label>
               <mat-form-field appearance="outline">
                 <input matInput type="number" formControlName="amazonStockCount" />
-                @if (controlError('amazonStockCount')) {
-                  <mat-error>{{ controlError('amazonStockCount') }}</mat-error>
+                @if (facade.fieldStates().amazonStockCount.error) {
+                  <mat-error>{{ facade.fieldStates().amazonStockCount.error }}</mat-error>
                 }
               </mat-form-field>
               <div class="field-helper">
                 <mat-icon>info</mat-icon>
-                <span>{{ helperText('amazonStockCount') }}</span>
+                <span>{{ facade.fieldStates().amazonStockCount.helper }}</span>
               </div>
             </div>
 
@@ -166,13 +166,13 @@
               <label class="field-label">Alternate Amazon stock</label>
               <mat-form-field appearance="outline">
                 <input matInput type="number" formControlName="alternateAmazonStockCount" />
-                @if (controlError('alternateAmazonStockCount')) {
-                  <mat-error>{{ controlError('alternateAmazonStockCount') }}</mat-error>
+                @if (facade.fieldStates().alternateAmazonStockCount.error) {
+                  <mat-error>{{ facade.fieldStates().alternateAmazonStockCount.error }}</mat-error>
                 }
               </mat-form-field>
               <div class="field-helper">
                 <mat-icon>info</mat-icon>
-                <span>{{ helperText('alternateAmazonStockCount') }}</span>
+                <span>{{ facade.fieldStates().alternateAmazonStockCount.helper }}</span>
               </div>
             </div>
 
@@ -180,13 +180,13 @@
               <label class="field-label">Sold count <span>*</span></label>
               <mat-form-field appearance="outline">
                 <input matInput type="number" formControlName="soldCount" />
-                @if (controlError('soldCount')) {
-                  <mat-error>{{ controlError('soldCount') }}</mat-error>
+                @if (facade.fieldStates().soldCount.error) {
+                  <mat-error>{{ facade.fieldStates().soldCount.error }}</mat-error>
                 }
               </mat-form-field>
               <div class="field-helper">
                 <mat-icon>info</mat-icon>
-                <span>{{ helperText('soldCount') }}</span>
+                <span>{{ facade.fieldStates().soldCount.helper }}</span>
               </div>
             </div>
 
@@ -194,13 +194,13 @@
               <label class="field-label">Rating <span>*</span></label>
               <mat-form-field appearance="outline">
                 <input matInput type="number" formControlName="rating" step="0.1" />
-                @if (controlError('rating')) {
-                  <mat-error>{{ controlError('rating') }}</mat-error>
+                @if (facade.fieldStates().rating.error) {
+                  <mat-error>{{ facade.fieldStates().rating.error }}</mat-error>
                 }
               </mat-form-field>
               <div class="field-helper">
                 <mat-icon>info</mat-icon>
-                <span>{{ helperText('rating') }}</span>
+                <span>{{ facade.fieldStates().rating.helper }}</span>
               </div>
             </div>
 
@@ -208,13 +208,13 @@
               <label class="field-label">Product watchers</label>
               <mat-form-field appearance="outline">
                 <input matInput type="number" formControlName="productWatchers" />
-                @if (controlError('productWatchers')) {
-                  <mat-error>{{ controlError('productWatchers') }}</mat-error>
+                @if (facade.fieldStates().productWatchers.error) {
+                  <mat-error>{{ facade.fieldStates().productWatchers.error }}</mat-error>
                 }
               </mat-form-field>
               <div class="field-helper">
                 <mat-icon>info</mat-icon>
-                <span>{{ helperText('productWatchers') }}</span>
+                <span>{{ facade.fieldStates().productWatchers.helper }}</span>
               </div>
             </div>
 
@@ -222,13 +222,13 @@
               <label class="field-label">Sales in past 2 months <span>*</span></label>
               <mat-form-field appearance="outline">
                 <input matInput type="number" formControlName="salesLastTwoMonths" />
-                @if (controlError('salesLastTwoMonths')) {
-                  <mat-error>{{ controlError('salesLastTwoMonths') }}</mat-error>
+                @if (facade.fieldStates().salesLastTwoMonths.error) {
+                  <mat-error>{{ facade.fieldStates().salesLastTwoMonths.error }}</mat-error>
                 }
               </mat-form-field>
               <div class="field-helper">
                 <mat-icon>info</mat-icon>
-                <span>{{ helperText('salesLastTwoMonths') }}</span>
+                <span>{{ facade.fieldStates().salesLastTwoMonths.helper }}</span>
               </div>
             </div>
           </div>
@@ -247,13 +247,13 @@
               <label class="field-label">Amazon price <span>*</span></label>
               <mat-form-field appearance="outline">
                 <input matInput formControlName="amazonPrice" inputmode="decimal" autocomplete="off" />
-                @if (controlError('amazonPrice')) {
-                  <mat-error>{{ controlError('amazonPrice') }}</mat-error>
+                @if (facade.fieldStates().amazonPrice.error) {
+                  <mat-error>{{ facade.fieldStates().amazonPrice.error }}</mat-error>
                 }
               </mat-form-field>
               <div class="field-helper">
                 <mat-icon>info</mat-icon>
-                <span>{{ helperText('amazonPrice') }}</span>
+                <span>{{ facade.fieldStates().amazonPrice.helper }}</span>
               </div>
             </div>
 
@@ -261,13 +261,13 @@
               <label class="field-label">eBay price <span>*</span></label>
               <mat-form-field appearance="outline">
                 <input matInput formControlName="ebayPrice" inputmode="decimal" autocomplete="off" />
-                @if (controlError('ebayPrice')) {
-                  <mat-error>{{ controlError('ebayPrice') }}</mat-error>
+                @if (facade.fieldStates().ebayPrice.error) {
+                  <mat-error>{{ facade.fieldStates().ebayPrice.error }}</mat-error>
                 }
               </mat-form-field>
               <div class="field-helper">
                 <mat-icon>info</mat-icon>
-                <span>{{ helperText('ebayPrice') }}</span>
+                <span>{{ facade.fieldStates().ebayPrice.helper }}</span>
               </div>
             </div>
           </div>
@@ -275,19 +275,19 @@
 
         <div class="submission-stickybar">
           <div class="submission-stickybar__meta">
-            <strong>{{ approvalSummary().label }}</strong>
-            <span>{{ approvalSummary().message }}</span>
+            <strong>{{ facade.approvalSummary().label }}</strong>
+            <span>{{ facade.approvalSummary().message }}</span>
           </div>
 
           <div class="submission-stickybar__actions">
-            <button mat-stroked-button type="button" (click)="clearForm()" [disabled]="saving()">Clear form</button>
-            <button mat-flat-button color="primary" type="submit" [disabled]="!canSubmit()">
-              @if (saving()) {
+            <button mat-stroked-button type="button" (click)="facade.clearForm()" [disabled]="facade.saving()">Clear form</button>
+            <button mat-flat-button color="primary" type="submit" [disabled]="!facade.canSubmit()">
+              @if (facade.saving()) {
                 <mat-spinner diameter="18"></mat-spinner>
               } @else {
                 <mat-icon>send</mat-icon>
               }
-              <span>{{ saving() ? 'Submitting' : 'Submit Product' }}</span>
+              <span>{{ facade.saving() ? 'Submitting' : 'Submit Product' }}</span>
             </button>
           </div>
         </div>
@@ -301,21 +301,21 @@
             <h2>Economics Preview</h2>
             <p>Updates live as prices change.</p>
           </div>
-          <span class="status-badge status-badge--neutral">{{ qualityPreview() || 'Pending quality' }}</span>
+          <span class="status-badge status-badge--neutral">{{ facade.qualityPreview() || 'Pending quality' }}</span>
         </div>
 
         <div class="mini-stats mini-stats--three">
           <div>
             <span>Fees</span>
-            <strong>{{ economics().fees === null ? '--' : (economics().fees | currency: 'USD') }}</strong>
+            <strong>{{ facade.economics().fees === null ? '--' : (facade.economics().fees | currency: 'USD') }}</strong>
           </div>
           <div>
             <span>Profit</span>
-            <strong>{{ economics().profit === null ? '--' : (economics().profit | currency: 'USD') }}</strong>
+            <strong>{{ facade.economics().profit === null ? '--' : (facade.economics().profit | currency: 'USD') }}</strong>
           </div>
           <div>
             <span>ROI</span>
-            <strong>{{ economics().roi === null ? '--' : ((economics().roi | number: '1.0-2') + '%') }}</strong>
+            <strong>{{ facade.economics().roi === null ? '--' : ((facade.economics().roi | number: '1.0-2') + '%') }}</strong>
           </div>
         </div>
       </article>
@@ -328,27 +328,27 @@
           </div>
           <span
             class="status-badge"
-            [class.status-badge--success]="approvalSummary().tone === 'success'"
-            [class.status-badge--warning]="approvalSummary().tone === 'warning'"
-            [class.status-badge--danger]="approvalSummary().tone === 'danger'"
-            [class.status-badge--neutral]="approvalSummary().tone === 'neutral'"
+            [class.status-badge--success]="facade.approvalSummary().tone === 'success'"
+            [class.status-badge--warning]="facade.approvalSummary().tone === 'warning'"
+            [class.status-badge--danger]="facade.approvalSummary().tone === 'danger'"
+            [class.status-badge--neutral]="facade.approvalSummary().tone === 'neutral'"
           >
-            {{ approvalSummary().label }}
+            {{ facade.approvalSummary().label }}
           </span>
         </div>
 
-        @if (validationReasons().length) {
+        @if (facade.validationReasons().length) {
           <div class="inline-state inline-state--error">
             <mat-icon>report_problem</mat-icon>
             <div class="inline-state__content">
               <strong>Why this is currently rejected</strong>
-              <span>{{ validationReasons()[0] }}</span>
+              <span>{{ facade.validationReasons()[0] }}</span>
             </div>
           </div>
         }
 
         <div class="checklist">
-          @for (item of validationItems(); track item.label) {
+          @for (item of facade.validationItems(); track item.label) {
             <div class="checklist__item" [class.is-done]="item.passed">
               <mat-icon>{{ item.passed ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
               <div>
@@ -363,15 +363,15 @@
   </section>
 </section>
 
-@if (submissionModal(); as modal) {
-  <div class="app-modal-backdrop" (click)="closeSubmissionModal()">
+@if (facade.submissionModal(); as modal) {
+  <div class="app-modal-backdrop" (click)="facade.closeSubmissionModal()">
     <section class="app-modal submission-result-modal" (click)="$event.stopPropagation()">
       <div class="app-modal__header">
         <div>
           <h2>{{ modal.product.status === 'rejected' ? 'System Rejected' : 'System Approved' }}</h2>
           <p>{{ modal.shortReason }}</p>
         </div>
-        <button mat-icon-button type="button" (click)="closeSubmissionModal()">
+        <button mat-icon-button type="button" (click)="facade.closeSubmissionModal()">
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -397,8 +397,8 @@
       </div>
 
       <div class="app-modal__footer">
-        <button mat-stroked-button type="button" (click)="closeSubmissionModal()">Close</button>
-        <a mat-flat-button color="primary" routerLink="/hunter/products" (click)="closeSubmissionModal()">
+        <button mat-stroked-button type="button" (click)="facade.closeSubmissionModal()">Close</button>
+        <a mat-flat-button color="primary" routerLink="/hunter/products" (click)="facade.closeSubmissionModal()">
           <span>Open Product List</span>
         </a>
       </div>

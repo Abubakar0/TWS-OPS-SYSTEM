@@ -1,11 +1,10 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { HttpClient, HttpContext } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { catchError, map, of, tap } from 'rxjs';
 
-import { environment } from '../../../environments/environment';
-import { SILENT_HTTP_ERROR } from '../http/http-context.tokens';
+import { APP_ROUTES } from '../config/routes';
 import { LoginResponse, User, UserRole } from '../models/auth.models';
+import { AuthApiService } from '../api/auth-api.service';
 
 interface JwtPayload {
   exp?: number;
@@ -24,10 +23,10 @@ export class AuthService {
   readonly isAuthenticated = computed(() => Boolean(this.tokenSignal() && this.userSignal() && !this.isTokenExpired(this.tokenSignal())));
   readonly sessionInitialized = this.initializedSignal.asReadonly();
 
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly authApi: AuthApiService) {}
 
   login(email: string, password: string) {
-    return this.http.post<LoginResponse>(`${environment.apiUrl}/auth/login`, { email, password }).pipe(
+    return this.authApi.login(email, password).pipe(
       tap((response) => this.persistSession(response.token, response.user)),
     );
   }
@@ -46,14 +45,9 @@ export class AuthService {
       return;
     }
 
-    this.http
-      .get<{ user: User }>(`${environment.apiUrl}/auth/me`, {
-        context: new HttpContext().set(SILENT_HTTP_ERROR, true),
-      })
-      .pipe(
-        map((response) => response.user),
-        catchError(() => of(null)),
-      )
+    this.authApi
+      .getCurrentUser()
+      .pipe(catchError(() => of(null)))
       .subscribe((sessionUser) => {
         if (sessionUser) {
           this.persistSession(token, sessionUser);
@@ -75,7 +69,7 @@ export class AuthService {
     const destination = returnUrl || this.router.url;
     const queryParams = destination && destination !== '/login' ? { returnUrl: destination } : undefined;
 
-    void this.router.navigate(['/login'], { queryParams });
+    void this.router.navigate([APP_ROUTES.login], { queryParams });
   }
 
   token(): string | null {

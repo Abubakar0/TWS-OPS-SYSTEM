@@ -3,7 +3,8 @@ import { Observable, Subject, startWith, switchMap, shareReplay } from 'rxjs';
 
 import { User, UserRole } from '../models/auth.models';
 import { Account, HuntingCriteria } from '../models/product.models';
-import { AdminService } from '../services/admin.service';
+import { AdminApiService } from '../api/admin-api.service';
+import { AccountApiService } from '../api/account-api.service';
 
 @Injectable({ providedIn: 'root' })
 export class ReferenceDataService {
@@ -19,7 +20,10 @@ export class ReferenceDataService {
     shareReplay({ bufferSize: 1, refCount: true }),
   );
 
-  constructor(private readonly adminApi: AdminService) {}
+  constructor(
+    private readonly adminApi: AdminApiService,
+    private readonly accountApi: AccountApiService,
+  ) {}
 
   getCriteria(): Observable<HuntingCriteria> {
     return this.criteria$;
@@ -69,7 +73,7 @@ export class ReferenceDataService {
 
     const request$ = refresh$.pipe(
       startWith(void 0),
-      switchMap(() => this.adminApi.listAccounts(includeInactive)),
+      switchMap(() => this.accountApi.listAccounts(includeInactive)),
       shareReplay({ bufferSize: 1, refCount: true }),
     );
 
