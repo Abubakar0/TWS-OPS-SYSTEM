@@ -109,7 +109,7 @@
             <span>Profit & ROI</span>
             <span>Submitted</span>
             <span>Status</span>
-            <span>Actions</span>
+            <span>Listing</span>
           </div>
 
           @for (product of facade.pagedProducts(); track product.id) {
@@ -118,8 +118,8 @@
                 <div class="listing-row__thumb">
                   <mat-icon>inventory_2</mat-icon>
                 </div>
-                <div>
-                  <strong>{{ product.title || product.asin || 'Untitled product' }}</strong>
+                <div class="listing-row__product-copy">
+                  <strong [attr.title]="product.title || product.asin || 'Untitled product'">{{ product.title || product.asin || 'Untitled product' }}</strong>
                   <span>ASIN: {{ product.asin || 'No ASIN' }}</span>
                   <small>{{ product.hunterName }}</small>
                 </div>
@@ -146,10 +146,19 @@
                 </span>
               </div>
 
-              <div class="listing-row__actions">
-                <button mat-icon-button type="button" (click)="facade.selectProduct(product.id); $event.stopPropagation()">
-                  <mat-icon>visibility</mat-icon>
-                </button>
+              <div class="listing-row__listing">
+                <span>{{ product.accountName || 'Open details' }}</span>
+                @if (product.qualityLabel) {
+                  <span
+                    class="status-badge"
+                    [class.status-badge--success]="product.qualityLabel === 'Excellent Hunting'"
+                    [class.status-badge--listed]="product.qualityLabel === 'Good Hunting'"
+                    [class.status-badge--warning]="product.qualityLabel === 'Average Hunting'"
+                    [class.status-badge--danger]="product.qualityLabel === 'Rejected'"
+                  >
+                    {{ product.qualityLabel }}
+                  </span>
+                }
               </div>
             </button>
           }
@@ -188,14 +197,38 @@
             <div class="detail-summary__thumb">
               <mat-icon>inventory_2</mat-icon>
             </div>
-            <div>
-              <strong>{{ currentProduct.title || currentProduct.asin || 'Selected product' }}</strong>
+            <div class="detail-summary__copy">
+              <strong [attr.title]="currentProduct.title || currentProduct.asin || 'Selected product'">{{ currentProduct.title || currentProduct.asin || 'Selected product' }}</strong>
               <span>ASIN: {{ currentProduct.asin || 'No ASIN' }}</span>
               <small>Submitted {{ currentProduct.createdAt | date: 'MMM d, y, h:mm a' }}</small>
             </div>
-            <span class="status-badge" [class.status-badge--success]="currentProduct.status === 'listed'" [class.status-badge--warning]="currentProduct.status === 'approved' || currentProduct.status === 'assigned'" [class.status-badge--danger]="currentProduct.status === 'rejected'">
-              {{ currentProduct.status }}
-            </span>
+            <div class="detail-summary__badges">
+              <span class="status-badge" [class.status-badge--success]="currentProduct.status === 'listed'" [class.status-badge--warning]="currentProduct.status === 'approved' || currentProduct.status === 'assigned'" [class.status-badge--danger]="currentProduct.status === 'rejected'">
+                {{ currentProduct.status }}
+              </span>
+              @if (currentProduct.qualityLabel) {
+                <span
+                  class="status-badge"
+                  [class.status-badge--success]="currentProduct.qualityLabel === 'Excellent Hunting'"
+                  [class.status-badge--listed]="currentProduct.qualityLabel === 'Good Hunting'"
+                  [class.status-badge--warning]="currentProduct.qualityLabel === 'Average Hunting'"
+                  [class.status-badge--danger]="currentProduct.qualityLabel === 'Rejected'"
+                >
+                  {{ currentProduct.qualityLabel }}
+                </span>
+              }
+            </div>
+          </div>
+
+          <div class="detail-facts">
+            <div class="detail-fact">
+              <span>Hunter</span>
+              <strong>{{ currentProduct.hunterName }}</strong>
+            </div>
+            <div class="detail-fact">
+              <span>Listing status</span>
+              <strong>{{ currentProduct.accountName || 'Not listed yet' }}</strong>
+            </div>
           </div>
 
           <div class="detail-section">

@@ -32,7 +32,7 @@
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-rows: auto auto minmax(180px, 1fr);
+  grid-template-rows: auto auto minmax(220px, 1fr);
   align-content: stretch;
   gap: clamp(18px, 3vh, 30px);
   height: 100%;
@@ -112,69 +112,99 @@
 
 .login-copy h1 {
   margin: 0;
-  font-size: clamp(2.4rem, 3.5vw, 4rem);
-  line-height: 1.08;
+  font-size: clamp(2.2rem, 3vw, 3.6rem);
+  line-height: 1.05;
   color: #ffffff;
+  font-weight: 800;
 }
 
 .login-copy p {
   margin: 0;
-  max-width: 30ch;
+  max-width: 38ch;
   color: rgba(255, 255, 255, 0.78);
-  font-size: 0.96rem;
+  font-size: 0.98rem;
+  font-weight: 500;
   line-height: 1.55;
 }
 
-.login-copy__tagline {
-  color: #ffffff;
-  font-size: 1rem;
+.platform-showcase {
+  display: grid;
+  gap: 16px;
+  align-self: end;
+}
+
+.platform-showcase__card,
+.platform-link-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 16px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 22px;
+  color: #fff;
+}
+
+.platform-showcase__card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.platform-showcase__card--primary {
+  background:
+    radial-gradient(circle at top right, rgba(107, 192, 255, 0.2), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05));
+}
+
+.platform-showcase__card mat-icon,
+.platform-link-card mat-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.platform-showcase__card div,
+.platform-link-card div {
+  display: grid;
+  gap: 4px;
+}
+
+.platform-showcase__card strong,
+.platform-link-card strong {
+  font-size: 0.96rem;
   font-weight: 700;
-  letter-spacing: 0.02em;
 }
 
-.brand-wave-panel {
-  position: relative;
-  min-height: 220px;
-  height: 100%;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 28px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+.platform-showcase__card span,
+.platform-link-card span {
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 0.84rem;
+  line-height: 1.45;
+  font-weight: 500;
 }
 
-.brand-wave {
-  position: absolute;
-  left: -8%;
-  width: 116%;
-  border-radius: 44% 56% 0 0;
+.platform-showcase__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
 }
 
-.brand-wave--1 {
-  bottom: -10%;
-  height: 34%;
-  background: linear-gradient(180deg, rgba(100, 203, 255, 0.34), rgba(100, 203, 255, 0.04));
-  animation: brand-wave-drift 18s ease-in-out infinite alternate;
+.platform-link-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+  transition:
+    transform 0.2s ease,
+    background-color 0.2s ease,
+    border-color 0.2s ease;
 }
 
-.brand-wave--2 {
-  bottom: 4%;
-  height: 24%;
-  background: linear-gradient(180deg, rgba(57, 144, 255, 0.22), rgba(57, 144, 255, 0.02));
-  animation: brand-wave-drift-reverse 24s ease-in-out infinite alternate;
-}
-
-.brand-wave--3 {
-  bottom: 12%;
-  height: 18%;
-  background: linear-gradient(180deg, rgba(130, 181, 255, 0.16), rgba(130, 181, 255, 0.02));
-  animation: brand-wave-drift 28s ease-in-out infinite alternate;
-}
-
-.brand-wave--4 {
-  bottom: 20%;
-  height: 12%;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0));
-  animation: brand-wave-drift-reverse 30s ease-in-out infinite alternate;
+.platform-link-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.2);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.05));
 }
 
 .login-form-panel {
@@ -252,6 +282,7 @@
   margin: 0;
   color: var(--tws-muted);
   font-size: 0.9rem;
+  font-weight: 500;
 }
 
 form {
@@ -309,38 +340,19 @@ button[mat-flat-button] {
   color: var(--tws-danger);
 }
 
-@keyframes brand-wave-drift {
-  0% {
-    transform: translateX(-2%) translateY(0);
-  }
-  100% {
-    transform: translateX(2%) translateY(12px);
-  }
-}
-
-@keyframes brand-wave-drift-reverse {
-  0% {
-    transform: translateX(2%) translateY(8px);
-  }
-  100% {
-    transform: translateX(-2%) translateY(-10px);
-  }
-}
-
 @media (max-width: 1040px) {
   .login-layout {
     grid-template-columns: 1fr;
-    grid-template-rows: 180px 1fr;
+    grid-template-rows: minmax(220px, 0.45fr) 1fr;
   }
 
   .login-brand-panel {
-    display: block;
-    padding: 20px 22px 16px;
+    padding: 24px 24px 16px;
   }
 
   .login-brand-panel__inner {
-    grid-template-rows: auto auto;
-    gap: 12px;
+    grid-template-rows: auto auto minmax(140px, 1fr);
+    gap: 14px;
   }
 
   .login-copy {
@@ -357,12 +369,8 @@ button[mat-flat-button] {
     font-size: 0.88rem;
   }
 
-  .login-copy__tagline {
-    font-size: 0.92rem;
-  }
-
-  .brand-wave-panel {
-    display: none;
+  .platform-showcase__grid {
+    grid-template-columns: 1fr;
   }
 
   .login-form-panel {
@@ -399,5 +407,10 @@ button[mat-flat-button] {
     padding: 26px 22px;
     border-radius: 24px;
     max-height: calc(100dvh - 24px);
+  }
+
+  .platform-showcase__card,
+  .platform-link-card {
+    padding: 14px;
   }
 }

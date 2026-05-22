@@ -5,6 +5,7 @@ import { finalize } from 'rxjs';
 
 import { HunterApiService } from '../api/hunter-api.service';
 import { AuthService } from '../auth/auth.service';
+import { BRANDING } from '../config/branding';
 import { QUALITY_RULES } from '../config/quality';
 import {
   AsinCheckResult,
@@ -88,7 +89,7 @@ export class HunterFacade {
   private readonly formVersion = signal(0);
   private initialized = false;
 
-  readonly defaultCustomLabel = computed(() => this.auth.currentUser()?.name || 'Trend Wave Hunter');
+  readonly defaultCustomLabel = computed(() => this.auth.currentUser()?.name || `${BRANDING.logoLabel} Hunter`);
   readonly asinTouched = computed(() => this.asinControl.touched || this.attemptedSubmit());
   readonly asinMessage = computed(() => this.messages.asinError(this.asinControl, this.asinTouched()));
 
@@ -391,9 +392,21 @@ export class HunterFacade {
     return (
       this.asinVerified() &&
       !this.asinDuplicate() &&
-      this.form.valid &&
       !this.saving() &&
-      !this.criteriaLoading()
+      !this.criteriaLoading() &&
+      this.form.controls.title.valid &&
+      this.form.controls.amazonUrl.valid &&
+      this.form.controls.amazonAltUrl.valid &&
+      this.form.controls.ebayUrl.valid &&
+      this.form.controls.customLabel.valid &&
+      this.form.controls.amazonStockCount.valid &&
+      this.form.controls.alternateAmazonStockCount.valid &&
+      this.form.controls.soldCount.valid &&
+      this.form.controls.rating.valid &&
+      this.form.controls.productWatchers.valid &&
+      this.form.controls.salesLastTwoMonths.valid &&
+      this.form.controls.amazonPrice.valid &&
+      this.form.controls.ebayPrice.valid
     );
   });
 

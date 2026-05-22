@@ -1,0 +1,16 @@
+{
+  "name": "TrendWave Commerce Hub",
+  "short_name": "Commerce Hub",
+  "description": "Trend Wave marketplace operations, research, listing, and reporting platform.",
+  "theme_color": "#0E2F6A",
+  "background_color": "#F5F8FC",
+  "display": "standalone",
+  "icons": [
+    {
+      "src": "/trendwave-commerce-hub-icon.svg",
+      "sizes": "256x256",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

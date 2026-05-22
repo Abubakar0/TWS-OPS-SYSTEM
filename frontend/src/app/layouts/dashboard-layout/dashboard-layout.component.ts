@@ -9,6 +9,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { filter, map, startWith } from 'rxjs';
 
 import { AuthService } from '../../core/auth/auth.service';
+import { BRANDING } from '../../core/config/branding';
 import { ConfirmService } from '../../core/ui/confirm.service';
 
 interface NavItem {
@@ -49,6 +50,8 @@ export class DashboardLayoutComponent {
 
   readonly user = this.auth.currentUser;
   readonly sidebarOpen = signal(false);
+  readonly branding = BRANDING;
+  readonly footerPlatforms = BRANDING.platforms.filter((platform) => platform.key !== 'operations');
   readonly hunterTabs: NavItem[] = [
     { label: 'Dashboard', route: '/hunter/dashboard', exact: true, icon: 'space_dashboard' },
     { label: 'Product Submission', route: '/hunter/submission', exact: true, icon: 'playlist_add' },
@@ -127,6 +130,39 @@ export class DashboardLayoutComponent {
       .map((part) => part[0]?.toUpperCase() || '')
       .join('');
   });
+  readonly shellVm = computed(() => {
+    const user = this.user();
+    const roleLabel = this.roleLabel();
+    const sidebarOpen = this.sidebarOpen();
+
+    return {
+      sidebarOpen,
+      navItems: this.sidebarNavItems(),
+      userName: user?.name || this.branding.productName,
+      userEmail: user?.email || 'workspace@trendwavesolutions.com',
+      roleLabel,
+      userInitials: this.userInitials(),
+      footerPlatforms: this.footerPlatforms,
+      version: this.branding.version,
+      environmentLabel: this.branding.environmentLabel,
+      homeRoute: user ? this.homeRouteForRole(user.role) : '/login',
+    };
+  });
+
+  private homeRouteForRole(role?: string): string {
+    switch (role) {
+      case 'hunter':
+        return '/hunter/dashboard';
+      case 'lister':
+        return '/lister/dashboard';
+      case 'super_admin':
+        return '/superadmin/dashboard';
+      case 'admin':
+        return '/admin/dashboard';
+      default:
+        return '/login';
+    }
+  }
 
   toggleSidebar(): void {
     this.sidebarOpen.update((value) => !value);

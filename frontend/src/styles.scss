@@ -228,12 +228,30 @@ textarea.mat-mdc-input-element {
 .mat-mdc-menu-item {
   min-height: 38px !important;
   border-radius: 10px !important;
-  font-size: 0.86rem !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
 }
 
 .mat-mdc-option.mdc-list-item--selected,
 .mat-mdc-menu-item:hover {
   background: var(--tws-primary-softer) !important;
+}
+
+.mat-mdc-menu-item .mat-icon,
+.mat-mdc-option .mat-icon {
+  color: var(--tws-primary-strong) !important;
+}
+
+.mat-mdc-dialog-container,
+.mat-mdc-dialog-container * {
+  font-family: var(--tws-body) !important;
+}
+
+.mat-mdc-tooltip .mdc-tooltip__surface {
+  border-radius: 10px !important;
+  background: rgba(15, 23, 42, 0.92) !important;
+  font-size: 0.78rem !important;
+  font-weight: 600 !important;
 }
 
 .mat-mdc-checkbox label {
@@ -718,8 +736,8 @@ textarea.mat-mdc-input-element {
   align-items: center;
   width: fit-content;
   border-radius: 999px;
-  padding: 5px 10px;
-  font-size: 0.74rem;
+  padding: 6px 11px;
+  font-size: 0.76rem;
   font-weight: 700;
   text-transform: capitalize;
   text-align: center;
@@ -991,7 +1009,8 @@ textarea.mat-mdc-input-element {
 
 .app-dialog__body p {
   color: var(--tws-muted);
-  font-size: 0.9rem;
+  font-size: 0.92rem;
+  font-weight: 500;
   line-height: 1.55;
 }
 
@@ -1014,9 +1033,17 @@ textarea.mat-mdc-input-element {
 
 .mat-mdc-snack-bar-container .mdc-snackbar__label {
   padding: 14px 4px !important;
-  font-size: 0.96rem !important;
+  font-size: 1rem !important;
   font-weight: 700 !important;
   line-height: 1.45 !important;
+}
+
+.mat-mdc-snack-bar-container .mdc-snackbar__actions {
+  align-items: center;
+}
+
+.mat-mdc-snack-bar-container .mdc-button__label {
+  font-weight: 700 !important;
 }
 
 .mat-mdc-snack-bar-container.toast-success .mdc-snackbar__surface {

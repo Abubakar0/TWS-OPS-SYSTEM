@@ -1,89 +1,115 @@
-<div class="app-shell">
-  <div class="app-shell__backdrop" [class.is-open]="sidebarOpen()" (click)="closeSidebar()"></div>
+@if (shellVm(); as vm) {
+  <div class="app-shell">
+    <div class="app-shell__backdrop" [class.is-open]="vm.sidebarOpen" (click)="closeSidebar()"></div>
 
-  <aside class="app-sidebar" [class.is-open]="sidebarOpen()">
-    <div class="app-sidebar__brand">
-      <a class="brand-lockup" routerLink="/">
-        <span class="brand-lockup__mark">TW</span>
-        <span class="brand-lockup__text">
-          <strong>Trend Wave</strong>
-          <small>Ops platform</small>
-        </span>
-      </a>
+    <aside class="app-sidebar" [class.is-open]="vm.sidebarOpen">
+      <div class="app-sidebar__brand">
+        <a class="brand-lockup" [routerLink]="vm.homeRoute">
+          <span class="brand-lockup__mark" aria-hidden="true"></span>
+          <span class="brand-lockup__text">
+            <strong>{{ branding.logoLabel }}</strong>
+            <small>{{ branding.shortProductName }}</small>
+          </span>
+        </a>
 
+        <button
+          mat-icon-button
+          type="button"
+          class="app-sidebar__close"
+          (click)="closeSidebar()"
+          matTooltip="Close menu"
+        >
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <div class="app-sidebar__body">
+        <nav class="sidebar-nav" aria-label="Sidebar navigation">
+          @for (item of vm.navItems; track item.route) {
+            <a
+              class="sidebar-nav__item"
+              [routerLink]="item.route"
+              routerLinkActive="is-active"
+              [routerLinkActiveOptions]="{ exact: item.exact }"
+              (click)="closeSidebar()"
+            >
+              <mat-icon>{{ item.icon }}</mat-icon>
+              <span>{{ item.label }}</span>
+            </a>
+          }
+        </nav>
+      </div>
+
+      <div class="app-sidebar__footer">
+        <div class="sidebar-platforms">
+          @for (platform of vm.footerPlatforms; track platform.key) {
+            <a
+              class="sidebar-platform-link"
+              [href]="platform.href"
+              [attr.target]="platform.external ? '_blank' : null"
+              [attr.rel]="platform.external ? 'noreferrer' : null"
+            >
+              <mat-icon>{{ platform.icon }}</mat-icon>
+              <span>{{ platform.label }}</span>
+            </a>
+          }
+        </div>
+
+        <div class="sidebar-meta">
+          <span>{{ vm.version }}</span>
+          <span>{{ vm.environmentLabel }}</span>
+        </div>
+
+        <button mat-button type="button" class="sidebar-user" [matMenuTriggerFor]="userMenu">
+          <span class="user-avatar">{{ vm.userInitials }}</span>
+          <span class="sidebar-user__meta">
+            <strong>{{ vm.userName }}</strong>
+            <small>{{ vm.userEmail }}</small>
+          </span>
+          <span class="sidebar-user__role">{{ vm.roleLabel }}</span>
+          <mat-icon>expand_more</mat-icon>
+        </button>
+      </div>
+    </aside>
+
+    <div class="app-frame">
       <button
         mat-icon-button
         type="button"
-        class="app-sidebar__close"
-        (click)="closeSidebar()"
-        matTooltip="Close menu"
+        class="app-mobile-toggle mobile-only"
+        (click)="toggleSidebar()"
+        matTooltip="Open menu"
       >
-        <mat-icon>close</mat-icon>
+        <mat-icon>menu</mat-icon>
       </button>
+      <main class="app-main">
+        <router-outlet />
+      </main>
     </div>
-
-    <div class="app-sidebar__body">
-      <nav class="sidebar-nav" aria-label="Sidebar navigation">
-        @for (item of sidebarNavItems(); track item.route) {
-          <a
-            class="sidebar-nav__item"
-            [routerLink]="item.route"
-            routerLinkActive="is-active"
-            [routerLinkActiveOptions]="{ exact: item.exact }"
-            (click)="closeSidebar()"
-          >
-            <mat-icon>{{ item.icon }}</mat-icon>
-            <span>{{ item.label }}</span>
-          </a>
-        }
-      </nav>
-    </div>
-
-    <div class="app-sidebar__footer">
-      <button mat-button type="button" class="sidebar-user" [matMenuTriggerFor]="userMenu">
-        <span class="user-avatar">{{ userInitials() }}</span>
-        <span class="sidebar-user__meta">
-          <strong>{{ user()?.name }}</strong>
-          <small>{{ user()?.email }}</small>
-        </span>
-        <mat-icon>expand_more</mat-icon>
-      </button>
-    </div>
-  </aside>
-
-  <div class="app-frame">
-    <button
-      mat-icon-button
-      type="button"
-      class="app-mobile-toggle mobile-only"
-      (click)="toggleSidebar()"
-      matTooltip="Open menu"
-    >
-      <mat-icon>menu</mat-icon>
-    </button>
-    <main class="app-main">
-      <router-outlet />
-    </main>
   </div>
-</div>
 
-<mat-menu #userMenu="matMenu" xPosition="before" class="tw-menu">
-  <div class="menu-panel">
-    <div class="menu-panel__header">
-      <strong>{{ user()?.name }}</strong>
-      <span>{{ user()?.email }}</span>
-    </div>
-    <div class="menu-item menu-item--compact">
-      <mat-icon>badge</mat-icon>
-      <div>
-        <strong>{{ roleLabel() }}</strong>
-        <span>Assigned role</span>
+  <mat-menu #userMenu="matMenu" xPosition="before" class="tw-menu">
+    <div class="menu-panel">
+      <div class="menu-panel__header">
+        <span class="menu-panel__avatar">{{ vm.userInitials }}</span>
+        <div class="menu-panel__identity">
+          <strong>{{ vm.userName }}</strong>
+          <span>{{ vm.userEmail }}</span>
+        </div>
       </div>
-    </div>
 
-    <button mat-menu-item type="button" (click)="logout()">
-      <mat-icon>logout</mat-icon>
-      <span>Log out</span>
-    </button>
-  </div>
-</mat-menu>
+      <div class="menu-role-card">
+        <mat-icon>verified_user</mat-icon>
+        <div>
+          <strong>{{ vm.roleLabel }}</strong>
+          <span>Signed into {{ branding.shortProductName }}</span>
+        </div>
+      </div>
+
+      <button mat-menu-item type="button" (click)="logout()">
+        <mat-icon>logout</mat-icon>
+        <span>Log out</span>
+      </button>
+    </div>
+  </mat-menu>
+}
