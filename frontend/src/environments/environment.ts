@@ -1,3 +1,3 @@
 export const environment = {
-  apiUrl: 'http://localhost:4000/api',
+  apiUrl: process.env['API_URL'] || 'http://localhost:4000/api',
 };
