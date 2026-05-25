@@ -14,6 +14,9 @@ export class AdminActivityFacade {
   readonly users = signal<User[]>([]);
   readonly loading = signal(false);
   readonly error = signal('');
+  readonly total = signal(0);
+  readonly pageIndex = signal(0);
+  readonly pageSize = signal(50);
 
   readonly filters = new FormGroup({
     search: new FormControl('', { nonNullable: true }),
@@ -47,6 +50,16 @@ export class AdminActivityFacade {
     { value: 'product.rejected', label: 'Product Rejected' },
     { value: 'listing.complete', label: 'Listing Completed' },
   ] as const;
+  readonly pageCount = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize())));
+  readonly pageLabel = computed(() => {
+    if (!this.total()) {
+      return 'No activity to show';
+    }
+
+    const start = this.pageIndex() * this.pageSize() + 1;
+    const end = Math.min(this.total(), start + this.logs().length - 1);
+    return `Showing ${start}-${end} of ${this.total()}`;
+  });
 
   private readonly destroyRef = inject(DestroyRef);
 
@@ -63,8 +76,9 @@ export class AdminActivityFacade {
     this.error.set('');
 
     this.adminApi.listAuditLogs(this.buildFilters()).subscribe({
-      next: (logs) => {
-        this.logs.set(logs.map(mapAuditLogRow));
+      next: (page) => {
+        this.logs.set(page.items.map(mapAuditLogRow));
+        this.total.set(page.total);
         this.loading.set(false);
       },
       error: (error) => {
@@ -90,6 +104,16 @@ export class AdminActivityFacade {
     this.loadLogs();
   }
 
+  previousPage(): void {
+    this.pageIndex.update((value) => Math.max(0, value - 1));
+    this.loadLogs();
+  }
+
+  nextPage(): void {
+    this.pageIndex.update((value) => Math.min(this.pageCount() - 1, value + 1));
+    this.loadLogs();
+  }
+
   private initialize(): void {
     this.referenceData
       .getUsers()
@@ -112,6 +136,8 @@ export class AdminActivityFacade {
       action: raw.action || undefined,
       from: raw.from || undefined,
       to: raw.to || undefined,
+      page: this.pageIndex() + 1,
+      limit: this.pageSize(),
     };
   }
 }

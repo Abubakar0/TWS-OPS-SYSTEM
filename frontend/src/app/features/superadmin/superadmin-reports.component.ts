@@ -255,8 +255,8 @@ export class SuperAdminReportsComponent implements OnInit {
       { section: 'Summary', name: 'Ready', metricA: stats.ready, metricB: '', notes: '' },
       { section: 'Summary', name: 'Rejected', metricA: stats.rejected, metricB: '', notes: '' },
       { section: 'Summary', name: 'Listed', metricA: stats.listed, metricB: '', notes: '' },
-      { section: 'Summary', name: 'Average ROI', metricA: stats.averageRoi, metricB: '', notes: '%' },
-      { section: 'Summary', name: 'Total Profit', metricA: stats.totalProfit, metricB: '', notes: '' },
+      { section: 'Summary', name: 'Hunters', metricA: stats.byHunter.length, metricB: '', notes: '' },
+      { section: 'Summary', name: 'Accounts Used', metricA: stats.byAccount.length, metricB: '', notes: '' },
       ...stats.byHunter.map((row) => ({
         section: 'Hunter',
         name: row.name,
@@ -269,13 +269,20 @@ export class SuperAdminReportsComponent implements OnInit {
         name: row.name,
         metricA: row.assignedHunters,
         metricB: row.listed,
-        notes: 'Assigned Hunters',
+        notes: `Rejected ${row.rejected ?? 0}`,
       })),
       ...stats.byAccount.map((row) => ({
         section: 'Account',
         name: row.name,
         metricA: '',
         metricB: row.listed,
+        notes: '',
+      })),
+      ...stats.byHunterAccount.map((row) => ({
+        section: 'Hunter Account',
+        name: `${row.hunterName} -> ${row.accountName}`,
+        metricA: '',
+        metricB: row.listedCount,
         notes: '',
       })),
     ];

@@ -6,8 +6,14 @@ const createProduct = async (req, res) => {
 };
 
 const listProducts = async (req, res) => {
-  const products = await productsService.listProducts(req.user, req.query);
-  res.json({ products });
+  const result = await productsService.listProducts(req.user, req.query);
+  res.json({
+    products: result.items,
+    page: result.page,
+    limit: result.limit,
+    total: result.total,
+    hasMore: result.hasMore,
+  });
 };
 
 const getProductById = async (req, res) => {
@@ -35,6 +41,21 @@ const rejectProduct = async (req, res) => {
   res.json({ product });
 };
 
+const softDeleteProducts = async (req, res) => {
+  const deletedIds = await productsService.softDeleteProducts(req.user, req.body);
+  res.json({ deletedIds });
+};
+
+const permanentlyDeleteProducts = async (req, res) => {
+  const deletedIds = await productsService.permanentlyDeleteProducts(req.user, req.body);
+  res.json({ deletedIds });
+};
+
+const restoreProduct = async (req, res) => {
+  const product = await productsService.restoreProduct(req.user, req.params.id);
+  res.json({ product });
+};
+
 module.exports = {
   createProduct,
   listProducts,
@@ -43,4 +64,7 @@ module.exports = {
   listAssignedHunters,
   markProductsListed,
   rejectProduct,
+  softDeleteProducts,
+  permanentlyDeleteProducts,
+  restoreProduct,
 };

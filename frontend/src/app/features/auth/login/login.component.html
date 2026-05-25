@@ -14,18 +14,10 @@
           <div class="login-copy">
             <span class="login-copy__eyebrow">{{ branding.loginEyebrow }}</span>
             <h1>Back the hustle. Stack the wins.</h1>
-            <p>{{ branding.loginDescription }}</p>
+            <p class="brand-desc">{{ branding.loginDescription }}</p>
           </div>
 
           <div class="platform-showcase">
-            <article class="platform-showcase__card platform-showcase__card--primary">
-              <mat-icon>hub</mat-icon>
-              <div>
-                <strong>{{ branding.productName }}</strong>
-                <span>Operations platform for research, listing flow, rules, and reporting.</span>
-              </div>
-            </article>
-
             <div class="platform-showcase__grid">
               @for (platform of vm.ecosystemCards; track platform.key) {
                 <a

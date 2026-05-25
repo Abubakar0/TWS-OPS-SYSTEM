@@ -1,7 +1,7 @@
 import { computed, DestroyRef, effect, inject, Injectable, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, FormRecord, Validators } from '@angular/forms';
-import { catchError, debounceTime, distinctUntilChanged, finalize, of, Subject, switchMap } from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged, finalize, firstValueFrom, of, Subject, switchMap } from 'rxjs';
 
 import { ListerApiService } from '../api/lister-api.service';
 import { SEARCH_DEBOUNCE_MS } from '../config/validation';
@@ -12,7 +12,9 @@ import { WorkspaceSyncService } from '../state/workspace-sync.service';
 import { ConfirmService } from '../ui/confirm.service';
 import { ToastService } from '../ui/toast.service';
 import { listingLinkValidator } from '../../shared/validators/listing-link.validator';
-import { GridSortState, clampPageIndex, paginateRecords, sortRecords } from '../../shared/grid/grid.utils';
+import { GridSortState, sortRecords } from '../../shared/grid/grid.utils';
+
+const LISTER_FILTERS_COLLAPSED_KEY = 'tws_lister_filters_collapsed';
 
 @Injectable()
 export class ListerFacade {
@@ -20,11 +22,13 @@ export class ListerFacade {
   readonly hunters = signal<AssignedHunter[]>([]);
   readonly accounts = signal<Account[]>([]);
   readonly products = signal<Product[]>([]);
+  readonly totalCount = signal(0);
   readonly selectedHunterId = signal('');
   readonly currentProductId = signal('');
   readonly sortState = signal<GridSortState>({ active: 'createdAt', direction: 'desc' });
   readonly pageIndex = signal(0);
   readonly pageSize = signal(this.pageSizeOptions[0]);
+  readonly filtersCollapsed = signal(this.readCollapsedFilters());
   readonly loading = signal(false);
   readonly saving = signal(false);
   readonly copied = signal('');
@@ -82,18 +86,37 @@ export class ListerFacade {
   readonly selectedQueueIndex = computed(() =>
     this.sortedProducts().findIndex((product) => product.id === this.currentProductId()),
   );
-  readonly pagedProducts = computed(() => paginateRecords(this.sortedProducts(), this.pageIndex(), this.pageSize()));
-  readonly pageCount = computed(() => Math.max(1, Math.ceil(this.sortedProducts().length / this.pageSize())));
+  readonly pagedProducts = computed(() => this.sortedProducts());
+  readonly pageCount = computed(() => Math.max(1, Math.ceil(this.totalCount() / this.pageSize())));
   readonly pageLabel = computed(() => {
-    const total = this.sortedProducts().length;
+    const total = this.totalCount();
 
     if (!total) {
       return 'No products to show';
     }
 
     const start = this.pageIndex() * this.pageSize() + 1;
-    const end = Math.min(total, start + this.pageSize() - 1);
+    const end = Math.min(total, start + this.sortedProducts().length - 1);
     return `Showing ${start}-${end} of ${total}`;
+  });
+  readonly selectedHunter = computed(
+    () => this.hunters().find((hunter) => hunter.id === this.selectedHunterId()) || null,
+  );
+  readonly productivityVm = computed(() => {
+    const hunter = this.selectedHunter();
+    const listed = hunter?.listedCount || 0;
+    const pending = hunter?.pendingCount ?? hunter?.readyCount ?? 0;
+    const rejected = hunter?.rejectedCount || 0;
+    const totalTracked = Math.max(listed + pending, 1);
+
+    return {
+      hunterName: hunter?.name || 'Select a hunter',
+      listed,
+      pending,
+      rejected,
+      progressLabel: `${listed} / ${listed + pending}`,
+      completionPercent: Math.round((listed / totalTracked) * 100),
+    };
   });
   readonly currentListingLinkControl = computed(() => {
     const product = this.selectedProduct();
@@ -269,37 +292,16 @@ export class ListerFacade {
     this.loadProducts();
   }
 
-  exportProducts(): void {
-    const hunterName = this.hunters().find((hunter) => hunter.id === this.selectedHunterId())?.name || 'hunter';
-    const dateStamp = new Date().toISOString().slice(0, 10);
-
-    this.exportService.exportAsExcelTable({
-      filename: `lister-products-${hunterName.replaceAll(/\s+/g, '-').toLowerCase()}-${dateStamp}.xlsx`,
-      sheetName: 'Lister Products',
-      rows: this.products(),
-      columns: [
-        { header: 'Hunter', value: (product) => product.hunterName },
-        { header: 'Title', value: (product) => product.title || '' },
-        { header: 'ASIN', value: (product) => product.asin || '' },
-        { header: 'Custom Label', value: (product) => product.customLabel || '' },
-        { header: 'Status', value: (product) => product.status },
-        { header: 'Amazon Link', value: (product) => product.amazonUrl },
-        { header: 'Amazon Alternate Link', value: (product) => product.amazonAltUrl || '' },
-        { header: 'eBay Source Link', value: (product) => product.ebayUrl },
-        { header: 'Listed eBay Link', value: (product) => product.listingUrl || '' },
-        { header: 'Amazon Price', value: (product) => product.amazonPrice ?? '' },
-        { header: 'eBay Price', value: (product) => product.ebayPrice ?? '' },
-        { header: 'Profit', value: (product) => product.profit },
-        { header: 'ROI', value: (product) => product.roi },
-        { header: 'Sold Count', value: (product) => product.soldCount },
-        { header: 'Stock Count', value: (product) => product.amazonStockCount ?? '' },
-        { header: 'Account', value: (product) => product.accountName || '' },
-        { header: 'Rejection Reason', value: (product) => product.rejectionReason || '' },
-        { header: 'Submitted At', value: (product) => product.createdAt },
-        { header: 'Listed At', value: (product) => product.listedAt || '' },
-      ],
+  toggleFiltersCollapsed(): void {
+    this.filtersCollapsed.update((value) => {
+      const next = !value;
+      localStorage.setItem(LISTER_FILTERS_COLLAPSED_KEY, JSON.stringify(next));
+      return next;
     });
-    this.toast.success('Products exported.');
+  }
+
+  exportProducts(): void {
+    void this.exportAllProducts();
   }
 
   loadProducts(): void {
@@ -435,10 +437,12 @@ export class ListerFacade {
 
   previousPage(): void {
     this.pageIndex.update((pageIndex) => Math.max(pageIndex - 1, 0));
+    this.loadProducts();
   }
 
   nextPage(): void {
     this.pageIndex.update((pageIndex) => Math.min(pageIndex + 1, this.pageCount() - 1));
+    this.loadProducts();
   }
 
   private initialize(): void {
@@ -462,7 +466,14 @@ export class ListerFacade {
         switchMap(() => {
           if (!this.selectedHunterId()) {
             this.products.set([]);
-            return of<Product[]>([]);
+            this.totalCount.set(0);
+            return of({
+              items: [] as Product[],
+              page: 1,
+              limit: this.pageSize(),
+              total: 0,
+              hasMore: false,
+            });
           }
 
           this.loading.set(true);
@@ -476,7 +487,13 @@ export class ListerFacade {
             .pipe(
               catchError((error) => {
                 this.error.set(error?.error?.message || 'Could not load products.');
-                return of<Product[]>([]);
+                return of({
+                  items: [] as Product[],
+                  page: this.pageIndex() + 1,
+                  limit: this.pageSize(),
+                  total: 0,
+                  hasMore: false,
+                });
               }),
               finalize(() => this.loading.set(false)),
             );
@@ -484,10 +501,10 @@ export class ListerFacade {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe((products) => {
-        this.products.set(products);
-        this.syncRowControls(products);
-        this.syncCurrentProduct(products);
-        this.pageIndex.set(clampPageIndex(products.length, this.pageSize(), this.pageIndex()));
+        this.products.set(products.items);
+        this.totalCount.set(products.total);
+        this.syncRowControls(products.items);
+        this.syncCurrentProduct(products.items);
       });
 
     this.loadInitial();
@@ -515,6 +532,8 @@ export class ListerFacade {
       accountId: raw.accountId || undefined,
       from: raw.from || undefined,
       to: raw.to || undefined,
+      page: this.pageIndex() + 1,
+      limit: this.pageSize(),
     };
   }
 
@@ -651,9 +670,16 @@ export class ListerFacade {
       })
       .filter((product) => product.id !== productId || this.shouldKeepListedProduct(product, activeFilters, accountId));
 
+    const removedFromPage = !updatedProducts.some((product) => product.id === productId);
     this.products.set(updatedProducts);
+    this.totalCount.update((value) => Math.max(0, value - (removedFromPage ? 1 : 0)));
     this.syncCurrentProduct(updatedProducts);
-    this.pageIndex.set(clampPageIndex(updatedProducts.length, this.pageSize(), this.pageIndex()));
+    this.bumpHunterMetrics('listed');
+
+    if (removedFromPage && !updatedProducts.length && this.pageIndex() > 0) {
+      this.pageIndex.update((pageIndex) => Math.max(pageIndex - 1, 0));
+      this.loadProducts();
+    }
   }
 
   private applyRejectedUpdate(rejectedProduct: Product): void {
@@ -663,9 +689,16 @@ export class ListerFacade {
       .map((product) => (product.id === rejectedProduct.id ? { ...product, ...rejectedProduct } : product))
       .filter((product) => product.id !== rejectedProduct.id || this.shouldKeepRejectedProduct(activeFilters));
 
+    const removedFromPage = !updatedProducts.some((product) => product.id === rejectedProduct.id);
     this.products.set(updatedProducts);
+    this.totalCount.update((value) => Math.max(0, value - (removedFromPage ? 1 : 0)));
     this.syncCurrentProduct(updatedProducts);
-    this.pageIndex.set(clampPageIndex(updatedProducts.length, this.pageSize(), this.pageIndex()));
+    this.bumpHunterMetrics('rejected');
+
+    if (removedFromPage && !updatedProducts.length && this.pageIndex() > 0) {
+      this.pageIndex.update((pageIndex) => Math.max(pageIndex - 1, 0));
+      this.loadProducts();
+    }
   }
 
   private shouldKeepListedProduct(product: Product, filters: ProductFilters, accountId: string): boolean {
@@ -682,5 +715,107 @@ export class ListerFacade {
 
   private shouldKeepRejectedProduct(filters: ProductFilters): boolean {
     return filters.status !== 'assigned' && filters.status !== 'approved' && filters.status !== 'listed';
+  }
+
+  private bumpHunterMetrics(action: 'listed' | 'rejected'): void {
+    const hunterId = this.selectedHunterId();
+
+    this.hunters.update((hunters) =>
+      hunters.map((hunter) => {
+        if (hunter.id !== hunterId) {
+          return hunter;
+        }
+
+        const listedCount = hunter.listedCount || 0;
+        const pendingCount = hunter.pendingCount ?? hunter.readyCount ?? 0;
+        const rejectedCount = hunter.rejectedCount || 0;
+
+        if (action === 'listed') {
+          return {
+            ...hunter,
+            listedCount: listedCount + 1,
+            readyCount: Math.max(0, pendingCount - 1),
+            pendingCount: Math.max(0, pendingCount - 1),
+          };
+        }
+
+        return {
+          ...hunter,
+          rejectedCount: rejectedCount + 1,
+          readyCount: Math.max(0, pendingCount - 1),
+          pendingCount: Math.max(0, pendingCount - 1),
+        };
+      }),
+    );
+  }
+
+  private readCollapsedFilters(): boolean {
+    try {
+      return JSON.parse(localStorage.getItem(LISTER_FILTERS_COLLAPSED_KEY) || 'true') !== false;
+    } catch (error) {
+      return true;
+    }
+  }
+
+  private async exportAllProducts(): Promise<void> {
+    const hunterName = this.hunters().find((hunter) => hunter.id === this.selectedHunterId())?.name || 'hunter';
+    const dateStamp = new Date().toISOString().slice(0, 10);
+
+    try {
+      const filters = {
+        ...this.buildFilters(),
+        page: 1,
+        limit: 100,
+      };
+      const firstPage = await firstValueFrom(
+        this.listerApi.listQueueProducts({
+          ...filters,
+          hunterId: this.selectedHunterId(),
+        }),
+      );
+      const rows = [...firstPage.items];
+      const totalPages = Math.max(1, Math.ceil(firstPage.total / firstPage.limit));
+
+      for (let page = 2; page <= totalPages; page += 1) {
+        const nextPage = await firstValueFrom(
+          this.listerApi.listQueueProducts({
+            ...filters,
+            hunterId: this.selectedHunterId(),
+            page,
+          }),
+        );
+        rows.push(...nextPage.items);
+      }
+
+      this.exportService.exportAsExcelTable({
+        filename: `lister-products-${hunterName.replaceAll(/\s+/g, '-').toLowerCase()}-${dateStamp}.xlsx`,
+        sheetName: 'Lister Products',
+        rows,
+        columns: [
+          { header: 'Hunter', value: (product) => product.hunterName },
+          { header: 'Title', value: (product) => product.title || '' },
+          { header: 'ASIN', value: (product) => product.asin || '' },
+          { header: 'Custom Label', value: (product) => product.customLabel || '' },
+          { header: 'Status', value: (product) => product.status },
+          { header: 'Amazon Link', value: (product) => product.amazonUrl },
+          { header: 'Amazon Alternate Link', value: (product) => product.amazonAltUrl || '' },
+          { header: 'eBay Source Link', value: (product) => product.ebayUrl },
+          { header: 'Listed eBay Link', value: (product) => product.listingUrl || '' },
+          { header: 'Amazon Price', value: (product) => product.amazonPrice ?? '' },
+          { header: 'eBay Price', value: (product) => product.ebayPrice ?? '' },
+          { header: 'Profit', value: (product) => product.profit },
+          { header: 'ROI', value: (product) => product.roi },
+          { header: 'Sold Count', value: (product) => product.soldCount },
+          { header: 'Stock Count', value: (product) => product.amazonStockCount ?? '' },
+          { header: 'Account', value: (product) => product.accountName || '' },
+          { header: 'Rejection Reason', value: (product) => product.rejectionReason || '' },
+          { header: 'Submitted At', value: (product) => product.createdAt },
+          { header: 'Listed At', value: (product) => product.listedAt || '' },
+        ],
+      });
+      this.toast.success('Products exported.');
+    } catch (error) {
+      this.error.set('Could not export products.');
+    }
   }
 }

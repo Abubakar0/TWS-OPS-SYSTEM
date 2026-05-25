@@ -35,7 +35,9 @@
       </mat-form-field>
 
       <div class="grid-toolbar__actions">
-        <button mat-stroked-button type="button" (click)="resetToday()" [disabled]="loading()">Today</button>
+        <button mat-stroked-button type="button" (click)="resetToday()" [disabled]="loading()">
+          Today
+        </button>
         <button mat-flat-button color="primary" type="submit" [disabled]="loading()">
           <mat-icon>filter_alt</mat-icon>
           <span>Apply</span>
@@ -64,7 +66,9 @@
 
       <article class="stat-card">
         <div class="stat-card__header">
-          <div class="stat-card__icon stat-card__icon--success"><mat-icon>check_circle</mat-icon></div>
+          <div class="stat-card__icon stat-card__icon--success">
+            <mat-icon>check_circle</mat-icon>
+          </div>
         </div>
         <span>Listed</span>
         <strong>{{ stats()?.listed || 0 }}</strong>
@@ -82,91 +86,20 @@
 
       <article class="stat-card">
         <div class="stat-card__header">
-          <div class="stat-card__icon stat-card__icon--warning"><mat-icon>paid</mat-icon></div>
+          <div class="stat-card__icon"><mat-icon>group</mat-icon></div>
         </div>
-        <span>Profit</span>
-        <strong>{{ (stats()?.totalProfit || 0) | number: '1.2-2' }}</strong>
-        <small class="stat-card__trend">Filtered total profit</small>
+        <span>Hunters</span>
+        <strong>{{ stats()?.byHunter?.length || 0 }}</strong>
+        <small class="stat-card__trend">Active hunters in range</small>
       </article>
 
       <article class="stat-card">
         <div class="stat-card__header">
-          <div class="stat-card__icon"><mat-icon>trending_up</mat-icon></div>
+          <div class="stat-card__icon stat-card__icon--warning"><mat-icon>storefront</mat-icon></div>
         </div>
-        <span>Average ROI</span>
-        <strong>{{ (stats()?.averageRoi || 0) | number: '1.0-2' }}%</strong>
-        <small class="stat-card__trend">Across filtered products</small>
-      </article>
-    </section>
-
-    <section class="overview-grid">
-      <article class="surface-card">
-        <div class="surface-card__header">
-          <div>
-            <h2>Overview by date</h2>
-            <p>Readable daily output for the selected range.</p>
-          </div>
-          <span class="count-badge">{{ recentDays().length }} rows</span>
-        </div>
-
-        @if (recentDays().length) {
-          <div class="table-wrap">
-            <table class="data-table data-table--compact">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Hunted</th>
-                  <th>Listed</th>
-                  <th>Rejected</th>
-                  <th>Profit</th>
-                  <th>ROI</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (row of recentDays(); track row.date) {
-                  <tr>
-                    <td>{{ row.date | date: 'MMM d, y' }}</td>
-                    <td>{{ row.hunted }}</td>
-                    <td>{{ row.listed }}</td>
-                    <td>{{ row.rejected }}</td>
-                    <td>{{ row.profit | number: '1.2-2' }}</td>
-                    <td>{{ row.roi | number: '1.0-2' }}%</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-        } @else {
-          <div class="empty-state">No daily activity is available for this range.</div>
-        }
-      </article>
-
-      <article class="surface-card">
-        <div class="surface-card__header">
-          <div>
-            <h2>Recent activity</h2>
-            <p>Latest admin-side actions.</p>
-          </div>
-          <a class="text-link" routerLink="/admin/activity">View all</a>
-        </div>
-
-        @if (previewLogs().length) {
-          <div class="activity-list">
-            @for (log of previewLogs(); track log.id) {
-              <div class="activity-item">
-                <span class="activity-item__icon"><mat-icon>history</mat-icon></span>
-                <div class="activity-item__content">
-                  <strong>{{ actionLabel(log.action) }}</strong>
-                  <span>{{ metaSummary(log) }}</span>
-                  <small>{{ targetSummary(log) }}</small>
-                </div>
-                <time>{{ log.createdAt | date: 'MMM d, h:mm a' }}</time>
-              </div>
-            }
-          </div>
-        } @else {
-          <div class="empty-state">No activity logs matched this date range.</div>
-        }
+        <span>Accounts used</span>
+        <strong>{{ stats()?.byAccount?.length || 0 }}</strong>
+        <small class="stat-card__trend">Listing accounts with activity</small>
       </article>
     </section>
 
@@ -175,7 +108,7 @@
         <div class="surface-card__header">
           <div>
             <h2>Users</h2>
-            <p>Current operator count by role.</p>
+            <p>Users count by role.</p>
           </div>
           <span class="count-badge">{{ totalUsers() }} active users</span>
         </div>
@@ -235,23 +168,148 @@
           </div>
         </div>
 
-        @if (topAccounts().length) {
+        @if (topAccountRows().length) {
           <div class="simple-table">
             <div class="simple-table__header">
               <span>Account</span>
               <span>Listed</span>
               <span>Share</span>
             </div>
-            @for (row of topAccounts(); track row.id) {
+            @for (row of topAccountRows(); track row.id) {
               <div class="simple-table__row">
                 <strong>{{ row.name }}</strong>
                 <span>{{ row.listed }}</span>
-                <span>{{ stats()?.listed ? ((row.listed / (stats()?.listed || 1)) * 100 | number: '1.0-0') : 0 }}%</span>
+                <span>{{ row.share }}%</span>
               </div>
             }
           </div>
         } @else {
           <div class="empty-state">No account data available.</div>
+        }
+      </article>
+    </section>
+
+    <section class="overview-grid">
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Overview by date</h2>
+            <p>Readable daily output for the selected range.</p>
+          </div>
+          <span class="count-badge">{{ recentDays().length }} rows</span>
+        </div>
+
+        @if (recentDays().length) {
+          <div class="table-wrap">
+            <table class="data-table data-table--compact">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Hunted</th>
+                  <th>Listed</th>
+                  <th>Rejected</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of recentDays(); track row.date) {
+                  <tr>
+                    <td>{{ row.date | date: 'MMM d, y' }}</td>
+                    <td>{{ row.hunted }}</td>
+                    <td>{{ row.listed }}</td>
+                    <td>{{ row.rejected }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <div class="empty-state">No daily activity is available for this range.</div>
+        }
+      </article>
+
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Recent activity</h2>
+            <p>Latest admin-side actions.</p>
+          </div>
+          <a class="text-link" routerLink="/admin/activity">View all</a>
+        </div>
+
+        @if (activityPreviewRows().length) {
+          <div class="activity-list">
+            @for (log of activityPreviewRows(); track log.id) {
+              <div class="activity-item">
+                <span class="activity-item__icon"><mat-icon>history</mat-icon></span>
+                <div class="activity-item__content">
+                  <strong>{{ log.actionLabel }}</strong>
+                  <span>{{ log.actorSummary }}</span>
+                  <small>{{ log.targetSummary }}</small>
+                </div>
+                <time>{{ log.createdAt | date: 'MMM d, h:mm a' }}</time>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">No activity logs matched this date range.</div>
+        }
+      </article>
+    </section>
+
+    <section class="section-grid section-grid--three">
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Lister performance</h2>
+            <p>Listed and rejected volume by lister.</p>
+          </div>
+        </div>
+
+        @if (topListers().length) {
+          <div class="simple-table">
+            <div class="simple-table__header">
+              <span>Lister</span>
+              <span>Listed</span>
+              <span>Rejected</span>
+            </div>
+            @for (row of topListers(); track row.id) {
+              <div class="simple-table__row">
+                <strong>{{ row.name }}</strong>
+                <span>{{ row.listed }}</span>
+                <span>{{ row.rejected }}</span>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">No lister stats matched this range.</div>
+        }
+      </article>
+
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Hunter listings by account</h2>
+            <p>See where each hunter's products are getting listed.</p>
+          </div>
+        </div>
+
+        @if (stats()?.byHunterAccount?.length) {
+          <div class="simple-table">
+            <div class="simple-table__header">
+              <span>Hunter / Account</span>
+              <span>Listed</span>
+              <span>Scope</span>
+            </div>
+            @for (row of (stats()?.byHunterAccount || []).slice(0, 6); track row.hunterId + row.accountId) {
+              <div class="simple-table__row">
+                <strong>{{ row.hunterName }}</strong>
+                <span>{{ row.listedCount }}</span>
+                <span>{{ row.accountName }}</span>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">No hunter-account listing data is available.</div>
         }
       </article>
     </section>

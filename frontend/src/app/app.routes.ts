@@ -55,6 +55,27 @@ export const routes: Routes = [
                 (m) => m.HunterProductsComponent,
               ),
           },
+          {
+            path: 'changes',
+            loadComponent: () =>
+              import('./features/hunter/hunter-changes.component').then(
+                (m) => m.HunterChangesComponent,
+              ),
+          },
+          {
+            path: 'review',
+            loadComponent: () =>
+              import('./features/hunter/hunter-review.component').then(
+                (m) => m.HunterReviewComponent,
+              ),
+          },
+          {
+            path: 'rules',
+            loadComponent: () =>
+              import('./features/hunter/hunter-rules.component').then(
+                (m) => m.HunterRulesComponent,
+              ),
+          },
         ],
       },
       {
@@ -79,6 +100,20 @@ export const routes: Routes = [
             loadComponent: () =>
               import('./features/lister/lister-products.component').then(
                 (m) => m.ListerProductsComponent,
+              ),
+          },
+          {
+            path: 'changes',
+            loadComponent: () =>
+              import('./features/lister/lister-changes.component').then(
+                (m) => m.ListerChangesComponent,
+              ),
+          },
+          {
+            path: 'account-usage',
+            loadComponent: () =>
+              import('./features/lister/lister-account-usage.component').then(
+                (m) => m.ListerAccountUsageComponent,
               ),
           },
         ],
@@ -115,6 +150,13 @@ export const routes: Routes = [
               ),
           },
           {
+            path: 'products',
+            loadComponent: () =>
+              import('./features/admin/admin-products.component').then(
+                (m) => m.AdminProductsComponent,
+              ),
+          },
+          {
             path: 'settings',
             loadComponent: () =>
               import('./features/admin/admin-settings.component').then(
@@ -143,6 +185,13 @@ export const routes: Routes = [
               ),
           },
         ],
+      },
+      {
+        path: 'team',
+        loadComponent: () =>
+          import('./features/team/team-directory.component').then(
+            (m) => m.TeamDirectoryComponent,
+          ),
       },
       {
         path: 'superadmin',
@@ -201,6 +250,13 @@ export const routes: Routes = [
             loadComponent: () =>
               import('./features/superadmin/superadmin-system.component').then(
                 (m) => m.SuperAdminSystemComponent,
+              ),
+          },
+          {
+            path: 'security',
+            loadComponent: () =>
+              import('./features/superadmin/superadmin-security.component').then(
+                (m) => m.SuperAdminSecurityComponent,
               ),
           },
           {

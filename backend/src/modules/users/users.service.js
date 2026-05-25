@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const { pool } = require('../../db/pool');
 const { env } = require('../../config/env');
 const { AppError } = require('../../middleware/error');
+const { normalizePageRequest, buildPageMeta } = require('../../utils/pagination');
 const {
   PERMISSION_KEYS,
   VALID_ROLES,
@@ -11,6 +12,7 @@ const {
   resolvePermissions,
 } = require('./permissions');
 const { listAuditLogs, writeAuditLog } = require('./audit.service');
+const { getConfiguredLimit } = require('../system/system.service');
 
 const VALID_USER_STATUSES = ['active', 'disabled', 'locked', 'deleted'];
 
@@ -176,6 +178,12 @@ const buildVisibilityFilters = (actor, query) => {
     )`);
   }
 
+  if (query.status) {
+    assertValidStatus(query.status);
+    params.push(query.status);
+    clauses.push(`status = $${params.length}`);
+  }
+
   return {
     whereSql: clauses.length ? `WHERE ${clauses.join(' AND ')}` : '',
     params,
@@ -184,9 +192,11 @@ const buildVisibilityFilters = (actor, query) => {
 
 const listUsers = async (actor, query = {}) => {
   const filters = buildVisibilityFilters(actor, query);
+  const defaultLimit = await getConfiguredLimit('users', query.limit);
+  const pageRequest = normalizePageRequest(query, defaultLimit);
   const result = await pool.query(
     `
-      SELECT ${userSelect}
+      SELECT COUNT(*) OVER()::int AS "totalCount", ${userSelect}
       FROM users
       ${filters.whereSql}
       ORDER BY
@@ -197,11 +207,19 @@ const listUsers = async (actor, query = {}) => {
           ELSE 4
         END,
         name
+      LIMIT $${filters.params.length + 1}
+      OFFSET $${filters.params.length + 2}
     `,
-    filters.params,
+    [...filters.params, pageRequest.limit, pageRequest.offset],
   );
 
-  return result.rows.map(normalizeUser);
+  const items = result.rows.map(normalizeUser);
+  const total = result.rows[0]?.totalCount || 0;
+
+  return {
+    items,
+    ...buildPageMeta(pageRequest.page, pageRequest.limit, total),
+  };
 };
 
 const createUser = async (actor, payload) => {
@@ -544,10 +562,38 @@ const impersonateUser = async (actor, id) => {
   };
 };
 
-const listAssignments = async () => {
+const listAssignments = async (query = {}) => {
+  const params = [];
+  const where = ["hunter.role = 'hunter'", 'hunter.deleted_at IS NULL'];
+
+  if (query.search) {
+    params.push(`%${String(query.search).trim()}%`);
+    const index = params.length;
+    where.push(`(
+      hunter.name ILIKE $${index}
+      OR hunter.email ILIKE $${index}
+      OR COALESCE(lister.name, '') ILIKE $${index}
+      OR COALESCE(lister.email, '') ILIKE $${index}
+    )`);
+  }
+
+  if (query.status === 'assigned') {
+    where.push('lister.id IS NOT NULL');
+  } else if (query.status === 'unassigned') {
+    where.push('lister.id IS NULL');
+  }
+
+  if (query.listerId) {
+    params.push(query.listerId);
+    where.push(`lister.id = $${params.length}`);
+  }
+
+  const defaultLimit = await getConfiguredLimit('assignments', query.limit);
+  const pageRequest = normalizePageRequest(query, defaultLimit);
   const result = await pool.query(
     `
       SELECT
+        COUNT(*) OVER()::int AS "totalCount",
         hunter.id AS "hunterId",
         hunter.name AS "hunterName",
         hunter.email AS "hunterEmail",
@@ -559,13 +605,20 @@ const listAssignments = async () => {
       FROM users hunter
       LEFT JOIN hunter_lister_assignments hla ON hla.hunter_id = hunter.id
       LEFT JOIN users lister ON lister.id = hla.lister_id
-      WHERE hunter.role = 'hunter'
-        AND hunter.deleted_at IS NULL
+      WHERE ${where.join(' AND ')}
       ORDER BY hunter.name
+      LIMIT $${params.length + 1}
+      OFFSET $${params.length + 2}
     `,
+    [...params, pageRequest.limit, pageRequest.offset],
   );
 
-  return result.rows;
+  const total = result.rows[0]?.totalCount || 0;
+
+  return {
+    items: result.rows,
+    ...buildPageMeta(pageRequest.page, pageRequest.limit, total),
+  };
 };
 
 const setHunterLister = async (actor, hunterId, listerId) => {

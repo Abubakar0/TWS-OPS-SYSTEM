@@ -7,7 +7,7 @@
     <div class="surface-card__header">
       <div>
         <h1>Assignments</h1>
-        <p>{{ filteredAssignments().length }} hunter rows in view</p>
+        <p>{{ total() }} hunter rows in view</p>
       </div>
       <div class="page-actions">
         <button
@@ -15,10 +15,10 @@
           color="primary"
           type="button"
           (click)="exportAssignments()"
-          [disabled]="!filteredAssignments().length"
+          [disabled]="!total() || exporting()"
         >
           <mat-icon>download</mat-icon>
-          <span>Export Excel</span>
+          <span>{{ exporting() ? 'Exporting' : 'Export Excel' }}</span>
         </button>
         <button mat-stroked-button type="button" (click)="loadData()" [disabled]="loading()">
           <mat-icon>refresh</mat-icon>
@@ -68,7 +68,7 @@
       </div>
     } @else {
       <div class="assignment-list">
-        @for (assignment of pagedAssignments(); track assignment.hunterId) {
+        @for (assignment of sortedAssignments(); track assignment.hunterId) {
           <div class="assignment-row">
             <div class="assignment-row__content">
               <div class="assignment-row__title">
@@ -108,6 +108,14 @@
             <mat-icon>chevron_left</mat-icon>
             <span>Previous</span>
           </button>
+          <mat-form-field appearance="outline" class="grid-pager__size">
+            <mat-label>Rows</mat-label>
+            <mat-select [value]="pageSize()" (selectionChange)="setPageSize($event.value)">
+              @for (size of pageSizeOptions; track size) {
+                <mat-option [value]="size">{{ size }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
           <button
             mat-stroked-button
             type="button"

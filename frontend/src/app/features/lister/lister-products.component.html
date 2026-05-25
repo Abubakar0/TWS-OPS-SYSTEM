@@ -1,4 +1,30 @@
 <section class="page-shell">
+  @if (facade.productivityVm(); as productivity) {
+    <article class="surface-card queue-summary-bar">
+      <div class="queue-summary-bar__item">
+        <span>Current Hunter</span>
+        <strong>{{ productivity.hunterName }}</strong>
+      </div>
+      <div class="queue-summary-bar__item">
+        <span>Listed</span>
+        <strong>{{ productivity.listed }}</strong>
+      </div>
+      <div class="queue-summary-bar__item">
+        <span>Pending</span>
+        <strong>{{ productivity.pending }}</strong>
+      </div>
+      <div class="queue-summary-bar__item">
+        <span>Rejected</span>
+        <strong>{{ productivity.rejected }}</strong>
+      </div>
+      <div class="queue-summary-bar__item">
+        <span>Progress</span>
+        <strong>{{ productivity.progressLabel }}</strong>
+        <small>{{ productivity.completionPercent }}% complete</small>
+      </div>
+    </article>
+  }
+
   <article class="surface-card">
     <div class="surface-card__header">
       <div>
@@ -6,78 +32,116 @@
         <p>Filter and move through products quickly.</p>
       </div>
       <div class="page-actions">
-        <button mat-flat-button color="primary" type="button" (click)="facade.exportProducts()" [disabled]="facade.loading() || !facade.products().length">
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          (click)="facade.exportProducts()"
+          [disabled]="facade.loading() || !facade.products().length"
+        >
           <mat-icon>download</mat-icon>
           <span>Export Excel</span>
         </button>
-        <button mat-stroked-button type="button" (click)="facade.loadProducts()" [disabled]="facade.loading() || !facade.selectedHunterId()">
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="facade.loadProducts()"
+          [disabled]="facade.loading() || !facade.selectedHunterId()"
+        >
           <mat-icon>refresh</mat-icon>
           <span>Refresh</span>
+        </button>
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="facade.toggleFiltersCollapsed()"
+        >
+          <mat-icon>{{ facade.filtersCollapsed() ? 'unfold_more' : 'unfold_less' }}</mat-icon>
+          <span>{{ facade.filtersCollapsed() ? 'Show Filters' : 'Hide Filters' }}</span>
         </button>
       </div>
     </div>
 
     <form class="filters-form" [formGroup]="facade.filters" (ngSubmit)="facade.applyFilters()">
-      <div class="filters-grid">
+      <div class="filters-grid filters-grid--summary">
         <mat-form-field appearance="outline">
-          <mat-label>Hunter</mat-label>
-          <mat-select [value]="facade.selectedHunterId()" (valueChange)="facade.selectHunter($event)">
+          <mat-label>Current hunter</mat-label>
+          <mat-select
+            [value]="facade.selectedHunterId()"
+            (valueChange)="facade.selectHunter($event)"
+          >
             @for (hunter of facade.hunters(); track hunter.id) {
               <mat-option [value]="hunter.id">{{ hunter.name }}</mat-option>
             }
           </mat-select>
         </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Account</mat-label>
-          <mat-select formControlName="accountId" [disabled]="!facade.hasAssignedAccounts()">
-            <mat-option value="">All accounts</mat-option>
-            @for (account of facade.accounts(); track account.id) {
-              <mat-option [value]="account.id">{{ account.name }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Status</mat-label>
-          <mat-select formControlName="status">
-            <mat-option value="assigned">Approved Queue</mat-option>
-            <mat-option value="approved">Approved</mat-option>
-            <mat-option value="listed">Listed</mat-option>
-            <mat-option value="rejected">Rejected</mat-option>
-            <mat-option value="">All</mat-option>
-          </mat-select>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" class="filters-grid__search">
-          <mat-label>Search title, ASIN, Amazon or eBay link</mat-label>
-          <input matInput formControlName="search" autocomplete="off" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>From date</mat-label>
-          <input matInput type="date" formControlName="from" />
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>To date</mat-label>
-          <input matInput type="date" formControlName="to" />
-        </mat-form-field>
       </div>
 
-      <div class="filters-actions">
-        <button mat-flat-button color="primary" type="submit" [disabled]="facade.loading() || !facade.selectedHunterId()">
-          <mat-icon>filter_list</mat-icon>
-          <span>Apply</span>
-        </button>
-        <button mat-stroked-button type="button" (click)="facade.resetFilters()" [disabled]="facade.loading()">
-          <mat-icon>restart_alt</mat-icon>
-          <span>Reset</span>
-        </button>
-      </div>
+      @if (!facade.filtersCollapsed()) {
+        <div class="filters-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Account</mat-label>
+            <mat-select formControlName="accountId" [disabled]="!facade.hasAssignedAccounts()">
+              <mat-option value="">All accounts</mat-option>
+              @for (account of facade.accounts(); track account.id) {
+                <mat-option [value]="account.id">{{ account.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Status</mat-label>
+            <mat-select formControlName="status">
+              <mat-option value="assigned">Approved Queue</mat-option>
+              <mat-option value="approved">Approved</mat-option>
+              <mat-option value="listed">Listed</mat-option>
+              <mat-option value="rejected">Rejected</mat-option>
+              <mat-option value="">All</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filters-grid__search">
+            <mat-label>Search title, ASIN, Amazon or eBay link</mat-label>
+            <input matInput formControlName="search" autocomplete="off" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>From date</mat-label>
+            <input matInput type="date" formControlName="from" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>To date</mat-label>
+            <input matInput type="date" formControlName="to" />
+          </mat-form-field>
+        </div>
+
+        <div class="filters-actions">
+          <button
+            mat-flat-button
+            color="primary"
+            type="submit"
+            [disabled]="facade.loading() || !facade.selectedHunterId()"
+          >
+            <mat-icon>filter_list</mat-icon>
+            <span>Apply</span>
+          </button>
+          <button
+            mat-stroked-button
+            type="button"
+            (click)="facade.resetFilters()"
+            [disabled]="facade.loading()"
+          >
+            <mat-icon>restart_alt</mat-icon>
+            <span>Reset</span>
+          </button>
+        </div>
+      }
 
       @if (!facade.hasAssignedAccounts()) {
-        <div class="inline-state inline-state--warning">No listing accounts are assigned to this lister yet.</div>
+        <div class="inline-state inline-state--warning">
+          No listing accounts are assigned to this lister yet.
+        </div>
       }
     </form>
   </article>
@@ -94,11 +158,23 @@
       </div>
     </article>
   } @else if (facade.error()) {
-    <app-error-state [message]="facade.error()" actionLabel="Retry" (action)="facade.loadProducts()" />
+    <app-error-state
+      [message]="facade.error()"
+      actionLabel="Retry"
+      (action)="facade.loadProducts()"
+    />
   } @else if (!facade.selectedHunterId()) {
-    <app-empty-state title="Choose a hunter" message="Select a hunter to open the queue." icon="manage_search" />
+    <app-empty-state
+      title="Choose a hunter"
+      message="Select a hunter to open the queue."
+      icon="manage_search"
+    />
   } @else if (!facade.products().length) {
-    <app-empty-state title="No products found" message="No queue items matched the current filters." icon="inventory_2" />
+    <app-empty-state
+      title="No products found"
+      message="No queue items matched the current filters."
+      icon="inventory_2"
+    />
   } @else {
     <section class="listing-layout">
       <article class="surface-card listing-main">
@@ -113,21 +189,35 @@
           </div>
 
           @for (product of facade.pagedProducts(); track product.id) {
-            <button type="button" class="listing-row" [class.is-active]="facade.currentProductId() === product.id" (click)="facade.selectProduct(product.id)">
+            <button
+              type="button"
+              class="listing-row"
+              [class.is-active]="facade.currentProductId() === product.id"
+              (click)="facade.selectProduct(product.id)"
+            >
               <div class="listing-row__product">
-                <div class="listing-row__thumb">
-                  <mat-icon>inventory_2</mat-icon>
-                </div>
                 <div class="listing-row__product-copy">
-                  <strong [attr.title]="product.title || product.asin || 'Untitled product'">{{ product.title || product.asin || 'Untitled product' }}</strong>
+                  <strong [attr.title]="product.title || product.asin || 'Untitled product'">{{
+                    product.title || product.asin || 'Untitled product'
+                  }}</strong>
                   <span>ASIN: {{ product.asin || 'No ASIN' }}</span>
                   <small>{{ product.hunterName }}</small>
                 </div>
               </div>
 
               <div class="listing-row__metric">
-                <span>Amazon {{ product.amazonPrice === null ? '--' : (product.amazonPrice | number: '1.2-2') }}</span>
-                <span>eBay {{ product.ebayPrice === null ? '--' : (product.ebayPrice | number: '1.2-2') }}</span>
+                <span
+                  >Amazon
+                  {{
+                    product.amazonPrice === null ? '--' : (product.amazonPrice | number: '1.2-2')
+                  }}</span
+                >
+                <span
+                  >eBay
+                  {{
+                    product.ebayPrice === null ? '--' : (product.ebayPrice | number: '1.2-2')
+                  }}</span
+                >
               </div>
 
               <div class="listing-row__metric">
@@ -141,7 +231,14 @@
               </div>
 
               <div class="listing-row__status">
-                <span class="status-badge" [class.status-badge--success]="product.status === 'listed'" [class.status-badge--warning]="product.status === 'approved' || product.status === 'assigned'" [class.status-badge--danger]="product.status === 'rejected'">
+                <span
+                  class="status-badge"
+                  [class.status-badge--success]="product.status === 'listed'"
+                  [class.status-badge--warning]="
+                    product.status === 'approved' || product.status === 'assigned'
+                  "
+                  [class.status-badge--danger]="product.status === 'rejected'"
+                >
                   {{ product.status }}
                 </span>
               </div>
@@ -167,11 +264,21 @@
         <div class="grid-pager">
           <span class="grid-pager__status">{{ facade.pageLabel() }}</span>
           <div class="grid-toolbar__actions">
-            <button mat-stroked-button type="button" (click)="facade.previousPage()" [disabled]="facade.pageIndex() === 0">
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="facade.previousPage()"
+              [disabled]="facade.pageIndex() === 0"
+            >
               <mat-icon>chevron_left</mat-icon>
               <span>Previous</span>
             </button>
-            <button mat-stroked-button type="button" (click)="facade.nextPage()" [disabled]="facade.pageIndex() >= facade.pageCount() - 1">
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="facade.nextPage()"
+              [disabled]="facade.pageIndex() >= facade.pageCount() - 1"
+            >
               <span>Next</span>
               <mat-icon>chevron_right</mat-icon>
             </button>
@@ -184,10 +291,20 @@
           <div class="listing-sidebar__top">
             <h2>Product Details</h2>
             <div class="detail-nav">
-              <button mat-icon-button type="button" (click)="facade.goToPreviousProduct()" [disabled]="facade.selectedQueueIndex() <= 0">
+              <button
+                mat-icon-button
+                type="button"
+                (click)="facade.goToPreviousProduct()"
+                [disabled]="facade.selectedQueueIndex() <= 0"
+              >
                 <mat-icon>chevron_left</mat-icon>
               </button>
-              <button mat-icon-button type="button" (click)="facade.goToNextProduct()" [disabled]="facade.selectedQueueIndex() >= facade.sortedProducts().length - 1">
+              <button
+                mat-icon-button
+                type="button"
+                (click)="facade.goToNextProduct()"
+                [disabled]="facade.selectedQueueIndex() >= facade.sortedProducts().length - 1"
+              >
                 <mat-icon>chevron_right</mat-icon>
               </button>
             </div>
@@ -198,18 +315,30 @@
               <mat-icon>inventory_2</mat-icon>
             </div>
             <div class="detail-summary__copy">
-              <strong [attr.title]="currentProduct.title || currentProduct.asin || 'Selected product'">{{ currentProduct.title || currentProduct.asin || 'Selected product' }}</strong>
+              <strong
+                [attr.title]="currentProduct.title || currentProduct.asin || 'Selected product'"
+                >{{ currentProduct.title || currentProduct.asin || 'Selected product' }}</strong
+              >
               <span>ASIN: {{ currentProduct.asin || 'No ASIN' }}</span>
               <small>Submitted {{ currentProduct.createdAt | date: 'MMM d, y, h:mm a' }}</small>
             </div>
             <div class="detail-summary__badges">
-              <span class="status-badge" [class.status-badge--success]="currentProduct.status === 'listed'" [class.status-badge--warning]="currentProduct.status === 'approved' || currentProduct.status === 'assigned'" [class.status-badge--danger]="currentProduct.status === 'rejected'">
+              <span
+                class="status-badge"
+                [class.status-badge--success]="currentProduct.status === 'listed'"
+                [class.status-badge--warning]="
+                  currentProduct.status === 'approved' || currentProduct.status === 'assigned'
+                "
+                [class.status-badge--danger]="currentProduct.status === 'rejected'"
+              >
                 {{ currentProduct.status }}
               </span>
               @if (currentProduct.qualityLabel) {
                 <span
                   class="status-badge"
-                  [class.status-badge--success]="currentProduct.qualityLabel === 'Excellent Hunting'"
+                  [class.status-badge--success]="
+                    currentProduct.qualityLabel === 'Excellent Hunting'
+                  "
                   [class.status-badge--listed]="currentProduct.qualityLabel === 'Good Hunting'"
                   [class.status-badge--warning]="currentProduct.qualityLabel === 'Average Hunting'"
                   [class.status-badge--danger]="currentProduct.qualityLabel === 'Rejected'"
@@ -239,10 +368,18 @@
                 <span>Amazon Link</span>
               </div>
               <div class="source-actions">
-                <button mat-icon-button type="button" (click)="facade.openLink(currentProduct.amazonUrl)">
+                <button
+                  mat-icon-button
+                  type="button"
+                  (click)="facade.openLink(currentProduct.amazonUrl)"
+                >
                   <mat-icon>open_in_new</mat-icon>
                 </button>
-                <button mat-icon-button type="button" (click)="facade.copy(currentProduct.amazonUrl, 'Amazon link')">
+                <button
+                  mat-icon-button
+                  type="button"
+                  (click)="facade.copy(currentProduct.amazonUrl, 'Amazon link')"
+                >
                   <mat-icon>content_copy</mat-icon>
                 </button>
               </div>
@@ -254,10 +391,18 @@
                 <span>eBay Source</span>
               </div>
               <div class="source-actions">
-                <button mat-icon-button type="button" (click)="facade.openLink(currentProduct.ebayUrl)">
+                <button
+                  mat-icon-button
+                  type="button"
+                  (click)="facade.openLink(currentProduct.ebayUrl)"
+                >
                   <mat-icon>open_in_new</mat-icon>
                 </button>
-                <button mat-icon-button type="button" (click)="facade.copy(currentProduct.ebayUrl, 'eBay source link')">
+                <button
+                  mat-icon-button
+                  type="button"
+                  (click)="facade.copy(currentProduct.ebayUrl, 'eBay source link')"
+                >
                   <mat-icon>content_copy</mat-icon>
                 </button>
               </div>
@@ -267,12 +412,34 @@
           <div class="detail-section">
             <h3>Pricing Summary</h3>
             <div class="detail-metrics">
-              <div class="detail-metric"><span>Amazon Price</span><strong>{{ currentProduct.amazonPrice === null ? '--' : (currentProduct.amazonPrice | number: '1.2-2') }}</strong></div>
-              <div class="detail-metric"><span>eBay Price</span><strong>{{ currentProduct.ebayPrice === null ? '--' : (currentProduct.ebayPrice | number: '1.2-2') }}</strong></div>
-              <div class="detail-metric"><span>Fee</span><strong>{{ currentProduct.fees | number: '1.2-2' }}</strong></div>
-              <div class="detail-metric"><span>Profit</span><strong>{{ currentProduct.profit | number: '1.2-2' }}</strong></div>
-              <div class="detail-metric"><span>ROI</span><strong>{{ currentProduct.roi | number: '1.0-2' }}%</strong></div>
-              <div class="detail-metric"><span>Sold</span><strong>{{ currentProduct.soldCount }}</strong></div>
+              <div class="detail-metric">
+                <span>Amazon Price</span
+                ><strong>{{
+                  currentProduct.amazonPrice === null
+                    ? '--'
+                    : (currentProduct.amazonPrice | number: '1.2-2')
+                }}</strong>
+              </div>
+              <div class="detail-metric">
+                <span>eBay Price</span
+                ><strong>{{
+                  currentProduct.ebayPrice === null
+                    ? '--'
+                    : (currentProduct.ebayPrice | number: '1.2-2')
+                }}</strong>
+              </div>
+              <div class="detail-metric">
+                <span>Fee</span><strong>{{ currentProduct.fees | number: '1.2-2' }}</strong>
+              </div>
+              <div class="detail-metric">
+                <span>Profit</span><strong>{{ currentProduct.profit | number: '1.2-2' }}</strong>
+              </div>
+              <div class="detail-metric">
+                <span>ROI</span><strong>{{ currentProduct.roi | number: '1.0-2' }}%</strong>
+              </div>
+              <div class="detail-metric">
+                <span>Sold</span><strong>{{ currentProduct.soldCount }}</strong>
+              </div>
             </div>
           </div>
 
@@ -281,7 +448,10 @@
             <div class="action-stack">
               <mat-form-field appearance="outline">
                 <mat-label>Listing account</mat-label>
-                <mat-select [formControl]="facade.actionForm.controls.accountId" [disabled]="!facade.hasAssignedAccounts()">
+                <mat-select
+                  [formControl]="facade.actionForm.controls.accountId"
+                  [disabled]="!facade.hasAssignedAccounts()"
+                >
                   @for (account of facade.accounts(); track account.id) {
                     <mat-option [value]="account.id">{{ account.name }}</mat-option>
                   }
@@ -299,10 +469,18 @@
               }
 
               @if (facade.currentListingBlockingMessage()) {
-                <div class="inline-state inline-state--warning">{{ facade.currentListingBlockingMessage() }}</div>
+                <div class="inline-state inline-state--warning">
+                  {{ facade.currentListingBlockingMessage() }}
+                </div>
               }
 
-              <button mat-flat-button color="primary" type="button" (click)="facade.markCurrentListed()" [disabled]="!facade.canMarkCurrentListed()">
+              <button
+                mat-flat-button
+                color="primary"
+                type="button"
+                (click)="facade.markCurrentListed()"
+                [disabled]="!facade.canMarkCurrentListed()"
+              >
                 <mat-icon>done</mat-icon>
                 <span>Mark as Listed</span>
               </button>
@@ -328,10 +506,16 @@
                 type="button"
                 class="reject-button"
                 (click)="facade.rejectCurrentProduct()"
-                [disabled]="!facade.canReject(currentProduct) || facade.rejectingId() === currentProduct.id || facade.saving()"
+                [disabled]="
+                  !facade.canReject(currentProduct) ||
+                  facade.rejectingId() === currentProduct.id ||
+                  facade.saving()
+                "
               >
                 <mat-icon>block</mat-icon>
-                <span>{{ facade.rejectingId() === currentProduct.id ? 'Rejecting' : 'Reject Product' }}</span>
+                <span>{{
+                  facade.rejectingId() === currentProduct.id ? 'Rejecting' : 'Reject Product'
+                }}</span>
               </button>
             </div>
           </div>

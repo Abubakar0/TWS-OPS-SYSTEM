@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Observable, Subject, startWith, switchMap, shareReplay } from 'rxjs';
+import { firstValueFrom, from, Observable, Subject, startWith, switchMap, shareReplay } from 'rxjs';
 
 import { User, UserRole } from '../models/auth.models';
 import { Account, HuntingCriteria } from '../models/product.models';
@@ -46,7 +46,7 @@ export class ReferenceDataService {
 
     const request$ = refresh$.pipe(
       startWith(void 0),
-      switchMap(() => this.adminApi.listUsers(role)),
+      switchMap(() => from(this.fetchAllUsers(role))),
       shareReplay({ bufferSize: 1, refCount: true }),
     );
 
@@ -73,7 +73,7 @@ export class ReferenceDataService {
 
     const request$ = refresh$.pipe(
       startWith(void 0),
-      switchMap(() => this.accountApi.listAccounts(includeInactive)),
+      switchMap(() => from(this.fetchAllAccounts(includeInactive))),
       shareReplay({ bufferSize: 1, refCount: true }),
     );
 
@@ -85,5 +85,53 @@ export class ReferenceDataService {
     for (const refresh of this.accountsRefreshMap.values()) {
       refresh.next();
     }
+  }
+
+  private async fetchAllUsers(role?: UserRole): Promise<User[]> {
+    const firstPage = await firstValueFrom(
+      this.adminApi.listUsers(role, {
+        page: 1,
+        limit: 100,
+      }),
+    );
+    const users = [...firstPage.items];
+    const totalPages = Math.max(1, Math.ceil(firstPage.total / firstPage.limit));
+
+    for (let page = 2; page <= totalPages; page += 1) {
+      const nextPage = await firstValueFrom(
+        this.adminApi.listUsers(role, {
+          page,
+          limit: firstPage.limit,
+        }),
+      );
+      users.push(...nextPage.items);
+    }
+
+    return users;
+  }
+
+  private async fetchAllAccounts(includeInactive: boolean): Promise<Account[]> {
+    const firstPage = await firstValueFrom(
+      this.accountApi.listAccounts({
+        includeInactive,
+        page: 1,
+        limit: 100,
+      }),
+    );
+    const accounts = [...firstPage.items];
+    const totalPages = Math.max(1, Math.ceil(firstPage.total / firstPage.limit));
+
+    for (let page = 2; page <= totalPages; page += 1) {
+      const nextPage = await firstValueFrom(
+        this.accountApi.listAccounts({
+          includeInactive,
+          page,
+          limit: firstPage.limit,
+        }),
+      );
+      accounts.push(...nextPage.items);
+    }
+
+    return accounts;
   }
 }

@@ -107,14 +107,14 @@
       <small>Rejected products in the current reporting window.</small>
     </article>
     <article class="stat-card">
-      <span>Average ROI</span>
-      <strong>{{ stats()?.averageRoi || 0 }}%</strong>
-      <small>Average ROI across the filtered product set.</small>
+      <span>Hunters</span>
+      <strong>{{ stats()?.byHunter?.length || 0 }}</strong>
+      <small>Hunters in the current view.</small>
     </article>
     <article class="stat-card">
-      <span>Total profit</span>
-      <strong>{{ (stats()?.totalProfit || 0) | number: '1.0-2' }}</strong>
-      <small>Total profit across the filtered product set.</small>
+      <span>Accounts Used</span>
+      <strong>{{ stats()?.byAccount?.length || 0 }}</strong>
+      <small>Accounts with listing activity.</small>
     </article>
   </section>
 
@@ -167,7 +167,7 @@
             <div class="breakdown-row">
               <div>
                 <strong>{{ row.name }}</strong>
-                <span>Listed {{ row.listed }} | Assigned hunters {{ row.assignedHunters }}</span>
+                <span>Listed {{ row.listed }} | Hunters {{ row.assignedHunters }} | Rejected {{ row.rejected || 0 }}</span>
               </div>
             </div>
           }
@@ -204,6 +204,42 @@
         </div>
       } @else {
         <div class="empty-state">No account rows matched this filter.</div>
+      }
+    </article>
+  </section>
+
+  <section class="section-grid">
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Hunter listings by account</h2>
+          <p>Where each hunter's products are being listed.</p>
+        </div>
+      </div>
+
+      @if (stats()?.byHunterAccount?.length) {
+        <div class="table-wrap">
+          <table class="data-table data-table--compact">
+            <thead>
+              <tr>
+                <th>Hunter</th>
+                <th>Account</th>
+                <th>Listed</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of stats()?.byHunterAccount || []; track row.hunterId + row.accountId) {
+                <tr>
+                  <td>{{ row.hunterName }}</td>
+                  <td>{{ row.accountName }}</td>
+                  <td>{{ row.listedCount }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <div class="empty-state">No hunter-account listing data matched this filter.</div>
       }
     </article>
   </section>

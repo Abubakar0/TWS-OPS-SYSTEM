@@ -6,7 +6,7 @@ export const BRANDING = {
   sidebarSubtitle: 'Commerce Hub',
   loginEyebrow: 'Trend Wave Commerce Ecosystem',
   loginTitle: 'Welcome back',
-  loginDescription: 'Sign in to manage research, listings, reporting, and marketplace operations.',
+  loginDescription: 'Manage research, listings, reporting, and marketplace operations.',
   version: 'v1.4',
   environmentLabel: 'Local',
   platforms: [
@@ -21,7 +21,7 @@ export const BRANDING = {
     {
       key: 'workspace',
       label: 'Workspace Portal',
-      description: 'Open the broader Trend Wave workspace portal in a new tab.',
+      description: '',
       icon: 'travel_explore',
       href: 'https://workspace.trendwavesolutions.com/',
       external: true,
@@ -29,7 +29,7 @@ export const BRANDING = {
     {
       key: 'corporate',
       label: 'Corporate Website',
-      description: 'Visit Trend Wave Solutions and explore the wider company platform.',
+      description: '',
       icon: 'language',
       href: 'https://trendwavesolutions.com/',
       external: true,

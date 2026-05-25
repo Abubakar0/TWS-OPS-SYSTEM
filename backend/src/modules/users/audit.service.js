@@ -1,4 +1,5 @@
 const { pool } = require('../../db/pool');
+const { normalizePageRequest, buildPageMeta } = require('../../utils/pagination');
 
 const writeAuditLog = async ({ actorUserId = null, action, targetType, targetId = null, details = null }) => {
   if (!action || !targetType) {
@@ -14,11 +15,12 @@ const writeAuditLog = async ({ actorUserId = null, action, targetType, targetId 
       [actorUserId, action, targetType, targetId, details ? JSON.stringify(details) : null],
     );
   } catch (error) {
-    console.error('Audit log write failed:', error.message);
+    // Audit failures should not block user-facing flows.
   }
 };
 
 const listAuditLogs = async (filters = {}) => {
+  const { getConfiguredLimit } = require('../system/system.service');
   const clauses = [];
   const params = [];
 
@@ -69,9 +71,12 @@ const listAuditLogs = async (filters = {}) => {
   }
 
   const whereSql = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+  const defaultLimit = await getConfiguredLimit('activity', filters.limit);
+  const pageRequest = normalizePageRequest(filters, defaultLimit);
   const result = await pool.query(
     `
       SELECT
+        COUNT(*) OVER()::int AS "totalCount",
         log.id::text AS id,
         log.action,
         log.target_type AS "targetType",
@@ -101,15 +106,22 @@ const listAuditLogs = async (filters = {}) => {
         AND target_account.id = log.target_id
       ${whereSql}
       ORDER BY log.created_at DESC
-      LIMIT 250
+      LIMIT $${params.length + 1}
+      OFFSET $${params.length + 2}
     `,
-    params,
+    [...params, pageRequest.limit, pageRequest.offset],
   );
 
-  return result.rows.map((row) => ({
+  const rows = result.rows.map((row) => ({
     ...row,
     details: row.details && typeof row.details === 'string' ? JSON.parse(row.details) : row.details,
   }));
+  const total = result.rows[0]?.totalCount || 0;
+
+  return {
+    items: rows,
+    ...buildPageMeta(pageRequest.page, pageRequest.limit, total),
+  };
 };
 
 module.exports = {

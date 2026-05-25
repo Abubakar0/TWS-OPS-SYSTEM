@@ -10,6 +10,8 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { Account, HuntingCriteria } from '../../core/models/product.models';
+import { ApiLimitSettings } from '../../core/models/system.models';
+import { SystemApiService } from '../../core/api/system-api.service';
 import { AdminService } from '../../core/services/admin.service';
 import { ReferenceDataService } from '../../core/state/reference-data.service';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
@@ -54,10 +56,14 @@ export class SuperAdminSettingsComponent implements OnInit {
       nonNullable: true,
       validators: [Validators.required, Validators.min(0)],
     }),
+    maxDeliveryDays: new FormControl(7, { nonNullable: true, validators: [Validators.required, Validators.min(0)] }),
     feePercent: new FormControl(21, { nonNullable: true, validators: [Validators.required, Validators.min(0)] }),
     asinRequired: new FormControl(true, { nonNullable: true }),
     customLabelRequired: new FormControl(false, { nonNullable: true }),
     watchersRequired: new FormControl(false, { nonNullable: true }),
+    basketCountRequired: new FormControl(false, { nonNullable: true }),
+    deliveryDaysRequired: new FormControl(false, { nonNullable: true }),
+    monthlyGraphRequired: new FormControl(false, { nonNullable: true }),
   });
 
   readonly accountForm = new FormGroup({
@@ -66,8 +72,22 @@ export class SuperAdminSettingsComponent implements OnInit {
     isActive: new FormControl(true, { nonNullable: true }),
   });
 
+  readonly apiLimitsForm = new FormGroup({
+    users: new FormControl(30, { nonNullable: true, validators: [Validators.required, Validators.min(10)] }),
+    hunters: new FormControl(30, { nonNullable: true, validators: [Validators.required, Validators.min(10)] }),
+    listers: new FormControl(30, { nonNullable: true, validators: [Validators.required, Validators.min(10)] }),
+    products: new FormControl(30, { nonNullable: true, validators: [Validators.required, Validators.min(10)] }),
+    accounts: new FormControl(30, { nonNullable: true, validators: [Validators.required, Validators.min(10)] }),
+    reports: new FormControl(100, { nonNullable: true, validators: [Validators.required, Validators.min(10)] }),
+    assignments: new FormControl(30, { nonNullable: true, validators: [Validators.required, Validators.min(10)] }),
+    activity: new FormControl(50, { nonNullable: true, validators: [Validators.required, Validators.min(10)] }),
+    listingQueue: new FormControl(30, { nonNullable: true, validators: [Validators.required, Validators.min(10)] }),
+    rejections: new FormControl(30, { nonNullable: true, validators: [Validators.required, Validators.min(10)] }),
+  });
+
   constructor(
     private readonly adminApi: AdminService,
+    private readonly systemApi: SystemApiService,
     private readonly referenceData: ReferenceDataService,
     private readonly workspaceSync: WorkspaceSyncService,
     private readonly confirm: ConfirmService,
@@ -94,6 +114,11 @@ export class SuperAdminSettingsComponent implements OnInit {
     this.referenceData.getAccounts(true).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (accounts) => this.accounts.set(accounts),
       error: (error) => this.error.set(error?.error?.message || 'Could not load listing accounts.'),
+    });
+
+    this.systemApi.getSettings().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (settings) => this.apiLimitsForm.patchValue(settings.apiLimits),
+      error: (error) => this.error.set(error?.error?.message || 'Could not load system limits.'),
     });
   }
 
@@ -166,6 +191,28 @@ export class SuperAdminSettingsComponent implements OnInit {
         this.toast.success(account.isActive ? 'Account disabled.' : 'Account enabled.');
       },
       error: (error) => this.error.set(error?.error?.message || 'Could not update account.'),
+    });
+  }
+
+  saveApiLimits(): void {
+    if (this.apiLimitsForm.invalid || this.saving()) {
+      this.apiLimitsForm.markAllAsTouched();
+      return;
+    }
+
+    this.saving.set(true);
+    this.error.set('');
+
+    this.systemApi.updateApiLimits(this.apiLimitsForm.getRawValue() as ApiLimitSettings).subscribe({
+      next: (limits) => {
+        this.apiLimitsForm.patchValue(limits);
+        this.toast.success('API limits saved.');
+      },
+      error: (error) => {
+        this.error.set(error?.error?.message || 'Could not save API limits.');
+        this.saving.set(false);
+      },
+      complete: () => this.saving.set(false),
     });
   }
 }

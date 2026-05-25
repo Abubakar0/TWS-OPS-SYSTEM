@@ -1,16 +1,36 @@
 @if (shellVm(); as vm) {
-  <div class="app-shell">
-    <div class="app-shell__backdrop" [class.is-open]="vm.sidebarOpen" (click)="closeSidebar()"></div>
+  <div class="app-shell" [class.app-shell--collapsed]="vm.sidebarCollapsed">
+    <div
+      class="app-shell__backdrop"
+      [class.is-open]="vm.sidebarOpen"
+      (click)="closeSidebar()"
+    ></div>
 
-    <aside class="app-sidebar" [class.is-open]="vm.sidebarOpen">
+    <aside
+      class="app-sidebar"
+      [class.is-open]="vm.sidebarOpen"
+      [class.is-collapsed]="vm.sidebarCollapsed"
+    >
       <div class="app-sidebar__brand">
         <a class="brand-lockup" [routerLink]="vm.homeRoute">
           <span class="brand-lockup__mark" aria-hidden="true"></span>
-          <span class="brand-lockup__text">
+          <span class="brand-lockup__text" [class.is-hidden]="vm.sidebarCollapsed">
             <strong>{{ branding.logoLabel }}</strong>
             <small>{{ branding.shortProductName }}</small>
           </span>
         </a>
+
+        <button
+          mat-icon-button
+          type="button"
+          class="app-sidebar__collapse desktop-only"
+          (click)="toggleSidebarCollapsed()"
+          [matTooltip]="vm.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+        >
+          <mat-icon>{{
+            vm.sidebarCollapsed ? 'keyboard_double_arrow_right' : 'keyboard_double_arrow_left'
+          }}</mat-icon>
+        </button>
 
         <button
           mat-icon-button
@@ -32,42 +52,51 @@
               routerLinkActive="is-active"
               [routerLinkActiveOptions]="{ exact: item.exact }"
               (click)="closeSidebar()"
+              [matTooltip]="vm.sidebarCollapsed ? item.label : ''"
             >
               <mat-icon>{{ item.icon }}</mat-icon>
-              <span>{{ item.label }}</span>
+              <span [class.is-hidden]="vm.sidebarCollapsed">{{ item.label }}</span>
             </a>
           }
         </nav>
       </div>
 
       <div class="app-sidebar__footer">
-        <div class="sidebar-platforms">
+        <div class="sidebar-platforms" [class.is-collapsed]="vm.sidebarCollapsed">
           @for (platform of vm.footerPlatforms; track platform.key) {
             <a
               class="sidebar-platform-link"
               [href]="platform.href"
-              [attr.target]="platform.external ? '_blank' : null"
-              [attr.rel]="platform.external ? 'noreferrer' : null"
+              [target]="platform.external ? '_blank' : null"
+              [rel]="platform.external ? 'noopener noreferrer' : null"
+              [matTooltip]="vm.sidebarCollapsed ? platform.label : ''"
             >
               <mat-icon>{{ platform.icon }}</mat-icon>
-              <span>{{ platform.label }}</span>
+              <span [class.is-hidden]="vm.sidebarCollapsed">{{ platform.label }}</span>
             </a>
           }
         </div>
 
-        <div class="sidebar-meta">
-          <span>{{ vm.version }}</span>
-          <span>{{ vm.environmentLabel }}</span>
+        <div class="sidebar-meta" [class.is-collapsed]="vm.sidebarCollapsed">
+          <span [class.is-hidden]="vm.sidebarCollapsed">{{ vm.version }}</span>
+          <span [class.is-hidden]="vm.sidebarCollapsed">{{ vm.environmentLabel }}</span>
         </div>
 
-        <button mat-button type="button" class="sidebar-user" [matMenuTriggerFor]="userMenu">
+        <button
+          mat-button
+          type="button"
+          class="sidebar-user"
+          [class.is-collapsed]="vm.sidebarCollapsed"
+          [matMenuTriggerFor]="userMenu"
+          [matTooltip]="vm.sidebarCollapsed ? vm.userName : ''"
+        >
           <span class="user-avatar">{{ vm.userInitials }}</span>
-          <span class="sidebar-user__meta">
+          <span class="sidebar-user__meta" [class.is-hidden]="vm.sidebarCollapsed">
             <strong>{{ vm.userName }}</strong>
             <small>{{ vm.userEmail }}</small>
+            <span class="sidebar-user__role">{{ vm.roleLabel }}</span>
           </span>
-          <span class="sidebar-user__role">{{ vm.roleLabel }}</span>
-          <mat-icon>expand_more</mat-icon>
+          <mat-icon [class.is-hidden]="vm.sidebarCollapsed">expand_more</mat-icon>
         </button>
       </div>
     </aside>
@@ -99,16 +128,16 @@
       </div>
 
       <div class="menu-role-card">
-        <mat-icon>verified_user</mat-icon>
+        <mat-icon>shield_person</mat-icon>
         <div>
           <strong>{{ vm.roleLabel }}</strong>
-          <span>Signed into {{ branding.shortProductName }}</span>
+          <span>{{ branding.productName }}</span>
         </div>
       </div>
 
       <button mat-menu-item type="button" (click)="logout()">
         <mat-icon>logout</mat-icon>
-        <span>Log out</span>
+        <p>Log out</p>
       </button>
     </div>
   </mat-menu>

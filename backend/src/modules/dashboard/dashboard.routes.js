@@ -11,5 +11,10 @@ router.get('/super-admin', requireRoles('super_admin'), asyncHandler(dashboardCo
 router.get('/admin', requireRoles('admin', 'super_admin'), asyncHandler(dashboardController.admin));
 router.get('/hunter', requireRoles('hunter', 'admin', 'super_admin'), asyncHandler(dashboardController.hunter));
 router.get('/lister', requireRoles('lister', 'admin', 'super_admin'), asyncHandler(dashboardController.lister));
+router.get(
+  '/lister-account-usage',
+  requireRoles('lister', 'admin', 'super_admin'),
+  asyncHandler(dashboardController.listerHunterAccounts),
+);
 
 module.exports = router;

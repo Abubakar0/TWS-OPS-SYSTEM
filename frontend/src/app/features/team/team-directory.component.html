@@ -1,0 +1,105 @@
+<section class="page-shell">
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h1>Teams</h1>
+        <p>See team members, ownership, and role mix in one place.</p>
+      </div>
+      <div class="page-actions">
+        <button mat-stroked-button type="button" (click)="print()">
+          <mat-icon>print</mat-icon>
+          <span>Print Details</span>
+        </button>
+      </div>
+    </div>
+  </article>
+
+  @if (error()) {
+    <div class="inline-state inline-state--error">{{ error() }}</div>
+  } @else if (loading()) {
+    <article class="surface-card">
+      <div class="loading-state">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>Loading teams.</span>
+      </div>
+    </article>
+  } @else {
+    @if (canManage()) {
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>{{ editingTeam() ? 'Edit team' : 'Create team' }}</h2>
+            <p>Admins can group users into shared operating teams.</p>
+          </div>
+        </div>
+
+        <form class="form-grid" [formGroup]="form" (ngSubmit)="saveTeam()">
+          <mat-form-field appearance="outline">
+            <mat-label>Team name</mat-label>
+            <input matInput formControlName="name" autocomplete="off" />
+          </mat-form-field>
+          <div class="field-span-2">
+            <mat-form-field appearance="outline">
+              <mat-label>Description</mat-label>
+              <textarea matInput rows="3" formControlName="description"></textarea>
+            </mat-form-field>
+          </div>
+          <div class="field-span-2">
+            <mat-form-field appearance="outline">
+              <mat-label>Members</mat-label>
+              <mat-select formControlName="memberIds" multiple>
+                @for (user of users(); track user.id) {
+                  <mat-option [value]="user.id">{{ user.name }} | {{ user.role }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          </div>
+          <div class="field-span-2 page-actions">
+            <button mat-stroked-button type="button" (click)="clearForm()">Clear</button>
+            <button mat-flat-button color="primary" type="submit" [disabled]="saving()">
+              <mat-icon>save</mat-icon>
+              <span>{{ saving() ? 'Saving' : editingTeam() ? 'Save Team' : 'Create Team' }}</span>
+            </button>
+          </div>
+        </form>
+      </article>
+    }
+
+    <section class="section-grid">
+      @for (team of teams(); track team.id) {
+        <article class="surface-card team-card">
+          <div class="surface-card__header">
+            <div>
+              <h2>{{ team.name }}</h2>
+              <p>{{ team.description || 'No description added yet.' }}</p>
+            </div>
+            @if (canManage()) {
+              <div class="page-actions">
+                <button mat-stroked-button type="button" (click)="editTeam(team)">Edit</button>
+                <button mat-stroked-button type="button" (click)="deleteTeam(team)">Delete</button>
+              </div>
+            }
+          </div>
+
+          <div class="breakdown-list">
+            @for (member of team.members; track member.id) {
+              <div class="breakdown-row">
+                <div>
+                  <strong>{{ member.name }}</strong>
+                  <span>{{ member.email }}</span>
+                </div>
+                <span class="status-badge status-badge--neutral">{{ member.role }}</span>
+              </div>
+            } @empty {
+              <div class="empty-state">No members assigned yet.</div>
+            }
+          </div>
+        </article>
+      } @empty {
+        <article class="surface-card">
+          <div class="empty-state">No teams are available yet.</div>
+        </article>
+      }
+    </section>
+  }
+</section>

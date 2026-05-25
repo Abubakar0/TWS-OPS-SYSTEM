@@ -9,8 +9,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
+import { ChangeRequestApiService } from '../../core/api/change-request-api.service';
+import { WeeklyReviewApiService } from '../../core/api/weekly-review-api.service';
 import { DashboardService, HunterDashboardFilters, HunterDashboardStats } from '../../core/services/dashboard.service';
-import { HuntingCriteria } from '../../core/models/product.models';
+import { ChangeRequestSummary, HuntingCriteria, WeeklyReviewStatus } from '../../core/models/product.models';
 import { ReferenceDataService } from '../../core/state/reference-data.service';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
 
@@ -68,6 +70,16 @@ export class HunterDashboardComponent implements OnInit {
     watchersRequired: false,
     minWatcherCount: 0,
     minSalesLastTwoMonths: 0,
+    basketCountRequired: false,
+    deliveryDaysRequired: false,
+    maxDeliveryDays: 7,
+    monthlyGraphRequired: false,
+  });
+  readonly weeklyReviewStatus = signal<WeeklyReviewStatus | null>(null);
+  readonly changeRequestSummary = signal<ChangeRequestSummary>({
+    total: 0,
+    pending: 0,
+    completed: 0,
   });
   readonly selectedRange = signal<RangePreset>('thisMonth');
   readonly activeFilters = signal<HunterDashboardFilters>({});
@@ -126,6 +138,8 @@ export class HunterDashboardComponent implements OnInit {
       },
     ];
   });
+  readonly showReviewBanner = computed(() => this.weeklyReviewStatus()?.required === true);
+  readonly showChangeBanner = computed(() => (this.changeRequestSummary().pending || 0) > 0);
 
   private readonly destroyRef = inject(DestroyRef);
   private readonly workspaceSync = inject(WorkspaceSyncService);
@@ -134,6 +148,8 @@ export class HunterDashboardComponent implements OnInit {
   constructor(
     private readonly dashboardApi: DashboardService,
     private readonly referenceData: ReferenceDataService,
+    private readonly changeRequestApi: ChangeRequestApiService,
+    private readonly weeklyReviewApi: WeeklyReviewApiService,
   ) {}
 
   ngOnInit(): void {
@@ -145,6 +161,7 @@ export class HunterDashboardComponent implements OnInit {
       });
 
     this.applyPreset('thisMonth');
+    this.loadDashboardSignals();
 
     effect(
       () => {
@@ -227,6 +244,22 @@ export class HunterDashboardComponent implements OnInit {
       },
       complete: () => this.loading.set(false),
     });
+  }
+
+  private loadDashboardSignals(): void {
+    this.changeRequestApi
+      .getSummary()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (summary) => this.changeRequestSummary.set(summary),
+      });
+
+    this.weeklyReviewApi
+      .getStatus()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (status) => this.weeklyReviewStatus.set(status),
+      });
   }
 
   private getPresetFilters(range: Exclude<RangePreset, 'custom'>): HunterDashboardFilters {

@@ -4,12 +4,13 @@ import { map, Observable } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { Account, AssignedHunter, BulkListedPayload, Product, ProductFilters } from '../models/product.models';
+import { PageResult } from '../state/query-state.models';
 
 @Injectable({ providedIn: 'root' })
 export class ListerApiService {
   constructor(private readonly http: HttpClient) {}
 
-  listQueueProducts(filters: ProductFilters = {}): Observable<Product[]> {
+  listQueueProducts(filters: ProductFilters = {}): Observable<PageResult<Product>> {
     let params = new HttpParams();
 
     Object.entries(filters).forEach(([key, value]) => {
@@ -19,8 +20,19 @@ export class ListerApiService {
     });
 
     return this.http
-      .get<{ products: Product[] }>(`${environment.apiUrl}/products`, { params })
-      .pipe(map((response) => response.products));
+      .get<{ products: Product[]; page: number; limit: number; total: number; hasMore: boolean }>(
+        `${environment.apiUrl}/products`,
+        { params },
+      )
+      .pipe(
+        map((response) => ({
+          items: response.products,
+          page: response.page,
+          limit: response.limit,
+          total: response.total,
+          hasMore: response.hasMore,
+        })),
+      );
   }
 
   listAssignedHunters(): Observable<AssignedHunter[]> {

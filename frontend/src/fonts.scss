@@ -1,0 +1,43 @@
+@import url('https://fonts.googleapis.com/icon?family=Material+Icons');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --tws-body: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --tws-heading: 'Inter', 'Segoe UI', system-ui, sans-serif;
+}
+
+html,
+body,
+.mat-typography,
+button,
+input,
+textarea,
+select,
+.mat-mdc-card,
+.mat-mdc-card-title,
+.mat-mdc-card-subtitle,
+.mat-mdc-button-base,
+.mat-mdc-form-field,
+.mat-mdc-input-element,
+.mat-mdc-table,
+.mat-mdc-cell,
+.mat-mdc-header-cell,
+.mat-mdc-menu-item,
+.mat-mdc-option,
+.mat-mdc-select-value-text,
+.mat-mdc-select-min-line,
+.mat-mdc-dialog-container,
+.mat-mdc-dialog-container *,
+.mdc-floating-label,
+.mdc-text-field__input {
+  font-family: var(--tws-body) !important;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--tws-heading);
+}

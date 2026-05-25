@@ -1,6 +1,8 @@
 const { pool } = require('../../db/pool');
 const { AppError } = require('../../middleware/error');
+const { normalizePageRequest, buildPageMeta } = require('../../utils/pagination');
 const { writeAuditLog } = require('../users/audit.service');
+const { getConfiguredLimit } = require('../system/system.service');
 
 const accountSelect = `
   accounts.id,
@@ -18,7 +20,8 @@ const accountFromRow = (row) => ({
   assignedListers: Array.isArray(row.assignedListers) ? row.assignedListers : [],
 });
 
-const listAccounts = async (user, { includeInactive } = {}) => {
+const listAccounts = async (user, query = {}) => {
+  const { includeInactive, marketplace, status, search } = query;
   const params = [];
   const where = [];
 
@@ -36,9 +39,28 @@ const listAccounts = async (user, { includeInactive } = {}) => {
     )`);
   }
 
+  if (marketplace) {
+    params.push(marketplace);
+    where.push(`accounts.marketplace = $${params.length}`);
+  }
+
+  if (status === 'active') {
+    where.push('accounts.is_active = TRUE');
+  } else if (status === 'disabled') {
+    where.push('accounts.is_active = FALSE');
+  }
+
+  if (search) {
+    params.push(`%${String(search).trim()}%`);
+    where.push(`accounts.name ILIKE $${params.length}`);
+  }
+
+  const defaultLimit = await getConfiguredLimit('accounts', query.limit);
+  const pageRequest = normalizePageRequest(query, defaultLimit);
+
   const result = await pool.query(
     `
-      SELECT ${accountSelect}
+      SELECT COUNT(*) OVER()::int AS "totalCount", ${accountSelect}
       FROM accounts
       LEFT JOIN (
         SELECT account_used, COUNT(*) AS "totalProductsListed"
@@ -67,11 +89,19 @@ const listAccounts = async (user, { includeInactive } = {}) => {
       ) AS assigned_listers ON TRUE
       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
       ORDER BY accounts.name
+      LIMIT $${params.length + 1}
+      OFFSET $${params.length + 2}
     `,
-    params,
+    [...params, pageRequest.limit, pageRequest.offset],
   );
 
-  return result.rows.map(accountFromRow);
+  const items = result.rows.map(accountFromRow);
+  const total = result.rows[0]?.totalCount || 0;
+
+  return {
+    items,
+    ...buildPageMeta(pageRequest.page, pageRequest.limit, total),
+  };
 };
 
 const getAccountById = async (id) => {

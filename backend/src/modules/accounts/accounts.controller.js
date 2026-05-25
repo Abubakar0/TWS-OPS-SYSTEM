@@ -1,8 +1,14 @@
 const accountsService = require('./accounts.service');
 
 const listAccounts = async (req, res) => {
-  const accounts = await accountsService.listAccounts(req.user, req.query);
-  res.json({ accounts });
+  const result = await accountsService.listAccounts(req.user, req.query);
+  res.json({
+    accounts: result.items,
+    page: result.page,
+    limit: result.limit,
+    total: result.total,
+    hasMore: result.hasMore,
+  });
 };
 
 const createAccount = async (req, res) => {

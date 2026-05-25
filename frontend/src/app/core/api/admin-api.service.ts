@@ -5,13 +5,17 @@ import { map, Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { LoginResponse, User, UserPermissions, UserRole } from '../models/auth.models';
 import { HuntingCriteria } from '../models/product.models';
+import { PageResult } from '../state/query-state.models';
 import { AuditLogEntry, PermissionMatrixRow, UserFilters } from '../services/admin.service';
 
 @Injectable({ providedIn: 'root' })
 export class AdminApiService {
   constructor(private readonly http: HttpClient) {}
 
-  listUsers(role?: UserRole, filters: UserFilters = {}): Observable<User[]> {
+  listUsers(
+    role?: UserRole,
+    filters: UserFilters & { status?: string; page?: number; limit?: number } = {},
+  ): Observable<PageResult<User>> {
     let params = new HttpParams();
 
     if (role) {
@@ -26,9 +30,32 @@ export class AdminApiService {
       params = params.set('includeDeleted', 'true');
     }
 
+    if (filters.status) {
+      params = params.set('status', filters.status);
+    }
+
+    if (filters.page) {
+      params = params.set('page', String(filters.page));
+    }
+
+    if (filters.limit) {
+      params = params.set('limit', String(filters.limit));
+    }
+
     return this.http
-      .get<{ users: User[] }>(`${environment.apiUrl}/users`, { params })
-      .pipe(map((response) => response.users));
+      .get<{ users: User[]; page: number; limit: number; total: number; hasMore: boolean }>(
+        `${environment.apiUrl}/users`,
+        { params },
+      )
+      .pipe(
+        map((response) => ({
+          items: response.users,
+          page: response.page,
+          limit: response.limit,
+          total: response.total,
+          hasMore: response.hasMore,
+        })),
+      );
   }
 
   createUser(payload: {
@@ -60,7 +87,7 @@ export class AdminApiService {
     return this.http.post<LoginResponse>(`${environment.apiUrl}/users/${id}/impersonate`, {});
   }
 
-  listAuditLogs(filters: { action?: string; actorUserId?: string; actorRole?: string; targetType?: string; search?: string; from?: string; to?: string } = {}): Observable<AuditLogEntry[]> {
+  listAuditLogs(filters: { action?: string; actorUserId?: string; actorRole?: string; targetType?: string; search?: string; from?: string; to?: string; page?: number; limit?: number } = {}): Observable<PageResult<AuditLogEntry>> {
     let params = new HttpParams();
 
     Object.entries(filters).forEach(([key, value]) => {
@@ -70,8 +97,19 @@ export class AdminApiService {
     });
 
     return this.http
-      .get<{ logs: AuditLogEntry[] }>(`${environment.apiUrl}/users/audit`, { params })
-      .pipe(map((response) => response.logs));
+      .get<{ logs: AuditLogEntry[]; page: number; limit: number; total: number; hasMore: boolean }>(
+        `${environment.apiUrl}/users/audit`,
+        { params },
+      )
+      .pipe(
+        map((response) => ({
+          items: response.logs,
+          page: response.page,
+          limit: response.limit,
+          total: response.total,
+          hasMore: response.hasMore,
+        })),
+      );
   }
 
   getPermissionMatrix(): Observable<PermissionMatrixRow[]> {

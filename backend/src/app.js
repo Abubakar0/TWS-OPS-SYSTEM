@@ -7,6 +7,10 @@ const dashboardRoutes = require('./modules/dashboard/dashboard.routes');
 const userRoutes = require('./modules/users/users.routes');
 const accountRoutes = require('./modules/accounts/accounts.routes');
 const criteriaRoutes = require('./modules/criteria/criteria.routes');
+const systemRoutes = require('./modules/system/system.routes');
+const weeklyReviewRoutes = require('./modules/weekly-review/weekly-review.routes');
+const changeRequestRoutes = require('./modules/change-requests/change-requests.routes');
+const teamRoutes = require('./modules/teams/teams.routes');
 const { notFound, errorHandler } = require('./middleware/error');
 
 const app = express();
@@ -28,6 +32,10 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/accounts', accountRoutes);
 app.use('/api/criteria', criteriaRoutes);
+app.use('/api/system', systemRoutes);
+app.use('/api/weekly-review', weeklyReviewRoutes);
+app.use('/api/change-requests', changeRequestRoutes);
+app.use('/api/teams', teamRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

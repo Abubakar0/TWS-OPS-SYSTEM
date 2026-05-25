@@ -15,6 +15,14 @@ export interface HunterAccountStat {
   listedCount: number;
 }
 
+export interface HunterAccountListingStat {
+  hunterId: string;
+  hunterName: string;
+  accountId: string;
+  accountName: string;
+  listedCount: number;
+}
+
 export interface HunterListerStat {
   listerId: string;
   listerName: string;
@@ -38,6 +46,7 @@ export interface ListerHunterStat {
   hunterId: string;
   hunterName: string;
   listedCount: number;
+  rejectedCount?: number;
 }
 
 export interface ListerDashboardStats {
@@ -45,6 +54,15 @@ export interface ListerDashboardStats {
   rejected: number;
   byHunter: ListerHunterStat[];
   byAccount: HunterAccountStat[];
+}
+
+export interface ListerHunterAccountUsage {
+  accountId: string;
+  accountName: string;
+  hunterId: string;
+  hunterName: string;
+  listedCount: number;
+  lastListedAt: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -77,5 +95,21 @@ export class DashboardService {
     return this.http
       .get<{ stats: ListerDashboardStats }>(`${environment.apiUrl}/dashboard/lister`, { params })
       .pipe(map((response) => response.stats));
+  }
+
+  getListerHunterAccountUsage(filters: { hunterId?: string; listerId?: string } = {}) {
+    let params = new HttpParams();
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) {
+        params = params.set(key, value);
+      }
+    });
+
+    return this.http
+      .get<{ rows: ListerHunterAccountUsage[] }>(`${environment.apiUrl}/dashboard/lister-account-usage`, {
+        params,
+      })
+      .pipe(map((response) => response.rows));
   }
 }

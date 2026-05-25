@@ -104,15 +104,15 @@
     </article>
 
     <article class="stat-card">
-      <span>Average ROI</span>
-      <strong>{{ stats()?.averageRoi || 0 }}%</strong>
-      <small class="stat-card__trend">Across current range</small>
+      <span>Hunters</span>
+      <strong>{{ stats()?.byHunter?.length || 0 }}</strong>
+      <small class="stat-card__trend">Hunters in this view</small>
     </article>
 
     <article class="stat-card">
-      <span>Total profit</span>
-      <strong>{{ (stats()?.totalProfit || 0) | number: '1.2-2' }}</strong>
-      <small class="stat-card__trend">Filtered profit total</small>
+      <span>Accounts Used</span>
+      <strong>{{ stats()?.byAccount?.length || 0 }}</strong>
+      <small class="stat-card__trend">Accounts with listed volume</small>
     </article>
   </section>
 
@@ -139,8 +139,6 @@
                 <th>Hunted</th>
                 <th>Listed</th>
                 <th>Rejected</th>
-                <th>Profit</th>
-                <th>ROI</th>
               </tr>
             </thead>
             <tbody>
@@ -150,8 +148,6 @@
                   <td>{{ row.hunted }}</td>
                   <td>{{ row.listed }}</td>
                   <td>{{ row.rejected }}</td>
-                  <td>{{ row.profit | number: '1.2-2' }}</td>
-                  <td>{{ row.roi | number: '1.0-2' }}%</td>
                 </tr>
               }
             </tbody>
@@ -193,10 +189,10 @@
       } @else {
         <div class="empty-state">No account report rows matched this filter.</div>
       }
-    </article>
-  </section>
+      </article>
+    </section>
 
-  <section class="section-grid section-grid--three">
+    <section class="section-grid section-grid--three">
     <article class="surface-card">
       <div class="surface-card__header">
         <div>
@@ -244,17 +240,17 @@
           <span>Loading lister rows.</span>
         </div>
       } @else if (stats()?.byLister?.length) {
-        <div class="simple-table">
-          <div class="simple-table__header">
-            <span>Lister</span>
-            <span>Listed</span>
-            <span>Hunters</span>
-          </div>
+          <div class="simple-table">
+            <div class="simple-table__header">
+              <span>Lister</span>
+              <span>Listed</span>
+              <span>Coverage</span>
+            </div>
           @for (row of stats()?.byLister || []; track row.id) {
             <div class="simple-table__row">
               <strong>{{ row.name }}</strong>
               <span>{{ row.listed }}</span>
-              <span>{{ row.assignedHunters }}</span>
+              <span>{{ row.assignedHunters }} hunters | {{ row.rejected }} rejected</span>
             </div>
           }
         </div>
@@ -285,6 +281,42 @@
           <strong>{{ stats()?.daily?.length || 0 }}</strong>
         </div>
       </div>
+    </article>
+  </section>
+
+  <section class="section-grid">
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Hunter listings by account</h2>
+          <p>Which hunter products are landing on which accounts.</p>
+        </div>
+      </div>
+
+      @if (stats()?.byHunterAccount?.length) {
+        <div class="table-wrap">
+          <table class="data-table data-table--compact">
+            <thead>
+              <tr>
+                <th>Hunter</th>
+                <th>Account</th>
+                <th>Listed</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of stats()?.byHunterAccount || []; track row.hunterId + row.accountId) {
+                <tr>
+                  <td>{{ row.hunterName }}</td>
+                  <td>{{ row.accountName }}</td>
+                  <td>{{ row.listedCount }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <div class="empty-state">No hunter-account listing data matched this filter.</div>
+      }
     </article>
   </section>
 </section>

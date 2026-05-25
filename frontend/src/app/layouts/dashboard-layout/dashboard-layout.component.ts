@@ -19,6 +19,15 @@ interface NavItem {
   icon: string;
 }
 
+const SHARED_TEAM_ITEM: NavItem = {
+  label: 'Team',
+  route: '/team',
+  exact: true,
+  icon: 'groups',
+};
+
+const SIDEBAR_COLLAPSED_KEY = 'tws_sidebar_collapsed';
+
 @Component({
   selector: 'app-dashboard-layout',
   imports: [
@@ -50,25 +59,35 @@ export class DashboardLayoutComponent {
 
   readonly user = this.auth.currentUser;
   readonly sidebarOpen = signal(false);
+  readonly sidebarCollapsed = signal(this.readSidebarCollapsed());
   readonly branding = BRANDING;
   readonly footerPlatforms = BRANDING.platforms.filter((platform) => platform.key !== 'operations');
   readonly hunterTabs: NavItem[] = [
     { label: 'Dashboard', route: '/hunter/dashboard', exact: true, icon: 'space_dashboard' },
     { label: 'Product Submission', route: '/hunter/submission', exact: true, icon: 'playlist_add' },
     { label: 'Product List', route: '/hunter/products', exact: true, icon: 'inventory_2' },
+    { label: 'Change Requests', route: '/hunter/changes', exact: true, icon: 'edit_note' },
+    { label: 'Weekly Review', route: '/hunter/review', exact: true, icon: 'assignment_turned_in' },
+    { label: 'Hunting Rules', route: '/hunter/rules', exact: true, icon: 'rule' },
+    SHARED_TEAM_ITEM,
   ];
   readonly listerTabs: NavItem[] = [
     { label: 'Dashboard', route: '/lister/dashboard', exact: true, icon: 'space_dashboard' },
     { label: 'Listing Queue', route: '/lister/products', exact: true, icon: 'view_kanban' },
+    { label: 'Change Requests', route: '/lister/changes', exact: true, icon: 'fact_check' },
+    { label: 'Account Usage', route: '/lister/account-usage', exact: true, icon: 'storefront' },
+    SHARED_TEAM_ITEM,
   ];
   readonly adminTabs: NavItem[] = [
     { label: 'Dashboard', route: '/admin/dashboard', exact: true, icon: 'grid_view' },
     { label: 'Users', route: '/admin/users', exact: true, icon: 'group' },
     { label: 'Assignments', route: '/admin/assignments', exact: true, icon: 'swap_horiz' },
+    { label: 'Products', route: '/admin/products', exact: true, icon: 'inventory_2' },
     { label: 'Settings', route: '/admin/settings', exact: true, icon: 'tune' },
     { label: 'Reports', route: '/admin/reports', exact: true, icon: 'insert_chart' },
     { label: 'Accounts', route: '/admin/accounts', exact: true, icon: 'storefront' },
     { label: 'Activity Feed', route: '/admin/activity', exact: true, icon: 'history' },
+    SHARED_TEAM_ITEM,
   ];
   readonly superAdminTabs: NavItem[] = [
     { label: 'Dashboard', route: '/superadmin/dashboard', exact: true, icon: 'monitoring' },
@@ -78,7 +97,9 @@ export class DashboardLayoutComponent {
     { label: 'Settings', route: '/superadmin/settings', exact: true, icon: 'settings' },
     { label: 'Audit', route: '/superadmin/audit', exact: true, icon: 'history' },
     { label: 'System', route: '/superadmin/system', exact: true, icon: 'dns' },
+    { label: 'Security', route: '/superadmin/security', exact: true, icon: 'lan' },
     { label: 'Permissions', route: '/superadmin/permissions', exact: true, icon: 'admin_panel_settings' },
+    SHARED_TEAM_ITEM,
   ];
 
   readonly sidebarNavItems = computed<NavItem[]>(() => {
@@ -134,9 +155,11 @@ export class DashboardLayoutComponent {
     const user = this.user();
     const roleLabel = this.roleLabel();
     const sidebarOpen = this.sidebarOpen();
+    const sidebarCollapsed = this.sidebarCollapsed();
 
     return {
       sidebarOpen,
+      sidebarCollapsed,
       navItems: this.sidebarNavItems(),
       userName: user?.name || this.branding.productName,
       userEmail: user?.email || 'workspace@trendwavesolutions.com',
@@ -168,6 +191,14 @@ export class DashboardLayoutComponent {
     this.sidebarOpen.update((value) => !value);
   }
 
+  toggleSidebarCollapsed(): void {
+    this.sidebarCollapsed.update((value) => {
+      const next = !value;
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, JSON.stringify(next));
+      return next;
+    });
+  }
+
   closeSidebar(): void {
     this.sidebarOpen.set(false);
   }
@@ -185,5 +216,13 @@ export class DashboardLayoutComponent {
 
     this.auth.logout();
     await this.router.navigateByUrl('/login');
+  }
+
+  private readSidebarCollapsed(): boolean {
+    try {
+      return JSON.parse(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) || 'false') === true;
+    } catch (error) {
+      return false;
+    }
   }
 }

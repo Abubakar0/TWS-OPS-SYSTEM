@@ -3,6 +3,28 @@
     <div class="inline-state inline-state--error">{{ error() }}</div>
   }
 
+  @if (showReviewBanner()) {
+    <div class="inline-state inline-state--warning">
+      <mat-icon>assignment_turned_in</mat-icon>
+      <div class="inline-state__content">
+        <strong>Saturday review is still pending</strong>
+        <span>Review your live products first, then new product submission will unlock again.</span>
+      </div>
+      <a mat-stroked-button routerLink="/hunter/review">Open Review</a>
+    </div>
+  }
+
+  @if (showChangeBanner()) {
+    <div class="inline-state inline-state--warning">
+      <mat-icon>edit_note</mat-icon>
+      <div class="inline-state__content">
+        <strong>{{ changeRequestSummary().pending }} change request{{ changeRequestSummary().pending === 1 ? '' : 's' }} still open</strong>
+        <span>Track pending listing updates until the assigned lister finishes them.</span>
+      </div>
+      <a mat-stroked-button routerLink="/hunter/changes">Open Requests</a>
+    </div>
+  }
+
   <article class="surface-card">
     <div class="surface-card__header">
       <div>
@@ -10,6 +32,14 @@
         <p>Stats by submission date.</p>
       </div>
       <div class="page-actions">
+        <a mat-stroked-button routerLink="/hunter/rules">
+          <mat-icon>rule</mat-icon>
+          <span>Rules</span>
+        </a>
+        <a mat-stroked-button routerLink="/hunter/changes">
+          <mat-icon>edit_note</mat-icon>
+          <span>Changes</span>
+        </a>
         <a mat-stroked-button routerLink="/hunter/products">
           <mat-icon>table_view</mat-icon>
           <span>Product List</span>

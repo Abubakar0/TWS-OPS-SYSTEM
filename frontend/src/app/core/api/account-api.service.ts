@@ -4,16 +4,60 @@ import { map, Observable } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { Account } from '../models/product.models';
+import { PageResult } from '../state/query-state.models';
 
 @Injectable({ providedIn: 'root' })
 export class AccountApiService {
   constructor(private readonly http: HttpClient) {}
 
-  listAccounts(includeInactive = false): Observable<Account[]> {
-    const params = includeInactive ? new HttpParams().set('includeInactive', 'true') : undefined;
+  listAccounts(options: {
+    includeInactive?: boolean;
+    marketplace?: string;
+    status?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  } = {}): Observable<PageResult<Account>> {
+    let params = new HttpParams();
+
+    if (options.includeInactive) {
+      params = params.set('includeInactive', 'true');
+    }
+
+    if (options.marketplace) {
+      params = params.set('marketplace', options.marketplace);
+    }
+
+    if (options.status) {
+      params = params.set('status', options.status);
+    }
+
+    if (options.search) {
+      params = params.set('search', options.search);
+    }
+
+    if (options.page) {
+      params = params.set('page', String(options.page));
+    }
+
+    if (options.limit) {
+      params = params.set('limit', String(options.limit));
+    }
+
     return this.http
-      .get<{ accounts: Account[] }>(`${environment.apiUrl}/accounts`, { params })
-      .pipe(map((response) => response.accounts));
+      .get<{ accounts: Account[]; page: number; limit: number; total: number; hasMore: boolean }>(
+        `${environment.apiUrl}/accounts`,
+        { params },
+      )
+      .pipe(
+        map((response) => ({
+          items: response.accounts,
+          page: response.page,
+          limit: response.limit,
+          total: response.total,
+          hasMore: response.hasMore,
+        })),
+      );
   }
 
   createAccount(payload: { name: string; marketplace: string; isActive: boolean }): Observable<Account> {

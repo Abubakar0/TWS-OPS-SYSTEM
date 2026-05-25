@@ -1,4 +1,15 @@
 <section class="page-shell">
+  @if (showChangeBanner()) {
+    <div class="inline-state inline-state--warning">
+      <mat-icon>fact_check</mat-icon>
+      <div class="inline-state__content">
+        <strong>{{ changeRequestSummary().pending }} listing change request{{ changeRequestSummary().pending === 1 ? '' : 's' }} still pending</strong>
+        <span>Keep these account updates moving until hunters see them completed.</span>
+      </div>
+      <a mat-stroked-button routerLink="/lister/changes">Open Change Requests</a>
+    </div>
+  }
+
   <div class="hero-banner">
     <div>
       <span class="hero-banner__eyebrow">Lister workspace</span>
@@ -7,6 +18,14 @@
     </div>
 
     <div class="hero-banner__meta">
+      <a mat-stroked-button routerLink="/lister/account-usage">
+        <mat-icon>storefront</mat-icon>
+        <span>Hunter Account Usage</span>
+      </a>
+      <a mat-stroked-button routerLink="/lister/changes">
+        <mat-icon>edit_note</mat-icon>
+        <span>Change Requests</span>
+      </a>
       <a mat-stroked-button routerLink="/lister/products">
         <mat-icon>table_view</mat-icon>
         <span>Open Hunter Products</span>
@@ -126,7 +145,7 @@
             <div class="breakdown-row">
               <div>
                 <strong>{{ hunter.hunterName }}</strong>
-                <span>Completed listings</span>
+                <span>Listed {{ hunter.listedCount }} | Rejected {{ hunter.rejectedCount || 0 }}</span>
               </div>
               <strong class="breakdown-row__count">{{ hunter.listedCount }}</strong>
             </div>

@@ -13,7 +13,7 @@
         </a>
         <button mat-flat-button color="primary" type="button" (click)="exportProducts()" [disabled]="loading() || !products().length">
           <mat-icon>download</mat-icon>
-          <span>Export Excel</span>
+          <span>{{ exporting() ? 'Exporting' : 'Export Excel' }}</span>
         </button>
       </div>
     </div>
@@ -81,7 +81,16 @@
     } @else if (error()) {
       <app-error-state [message]="error()" actionLabel="Retry" (action)="loadProducts()" />
     } @else {
-      <app-products-table [products]="products()" emptyText="No product submissions found." />
+      <app-products-table
+        [products]="products()"
+        [total]="total()"
+        [pageIndex]="pageIndex()"
+        [pageSize]="pageSize()"
+        [pageSizeOptions]="pageSizeOptions"
+        [pageLabel]="pageLabel()"
+        emptyText="No product submissions found."
+        (pageChange)="onPageChange($event)"
+      />
     }
   </article>
 </section>

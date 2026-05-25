@@ -11,6 +11,7 @@ import {
   ProductCreatePayload,
   ProductFilters,
 } from '../models/product.models';
+import { PageResult } from '../state/query-state.models';
 
 @Injectable({ providedIn: 'root' })
 export class ProductService {
@@ -27,8 +28,20 @@ export class ProductService {
 
     const query = params.toString();
     return this.http
-      .get<{ products: Product[] }>(`${environment.apiUrl}/products${query ? `?${query}` : ''}`)
-      .pipe(map((response) => response.products));
+      .get<{ products: Product[]; page: number; limit: number; total: number; hasMore: boolean }>(
+        `${environment.apiUrl}/products${query ? `?${query}` : ''}`,
+      )
+      .pipe(
+        map(
+          (response): PageResult<Product> => ({
+            items: response.products,
+            page: response.page,
+            limit: response.limit,
+            total: response.total,
+            hasMore: response.hasMore,
+          }),
+        ),
+      );
   }
 
   createProduct(payload: ProductCreatePayload) {

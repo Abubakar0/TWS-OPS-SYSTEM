@@ -68,7 +68,7 @@
         <h2>Audit timeline</h2>
         <p>Newest events appear first.</p>
       </div>
-      <span class="count-badge">{{ logs().length }} events</span>
+      <span class="count-badge">{{ auditRows().length }} events</span>
     </div>
 
     @if (loading()) {
@@ -76,9 +76,9 @@
         <mat-spinner diameter="24"></mat-spinner>
         <span>Loading audit logs.</span>
       </div>
-    } @else if (logs().length) {
+    } @else if (auditRows().length) {
       <div class="audit-list">
-        @for (log of logs(); track log.id) {
+        @for (log of auditRows(); track log.id) {
           <div class="audit-row">
             <div class="audit-row__meta">
               <strong>{{ log.action }}</strong>
@@ -88,7 +88,7 @@
             <div class="audit-row__details">
               <span>Actor: {{ log.actorName || 'System' }}{{ log.actorEmail ? ' (' + log.actorEmail + ')' : '' }}</span>
               <span>Target: {{ log.targetName || log.targetType }}{{ log.targetEmail ? ' (' + log.targetEmail + ')' : '' }}</span>
-              <small>{{ detailSummary(log) }}</small>
+              <small>{{ log.detailsSummary }}</small>
             </div>
           </div>
         }

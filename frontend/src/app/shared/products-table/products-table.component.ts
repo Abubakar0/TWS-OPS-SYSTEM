@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { AfterViewInit, Component, Input, ViewChild } from '@angular/core';
-import { MatPaginator, MatPaginatorModule } from '@angular/material/paginator';
+import { AfterViewInit, Component, EventEmitter, Input, Output, ViewChild } from '@angular/core';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSort, MatSortModule } from '@angular/material/sort';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -17,20 +17,20 @@ export class ProductsTableComponent implements AfterViewInit {
   private readonly data = new MatTableDataSource<Product>([]);
 
   @ViewChild(MatSort) private sort?: MatSort;
-  @ViewChild(MatPaginator) private paginator?: MatPaginator;
 
   @Input() set products(products: Product[]) {
     this.data.data = products || [];
-
-    if (this.paginator) {
-      this.paginator.firstPage();
-    }
   }
 
   @Input() emptyText = 'No products found.';
+  @Input() total = 0;
+  @Input() pageIndex = 0;
+  @Input() pageSize = 10;
+  @Input() pageLabel = '';
+  @Input() pageSizeOptions = [10, 25, 50];
+  @Output() readonly pageChange = new EventEmitter<PageEvent>();
 
   readonly columns = ['product', 'links', 'numbers', 'status', 'listing', 'created'];
-  readonly pageSizeOptions = [10, 25, 50];
 
   get dataSource(): MatTableDataSource<Product> {
     return this.data;
@@ -58,10 +58,6 @@ export class ProductsTableComponent implements AfterViewInit {
 
     if (this.sort) {
       this.data.sort = this.sort;
-    }
-
-    if (this.paginator) {
-      this.data.paginator = this.paginator;
     }
   }
 }

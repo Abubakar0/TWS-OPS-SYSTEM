@@ -3,6 +3,17 @@
     <div class="inline-state inline-state--error">{{ facade.error() }}</div>
   }
 
+  @if (facade.weeklyReviewStatus()?.required) {
+    <div class="inline-state inline-state--warning">
+      <mat-icon>assignment_turned_in</mat-icon>
+      <div class="inline-state__content">
+        <strong>Saturday product review is required</strong>
+        <span>Review your current products before new hunting is unlocked for this week.</span>
+      </div>
+      <a mat-stroked-button routerLink="/hunter/review">Open Review Page</a>
+    </div>
+  }
+
   <article class="surface-card asin-gate-card">
     <div class="surface-card__header">
       <div>
@@ -229,6 +240,51 @@
               <div class="field-helper">
                 <mat-icon>info</mat-icon>
                 <span>{{ facade.fieldStates().salesLastTwoMonths.helper }}</span>
+              </div>
+            </div>
+
+            <div class="field-shell">
+              <label class="field-label">Added to basket</label>
+              <mat-form-field appearance="outline">
+                <input matInput type="number" formControlName="basketCount" />
+                @if (facade.fieldStates().basketCount.error) {
+                  <mat-error>{{ facade.fieldStates().basketCount.error }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ facade.fieldStates().basketCount.helper }}</span>
+              </div>
+            </div>
+
+            <div class="field-shell">
+              <label class="field-label">Delivery days</label>
+              <mat-form-field appearance="outline">
+                <input matInput type="number" formControlName="deliveryDays" />
+                @if (facade.fieldStates().deliveryDays.error) {
+                  <mat-error>{{ facade.fieldStates().deliveryDays.error }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ facade.fieldStates().deliveryDays.helper }}</span>
+              </div>
+            </div>
+
+            <div class="field-shell field-span-2">
+              <label class="field-label">One month graph trending up</label>
+              <mat-form-field appearance="outline">
+                <mat-select formControlName="monthlyGraphUptrend">
+                  <mat-option [value]="true">Yes</mat-option>
+                  <mat-option [value]="false">No</mat-option>
+                </mat-select>
+                @if (facade.fieldStates().monthlyGraphUptrend.error) {
+                  <mat-error>{{ facade.fieldStates().monthlyGraphUptrend.error }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ facade.fieldStates().monthlyGraphUptrend.helper }}</span>
               </div>
             </div>
           </div>

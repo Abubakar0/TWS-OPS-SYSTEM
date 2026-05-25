@@ -7,7 +7,7 @@
     <div class="surface-card__header">
       <div>
         <h1>Activity Feed</h1>
-        <p>{{ facade.logs().length }} activity rows in view</p>
+        <p>{{ facade.total() }} activity rows in view</p>
       </div>
       <div class="page-actions">
         <button mat-stroked-button type="button" (click)="facade.loadLogs()" [disabled]="facade.loading()">
@@ -113,6 +113,20 @@
             }
           </tbody>
         </table>
+      </div>
+
+      <div class="grid-pager">
+        <span class="grid-pager__status">{{ facade.pageLabel() }}</span>
+        <div class="grid-toolbar__actions">
+          <button mat-stroked-button type="button" (click)="facade.previousPage()" [disabled]="facade.pageIndex() === 0">
+            <mat-icon>chevron_left</mat-icon>
+            <span>Previous</span>
+          </button>
+          <button mat-stroked-button type="button" (click)="facade.nextPage()" [disabled]="facade.pageIndex() >= facade.pageCount() - 1">
+            <span>Next</span>
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+        </div>
       </div>
     }
   </article>

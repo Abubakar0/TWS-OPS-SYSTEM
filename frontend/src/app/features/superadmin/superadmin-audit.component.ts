@@ -34,6 +34,7 @@ import { ErrorStateComponent } from '../../shared/error-state/error-state.compon
 })
 export class SuperAdminAuditComponent implements OnInit {
   readonly logs = signal<AuditLogEntry[]>([]);
+  readonly auditRows = signal<Array<AuditLogEntry & { detailsSummary: string }>>([]);
   readonly loading = signal(false);
   readonly error = signal('');
   readonly searchControl = new FormControl('', { nonNullable: true });
@@ -61,6 +62,8 @@ export class SuperAdminAuditComponent implements OnInit {
     'assignment.clear',
   ];
 
+  constructor(private readonly adminApi: AdminService) {}
+
   ngOnInit(): void {
     this.searchControl.valueChanges
       .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
@@ -68,8 +71,6 @@ export class SuperAdminAuditComponent implements OnInit {
 
     this.loadLogs();
   }
-
-  constructor(private readonly adminApi: AdminService) {}
 
   loadLogs(): void {
     this.loading.set(true);
@@ -83,22 +84,24 @@ export class SuperAdminAuditComponent implements OnInit {
         to: this.filtersForm.controls.to.value || undefined,
       })
       .subscribe({
-        next: (logs) => this.logs.set(logs),
+        next: (logs) => {
+          this.logs.set(logs);
+          this.auditRows.set(
+            logs.map((log) => ({
+              ...log,
+              detailsSummary: !log.details
+                ? 'No additional details.'
+                : Object.entries(log.details)
+                    .map(([key, value]) => `${key}: ${value}`)
+                    .join(' | '),
+            })),
+          );
+        },
         error: (error) => {
           this.error.set(error?.error?.message || 'Could not load audit logs.');
           this.loading.set(false);
         },
         complete: () => this.loading.set(false),
       });
-  }
-
-  detailSummary(log: AuditLogEntry): string {
-    if (!log.details) {
-      return 'No additional details.';
-    }
-
-    return Object.entries(log.details)
-      .map(([key, value]) => `${key}: ${value}`)
-      .join(' | ');
   }
 }

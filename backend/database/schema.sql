@@ -48,6 +48,32 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS system_settings (
+  key TEXT PRIMARY KEY,
+  value JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_by UUID REFERENCES users(id),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS teams (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL UNIQUE,
+  description TEXT,
+  created_by UUID REFERENCES users(id),
+  updated_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS team_members (
+  team_id UUID NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  assigned_by UUID REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (team_id, user_id)
+);
+
 CREATE TABLE IF NOT EXISTS hunter_lister_assignments (
   hunter_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   lister_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -69,6 +95,10 @@ CREATE TABLE IF NOT EXISTS hunting_criteria (
   watchers_required BOOLEAN NOT NULL DEFAULT FALSE,
   min_watcher_count INTEGER NOT NULL DEFAULT 0,
   min_sales_last_two_months INTEGER NOT NULL DEFAULT 0,
+  basket_count_required BOOLEAN NOT NULL DEFAULT FALSE,
+  delivery_days_required BOOLEAN NOT NULL DEFAULT FALSE,
+  max_delivery_days INTEGER NOT NULL DEFAULT 7,
+  monthly_graph_required BOOLEAN NOT NULL DEFAULT FALSE,
   updated_by UUID REFERENCES users(id),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -111,13 +141,44 @@ CREATE TABLE IF NOT EXISTS products (
   rating NUMERIC(4, 2),
   product_watchers INTEGER,
   sales_last_two_months INTEGER,
+  basket_count INTEGER,
   delivery_days INTEGER,
+  monthly_graph_uptrend BOOLEAN,
   profit NUMERIC(10, 2) NOT NULL DEFAULT 0,
   roi NUMERIC(8, 2) NOT NULL DEFAULT 0,
   status product_status NOT NULL DEFAULT 'rejected',
   rejection_reason TEXT,
   validation_notes JSONB NOT NULL DEFAULT '[]'::jsonb,
+  deleted_by UUID REFERENCES users(id),
+  deleted_at TIMESTAMPTZ,
+  delete_reason TEXT,
   listed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS hunter_weekly_reviews (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  hunter_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  review_date DATE NOT NULL,
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (hunter_id, review_date)
+);
+
+CREATE TABLE IF NOT EXISTS product_change_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  hunter_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  lister_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  asin TEXT NOT NULL,
+  product_title TEXT,
+  requested_changes TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed')),
+  completion_notes TEXT,
+  completed_by UUID REFERENCES users(id),
+  completed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -154,12 +215,21 @@ ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS custom_label_required BOOL
 ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS watchers_required BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS min_watcher_count INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS min_sales_last_two_months INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS basket_count_required BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS delivery_days_required BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS max_delivery_days INTEGER NOT NULL DEFAULT 7;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS monthly_graph_required BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS amazon_alt_url TEXT;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS custom_label TEXT;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS alternate_stock_quantity INTEGER;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS rating NUMERIC(4, 2);
 ALTER TABLE products ADD COLUMN IF NOT EXISTS product_watchers INTEGER;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS sales_last_two_months INTEGER;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS basket_count INTEGER;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS monthly_graph_uptrend BOOLEAN;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS deleted_by UUID REFERENCES users(id);
+ALTER TABLE products ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS delete_reason TEXT;
 ALTER TABLE listings ALTER COLUMN listing_url DROP NOT NULL;
 ALTER TABLE listings ALTER COLUMN item_id DROP NOT NULL;
 
@@ -170,8 +240,14 @@ ON CONFLICT (id) DO NOTHING;
 CREATE INDEX IF NOT EXISTS idx_products_hunter_id ON products(hunter_id);
 CREATE INDEX IF NOT EXISTS idx_products_assigned_lister_id ON products(assigned_lister_id);
 CREATE INDEX IF NOT EXISTS idx_products_status ON products(status);
+CREATE INDEX IF NOT EXISTS idx_products_deleted_at ON products(deleted_at);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_deleted_at ON users(deleted_at);
+CREATE INDEX IF NOT EXISTS idx_team_members_user_id ON team_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_hunter_weekly_reviews_hunter_id ON hunter_weekly_reviews(hunter_id);
+CREATE INDEX IF NOT EXISTS idx_product_change_requests_hunter_id ON product_change_requests(hunter_id);
+CREATE INDEX IF NOT EXISTS idx_product_change_requests_lister_id ON product_change_requests(lister_id);
+CREATE INDEX IF NOT EXISTS idx_product_change_requests_status ON product_change_requests(status);
 CREATE INDEX IF NOT EXISTS idx_products_asin
   ON products(asin)
   WHERE asin IS NOT NULL AND asin <> '';

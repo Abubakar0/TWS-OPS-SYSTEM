@@ -121,7 +121,17 @@
     </table>
   </div>
 
-  <mat-paginator [pageSize]="10" [pageSizeOptions]="pageSizeOptions" showFirstLastButtons></mat-paginator>
+  <div class="grid-pager">
+    <span class="grid-pager__status">{{ pageLabel }}</span>
+    <mat-paginator
+      [length]="total"
+      [pageIndex]="pageIndex"
+      [pageSize]="pageSize"
+      [pageSizeOptions]="pageSizeOptions"
+      showFirstLastButtons
+      (page)="pageChange.emit($event)"
+    ></mat-paginator>
+  </div>
 } @else {
   <div class="empty-state">{{ emptyText }}</div>
 }

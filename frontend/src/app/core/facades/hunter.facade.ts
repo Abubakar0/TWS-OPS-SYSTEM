@@ -4,6 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 
 import { HunterApiService } from '../api/hunter-api.service';
+import { WeeklyReviewApiService } from '../api/weekly-review-api.service';
 import { AuthService } from '../auth/auth.service';
 import { BRANDING } from '../config/branding';
 import { QUALITY_RULES } from '../config/quality';
@@ -14,6 +15,7 @@ import {
   ProductCreatePayload,
   ProductDuplicateInfo,
   ProductQualityLabel,
+  WeeklyReviewStatus,
 } from '../models/product.models';
 import { ReferenceDataService } from '../state/reference-data.service';
 import { WorkspaceSyncService } from '../state/workspace-sync.service';
@@ -49,6 +51,9 @@ const SUBMISSION_FIELDS: readonly SubmissionControlName[] = [
   'rating',
   'productWatchers',
   'salesLastTwoMonths',
+  'basketCount',
+  'deliveryDays',
+  'monthlyGraphUptrend',
   'amazonPrice',
   'ebayPrice',
 ];
@@ -62,6 +67,8 @@ export class HunterFacade {
   readonly asinChecking = signal(false);
   readonly asinVerified = signal(false);
   readonly asinDuplicate = signal<ProductDuplicateInfo | null>(null);
+  readonly weeklyReviewLoading = signal(false);
+  readonly weeklyReviewStatus = signal<WeeklyReviewStatus | null>(null);
   readonly lastSubmitted = signal<Product | null>(null);
   readonly submissionModal = signal<SubmissionModalState | null>(null);
   readonly criteria = signal<HuntingCriteria>({
@@ -77,6 +84,10 @@ export class HunterFacade {
     watchersRequired: false,
     minWatcherCount: 0,
     minSalesLastTwoMonths: 0,
+    basketCountRequired: false,
+    deliveryDaysRequired: false,
+    maxDeliveryDays: 7,
+    monthlyGraphRequired: false,
   });
 
   readonly asinControl = createSubmissionAsinControl();
@@ -148,6 +159,9 @@ export class HunterFacade {
       this.fieldStates().rating.error,
       this.fieldStates().productWatchers.error,
       this.fieldStates().salesLastTwoMonths.error,
+      this.fieldStates().basketCount.error,
+      this.fieldStates().deliveryDays.error,
+      this.fieldStates().monthlyGraphUptrend.error,
     ].filter(Boolean),
   );
 
@@ -206,6 +220,26 @@ export class HunterFacade {
       this.form.controls.salesLastTwoMonths.value < criteria.minSalesLastTwoMonths
     ) {
       failures.push(`Sales in the past 2 months must be at least ${criteria.minSalesLastTwoMonths}.`);
+    }
+
+    if (criteria.basketCountRequired && this.form.controls.basketCount.value === null) {
+      failures.push('Basket count is required.');
+    }
+
+    if (
+      this.form.controls.deliveryDays.valid &&
+      this.form.controls.deliveryDays.value !== null &&
+      this.form.controls.deliveryDays.value > criteria.maxDeliveryDays
+    ) {
+      failures.push(`Delivery days must be ${criteria.maxDeliveryDays} or less.`);
+    }
+
+    if (criteria.deliveryDaysRequired && this.form.controls.deliveryDays.value === null) {
+      failures.push('Delivery days are required.');
+    }
+
+    if (criteria.monthlyGraphRequired && this.form.controls.monthlyGraphUptrend.value !== true) {
+      failures.push('One month graph must show an up-price trend.');
     }
 
     return failures;
@@ -365,6 +399,24 @@ export class HunterFacade {
         'Within the current admin thresholds.',
     },
     {
+      label: 'Basket and delivery',
+      passed:
+        !this.fieldStates().basketCount.error &&
+        !this.fieldStates().deliveryDays.error &&
+        !this.fieldStates().monthlyGraphUptrend.error &&
+        !this.stockSalesRuleFailures().some((reason) =>
+          ['Basket count', 'Delivery days', 'graph'].some((token) => reason.includes(token)),
+        ),
+      detail:
+        this.fieldStates().basketCount.error ||
+        this.fieldStates().deliveryDays.error ||
+        this.fieldStates().monthlyGraphUptrend.error ||
+        this.stockSalesRuleFailures().find((reason) =>
+          ['Basket count', 'Delivery days', 'graph'].some((token) => reason.includes(token)),
+        ) ||
+        'Additional delivery and graph signals are ready.',
+    },
+    {
       label: 'Economics check',
       passed:
         this.pricingFieldIssues().length === 0 &&
@@ -390,6 +442,7 @@ export class HunterFacade {
   readonly canSubmit = computed(() => {
     this.formVersion();
     return (
+      !(this.weeklyReviewStatus()?.required) &&
       this.asinVerified() &&
       !this.asinDuplicate() &&
       !this.saving() &&
@@ -405,6 +458,9 @@ export class HunterFacade {
       this.form.controls.rating.valid &&
       this.form.controls.productWatchers.valid &&
       this.form.controls.salesLastTwoMonths.valid &&
+      this.form.controls.basketCount.valid &&
+      this.form.controls.deliveryDays.valid &&
+      this.form.controls.monthlyGraphUptrend.valid &&
       this.form.controls.amazonPrice.valid &&
       this.form.controls.ebayPrice.valid
     );
@@ -412,6 +468,7 @@ export class HunterFacade {
 
   constructor(
     private readonly productsApi: HunterApiService,
+    private readonly weeklyReviewApi: WeeklyReviewApiService,
     private readonly referenceData: ReferenceDataService,
     private readonly workspaceSync: WorkspaceSyncService,
     private readonly toast: ToastService,
@@ -479,8 +536,11 @@ export class HunterFacade {
       rating: raw.rating ?? 0,
       productWatchers: raw.productWatchers ?? null,
       salesLastTwoMonths: raw.salesLastTwoMonths ?? 0,
+      basketCount: raw.basketCount ?? null,
       amazonPrice: decimalValue(raw.amazonPrice),
       ebayPrice: decimalValue(raw.ebayPrice),
+      deliveryDays: raw.deliveryDays ?? null,
+      monthlyGraphUptrend: raw.monthlyGraphUptrend ?? null,
     };
 
     this.productsApi
@@ -560,6 +620,7 @@ export class HunterFacade {
       });
 
     this.criteriaLoading.set(true);
+    this.weeklyReviewLoading.set(true);
     this.referenceData
       .getCriteria()
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -570,6 +631,17 @@ export class HunterFacade {
           this.criteriaLoading.set(false);
         },
         error: () => this.criteriaLoading.set(false),
+      });
+
+    this.weeklyReviewApi
+      .getStatus()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (status) => {
+          this.weeklyReviewStatus.set(status);
+          this.weeklyReviewLoading.set(false);
+        },
+        error: () => this.weeklyReviewLoading.set(false),
       });
 
     effect(
@@ -595,6 +667,16 @@ export class HunterFacade {
       integerValidator,
     ]);
     this.form.controls.salesLastTwoMonths.setValidators([Validators.required, integerValidator]);
+    this.form.controls.basketCount.setValidators([
+      ...(criteria.basketCountRequired ? [Validators.required] : []),
+      integerValidator,
+    ]);
+    this.form.controls.deliveryDays.setValidators([
+      ...(criteria.deliveryDaysRequired ? [Validators.required] : []),
+      integerValidator,
+      Validators.max(criteria.maxDeliveryDays),
+    ]);
+    this.form.controls.monthlyGraphUptrend.setValidators(criteria.monthlyGraphRequired ? [Validators.requiredTrue] : []);
     this.form.controls.amazonPrice.setValidators([Validators.required, decimalValidator, decimalMinValidator(0.01)]);
     this.form.controls.ebayPrice.setValidators([Validators.required, decimalValidator, decimalMinValidator(0.01)]);
 
@@ -634,6 +716,9 @@ export class HunterFacade {
         rating: null,
         productWatchers: null,
         salesLastTwoMonths: null,
+        basketCount: null,
+        deliveryDays: null,
+        monthlyGraphUptrend: null,
         amazonPrice: '',
         ebayPrice: '',
       },

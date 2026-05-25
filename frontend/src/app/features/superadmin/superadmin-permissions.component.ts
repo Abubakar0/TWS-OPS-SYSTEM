@@ -42,8 +42,4 @@ export class SuperAdminPermissionsComponent implements OnInit {
       complete: () => this.loading.set(false),
     });
   }
-
-  isAllowed(row: PermissionMatrixRow, permissionKey: UserPermissionKey): boolean {
-    return Boolean(row.permissions[permissionKey]);
-  }
 }

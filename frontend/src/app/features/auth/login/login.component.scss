@@ -341,6 +341,9 @@ button[mat-flat-button] {
 }
 
 @media (max-width: 1040px) {
+  .platform-showcase {
+    display: none;
+  }
   .login-layout {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(220px, 0.45fr) 1fr;
@@ -379,6 +382,9 @@ button[mat-flat-button] {
 }
 
 @media (max-width: 760px) {
+  .brand-desc {
+    display: none;
+  }
   .login-shell,
   .login-layout {
     height: 100dvh;

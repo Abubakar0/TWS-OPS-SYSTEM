@@ -53,6 +53,10 @@
           <input matInput type="number" formControlName="minSalesLastTwoMonths" />
         </mat-form-field>
         <mat-form-field appearance="outline">
+          <mat-label>Maximum delivery days</mat-label>
+          <input matInput type="number" formControlName="maxDeliveryDays" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
           <mat-label>Minimum ROI</mat-label>
           <input matInput type="number" formControlName="minRoi" />
         </mat-form-field>
@@ -74,11 +78,79 @@
         <label class="toggle-row field-span-2">
           <mat-checkbox formControlName="watchersRequired">Require product watchers</mat-checkbox>
         </label>
+        <label class="toggle-row field-span-2">
+          <mat-checkbox formControlName="basketCountRequired">Require basket count</mat-checkbox>
+        </label>
+        <label class="toggle-row field-span-2">
+          <mat-checkbox formControlName="deliveryDaysRequired">Require delivery days</mat-checkbox>
+        </label>
+        <label class="toggle-row field-span-2">
+          <mat-checkbox formControlName="monthlyGraphRequired">Require 1-month graph uptrend</mat-checkbox>
+        </label>
 
         <div class="field-span-2 actions-row">
           <button mat-flat-button color="primary" type="submit" [disabled]="criteriaForm.invalid || saving()">
             <mat-icon>save</mat-icon>
             <span>{{ saving() ? 'Saving' : 'Save Global Settings' }}</span>
+          </button>
+        </div>
+      </form>
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>API limits</h2>
+          <p>Control the default per-page response size for list endpoints.</p>
+        </div>
+      </div>
+
+      <form class="form-grid" [formGroup]="apiLimitsForm" (ngSubmit)="saveApiLimits()">
+        <mat-form-field appearance="outline">
+          <mat-label>Users</mat-label>
+          <input matInput type="number" formControlName="users" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Hunters</mat-label>
+          <input matInput type="number" formControlName="hunters" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Listers</mat-label>
+          <input matInput type="number" formControlName="listers" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Products</mat-label>
+          <input matInput type="number" formControlName="products" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Accounts</mat-label>
+          <input matInput type="number" formControlName="accounts" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Reports</mat-label>
+          <input matInput type="number" formControlName="reports" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Assignments</mat-label>
+          <input matInput type="number" formControlName="assignments" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Activity</mat-label>
+          <input matInput type="number" formControlName="activity" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Listing queue</mat-label>
+          <input matInput type="number" formControlName="listingQueue" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Rejections</mat-label>
+          <input matInput type="number" formControlName="rejections" />
+        </mat-form-field>
+
+        <div class="field-span-2 actions-row">
+          <button mat-flat-button color="primary" type="submit" [disabled]="apiLimitsForm.invalid || saving()">
+            <mat-icon>speed</mat-icon>
+            <span>{{ saving() ? 'Saving' : 'Save API Limits' }}</span>
           </button>
         </div>
       </form>

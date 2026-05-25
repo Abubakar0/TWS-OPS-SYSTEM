@@ -62,10 +62,14 @@ export class AdminSettingsComponent implements OnInit {
       nonNullable: true,
       validators: [Validators.required, Validators.min(0)],
     }),
+    maxDeliveryDays: new FormControl(7, { nonNullable: true, validators: [Validators.required, Validators.min(0)] }),
     feePercent: new FormControl(21, { nonNullable: true, validators: [Validators.required, Validators.min(0)] }),
     asinRequired: new FormControl(true, { nonNullable: true }),
     customLabelRequired: new FormControl(false, { nonNullable: true }),
     watchersRequired: new FormControl(false, { nonNullable: true }),
+    basketCountRequired: new FormControl(false, { nonNullable: true }),
+    deliveryDaysRequired: new FormControl(false, { nonNullable: true }),
+    monthlyGraphRequired: new FormControl(false, { nonNullable: true }),
   });
 
   readonly hasUnsavedChanges = computed(() => {

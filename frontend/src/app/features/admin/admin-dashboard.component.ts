@@ -38,12 +38,36 @@ export class AdminDashboardComponent implements OnInit {
     to: new FormControl('', { nonNullable: true }),
   });
 
-  readonly totalUsers = computed(() => (this.stats()?.byHunter.length || 0) + (this.stats()?.byLister.length || 0) + 1);
+  readonly totalUsers = computed(
+    () => (this.stats()?.byHunter.length || 0) + (this.stats()?.byLister.length || 0) + 1,
+  );
   readonly topHunters = computed(() => this.stats()?.byHunter.slice(0, 5) ?? []);
   readonly topListers = computed(() => this.stats()?.byLister.slice(0, 5) ?? []);
   readonly topAccounts = computed(() => this.stats()?.byAccount.slice(0, 5) ?? []);
   readonly recentDays = computed(() => this.stats()?.daily.slice(0, 10) ?? []);
   readonly previewLogs = computed(() => this.activityLogs().slice(0, 6));
+  readonly activityPreviewRows = computed(() =>
+    this.previewLogs().map((log) => ({
+      ...log,
+      actionLabel: log.action
+        .split('.')
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' '),
+      actorSummary: `${log.actorName || log.actorEmail || 'System'}${
+        log.actorRole ? ` | ${log.actorRole.replace('_', ' ')}` : ''
+      }`,
+      targetSummary:
+        log.productTitle || log.productAsin || log.accountName || log.targetName || log.targetEmail || 'System item',
+    })),
+  );
+  readonly topAccountRows = computed(() => {
+    const listedTotal = this.stats()?.listed || 0;
+
+    return this.topAccounts().map((row) => ({
+      ...row,
+      share: listedTotal ? Math.round((row.listed / listedTotal) * 100) : 0,
+    }));
+  });
   readonly selectedRangeLabel = computed(() => {
     const { from, to } = this.filtersForm.getRawValue();
 
@@ -68,31 +92,6 @@ export class AdminDashboardComponent implements OnInit {
     const today = this.toDateInput(new Date());
     this.filtersForm.patchValue({ from: today, to: today }, { emitEvent: false });
     this.loadDashboard();
-  }
-
-  actionLabel(action: string): string {
-    return action
-      .split('.')
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-      .join(' ');
-  }
-
-  targetSummary(log: AuditLogEntry): string {
-    if (log.productTitle || log.productAsin) {
-      return log.productTitle || log.productAsin || 'Product';
-    }
-
-    if (log.accountName) {
-      return log.accountName;
-    }
-
-    return log.targetName || log.targetEmail || 'System item';
-  }
-
-  metaSummary(log: AuditLogEntry): string {
-    const actor = log.actorName || log.actorEmail || 'System';
-    const role = log.actorRole ? ` • ${log.actorRole.replace('_', ' ')}` : '';
-    return `${actor}${role}`;
   }
 
   loadDashboard(): void {

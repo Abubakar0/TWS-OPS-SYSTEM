@@ -112,6 +112,11 @@
             <mat-label>Minimum watcher count</mat-label>
             <input matInput type="number" [formControl]="criteriaForm.controls.minWatcherCount" />
           </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Maximum delivery days</mat-label>
+            <input matInput type="number" [formControl]="criteriaForm.controls.maxDeliveryDays" />
+          </mat-form-field>
         </div>
       </article>
 
@@ -127,6 +132,9 @@
           <label class="toggle-row"><mat-checkbox [formControl]="criteriaForm.controls.asinRequired">Require ASIN</mat-checkbox></label>
           <label class="toggle-row"><mat-checkbox [formControl]="criteriaForm.controls.customLabelRequired">Require custom label</mat-checkbox></label>
           <label class="toggle-row"><mat-checkbox [formControl]="criteriaForm.controls.watchersRequired">Require watchers</mat-checkbox></label>
+          <label class="toggle-row"><mat-checkbox [formControl]="criteriaForm.controls.basketCountRequired">Require basket count</mat-checkbox></label>
+          <label class="toggle-row"><mat-checkbox [formControl]="criteriaForm.controls.deliveryDaysRequired">Require delivery days</mat-checkbox></label>
+          <label class="toggle-row"><mat-checkbox [formControl]="criteriaForm.controls.monthlyGraphRequired">Require 1-month graph uptrend</mat-checkbox></label>
         </div>
       </article>
     </section>

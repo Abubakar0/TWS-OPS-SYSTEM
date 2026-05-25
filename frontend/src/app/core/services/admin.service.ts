@@ -5,6 +5,7 @@ import { map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { HunterAssignment, LoginResponse, User, UserPermissions, UserRole } from '../models/auth.models';
 import { Account, HuntingCriteria } from '../models/product.models';
+import { PageResult } from '../state/query-state.models';
 
 export interface AdminStats {
   hunted: number;
@@ -14,8 +15,15 @@ export interface AdminStats {
   averageRoi: number;
   totalProfit: number;
   byHunter: Array<{ id: string; name: string; hunted: number; listed: number }>;
-  byLister: Array<{ id: string; name: string; listed: number; assignedHunters: number }>;
+  byLister: Array<{ id: string; name: string; listed: number; rejected: number; assignedHunters: number }>;
   byAccount: Array<{ id: string; name: string; listed: number }>;
+  byHunterAccount: Array<{
+    hunterId: string;
+    hunterName: string;
+    accountId: string;
+    accountName: string;
+    listedCount: number;
+  }>;
   daily: Array<{ date: string; hunted: number; listed: number; rejected: number; profit: number; roi: number }>;
 }
 
@@ -155,10 +163,37 @@ export class AdminService {
       .pipe(map((response) => response.matrix));
   }
 
-  listAssignments() {
+  listAssignments(filters: {
+    search?: string;
+    status?: 'assigned' | 'unassigned';
+    listerId?: string;
+    page?: number;
+    limit?: number;
+  } = {}) {
+    let params = new HttpParams();
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) {
+        params = params.set(key, String(value));
+      }
+    });
+
     return this.http
-      .get<{ assignments: HunterAssignment[] }>(`${environment.apiUrl}/users/assignments`)
-      .pipe(map((response) => response.assignments));
+      .get<{ assignments: HunterAssignment[]; page: number; limit: number; total: number; hasMore: boolean }>(
+        `${environment.apiUrl}/users/assignments`,
+        { params },
+      )
+      .pipe(
+        map(
+          (response): PageResult<HunterAssignment> => ({
+            items: response.assignments,
+            page: response.page,
+            limit: response.limit,
+            total: response.total,
+            hasMore: response.hasMore,
+          }),
+        ),
+      );
   }
 
   setHunterLister(hunterId: string, listerId: string | null) {

@@ -143,8 +143,8 @@ export class AdminReportsComponent implements OnInit {
       { section: 'Summary', name: 'Ready', hunted: stats.ready, listed: '', extra: '' },
       { section: 'Summary', name: 'Rejected', hunted: stats.rejected, listed: '', extra: '' },
       { section: 'Summary', name: 'Listed', hunted: stats.listed, listed: '', extra: '' },
-      { section: 'Summary', name: 'Average ROI', hunted: stats.averageRoi, listed: '', extra: '%' },
-      { section: 'Summary', name: 'Total Profit', hunted: stats.totalProfit, listed: '', extra: '' },
+      { section: 'Summary', name: 'Hunters', hunted: stats.byHunter.length, listed: '', extra: '' },
+      { section: 'Summary', name: 'Accounts Used', hunted: stats.byAccount.length, listed: '', extra: '' },
       ...stats.byHunter.map((row) => ({
         section: 'Hunter',
         name: row.name,
@@ -157,13 +157,20 @@ export class AdminReportsComponent implements OnInit {
         name: row.name,
         hunted: row.assignedHunters,
         listed: row.listed,
-        extra: 'Assigned Hunters',
+        extra: `Rejected ${row.rejected}`,
       })),
       ...stats.byAccount.map((row) => ({
         section: 'Account',
         name: row.name,
         hunted: '',
         listed: row.listed,
+        extra: '',
+      })),
+      ...stats.byHunterAccount.map((row) => ({
+        section: 'Hunter Account',
+        name: `${row.hunterName} -> ${row.accountName}`,
+        hunted: '',
+        listed: row.listedCount,
         extra: '',
       })),
     ];

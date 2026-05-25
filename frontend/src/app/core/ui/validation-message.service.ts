@@ -36,6 +36,12 @@ export class ValidationMessageService {
           return 'Product watchers are required by the current admin settings.';
         case 'salesLastTwoMonths':
           return 'Sales in the past two months are required.';
+        case 'basketCount':
+          return 'Basket count is required by the current admin settings.';
+        case 'deliveryDays':
+          return 'Delivery days are required by the current admin settings.';
+        case 'monthlyGraphUptrend':
+          return 'Choose whether the one month graph is in an up-price trend.';
         case 'amazonPrice':
           return 'Amazon price is required.';
         case 'ebayPrice':
@@ -87,6 +93,8 @@ export class ValidationMessageService {
           return `Minimum watcher count is ${criteria.minWatcherCount}.`;
         case 'salesLastTwoMonths':
           return `Minimum sales is ${criteria.minSalesLastTwoMonths}.`;
+        case 'deliveryDays':
+          return `Maximum delivery days is ${criteria.maxDeliveryDays}.`;
         case 'amazonPrice':
         case 'ebayPrice':
           return 'Enter a value greater than zero.';
@@ -120,6 +128,16 @@ export class ValidationMessageService {
           : `Optional. Minimum ${criteria.minWatcherCount}.`;
       case 'salesLastTwoMonths':
         return `Minimum ${criteria.minSalesLastTwoMonths}.`;
+      case 'basketCount':
+        return criteria.basketCountRequired ? 'Required for this workflow.' : 'Optional basket count.';
+      case 'deliveryDays':
+        return criteria.deliveryDaysRequired
+          ? `Required. Maximum ${criteria.maxDeliveryDays} days.`
+          : `Optional. Maximum ${criteria.maxDeliveryDays} days.`;
+      case 'monthlyGraphUptrend':
+        return criteria.monthlyGraphRequired
+          ? 'Required. Use Yes only when the 1-month graph trends up.'
+          : 'Should be using up-price trend.';
       case 'amazonPrice':
       case 'ebayPrice':
         return 'Keeps your decimals while you type.';

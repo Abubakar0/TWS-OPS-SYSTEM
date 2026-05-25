@@ -6,6 +6,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSelectModule } from '@angular/material/select';
 import { RouterLink } from '@angular/router';
 
 import { HunterFacade } from '../../core/facades/hunter.facade';
@@ -21,6 +22,7 @@ import { HunterFacade } from '../../core/facades/hunter.facade';
     MatIconModule,
     MatInputModule,
     MatProgressSpinnerModule,
+    MatSelectModule,
     CurrencyPipe,
     DecimalPipe,
     DatePipe,

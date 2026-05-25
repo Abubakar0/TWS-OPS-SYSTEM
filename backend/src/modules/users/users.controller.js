@@ -1,8 +1,14 @@
 const usersService = require('./users.service');
 
 const listUsers = async (req, res) => {
-  const users = await usersService.listUsers(req.user, req.query);
-  res.json({ users });
+  const result = await usersService.listUsers(req.user, req.query);
+  res.json({
+    users: result.items,
+    page: result.page,
+    limit: result.limit,
+    total: result.total,
+    hasMore: result.hasMore,
+  });
 };
 
 const createUser = async (req, res) => {
@@ -16,8 +22,14 @@ const updateUser = async (req, res) => {
 };
 
 const listAssignments = async (req, res) => {
-  const assignments = await usersService.listAssignments();
-  res.json({ assignments });
+  const result = await usersService.listAssignments(req.query);
+  res.json({
+    assignments: result.items,
+    page: result.page,
+    limit: result.limit,
+    total: result.total,
+    hasMore: result.hasMore,
+  });
 };
 
 const setHunterLister = async (req, res) => {
@@ -55,8 +67,14 @@ const impersonateUser = async (req, res) => {
 };
 
 const listAuditLogs = async (req, res) => {
-  const logs = await usersService.listUsersAudit(req.query);
-  res.json({ logs });
+  const result = await usersService.listUsersAudit(req.query);
+  res.json({
+    logs: result.items,
+    page: result.page,
+    limit: result.limit,
+    total: result.total,
+    hasMore: result.hasMore,
+  });
 };
 
 const getPermissionsMatrix = async (req, res) => {

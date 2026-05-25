@@ -6,14 +6,16 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { PageEvent } from '@angular/material/paginator';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { RouterLink } from '@angular/router';
-import { Subject, catchError, debounceTime, distinctUntilChanged, finalize, of, switchMap } from 'rxjs';
+import { firstValueFrom, Subject, catchError, debounceTime, distinctUntilChanged, finalize, of, switchMap } from 'rxjs';
 
 import { Product, ProductFilters, ProductStatus } from '../../core/models/product.models';
 import { ExportService } from '../../core/services/export.service';
 import { ProductService } from '../../core/services/product.service';
+import { PageResult } from '../../core/state/query-state.models';
 import { ErrorStateComponent } from '../../shared/error-state/error-state.component';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
 import { ToastService } from '../../core/ui/toast.service';
@@ -39,12 +41,29 @@ import { ProductsTableComponent } from '../../shared/products-table/products-tab
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HunterProductsComponent implements OnInit {
+  readonly pageSizeOptions = [10, 25, 50];
   readonly products = signal<Product[]>([]);
+  readonly total = signal(0);
+  readonly pageIndex = signal(0);
+  readonly pageSize = signal(this.pageSizeOptions[1]);
   readonly loading = signal(false);
+  readonly exporting = signal(false);
   readonly error = signal('');
   readonly resultLabel = computed(() => {
-    const count = this.products().length;
+    const count = this.total();
     return `${count} product${count === 1 ? '' : 's'}`;
+  });
+  readonly pageCount = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize())));
+  readonly pageLabel = computed(() => {
+    const total = this.total();
+
+    if (!total) {
+      return 'No products to show';
+    }
+
+    const start = this.pageIndex() * this.pageSize() + 1;
+    const end = Math.min(total, start + this.products().length - 1);
+    return `Showing ${start}-${end} of ${total}`;
   });
 
   private readonly destroyRef = inject(DestroyRef);
@@ -91,14 +110,23 @@ export class HunterProductsComponent implements OnInit {
           return this.productsApi.listProducts(this.buildFilters()).pipe(
             catchError((error) => {
               this.error.set(error?.error?.message || 'Could not load products.');
-              return of<Product[]>([]);
+              return of<PageResult<Product>>({
+                items: [],
+                page: this.pageIndex() + 1,
+                limit: this.pageSize(),
+                total: 0,
+                hasMore: false,
+              });
             }),
             finalize(() => this.loading.set(false)),
           );
         }),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe((products) => this.products.set(products));
+      .subscribe((page) => {
+        this.products.set(page.items);
+        this.total.set(page.total);
+      });
 
     this.loadProducts();
 
@@ -135,37 +163,20 @@ export class HunterProductsComponent implements OnInit {
   }
 
   exportProducts(): void {
-    const dateStamp = new Date().toISOString().slice(0, 10);
-
-    this.exportService.exportAsExcelTable({
-      filename: `hunter-products-${dateStamp}.xlsx`,
-      sheetName: 'Hunter Products',
-      rows: this.products(),
-      columns: [
-        { header: 'Title', value: (product) => product.title || '' },
-        { header: 'ASIN', value: (product) => product.asin || '' },
-        { header: 'Custom Label', value: (product) => product.customLabel || '' },
-        { header: 'Status', value: (product) => product.status },
-        { header: 'Rejection Reason', value: (product) => product.rejectionReason || '' },
-        { header: 'Amazon Link', value: (product) => product.amazonUrl },
-        { header: 'Amazon Alternate Link', value: (product) => product.amazonAltUrl || '' },
-        { header: 'eBay Link', value: (product) => product.ebayUrl },
-        { header: 'Amazon Price', value: (product) => product.amazonPrice ?? '' },
-        { header: 'eBay Price', value: (product) => product.ebayPrice ?? '' },
-        { header: 'Profit', value: (product) => product.profit },
-        { header: 'ROI', value: (product) => product.roi },
-        { header: 'Fees', value: (product) => product.fees },
-        { header: 'Lister', value: (product) => product.listedByName || product.assignedListerName || '' },
-        { header: 'Account', value: (product) => product.accountName || '' },
-        { header: 'Listed At', value: (product) => this.formatDateTime(product.listedAt) },
-        { header: 'Submitted At', value: (product) => this.formatDateTime(product.createdAt) },
-      ],
-    });
-    this.toast.success('Products exported.');
+    void this.exportAllProducts();
   }
 
   loadProducts(): void {
     this.reloadProducts$.next();
+  }
+
+  onPageChange(event: PageEvent): void {
+    const nextSize = event.pageSize;
+    const sizeChanged = nextSize !== this.pageSize();
+
+    this.pageSize.set(nextSize);
+    this.pageIndex.set(sizeChanged ? 0 : event.pageIndex);
+    this.loadProducts();
   }
 
   private buildFilters(): ProductFilters {
@@ -178,7 +189,68 @@ export class HunterProductsComponent implements OnInit {
       to: raw.to || undefined,
       listerName: raw.listerName.trim() || undefined,
       accountName: raw.accountName.trim() || undefined,
+      page: this.pageIndex() + 1,
+      limit: this.pageSize(),
     };
+  }
+
+  private async exportAllProducts(): Promise<void> {
+    this.exporting.set(true);
+
+    try {
+      const firstPage = await firstValueFrom(
+        this.productsApi.listProducts({
+          ...this.buildFilters(),
+          page: 1,
+          limit: 100,
+        }),
+      );
+      const rows = [...firstPage.items];
+      const totalPages = Math.max(1, Math.ceil(firstPage.total / firstPage.limit));
+
+      for (let page = 2; page <= totalPages; page += 1) {
+        const nextPage = await firstValueFrom(
+          this.productsApi.listProducts({
+            ...this.buildFilters(),
+            page,
+            limit: 100,
+          }),
+        );
+        rows.push(...nextPage.items);
+      }
+
+      const dateStamp = new Date().toISOString().slice(0, 10);
+
+      this.exportService.exportAsExcelTable({
+        filename: `hunter-products-${dateStamp}.xlsx`,
+        sheetName: 'Hunter Products',
+        rows,
+        columns: [
+          { header: 'Title', value: (product) => product.title || '' },
+          { header: 'ASIN', value: (product) => product.asin || '' },
+          { header: 'Custom Label', value: (product) => product.customLabel || '' },
+          { header: 'Status', value: (product) => product.status },
+          { header: 'Rejection Reason', value: (product) => product.rejectionReason || '' },
+          { header: 'Amazon Link', value: (product) => product.amazonUrl },
+          { header: 'Amazon Alternate Link', value: (product) => product.amazonAltUrl || '' },
+          { header: 'eBay Link', value: (product) => product.ebayUrl },
+          { header: 'Amazon Price', value: (product) => product.amazonPrice ?? '' },
+          { header: 'eBay Price', value: (product) => product.ebayPrice ?? '' },
+          { header: 'Profit', value: (product) => product.profit },
+          { header: 'ROI', value: (product) => product.roi },
+          { header: 'Fees', value: (product) => product.fees },
+          { header: 'Lister', value: (product) => product.listedByName || product.assignedListerName || '' },
+          { header: 'Account', value: (product) => product.accountName || '' },
+          { header: 'Listed At', value: (product) => this.formatDateTime(product.listedAt) },
+          { header: 'Submitted At', value: (product) => this.formatDateTime(product.createdAt) },
+        ],
+      });
+      this.toast.success('Products exported.');
+    } catch (error) {
+      this.toast.error('Could not export products.');
+    } finally {
+      this.exporting.set(false);
+    }
   }
 
   private formatDateTime(value: string | null): string {

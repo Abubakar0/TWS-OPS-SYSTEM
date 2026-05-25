@@ -42,8 +42,8 @@
           <div class="permission-grid__cell permission-grid__label">{{ permissionKey }}</div>
           @for (row of matrix(); track row.role) {
             <div class="permission-grid__cell permission-grid__value">
-              <mat-icon [class.permission-grid__icon--allowed]="isAllowed(row, permissionKey)">
-                {{ isAllowed(row, permissionKey) ? 'check_circle' : 'remove_circle_outline' }}
+              <mat-icon [class.permission-grid__icon--allowed]="row.permissions[permissionKey]">
+                {{ row.permissions[permissionKey] ? 'check_circle' : 'remove_circle_outline' }}
               </mat-icon>
             </div>
           }

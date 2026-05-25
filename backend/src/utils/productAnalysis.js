@@ -12,6 +12,30 @@ const toInteger = (value) => {
   return number !== null && Number.isInteger(number) ? number : null;
 };
 
+const toBoolean = (value) => {
+  if (value === '' || value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+
+    if (['true', '1', 'yes'].includes(normalized)) {
+      return true;
+    }
+
+    if (['false', '0', 'no'].includes(normalized)) {
+      return false;
+    }
+  }
+
+  return Boolean(value);
+};
+
 const isHttpUrl = (value) => {
   try {
     const parsed = new URL(value);
@@ -128,9 +152,11 @@ const normalizeProductPayload = (payload = {}) => ({
   rating: toNumber(payload.rating),
   productWatchers: toInteger(payload.productWatchers),
   salesLastTwoMonths: toInteger(payload.salesLastTwoMonths),
+  basketCount: toInteger(payload.basketCount),
   amazonPrice: toNumber(payload.amazonPrice),
   ebayPrice: toNumber(payload.ebayPrice),
   deliveryDays: toInteger(payload.deliveryDays),
+  monthlyGraphUptrend: toBoolean(payload.monthlyGraphUptrend),
 });
 
 const analyzeProduct = (input, criteria, options = {}) => {
@@ -193,6 +219,24 @@ const analyzeProduct = (input, criteria, options = {}) => {
     'sales_last_two_months',
     input.salesLastTwoMonths !== null && input.salesLastTwoMonths >= criteria.minSalesLastTwoMonths,
     `Minimum sales in the past two months must be at least ${criteria.minSalesLastTwoMonths}.`,
+  );
+  addNote(
+    'basket_count',
+    !criteria.basketCountRequired || input.basketCount !== null,
+    'Basket count is required for this hunting criteria.',
+  );
+  addNote(
+    'delivery_days',
+    (!criteria.deliveryDaysRequired && input.deliveryDays === null) ||
+      (input.deliveryDays !== null && input.deliveryDays <= criteria.maxDeliveryDays),
+    criteria.deliveryDaysRequired
+      ? `Delivery days are required and must be ${criteria.maxDeliveryDays} days or less.`
+      : `Delivery days must be ${criteria.maxDeliveryDays} days or less when provided.`,
+  );
+  addNote(
+    'monthly_graph_uptrend',
+    !criteria.monthlyGraphRequired || input.monthlyGraphUptrend === true,
+    'One month graph must show an up-price trend.',
   );
   addNote(
     'prices',

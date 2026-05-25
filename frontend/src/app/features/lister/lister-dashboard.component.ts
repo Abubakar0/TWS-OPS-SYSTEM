@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, Injector, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, Injector, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, ValidatorFn } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -8,7 +9,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
+import { ChangeRequestApiService } from '../../core/api/change-request-api.service';
 import { DashboardService, HunterDashboardFilters, ListerDashboardStats } from '../../core/services/dashboard.service';
+import { ChangeRequestSummary } from '../../core/models/product.models';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
 
 type RangePreset = 'today' | 'yesterday' | 'thisMonth' | 'lastMonth' | 'thisYear' | 'custom';
@@ -52,6 +55,11 @@ export class ListerDashboardComponent implements OnInit {
   readonly stats = signal<ListerDashboardStats | null>(null);
   readonly loading = signal(false);
   readonly error = signal('');
+  readonly changeRequestSummary = signal<ChangeRequestSummary>({
+    total: 0,
+    pending: 0,
+    completed: 0,
+  });
   readonly selectedRange = signal<RangePreset>('thisMonth');
   readonly activeFilters = signal<HunterDashboardFilters>({});
 
@@ -78,14 +86,25 @@ export class ListerDashboardComponent implements OnInit {
   readonly accountBreakdown = computed(() => this.stats()?.byAccount ?? []);
   readonly hunterCount = computed(() => this.hunterBreakdown().length);
   readonly accountCount = computed(() => this.accountBreakdown().length);
+  readonly showChangeBanner = computed(() => (this.changeRequestSummary().pending || 0) > 0);
 
+  private readonly destroyRef = inject(DestroyRef);
   private readonly workspaceSync = inject(WorkspaceSyncService);
   private readonly injector = inject(Injector);
 
-  constructor(private readonly dashboardApi: DashboardService) {}
+  constructor(
+    private readonly dashboardApi: DashboardService,
+    private readonly changeRequestApi: ChangeRequestApiService,
+  ) {}
 
   ngOnInit(): void {
     this.applyPreset('thisMonth');
+    this.changeRequestApi
+      .getSummary()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (summary) => this.changeRequestSummary.set(summary),
+      });
 
     effect(
       () => {

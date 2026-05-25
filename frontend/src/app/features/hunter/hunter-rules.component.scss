@@ -1,0 +1,7 @@
+:host {
+  display: block;
+}
+
+.simple-table__row--two {
+  grid-template-columns: minmax(0, 1fr) auto;
+}

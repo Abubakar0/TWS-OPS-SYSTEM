@@ -1,0 +1,134 @@
+<section class="page-shell">
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h1>Changed Product Requests</h1>
+        <p>Ask the assigned lister to update a live listing for one of your hunted products.</p>
+      </div>
+      <div class="page-actions">
+        <a mat-stroked-button routerLink="/hunter/review">
+          <mat-icon>assignment_turned_in</mat-icon>
+          <span>Weekly Review</span>
+        </a>
+      </div>
+    </div>
+  </article>
+
+  @if (error()) {
+    <div class="inline-state inline-state--error">{{ error() }}</div>
+  }
+
+  <section class="stats-grid stats-grid--three">
+    <article class="stat-card">
+      <span>Total requests</span>
+      <strong>{{ summary().total }}</strong>
+    </article>
+    <article class="stat-card">
+      <span>Pending</span>
+      <strong>{{ summary().pending }}</strong>
+    </article>
+    <article class="stat-card">
+      <span>Completed</span>
+      <strong>{{ summary().completed }}</strong>
+    </article>
+  </section>
+
+  <section class="section-grid">
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Request a change</h2>
+          <p>Use the ASIN from a product you already hunted.</p>
+        </div>
+      </div>
+
+      <form class="form-grid" [formGroup]="createForm" (ngSubmit)="createRequest()">
+        <mat-form-field appearance="outline">
+          <mat-label>ASIN</mat-label>
+          <input matInput formControlName="asin" autocomplete="off" />
+        </mat-form-field>
+
+        <div class="field-span-2">
+          <mat-form-field appearance="outline">
+            <mat-label>Requested changes</mat-label>
+            <textarea matInput rows="5" formControlName="requestedChanges"></textarea>
+          </mat-form-field>
+        </div>
+
+        <div class="field-span-2 page-actions">
+          <button mat-flat-button color="primary" type="submit" [disabled]="saving()">
+            <mat-icon>send</mat-icon>
+            <span>{{ saving() ? 'Sending' : 'Send Change Request' }}</span>
+          </button>
+        </div>
+      </form>
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Your requests</h2>
+          <p>Track whether the lister has completed the requested listing changes.</p>
+        </div>
+      </div>
+
+      <form class="grid-toolbar" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
+        <mat-form-field appearance="outline" class="grid-toolbar__search">
+          <mat-label>Search ASIN or title</mat-label>
+          <input matInput formControlName="search" autocomplete="off" />
+        </mat-form-field>
+        <div class="grid-toolbar__actions">
+          <mat-form-field appearance="outline">
+            <mat-label>Status</mat-label>
+            <mat-select formControlName="status">
+              <mat-option value="">All</mat-option>
+              <mat-option value="pending">Pending</mat-option>
+              <mat-option value="completed">Completed</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <button mat-flat-button color="primary" type="submit">Apply</button>
+        </div>
+      </form>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading requests.</span>
+        </div>
+      } @else if (!requests().length) {
+        <div class="empty-state">No change requests found yet.</div>
+      } @else {
+        <div class="breakdown-list">
+          @for (request of requests(); track request.id) {
+            <div class="soft-card request-card">
+              <div class="request-card__header">
+                <div>
+                  <strong>{{ request.productTitle || request.asin }}</strong>
+                  <span>ASIN: {{ request.asin }}</span>
+                </div>
+                <span class="status-badge" [class.status-badge--success]="request.status === 'completed'" [class.status-badge--warning]="request.status === 'pending'">
+                  {{ request.status }}
+                </span>
+              </div>
+              <p>{{ request.requestedChanges }}</p>
+              <small>Assigned lister: {{ request.listerName || 'Not assigned yet' }}</small>
+              @if (request.status === 'completed') {
+                <small>Completed {{ request.completedAt | date: 'MMM d, y, h:mm a' }}</small>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="grid-pager">
+          <span class="grid-pager__status">
+            Showing {{ pageIndex() * pageSize + 1 }}-{{ (pageIndex() * pageSize) + requests().length }} of {{ total() }}
+          </span>
+          <div class="grid-toolbar__actions">
+            <button mat-stroked-button type="button" (click)="previousPage()" [disabled]="pageIndex() === 0">Previous</button>
+            <button mat-stroked-button type="button" (click)="nextPage()" [disabled]="(pageIndex() + 1) * pageSize >= total()">Next</button>
+          </div>
+        </div>
+      }
+    </article>
+  </section>
+</section>

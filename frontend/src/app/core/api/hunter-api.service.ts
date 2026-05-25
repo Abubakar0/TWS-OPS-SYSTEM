@@ -4,6 +4,7 @@ import { map, Observable } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { AsinCheckResult, Product, ProductCreatePayload, ProductFilters } from '../models/product.models';
+import { PageResult } from '../state/query-state.models';
 
 @Injectable({ providedIn: 'root' })
 export class HunterApiService {
@@ -20,7 +21,7 @@ export class HunterApiService {
     return this.http.get<AsinCheckResult>(`${environment.apiUrl}/products/check-asin`, { params });
   }
 
-  listProducts(filters: ProductFilters = {}): Observable<Product[]> {
+  listProducts(filters: ProductFilters = {}): Observable<PageResult<Product>> {
     let params = new HttpParams();
 
     Object.entries(filters).forEach(([key, value]) => {
@@ -30,7 +31,18 @@ export class HunterApiService {
     });
 
     return this.http
-      .get<{ products: Product[] }>(`${environment.apiUrl}/products`, { params })
-      .pipe(map((response) => response.products));
+      .get<{ products: Product[]; page: number; limit: number; total: number; hasMore: boolean }>(
+        `${environment.apiUrl}/products`,
+        { params },
+      )
+      .pipe(
+        map((response) => ({
+          items: response.products,
+          page: response.page,
+          limit: response.limit,
+          total: response.total,
+          hasMore: response.hasMore,
+        })),
+      );
   }
 }

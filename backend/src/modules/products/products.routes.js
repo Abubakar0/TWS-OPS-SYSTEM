@@ -14,8 +14,11 @@ router
 
 router.get('/check-asin', requireRoles('hunter', 'admin'), asyncHandler(productsController.checkAsinAvailability));
 router.get('/assigned-hunters', requireRoles('lister', 'admin'), asyncHandler(productsController.listAssignedHunters));
+router.patch('/bulk-delete', requireRoles('admin', 'super_admin'), asyncHandler(productsController.softDeleteProducts));
+router.delete('/bulk-delete', requireRoles('admin', 'super_admin'), asyncHandler(productsController.permanentlyDeleteProducts));
 router.patch('/bulk-listed', requireRoles('lister', 'admin'), asyncHandler(productsController.markProductsListed));
 router.patch('/:id/reject', requireRoles('lister', 'admin'), asyncHandler(productsController.rejectProduct));
+router.post('/:id/restore', requireRoles('super_admin'), asyncHandler(productsController.restoreProduct));
 router.get('/:id', asyncHandler(productsController.getProductById));
 
 module.exports = router;

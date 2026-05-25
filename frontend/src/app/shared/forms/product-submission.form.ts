@@ -15,6 +15,9 @@ export type SubmissionControlName =
   | 'rating'
   | 'productWatchers'
   | 'salesLastTwoMonths'
+  | 'basketCount'
+  | 'deliveryDays'
+  | 'monthlyGraphUptrend'
   | 'amazonPrice'
   | 'ebayPrice';
 
@@ -35,6 +38,9 @@ export type ProductSubmissionForm = FormGroup<{
   rating: FormControl<number | null>;
   productWatchers: FormControl<number | null>;
   salesLastTwoMonths: FormControl<number | null>;
+  basketCount: FormControl<number | null>;
+  deliveryDays: FormControl<number | null>;
+  monthlyGraphUptrend: FormControl<boolean | null>;
   amazonPrice: FormControl<string>;
   ebayPrice: FormControl<string>;
 }>;
@@ -67,6 +73,9 @@ export const createProductSubmissionForm = (): ProductSubmissionForm =>
     rating: new FormControl<number | null>(null),
     productWatchers: new FormControl<number | null>(null),
     salesLastTwoMonths: new FormControl<number | null>(null),
+    basketCount: new FormControl<number | null>(null),
+    deliveryDays: new FormControl<number | null>(null),
+    monthlyGraphUptrend: new FormControl<boolean | null>(null),
     amazonPrice: new FormControl('', { nonNullable: true }),
     ebayPrice: new FormControl('', { nonNullable: true }),
   });
