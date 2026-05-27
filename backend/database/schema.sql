@@ -1,13 +1,19 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 DO $$ BEGIN
-  CREATE TYPE user_role AS ENUM ('super_admin', 'admin', 'hunter', 'lister');
+  CREATE TYPE user_role AS ENUM ('super_admin', 'admin', 'hunter', 'lister', 'order_processor');
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
   ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'super_admin';
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'order_processor';
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
@@ -170,17 +176,94 @@ CREATE TABLE IF NOT EXISTS hunter_weekly_reviews (
 CREATE TABLE IF NOT EXISTS product_change_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
   hunter_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   lister_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  account_id UUID REFERENCES accounts(id) ON DELETE SET NULL,
   asin TEXT NOT NULL,
   product_title TEXT,
   requested_changes TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed')),
+  issue_type TEXT,
+  issue_reason TEXT,
+  current_amazon_link TEXT,
+  current_ebay_link TEXT,
+  current_price NUMERIC(10, 2),
+  new_amazon_link TEXT,
+  new_ebay_link TEXT,
+  new_price NUMERIC(10, 2),
+  new_stock_count INTEGER,
+  notes TEXT,
+  rejected_reason TEXT,
+  status TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'IN_PROGRESS', 'FIXED', 'REJECTED', 'CLOSED')),
+  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  started_at TIMESTAMPTZ,
+  started_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  resolved_at TIMESTAMPTZ,
+  resolved_by UUID REFERENCES users(id) ON DELETE SET NULL,
   completion_notes TEXT,
   completed_by UUID REFERENCES users(id),
   completed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_code TEXT NOT NULL DEFAULT ('ORD-' || UPPER(SUBSTRING(gen_random_uuid()::text, 1, 8))),
+  ebay_order_id TEXT NOT NULL,
+  ebay_item_id TEXT,
+  ebay_listing_url TEXT,
+  product_id UUID REFERENCES products(id) ON DELETE SET NULL,
+  asin TEXT,
+  product_title TEXT,
+  custom_label TEXT,
+  hunter_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  lister_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  account_id UUID NOT NULL REFERENCES accounts(id),
+  buyer_name TEXT,
+  buyer_country TEXT,
+  buyer_state TEXT,
+  buyer_city TEXT,
+  quantity INTEGER NOT NULL DEFAULT 1,
+  sale_price NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  ebay_fee NUMERIC(10, 2),
+  shipping_charged NUMERIC(10, 2),
+  tax_collected NUMERIC(10, 2),
+  amazon_buying_price NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  supplier_shipping_cost NUMERIC(10, 2),
+  other_cost NUMERIC(10, 2),
+  total_cost NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  profit NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  roi NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  currency TEXT NOT NULL DEFAULT 'USD',
+  order_date TIMESTAMPTZ NOT NULL,
+  payment_date TIMESTAMPTZ,
+  expected_ship_date TIMESTAMPTZ,
+  placed_date TIMESTAMPTZ,
+  delivered_date TIMESTAMPTZ,
+  tracking_number TEXT,
+  carrier TEXT,
+  amazon_order_id TEXT,
+  amazon_order_link TEXT,
+  supplier_order_status TEXT NOT NULL DEFAULT 'NOT_PLACED',
+  order_status TEXT NOT NULL DEFAULT 'NEW'
+    CHECK (order_status IN ('NEW', 'READY_TO_PLACE', 'PLACED', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED', 'ISSUE', 'ON_HOLD')),
+  placement_status TEXT NOT NULL DEFAULT 'NOT_PLACED'
+    CHECK (placement_status IN ('NOT_PLACED', 'PLACED', 'FAILED', 'CANCELLED')),
+  payment_status TEXT NOT NULL DEFAULT 'PENDING'
+    CHECK (payment_status IN ('PAID', 'PENDING', 'REFUNDED', 'PARTIALLY_REFUNDED')),
+  match_status TEXT NOT NULL DEFAULT 'matched'
+    CHECK (match_status IN ('matched', 'unmatched')),
+  notes TEXT,
+  issue_reason TEXT,
+  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  deleted_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  deleted_at TIMESTAMPTZ,
+  delete_reason TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (ebay_order_id)
 );
 
 CREATE TABLE IF NOT EXISTS listings (
@@ -248,6 +331,15 @@ CREATE INDEX IF NOT EXISTS idx_hunter_weekly_reviews_hunter_id ON hunter_weekly_
 CREATE INDEX IF NOT EXISTS idx_product_change_requests_hunter_id ON product_change_requests(hunter_id);
 CREATE INDEX IF NOT EXISTS idx_product_change_requests_lister_id ON product_change_requests(lister_id);
 CREATE INDEX IF NOT EXISTS idx_product_change_requests_status ON product_change_requests(status);
+CREATE INDEX IF NOT EXISTS idx_orders_hunter_id ON orders(hunter_id);
+CREATE INDEX IF NOT EXISTS idx_orders_lister_id ON orders(lister_id);
+CREATE INDEX IF NOT EXISTS idx_orders_account_id ON orders(account_id);
+CREATE INDEX IF NOT EXISTS idx_orders_order_status ON orders(order_status);
+CREATE INDEX IF NOT EXISTS idx_orders_placement_status ON orders(placement_status);
+CREATE INDEX IF NOT EXISTS idx_orders_deleted_at ON orders(deleted_at);
+CREATE INDEX IF NOT EXISTS idx_orders_order_date ON orders(order_date DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_asin ON orders(asin);
+CREATE INDEX IF NOT EXISTS idx_orders_amazon_order_id ON orders(amazon_order_id);
 CREATE INDEX IF NOT EXISTS idx_products_asin
   ON products(asin)
   WHERE asin IS NOT NULL AND asin <> '';

@@ -1,4 +1,4 @@
-const VALID_ROLES = ['super_admin', 'admin', 'lister', 'hunter'];
+const VALID_ROLES = ['super_admin', 'admin', 'lister', 'hunter', 'order_processor'];
 
 const PERMISSION_KEYS = [
   'canManageAdmins',
@@ -6,6 +6,8 @@ const PERMISSION_KEYS = [
   'canViewReports',
   'canExportReports',
   'canManageSettings',
+  'canProcessOrders',
+  'canViewAllOrders',
   'canViewLogs',
   'canImpersonate',
   'canDeleteUsers',
@@ -19,6 +21,8 @@ const DEFAULT_ROLE_PERMISSIONS = {
     canViewReports: true,
     canExportReports: true,
     canManageSettings: true,
+    canProcessOrders: true,
+    canViewAllOrders: true,
     canViewLogs: true,
     canImpersonate: true,
     canDeleteUsers: true,
@@ -30,6 +34,8 @@ const DEFAULT_ROLE_PERMISSIONS = {
     canViewReports: true,
     canExportReports: true,
     canManageSettings: true,
+    canProcessOrders: true,
+    canViewAllOrders: true,
     canViewLogs: false,
     canImpersonate: false,
     canDeleteUsers: false,
@@ -41,6 +47,8 @@ const DEFAULT_ROLE_PERMISSIONS = {
     canViewReports: false,
     canExportReports: false,
     canManageSettings: false,
+    canProcessOrders: false,
+    canViewAllOrders: false,
     canViewLogs: false,
     canImpersonate: false,
     canDeleteUsers: false,
@@ -52,6 +60,21 @@ const DEFAULT_ROLE_PERMISSIONS = {
     canViewReports: false,
     canExportReports: false,
     canManageSettings: false,
+    canProcessOrders: false,
+    canViewAllOrders: false,
+    canViewLogs: false,
+    canImpersonate: false,
+    canDeleteUsers: false,
+    canRestoreRecords: false,
+  },
+  order_processor: {
+    canManageAdmins: false,
+    canManageUsers: false,
+    canViewReports: false,
+    canExportReports: false,
+    canManageSettings: false,
+    canProcessOrders: true,
+    canViewAllOrders: false,
     canViewLogs: false,
     canImpersonate: false,
     canDeleteUsers: false,
@@ -80,7 +103,7 @@ const canManageRole = (actorRole, targetRole) => {
   }
 
   if (actorRole === 'admin') {
-    return ['hunter', 'lister'].includes(targetRole);
+    return ['hunter', 'lister', 'order_processor'].includes(targetRole);
   }
 
   return false;

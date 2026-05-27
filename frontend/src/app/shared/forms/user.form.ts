@@ -1,5 +1,4 @@
 import { FormControl, FormGroup, Validators } from '@angular/forms';
-
 import { UserRole } from '../../core/models/auth.models';
 
 export type UserForm = FormGroup<{
@@ -8,6 +7,8 @@ export type UserForm = FormGroup<{
   password: FormControl<string>;
   role: FormControl<UserRole>;
   isActive: FormControl<boolean>;
+  canProcessOrders: FormControl<boolean>;
+  canViewAllOrders: FormControl<boolean>;
 }>;
 
 export const createUserForm = (): UserForm =>
@@ -20,4 +21,6 @@ export const createUserForm = (): UserForm =>
     }),
     role: new FormControl<UserRole>('hunter', { nonNullable: true, validators: [Validators.required] }),
     isActive: new FormControl(true, { nonNullable: true }),
+    canProcessOrders: new FormControl(false, { nonNullable: true }),
+    canViewAllOrders: new FormControl(false, { nonNullable: true }),
   });

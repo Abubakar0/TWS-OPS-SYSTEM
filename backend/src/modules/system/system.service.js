@@ -13,6 +13,7 @@ const DEFAULT_API_LIMITS = {
   hunters: 30,
   listers: 30,
   products: 30,
+  orders: 30,
   accounts: 30,
   reports: 100,
   assignments: 30,

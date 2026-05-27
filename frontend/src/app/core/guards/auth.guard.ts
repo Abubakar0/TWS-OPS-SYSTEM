@@ -2,7 +2,7 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 
 import { AuthService } from '../auth/auth.service';
-import { UserRole } from '../models/auth.models';
+import { UserPermissionKey, UserRole } from '../models/auth.models';
 
 const createLoginRedirect = (router: Router, returnUrl: string) =>
   {
@@ -53,6 +53,22 @@ export const dashboardRedirectGuard: CanActivateFn = (route, state) => {
 
   if (!auth.hasActiveSession()) {
     return createLoginRedirect(router, state.url);
+  }
+
+  return router.createUrlTree([auth.homeForRole(auth.currentUser()?.role)]);
+};
+
+export const permissionGuard: CanActivateFn = (route, state) => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  const permissions = (route.data['permissions'] || []) as UserPermissionKey[];
+
+  if (!auth.hasActiveSession()) {
+    return createLoginRedirect(router, state.url);
+  }
+
+  if (permissions.every((permission) => auth.hasPermission(permission))) {
+    return true;
   }
 
   return router.createUrlTree([auth.homeForRole(auth.currentUser()?.role)]);

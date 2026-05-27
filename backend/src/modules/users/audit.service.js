@@ -20,7 +20,9 @@ const writeAuditLog = async ({ actorUserId = null, action, targetType, targetId 
 };
 
 const listAuditLogs = async (filters = {}) => {
+  const { ensureOrdersTable } = require('../orders/orders.service');
   const { getConfiguredLimit } = require('../system/system.service');
+  await ensureOrdersTable();
   const clauses = [];
   const params = [];
 
@@ -65,6 +67,9 @@ const listAuditLogs = async (filters = {}) => {
       OR COALESCE(log.target_type, '') ILIKE $${index}
       OR COALESCE(target_product.title, '') ILIKE $${index}
       OR COALESCE(target_product.asin, '') ILIKE $${index}
+      OR COALESCE(target_order.ebay_order_id, '') ILIKE $${index}
+      OR COALESCE(target_order.order_code, '') ILIKE $${index}
+      OR COALESCE(target_order.product_title, '') ILIKE $${index}
       OR COALESCE(target_account.name, '') ILIKE $${index}
       OR COALESCE(log.details::text, '') ILIKE $${index}
     )`);
@@ -92,6 +97,9 @@ const listAuditLogs = async (filters = {}) => {
         target_user.role AS "targetRole",
         target_product.title AS "productTitle",
         target_product.asin AS "productAsin",
+        target_order.order_code AS "orderCode",
+        target_order.ebay_order_id AS "orderEbayId",
+        target_order.product_title AS "orderProductTitle",
         target_account.name AS "accountName"
       FROM audit_logs log
       LEFT JOIN users actor ON actor.id = log.actor_user_id
@@ -101,6 +109,9 @@ const listAuditLogs = async (filters = {}) => {
       LEFT JOIN products target_product
         ON log.target_type = 'product'
         AND target_product.id = log.target_id
+      LEFT JOIN orders target_order
+        ON log.target_type = 'order'
+        AND target_order.id = log.target_id
       LEFT JOIN accounts target_account
         ON log.target_type = 'account'
         AND target_account.id = log.target_id

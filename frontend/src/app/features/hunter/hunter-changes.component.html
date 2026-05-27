@@ -2,10 +2,14 @@
   <article class="surface-card">
     <div class="surface-card__header">
       <div>
-        <h1>Changed Product Requests</h1>
-        <p>Ask the assigned lister to update a live listing for one of your hunted products.</p>
+        <h1>Product Change Requests</h1>
+        <p>Track listing corrections requested after order or live product issues.</p>
       </div>
       <div class="page-actions">
+        <a mat-stroked-button routerLink="/hunter/order-issues">
+          <mat-icon>priority_high</mat-icon>
+          <span>Order Issues</span>
+        </a>
         <a mat-stroked-button routerLink="/hunter/review">
           <mat-icon>assignment_turned_in</mat-icon>
           <span>Weekly Review</span>
@@ -20,16 +24,16 @@
 
   <section class="stats-grid stats-grid--three">
     <article class="stat-card">
-      <span>Total requests</span>
-      <strong>{{ summary().total }}</strong>
+      <span>Open Requests</span>
+      <strong>{{ openCount() }}</strong>
     </article>
     <article class="stat-card">
-      <span>Pending</span>
-      <strong>{{ summary().pending }}</strong>
+      <span>In Progress</span>
+      <strong>{{ inProgressCount() }}</strong>
     </article>
     <article class="stat-card">
-      <span>Completed</span>
-      <strong>{{ summary().completed }}</strong>
+      <span>Fixed</span>
+      <strong>{{ fixedCount() }}</strong>
     </article>
   </section>
 
@@ -38,7 +42,7 @@
       <div class="surface-card__header">
         <div>
           <h2>Request a change</h2>
-          <p>Use the ASIN from a product you already hunted.</p>
+          <p>Use the ASIN from a hunted or listed product that needs a listing fix.</p>
         </div>
       </div>
 
@@ -68,24 +72,31 @@
       <div class="surface-card__header">
         <div>
           <h2>Your requests</h2>
-          <p>Track whether the lister has completed the requested listing changes.</p>
+          <p>Follow the assigned lister until the product issue is fixed.</p>
         </div>
       </div>
 
       <form class="grid-toolbar" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
         <mat-form-field appearance="outline" class="grid-toolbar__search">
-          <mat-label>Search ASIN or title</mat-label>
+          <mat-label>Search ASIN, title, or request</mat-label>
           <input matInput formControlName="search" autocomplete="off" />
         </mat-form-field>
-        <div class="grid-toolbar__actions">
+
+        <div class="grid-toolbar__actions grid-toolbar__actions--filters">
           <mat-form-field appearance="outline">
             <mat-label>Status</mat-label>
             <mat-select formControlName="status">
-              <mat-option value="">All</mat-option>
-              <mat-option value="pending">Pending</mat-option>
-              <mat-option value="completed">Completed</mat-option>
+              @for (option of statusOptions; track option.value) {
+                <mat-option [value]="option.value">{{ option.label }}</mat-option>
+              }
             </mat-select>
           </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Issue Type</mat-label>
+            <input matInput formControlName="issueType" autocomplete="off" placeholder="LOW_STOCK" />
+          </mat-form-field>
+
           <button mat-flat-button color="primary" type="submit">Apply</button>
         </div>
       </form>
@@ -106,14 +117,17 @@
                   <strong>{{ request.productTitle || request.asin }}</strong>
                   <span>ASIN: {{ request.asin }}</span>
                 </div>
-                <span class="status-badge" [class.status-badge--success]="request.status === 'completed'" [class.status-badge--warning]="request.status === 'pending'">
-                  {{ request.status }}
+                <span class="status-badge" [class]="statusTone(request.status)">
+                  {{ request.status.replaceAll('_', ' ') }}
                 </span>
               </div>
-              <p>{{ request.requestedChanges }}</p>
+
+              <p>{{ request.issueReason || request.requestedChanges }}</p>
               <small>Assigned lister: {{ request.listerName || 'Not assigned yet' }}</small>
-              @if (request.status === 'completed') {
-                <small>Completed {{ request.completedAt | date: 'MMM d, y, h:mm a' }}</small>
+              <small>Issue type: {{ (request.issueType || 'OTHER').replaceAll('_', ' ') }}</small>
+
+              @if (request.resolvedAt || request.completedAt) {
+                <small>Updated {{ (request.resolvedAt || request.completedAt) | date: 'MMM d, y, h:mm a' }}</small>
               }
             </div>
           }
@@ -121,7 +135,7 @@
 
         <div class="grid-pager">
           <span class="grid-pager__status">
-            Showing {{ pageIndex() * pageSize + 1 }}-{{ (pageIndex() * pageSize) + requests().length }} of {{ total() }}
+            Showing {{ pageIndex() * pageSize + 1 }}-{{ pageIndex() * pageSize + requests().length }} of {{ total() }}
           </span>
           <div class="grid-toolbar__actions">
             <button mat-stroked-button type="button" (click)="previousPage()" [disabled]="pageIndex() === 0">Previous</button>

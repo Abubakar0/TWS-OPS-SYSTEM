@@ -77,6 +77,7 @@ export class SuperAdminSettingsComponent implements OnInit {
     hunters: new FormControl(30, { nonNullable: true, validators: [Validators.required, Validators.min(10)] }),
     listers: new FormControl(30, { nonNullable: true, validators: [Validators.required, Validators.min(10)] }),
     products: new FormControl(30, { nonNullable: true, validators: [Validators.required, Validators.min(10)] }),
+    orders: new FormControl(30, { nonNullable: true, validators: [Validators.required, Validators.min(10)] }),
     accounts: new FormControl(30, { nonNullable: true, validators: [Validators.required, Validators.min(10)] }),
     reports: new FormControl(100, { nonNullable: true, validators: [Validators.required, Validators.min(10)] }),
     assignments: new FormControl(30, { nonNullable: true, validators: [Validators.required, Validators.min(10)] }),

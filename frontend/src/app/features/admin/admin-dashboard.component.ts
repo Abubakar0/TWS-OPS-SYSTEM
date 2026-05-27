@@ -9,7 +9,9 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { forkJoin } from 'rxjs';
 
+import { ChangeRequestApiService } from '../../core/api/change-request-api.service';
 import { AdminService, AdminStats, AuditLogEntry } from '../../core/services/admin.service';
+import { ChangeRequestSummary } from '../../core/models/product.models';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -30,6 +32,17 @@ import { AdminService, AdminStats, AuditLogEntry } from '../../core/services/adm
 export class AdminDashboardComponent implements OnInit {
   readonly stats = signal<AdminStats | null>(null);
   readonly activityLogs = signal<AuditLogEntry[]>([]);
+  readonly changeRequestSummary = signal<ChangeRequestSummary>({
+    total: 0,
+    pending: 0,
+    completed: 0,
+    open: 0,
+    inProgress: 0,
+    fixed: 0,
+    rejected: 0,
+    closed: 0,
+    fixedToday: 0,
+  });
   readonly loading = signal(false);
   readonly error = signal('');
 
@@ -46,6 +59,58 @@ export class AdminDashboardComponent implements OnInit {
   readonly topAccounts = computed(() => this.stats()?.byAccount.slice(0, 5) ?? []);
   readonly recentDays = computed(() => this.stats()?.daily.slice(0, 10) ?? []);
   readonly previewLogs = computed(() => this.activityLogs().slice(0, 6));
+  readonly orderStats = computed(() => this.stats()?.orderStats ?? null);
+  readonly orderHighlights = computed(() => [
+    {
+      label: 'Open Order Issues',
+      value: this.orderStats()?.issueOrders ?? 0,
+      detail: 'Orders that still need intervention.',
+      icon: 'error_outline',
+      tone: 'stat-card__icon--danger',
+    },
+    {
+      label: 'Loss Orders',
+      value: this.orderStats()?.lossOrders ?? 0,
+      detail: 'Orders currently running at a loss.',
+      icon: 'trending_down',
+      tone: 'stat-card__icon--danger',
+    },
+    {
+      label: 'Unavailable Products',
+      value: this.orderStats()?.unavailableIssues ?? 0,
+      detail: 'Orders blocked by unavailable products.',
+      icon: 'inventory_2',
+      tone: 'stat-card__icon--warning',
+    },
+    {
+      label: 'Pending Product Fixes',
+      value: this.changeRequestSummary().pending ?? 0,
+      detail: 'Change requests still waiting on listers.',
+      icon: 'fact_check',
+      tone: 'stat-card__icon--warning',
+    },
+    {
+      label: 'Orders Today',
+      value: this.orderStats()?.ordersToday ?? 0,
+      detail: 'Fresh orders received today.',
+      icon: 'today',
+      tone: '',
+    },
+    {
+      label: 'Pending Placement',
+      value: this.orderStats()?.pendingPlacement ?? 0,
+      detail: 'Orders still waiting to be placed.',
+      icon: 'schedule',
+      tone: 'stat-card__icon--warning',
+    },
+    {
+      label: 'Delivered Orders',
+      value: this.orderStats()?.deliveredOrders ?? 0,
+      detail: 'Orders already delivered.',
+      icon: 'inventory',
+      tone: 'stat-card__icon--success',
+    },
+  ]);
   readonly activityPreviewRows = computed(() =>
     this.previewLogs().map((log) => ({
       ...log,
@@ -78,7 +143,10 @@ export class AdminDashboardComponent implements OnInit {
     return from === to ? from : `${from} to ${to}`;
   });
 
-  constructor(private readonly adminApi: AdminService) {}
+  constructor(
+    private readonly adminApi: AdminService,
+    private readonly changeRequestApi: ChangeRequestApiService,
+  ) {}
 
   ngOnInit(): void {
     this.resetToday();
@@ -107,10 +175,12 @@ export class AdminDashboardComponent implements OnInit {
     forkJoin({
       stats: this.adminApi.getAdminStats(filters),
       logs: this.adminApi.listAuditLogs(filters),
+      changeRequests: this.changeRequestApi.getSummary(),
     }).subscribe({
-      next: ({ stats, logs }) => {
+      next: ({ stats, logs, changeRequests }) => {
         this.stats.set(stats);
         this.activityLogs.set(logs);
+        this.changeRequestSummary.set(changeRequests);
         this.loading.set(false);
       },
       error: (error) => {

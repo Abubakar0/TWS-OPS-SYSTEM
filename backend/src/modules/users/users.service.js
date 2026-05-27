@@ -150,7 +150,7 @@ const buildVisibilityFilters = (actor, query) => {
   const params = [];
 
   if (actor.role === 'admin') {
-    clauses.push(`role IN ('hunter', 'lister')`);
+    clauses.push(`role IN ('hunter', 'lister', 'order_processor')`);
   }
 
   if (!query.includeDeleted) {
@@ -160,8 +160,8 @@ const buildVisibilityFilters = (actor, query) => {
   if (query.role) {
     assertValidRole(query.role);
 
-    if (actor.role === 'admin' && !['hunter', 'lister'].includes(query.role)) {
-      throw new AppError('Admins can only access hunter and lister records.', 403);
+    if (actor.role === 'admin' && !['hunter', 'lister', 'order_processor'].includes(query.role)) {
+      throw new AppError('Admins can only access hunter, lister, and order processor records.', 403);
     }
 
     params.push(query.role);
@@ -203,8 +203,9 @@ const listUsers = async (actor, query = {}) => {
         CASE role
           WHEN 'super_admin' THEN 1
           WHEN 'admin' THEN 2
-          WHEN 'lister' THEN 3
-          ELSE 4
+          WHEN 'order_processor' THEN 3
+          WHEN 'lister' THEN 4
+          ELSE 5
         END,
         name
       LIMIT $${filters.params.length + 1}

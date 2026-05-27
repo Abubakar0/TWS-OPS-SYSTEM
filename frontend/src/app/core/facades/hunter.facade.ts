@@ -28,7 +28,11 @@ import {
   SubmissionFieldState,
 } from '../../shared/forms/product-submission.form';
 import { integerValidator } from '../../shared/validators/integer.validator';
-import { decimalMinValidator, decimalValidator, decimalValue } from '../../shared/validators/price.validator';
+import {
+  decimalMinValidator,
+  decimalValidator,
+  decimalValue,
+} from '../../shared/validators/price.validator';
 
 type SummaryTone = 'success' | 'warning' | 'danger' | 'neutral';
 
@@ -100,9 +104,13 @@ export class HunterFacade {
   private readonly formVersion = signal(0);
   private initialized = false;
 
-  readonly defaultCustomLabel = computed(() => this.auth.currentUser()?.name || `${BRANDING.logoLabel} Hunter`);
+  readonly defaultCustomLabel = computed(
+    () => this.auth.currentUser()?.name || `${BRANDING.logoLabel} Hunter`,
+  );
   readonly asinTouched = computed(() => this.asinControl.touched || this.attemptedSubmit());
-  readonly asinMessage = computed(() => this.messages.asinError(this.asinControl, this.asinTouched()));
+  readonly asinMessage = computed(() =>
+    this.messages.asinError(this.asinControl, this.asinTouched()),
+  );
 
   readonly fieldStates = computed<Record<SubmissionControlName, SubmissionFieldState>>(() => {
     this.formVersion();
@@ -219,7 +227,9 @@ export class HunterFacade {
       this.form.controls.salesLastTwoMonths.value !== null &&
       this.form.controls.salesLastTwoMonths.value < criteria.minSalesLastTwoMonths
     ) {
-      failures.push(`Sales in the past 2 months must be at least ${criteria.minSalesLastTwoMonths}.`);
+      failures.push(
+        `Sales in the past 2 months must be at least ${criteria.minSalesLastTwoMonths}.`,
+      );
     }
 
     if (criteria.basketCountRequired && this.form.controls.basketCount.value === null) {
@@ -248,7 +258,11 @@ export class HunterFacade {
   readonly economicsRuleFailures = computed(() => {
     this.formVersion();
 
-    if (this.pricingFieldIssues().length || this.economics().profit === null || this.economics().roi === null) {
+    if (
+      this.pricingFieldIssues().length ||
+      this.economics().profit === null ||
+      this.economics().roi === null
+    ) {
       return [];
     }
 
@@ -295,20 +309,21 @@ export class HunterFacade {
     const strongSignals = [
       roi >= Math.max(criteria.minRoi + 15, criteria.minRoi * 1.35, 35),
       profit >= Math.max(criteria.minProfit + 5, criteria.minProfit * 1.5, 5),
-      sales >= Math.max(criteria.minSalesLastTwoMonths + 12, criteria.minSalesLastTwoMonths * 1.4, 12),
+      sales >=
+        Math.max(criteria.minSalesLastTwoMonths + 12, criteria.minSalesLastTwoMonths * 1.4, 12),
       stock >= Math.max(criteria.minStockCount + 4, criteria.minStockCount * 1.3, 12),
       rating >= Math.max(criteria.minRating + 0.5, 4.2),
     ].filter(Boolean).length;
 
     if (strongSignals >= 4) {
-      return 'Excellent Hunting';
+      return 'Best Hunt';
     }
 
     if (strongSignals >= 2) {
-      return 'Good Hunting';
+      return 'Good Hunt';
     }
 
-    return 'Average Hunting';
+    return 'Avg Hunt';
   });
 
   readonly approvalSummary = computed(() => {
@@ -348,7 +363,10 @@ export class HunterFacade {
       return {
         tone: 'warning' as SummaryTone,
         label: 'Finish validation inputs',
-        message: this.stockFieldIssues()[0] || this.pricingFieldIssues()[0] || 'Complete the remaining required inputs.',
+        message:
+          this.stockFieldIssues()[0] ||
+          this.pricingFieldIssues()[0] ||
+          'Complete the remaining required inputs.',
       };
     }
 
@@ -442,7 +460,7 @@ export class HunterFacade {
   readonly canSubmit = computed(() => {
     this.formVersion();
     return (
-      !(this.weeklyReviewStatus()?.required) &&
+      !this.weeklyReviewStatus()?.required &&
       this.asinVerified() &&
       !this.asinDuplicate() &&
       !this.saving() &&
@@ -552,10 +570,14 @@ export class HunterFacade {
           this.submissionModal.set({
             product,
             qualityLabel:
-              (product.qualityLabel as ProductQualityLabel) || this.qualityPreview() || 'Average Hunting',
+              (product.qualityLabel as ProductQualityLabel) ||
+              this.qualityPreview() ||
+              'Average Hunting',
             shortReason:
               product.status === 'rejected'
-                ? product.primaryFailure || product.rejectionReason || 'This product did not pass the current rules.'
+                ? product.primaryFailure ||
+                  product.rejectionReason ||
+                  'This product did not pass the current rules.'
                 : 'All required checks passed and the product is ready for the listing workflow.',
             nextAction:
               product.status === 'rejected'
@@ -605,19 +627,17 @@ export class HunterFacade {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.formVersion.update((value) => value + 1));
 
-    this.asinControl.valueChanges
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((value) => {
-        const normalized = value.trim().toUpperCase();
+    this.asinControl.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((value) => {
+      const normalized = value.trim().toUpperCase();
 
-        if (value !== normalized) {
-          this.asinControl.setValue(normalized, { emitEvent: false });
-        }
+      if (value !== normalized) {
+        this.asinControl.setValue(normalized, { emitEvent: false });
+      }
 
-        this.asinVerified.set(false);
-        this.asinDuplicate.set(null);
-        this.disableFormOnly();
-      });
+      this.asinVerified.set(false);
+      this.asinDuplicate.set(null);
+      this.disableFormOnly();
+    });
 
     this.criteriaLoading.set(true);
     this.weeklyReviewLoading.set(true);
@@ -657,7 +677,9 @@ export class HunterFacade {
   }
 
   private applyCriteriaValidators(criteria: HuntingCriteria): void {
-    this.form.controls.customLabel.setValidators(criteria.customLabelRequired ? [Validators.required] : []);
+    this.form.controls.customLabel.setValidators(
+      criteria.customLabelRequired ? [Validators.required] : [],
+    );
     this.form.controls.amazonStockCount.setValidators([Validators.required, integerValidator]);
     this.form.controls.alternateAmazonStockCount.setValidators([integerValidator]);
     this.form.controls.soldCount.setValidators([Validators.required, integerValidator]);
@@ -676,9 +698,19 @@ export class HunterFacade {
       integerValidator,
       Validators.max(criteria.maxDeliveryDays),
     ]);
-    this.form.controls.monthlyGraphUptrend.setValidators(criteria.monthlyGraphRequired ? [Validators.requiredTrue] : []);
-    this.form.controls.amazonPrice.setValidators([Validators.required, decimalValidator, decimalMinValidator(0.01)]);
-    this.form.controls.ebayPrice.setValidators([Validators.required, decimalValidator, decimalMinValidator(0.01)]);
+    this.form.controls.monthlyGraphUptrend.setValidators(
+      criteria.monthlyGraphRequired ? [Validators.requiredTrue] : [],
+    );
+    this.form.controls.amazonPrice.setValidators([
+      Validators.required,
+      decimalValidator,
+      decimalMinValidator(0.01),
+    ]);
+    this.form.controls.ebayPrice.setValidators([
+      Validators.required,
+      decimalValidator,
+      decimalMinValidator(0.01),
+    ]);
 
     Object.values(this.form.controls).forEach((control) =>
       control.updateValueAndValidity({ emitEvent: false }),

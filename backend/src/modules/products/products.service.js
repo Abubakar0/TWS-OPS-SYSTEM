@@ -1,20 +1,28 @@
-const { pool } = require('../../db/pool');
-const { AppError } = require('../../middleware/error');
-const { normalizePageRequest, buildPageMeta } = require('../../utils/pagination');
+const { pool } = require("../../db/pool");
+const { AppError } = require("../../middleware/error");
+const {
+  normalizePageRequest,
+  buildPageMeta,
+} = require("../../utils/pagination");
 const {
   analyzeProduct,
   normalizeProductPayload,
   isEbayUrl,
   getQualityLabel,
-} = require('../../utils/productAnalysis');
-const { getCriteria } = require('../criteria/criteria.service');
-const { writeAuditLog } = require('../users/audit.service');
-const { getConfiguredLimit } = require('../system/system.service');
-const { assertHunterReviewComplete } = require('../weekly-review/weekly-review.service');
+} = require("../../utils/productAnalysis");
+const { getCriteria } = require("../criteria/criteria.service");
+const { writeAuditLog } = require("../users/audit.service");
+const { getConfiguredLimit } = require("../system/system.service");
+const {
+  assertHunterReviewComplete,
+} = require("../weekly-review/weekly-review.service");
+const {
+  assertListerListingUnblocked,
+} = require("../change-requests/change-requests.service");
 
-const PRODUCT_LIMIT_CATEGORY = 'products';
-const LISTING_QUEUE_LIMIT_CATEGORY = 'listingQueue';
-const REJECTION_LIMIT_CATEGORY = 'rejections';
+const PRODUCT_LIMIT_CATEGORY = "products";
+const LISTING_QUEUE_LIMIT_CATEGORY = "listingQueue";
+const REJECTION_LIMIT_CATEGORY = "rejections";
 
 const productSelect = `
   p.id,
@@ -74,13 +82,19 @@ const productFromRow = (row, criteria = null) => {
     ...row,
     amazonPrice: row.amazonPrice === null ? null : Number(row.amazonPrice),
     ebayPrice: row.ebayPrice === null ? null : Number(row.ebayPrice),
-    amazonStockCount: row.amazonStockCount === null ? null : Number(row.amazonStockCount),
-    stockQuantity: row.stockQuantity === null ? null : Number(row.stockQuantity),
+    amazonStockCount:
+      row.amazonStockCount === null ? null : Number(row.amazonStockCount),
+    stockQuantity:
+      row.stockQuantity === null ? null : Number(row.stockQuantity),
     alternateAmazonStockCount:
-      row.alternateAmazonStockCount === null ? null : Number(row.alternateAmazonStockCount),
+      row.alternateAmazonStockCount === null
+        ? null
+        : Number(row.alternateAmazonStockCount),
     rating: row.rating === null ? null : Number(row.rating),
-    productWatchers: row.productWatchers === null ? null : Number(row.productWatchers),
-    salesLastTwoMonths: row.salesLastTwoMonths === null ? null : Number(row.salesLastTwoMonths),
+    productWatchers:
+      row.productWatchers === null ? null : Number(row.productWatchers),
+    salesLastTwoMonths:
+      row.salesLastTwoMonths === null ? null : Number(row.salesLastTwoMonths),
     basketCount: row.basketCount === null ? null : Number(row.basketCount),
     deliveryDays: row.deliveryDays === null ? null : Number(row.deliveryDays),
     monthlyGraphUptrend:
@@ -91,7 +105,9 @@ const productFromRow = (row, criteria = null) => {
     soldCount: Number(row.soldCount || 0),
     profit: Number(row.profit),
     roi: Number(row.roi),
-    validationNotes: Array.isArray(row.validationNotes) ? row.validationNotes : [],
+    validationNotes: Array.isArray(row.validationNotes)
+      ? row.validationNotes
+      : [],
     deletedBy: row.deletedBy || null,
     deletedAt: row.deletedAt || null,
     deleteReason: row.deleteReason || null,
@@ -113,7 +129,8 @@ const productFromRow = (row, criteria = null) => {
       normalized,
     ),
     primaryFailure:
-      normalized.validationNotes.find((note) => !note.passed)?.message || normalized.rejectionReason,
+      normalized.validationNotes.find((note) => !note.passed)?.message ||
+      normalized.rejectionReason,
   };
 };
 
@@ -156,17 +173,33 @@ const ensureProductColumns = async () => {
 
 const getAssignedListerId = async (hunterId) => {
   const result = await pool.query(
-    'SELECT lister_id FROM hunter_lister_assignments WHERE hunter_id = $1',
+    "SELECT lister_id FROM hunter_lister_assignments WHERE hunter_id = $1",
     [hunterId],
   );
   return result.rows[0]?.lister_id || null;
 };
 
 const buildQualitySql = (criteria) => {
-  const excellentRoi = Math.max(criteria.minRoi + 15, criteria.minRoi * 1.35, 35);
-  const excellentProfit = Math.max(criteria.minProfit + 5, criteria.minProfit * 1.5, 5);
-  const excellentSales = Math.max(criteria.minSalesLastTwoMonths + 12, criteria.minSalesLastTwoMonths * 1.4, 12);
-  const excellentStock = Math.max(criteria.minStockCount + 4, criteria.minStockCount * 1.3, 12);
+  const excellentRoi = Math.max(
+    criteria.minRoi + 15,
+    criteria.minRoi * 1.35,
+    35,
+  );
+  const excellentProfit = Math.max(
+    criteria.minProfit + 5,
+    criteria.minProfit * 1.5,
+    5,
+  );
+  const excellentSales = Math.max(
+    criteria.minSalesLastTwoMonths + 12,
+    criteria.minSalesLastTwoMonths * 1.4,
+    12,
+  );
+  const excellentStock = Math.max(
+    criteria.minStockCount + 4,
+    criteria.minStockCount * 1.3,
+    12,
+  );
   const excellentRating = Math.max(criteria.minRating + 0.5, 4.2);
 
   return `
@@ -178,15 +211,15 @@ const buildQualitySql = (criteria) => {
         (CASE WHEN COALESCE(p.sales_last_two_months, 0) >= ${excellentSales} THEN 1 ELSE 0 END) +
         (CASE WHEN COALESCE(p.stock_quantity, 0) >= ${excellentStock} THEN 1 ELSE 0 END) +
         (CASE WHEN COALESCE(p.rating, 0) >= ${excellentRating} THEN 1 ELSE 0 END)
-      ) >= 4 THEN 'Excellent Hunting'
+      ) >= 4 THEN 'Best Hunt'
       WHEN (
         (CASE WHEN COALESCE(p.roi, 0) >= ${excellentRoi} THEN 1 ELSE 0 END) +
         (CASE WHEN COALESCE(p.profit, 0) >= ${excellentProfit} THEN 1 ELSE 0 END) +
         (CASE WHEN COALESCE(p.sales_last_two_months, 0) >= ${excellentSales} THEN 1 ELSE 0 END) +
         (CASE WHEN COALESCE(p.stock_quantity, 0) >= ${excellentStock} THEN 1 ELSE 0 END) +
         (CASE WHEN COALESCE(p.rating, 0) >= ${excellentRating} THEN 1 ELSE 0 END)
-      ) >= 2 THEN 'Good Hunting'
-      ELSE 'Average Hunting'
+      ) >= 2 THEN 'Good Hunt'
+      ELSE 'Avg Hunt'
     END
   `;
 };
@@ -197,44 +230,44 @@ const buildProductFilters = (user, query = {}, criteria = null) => {
 
   const add = (sql, value) => {
     params.push(value);
-    where.push(sql.replace('?', `$${params.length}`));
+    where.push(sql.replace("?", `$${params.length}`));
   };
 
   const addLike = (sql, value) => {
     params.push(`%${String(value).trim()}%`);
-    where.push(sql.replace('?', `$${params.length}`));
+    where.push(sql.replace("?", `$${params.length}`));
   };
 
-  if (user.role === 'hunter') {
-    add('p.hunter_id = ?', user.id);
-    where.push('p.deleted_at IS NULL');
+  if (user.role === "hunter") {
+    add("p.hunter_id = ?", user.id);
+    where.push("p.deleted_at IS NULL");
   }
 
-  if (user.role === 'lister') {
-    add('p.assigned_lister_id = ?', user.id);
-    where.push('p.deleted_at IS NULL');
+  if (user.role === "lister") {
+    add("p.assigned_lister_id = ?", user.id);
+    where.push("p.deleted_at IS NULL");
   }
 
-  if (user.role !== 'hunter' && user.role !== 'lister') {
-    const deletedState = query.deletedState || 'active';
+  if (user.role !== "hunter" && user.role !== "lister") {
+    const deletedState = query.deletedState || "active";
 
-    if (deletedState === 'deleted') {
-      where.push('p.deleted_at IS NOT NULL');
-    } else if (deletedState !== 'all') {
-      where.push('p.deleted_at IS NULL');
+    if (deletedState === "deleted") {
+      where.push("p.deleted_at IS NOT NULL");
+    } else if (deletedState !== "all") {
+      where.push("p.deleted_at IS NULL");
     }
   }
 
   if (query.hunterId) {
-    add('p.hunter_id = ?', query.hunterId);
+    add("p.hunter_id = ?", query.hunterId);
   }
 
   if (query.listerId) {
-    add('p.assigned_lister_id = ?', query.listerId);
+    add("p.assigned_lister_id = ?", query.listerId);
   }
 
   if (query.status) {
-    add('p.status = ?', query.status);
+    add("p.status = ?", query.status);
   }
 
   if (query.search) {
@@ -266,27 +299,27 @@ const buildProductFilters = (user, query = {}, criteria = null) => {
   }
 
   if (query.accountName) {
-    addLike('account.name ILIKE ?', query.accountName);
+    addLike("account.name ILIKE ?", query.accountName);
   }
 
   if (query.accountId) {
-    add('p.account_used = ?', query.accountId);
+    add("p.account_used = ?", query.accountId);
   }
 
   if (query.from) {
-    add('p.created_at >= ?', query.from);
+    add("p.created_at >= ?", query.from);
   }
 
   if (query.to) {
-    add('p.created_at < (?::date + INTERVAL \'1 day\')', query.to);
+    add("p.created_at < (?::date + INTERVAL '1 day')", query.to);
   }
 
   if (query.listedFrom) {
-    add('p.listed_at >= ?', query.listedFrom);
+    add("p.listed_at >= ?", query.listedFrom);
   }
 
   if (query.listedTo) {
-    add('p.listed_at < (?::date + INTERVAL \'1 day\')', query.listedTo);
+    add("p.listed_at < (?::date + INTERVAL '1 day')", query.listedTo);
   }
 
   if (criteria && query.quality) {
@@ -296,14 +329,14 @@ const buildProductFilters = (user, query = {}, criteria = null) => {
   }
 
   return {
-    where: where.length ? `WHERE ${where.join(' AND ')}` : '',
+    where: where.length ? `WHERE ${where.join(" AND ")}` : "",
     params,
   };
 };
 
 const getListCategory = (user, query = {}) => {
-  if (user.role === 'lister') {
-    if (query.status === 'rejected') {
+  if (user.role === "lister") {
+    if (query.status === "rejected") {
       return REJECTION_LIMIT_CATEGORY;
     }
 
@@ -317,7 +350,10 @@ const listProducts = async (user, query = {}) => {
   await ensureProductColumns();
   const criteria = await getCriteria();
   const filters = buildProductFilters(user, query, criteria);
-  const defaultLimit = await getConfiguredLimit(getListCategory(user, query), query.limit);
+  const defaultLimit = await getConfiguredLimit(
+    getListCategory(user, query),
+    query.limit,
+  );
   const pageRequest = normalizePageRequest(query, defaultLimit);
   const result = await pool.query(
     `
@@ -357,16 +393,19 @@ const getProductById = async (user, id) => {
 
   const product = result.rows[0] && productFromRow(result.rows[0], criteria);
 
-  if (!product || (product.deletedAt && !['admin', 'super_admin'].includes(user.role))) {
-    throw new AppError('Product not found.', 404);
+  if (
+    !product ||
+    (product.deletedAt && !["admin", "super_admin"].includes(user.role))
+  ) {
+    throw new AppError("Product not found.", 404);
   }
 
-  if (user.role === 'hunter' && product.hunterId !== user.id) {
-    throw new AppError('Product not found.', 404);
+  if (user.role === "hunter" && product.hunterId !== user.id) {
+    throw new AppError("Product not found.", 404);
   }
 
-  if (user.role === 'lister' && product.assignedListerId !== user.id) {
-    throw new AppError('Product not found.', 404);
+  if (user.role === "lister" && product.assignedListerId !== user.id) {
+    throw new AppError("Product not found.", 404);
   }
 
   return product;
@@ -374,14 +413,16 @@ const getProductById = async (user, id) => {
 
 const checkAsinAvailability = async (asin) => {
   await ensureProductColumns();
-  const normalizedAsin = String(asin || '').trim().toUpperCase();
+  const normalizedAsin = String(asin || "")
+    .trim()
+    .toUpperCase();
 
   if (!normalizedAsin) {
-    throw new AppError('ASIN is required.', 400);
+    throw new AppError("ASIN is required.", 400);
   }
 
   if (!/^[A-Z0-9]{10}$/.test(normalizedAsin)) {
-    throw new AppError('Enter a valid 10-character ASIN.', 400);
+    throw new AppError("Enter a valid 10-character ASIN.", 400);
   }
 
   const product = await getDuplicateProductByAsin(normalizedAsin);
@@ -401,7 +442,7 @@ const createProduct = async (user, payload) => {
   const duplicateProduct = await getDuplicateProductByAsin(input.asin);
 
   if (duplicateProduct) {
-    throw new AppError('ASIN already exists in the system.', 409, {
+    throw new AppError("ASIN already exists in the system.", 409, {
       product: {
         id: duplicateProduct.id,
         title: duplicateProduct.title,
@@ -415,7 +456,10 @@ const createProduct = async (user, payload) => {
 
   const analysis = analyzeProduct(input, criteria, { hasDuplicateAsin: false });
   const assignedListerId = await getAssignedListerId(user.id);
-  const status = analysis.status === 'approved' && assignedListerId ? 'assigned' : analysis.status;
+  const status =
+    analysis.status === "approved" && assignedListerId
+      ? "assigned"
+      : analysis.status;
 
   const result = await pool.query(
     `
@@ -477,7 +521,9 @@ const createProduct = async (user, payload) => {
       analysis.profit,
       analysis.roi,
       status,
-      status === 'rejected' ? analysis.primaryFailure || analysis.rejectionReason || null : null,
+      status === "rejected"
+        ? analysis.primaryFailure || analysis.rejectionReason || null
+        : null,
       JSON.stringify(analysis.validationNotes),
     ],
   );
@@ -486,8 +532,8 @@ const createProduct = async (user, payload) => {
 
   await writeAuditLog({
     actorUserId: user.id,
-    action: status === 'rejected' ? 'product.rejected' : 'product.approved',
-    targetType: 'product',
+    action: status === "rejected" ? "product.rejected" : "product.approved",
+    targetType: "product",
     targetId: product.id,
     details: {
       status: product.status,
@@ -501,10 +547,13 @@ const createProduct = async (user, payload) => {
 };
 
 const listAssignedHunters = async (user) => {
-  const defaultLimit = await getConfiguredLimit('hunters');
-  const pageRequest = normalizePageRequest({ page: 1, limit: defaultLimit }, defaultLimit);
+  const defaultLimit = await getConfiguredLimit("hunters");
+  const pageRequest = normalizePageRequest(
+    { page: 1, limit: defaultLimit },
+    defaultLimit,
+  );
 
-  if (user.role === 'admin') {
+  if (user.role === "admin") {
     const result = await pool.query(
       `
         SELECT id, name, email, is_active AS "isActive"
@@ -553,14 +602,14 @@ const getProductsByIds = async (user, ids) => {
 
   const criteria = await getCriteria();
   const params = [ids];
-  const accessClauses = ['p.id = ANY($1::uuid[])'];
+  const accessClauses = ["p.id = ANY($1::uuid[])"];
 
-  if (user.role === 'hunter') {
+  if (user.role === "hunter") {
     params.push(user.id);
     accessClauses.push(`p.hunter_id = $${params.length}`);
   }
 
-  if (user.role === 'lister') {
+  if (user.role === "lister") {
     params.push(user.id);
     accessClauses.push(`p.assigned_lister_id = $${params.length}`);
   }
@@ -569,7 +618,7 @@ const getProductsByIds = async (user, ids) => {
     `
       SELECT ${productSelect}
       ${productJoins}
-      WHERE ${accessClauses.join(' AND ')}
+      WHERE ${accessClauses.join(" AND ")}
       ORDER BY p.created_at DESC
     `,
     params,
@@ -582,25 +631,36 @@ const markProductsListed = async (user, payload) => {
   const items = Array.isArray(payload.items)
     ? payload.items
     : (payload.productIds || []).map((id) => ({ id }));
-  const productIds = [...new Set(items.map((item) => item.id || item.productId).filter(Boolean))];
+  const productIds = [
+    ...new Set(items.map((item) => item.id || item.productId).filter(Boolean)),
+  ];
   const accountId = payload.accountId;
-  const itemById = new Map(items.map((item) => [item.id || item.productId, item]));
+  const itemById = new Map(
+    items.map((item) => [item.id || item.productId, item]),
+  );
 
   if (!accountId || productIds.length === 0) {
-    throw new AppError('Account and at least one product are required.', 400);
+    throw new AppError("Account and at least one product are required.", 400);
+  }
+
+  if (user.role === "lister") {
+    await assertListerListingUnblocked(user.id);
   }
 
   for (const productId of productIds) {
     const item = itemById.get(productId) || {};
-    const listingUrl = String(item.listingUrl || '').trim();
+    const listingUrl = String(item.listingUrl || "").trim();
 
     if (!listingUrl || !isEbayUrl(listingUrl)) {
-      throw new AppError('Each selected product must include a valid listed eBay link.', 400);
+      throw new AppError(
+        "Each selected product must include a valid listed eBay link.",
+        400,
+      );
     }
   }
 
   const account = await pool.query(
-    user.role === 'lister'
+    user.role === "lister"
       ? `
           SELECT account.id
           FROM accounts account
@@ -609,28 +669,28 @@ const markProductsListed = async (user, payload) => {
             AND account.is_active = TRUE
             AND assignment.lister_id = $2
         `
-      : 'SELECT id FROM accounts WHERE id = $1 AND is_active = TRUE',
-    user.role === 'lister' ? [accountId, user.id] : [accountId],
+      : "SELECT id FROM accounts WHERE id = $1 AND is_active = TRUE",
+    user.role === "lister" ? [accountId, user.id] : [accountId],
   );
 
   if (account.rowCount === 0) {
     throw new AppError(
-      user.role === 'lister'
-        ? 'This listing account is not assigned to you.'
-        : 'Active account not found.',
-      user.role === 'lister' ? 403 : 404,
+      user.role === "lister"
+        ? "This listing account is not assigned to you."
+        : "Active account not found.",
+      user.role === "lister" ? 403 : 404,
     );
   }
 
   const client = await pool.connect();
 
   try {
-    await client.query('BEGIN');
+    await client.query("BEGIN");
 
     const params = [productIds, accountId, user.id];
-    let accessSql = '';
+    let accessSql = "";
 
-    if (user.role === 'lister') {
+    if (user.role === "lister") {
       params.push(user.id);
       accessSql = `AND assigned_lister_id = $${params.length}`;
     }
@@ -653,7 +713,10 @@ const markProductsListed = async (user, payload) => {
     );
 
     if (update.rowCount !== productIds.length) {
-      throw new AppError('Some products could not be updated for this lister.', 403);
+      throw new AppError(
+        "Some products could not be updated for this lister.",
+        403,
+      );
     }
 
     for (const productId of productIds) {
@@ -670,13 +733,19 @@ const markProductsListed = async (user, payload) => {
               item_id = COALESCE(EXCLUDED.item_id, listings.item_id),
               updated_at = NOW()
         `,
-        [productId, user.id, accountId, String(item.listingUrl || '').trim(), item.itemId || null],
+        [
+          productId,
+          user.id,
+          accountId,
+          String(item.listingUrl || "").trim(),
+          item.itemId || null,
+        ],
       );
     }
 
-    await client.query('COMMIT');
+    await client.query("COMMIT");
   } catch (error) {
-    await client.query('ROLLBACK');
+    await client.query("ROLLBACK");
     throw error;
   } finally {
     client.release();
@@ -685,12 +754,14 @@ const markProductsListed = async (user, payload) => {
   for (const productId of productIds) {
     await writeAuditLog({
       actorUserId: user.id,
-      action: 'listing.complete',
-      targetType: 'product',
+      action: "listing.complete",
+      targetType: "product",
       targetId: productId,
       details: {
         accountId,
-        listingUrl: String((itemById.get(productId) || {}).listingUrl || '').trim(),
+        listingUrl: String(
+          (itemById.get(productId) || {}).listingUrl || "",
+        ).trim(),
       },
     });
   }
@@ -699,16 +770,20 @@ const markProductsListed = async (user, payload) => {
 };
 
 const rejectProduct = async (user, id, payload = {}) => {
-  const rejectionReason = String(payload.rejectionReason || '').trim();
+  const rejectionReason = String(payload.rejectionReason || "").trim();
 
   if (!rejectionReason) {
-    throw new AppError('Rejection reason is required.', 400);
+    throw new AppError("Rejection reason is required.", 400);
+  }
+
+  if (user.role === "lister") {
+    await assertListerListingUnblocked(user.id);
   }
 
   const params = [id, rejectionReason];
-  let accessSql = '';
+  let accessSql = "";
 
-  if (user.role === 'lister') {
+  if (user.role === "lister") {
     params.push(user.id);
     accessSql = `AND assigned_lister_id = $${params.length}`;
   }
@@ -729,15 +804,15 @@ const rejectProduct = async (user, id, payload = {}) => {
   );
 
   if (result.rowCount === 0) {
-    throw new AppError('Product could not be rejected for this lister.', 403);
+    throw new AppError("Product could not be rejected for this lister.", 403);
   }
 
   const product = await getProductById(user, id);
 
   await writeAuditLog({
     actorUserId: user.id,
-    action: 'product.rejected',
-    targetType: 'product',
+    action: "product.rejected",
+    targetType: "product",
     targetId: product.id,
     details: {
       rejectionReason,
@@ -750,10 +825,10 @@ const rejectProduct = async (user, id, payload = {}) => {
 };
 
 const assertDeleteReason = (reason) => {
-  const normalized = String(reason || '').trim();
+  const normalized = String(reason || "").trim();
 
   if (normalized.length < 3) {
-    throw new AppError('Delete reason must be at least 3 characters.', 400);
+    throw new AppError("Delete reason must be at least 3 characters.", 400);
   }
 
   return normalized;
@@ -764,7 +839,7 @@ const softDeleteProducts = async (user, payload = {}) => {
   const deleteReason = assertDeleteReason(payload.reason);
 
   if (productIds.length === 0) {
-    throw new AppError('Select at least one product to delete.', 400);
+    throw new AppError("Select at least one product to delete.", 400);
   }
 
   const result = await pool.query(
@@ -784,8 +859,8 @@ const softDeleteProducts = async (user, payload = {}) => {
   for (const row of result.rows) {
     await writeAuditLog({
       actorUserId: user.id,
-      action: 'product.delete.soft',
-      targetType: 'product',
+      action: "product.delete.soft",
+      targetType: "product",
       targetId: row.id,
       details: { reason: deleteReason },
     });
@@ -799,7 +874,7 @@ const permanentlyDeleteProducts = async (user, payload = {}) => {
   const deleteReason = assertDeleteReason(payload.reason);
 
   if (productIds.length === 0) {
-    throw new AppError('Select at least one product to delete.', 400);
+    throw new AppError("Select at least one product to delete.", 400);
   }
 
   const result = await pool.query(
@@ -814,8 +889,8 @@ const permanentlyDeleteProducts = async (user, payload = {}) => {
   for (const row of result.rows) {
     await writeAuditLog({
       actorUserId: user.id,
-      action: 'product.delete.permanent',
-      targetType: 'product',
+      action: "product.delete.permanent",
+      targetType: "product",
       targetId: row.id,
       details: { reason: deleteReason },
     });
@@ -840,13 +915,13 @@ const restoreProduct = async (user, id) => {
   );
 
   if (result.rowCount === 0) {
-    throw new AppError('Deleted product not found.', 404);
+    throw new AppError("Deleted product not found.", 404);
   }
 
   await writeAuditLog({
     actorUserId: user.id,
-    action: 'product.restore',
-    targetType: 'product',
+    action: "product.restore",
+    targetType: "product",
     targetId: id,
     details: {},
   });

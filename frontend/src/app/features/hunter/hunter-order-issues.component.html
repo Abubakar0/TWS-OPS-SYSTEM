@@ -1,0 +1,183 @@
+<section class="page-shell">
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h1>Order Issues</h1>
+        <p>Orders with sourcing, loss, stock, or listing problems linked to your products.</p>
+      </div>
+      <div class="page-actions">
+        <a mat-stroked-button routerLink="/hunter/changes">
+          <mat-icon>edit_note</mat-icon>
+          <span>View Change Requests</span>
+        </a>
+      </div>
+    </div>
+  </article>
+
+  @if (error()) {
+    <div class="inline-state inline-state--error">{{ error() }}</div>
+  }
+
+  <article class="surface-card">
+    <form class="grid-toolbar" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
+      <mat-form-field appearance="outline" class="grid-toolbar__search">
+        <mat-label>Search order, product, ASIN, or issue</mat-label>
+        <input matInput formControlName="search" autocomplete="off" />
+      </mat-form-field>
+
+      <div class="grid-toolbar__actions grid-toolbar__actions--filters">
+        <mat-form-field appearance="outline">
+          <mat-label>Issue Type</mat-label>
+          <mat-select formControlName="issueType">
+            @for (option of issueTypeOptions; track option.value) {
+              <mat-option [value]="option.value">{{ option.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Status</mat-label>
+          <mat-select formControlName="status">
+            @for (option of issueStatusOptions; track option.value) {
+              <mat-option [value]="option.value">{{ option.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Account</mat-label>
+          <mat-select formControlName="accountId">
+            <mat-option value="">All accounts</mat-option>
+            @for (account of accountOptions(); track account.id) {
+              <mat-option [value]="account.id">{{ account.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Lister</mat-label>
+          <mat-select formControlName="listerId">
+            <mat-option value="">All listers</mat-option>
+            @for (lister of listerOptions(); track lister.id) {
+              <mat-option [value]="lister.id">{{ lister.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>From date</mat-label>
+          <input matInput type="date" formControlName="dateFrom" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>To date</mat-label>
+          <input matInput type="date" formControlName="dateTo" />
+        </mat-form-field>
+
+        <button mat-flat-button color="primary" type="submit">Apply</button>
+      </div>
+    </form>
+  </article>
+
+  @if (loading()) {
+    <article class="surface-card">
+      <div class="loading-state">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>Loading order issues.</span>
+      </div>
+    </article>
+  } @else if (!issues().length) {
+    <article class="surface-card">
+      <div class="empty-state">No order issues matched the current filters.</div>
+    </article>
+  } @else {
+    <section class="issues-layout">
+      <article class="surface-card issues-list">
+        <div class="issues-table">
+          <div class="issues-table__head">
+            <span>Order</span>
+            <span>Product</span>
+            <span>Issue</span>
+            <span>Profit / Loss</span>
+            <span>Status</span>
+          </div>
+
+          @for (issue of issues(); track issue.id) {
+            <button type="button" class="issues-row" [class.is-active]="selectedIssue()?.id === issue.id" (click)="selectIssue(issue.id)">
+              <div>
+                <strong>{{ issue.orderCode || issue.ebayOrderId }}</strong>
+                <span>{{ issue.orderDate | date: 'MMM d, y' }}</span>
+                <small>{{ issue.listerName || 'No lister assigned' }}</small>
+              </div>
+              <div>
+                <strong [attr.title]="issue.productTitle || issue.asin">{{ issue.productTitle || issue.asin }}</strong>
+                <span>ASIN: {{ issue.asin || 'No ASIN' }}</span>
+                <small>{{ issue.accountName || 'No account' }}</small>
+              </div>
+              <div>
+                <strong>{{ (issue.issueType || 'OTHER').replaceAll('_', ' ') }}</strong>
+                <span>{{ issue.issueReason || 'No reason shared yet.' }}</span>
+              </div>
+              <div>
+                <strong [class.is-negative]="issue.profit < 0">${{ issue.profit | number: '1.2-2' }}</strong>
+                <span>ROI {{ issue.roi | number: '1.0-2' }}%</span>
+              </div>
+              <div>
+                <span class="status-badge status-badge--warning">{{ issue.issueStatus || 'OPEN' }}</span>
+              </div>
+            </button>
+          }
+        </div>
+
+        <div class="grid-pager">
+          <span class="grid-pager__status">
+            Showing {{ pageIndex() * pageSize + 1 }}-{{ pageIndex() * pageSize + issues().length }} of {{ total() }}
+          </span>
+          <div class="grid-toolbar__actions">
+            <button mat-stroked-button type="button" (click)="previousPage()" [disabled]="pageIndex() === 0">Previous</button>
+            <button mat-stroked-button type="button" (click)="nextPage()" [disabled]="(pageIndex() + 1) * pageSize >= total()">Next</button>
+          </div>
+        </div>
+      </article>
+
+      <aside class="surface-card issue-sidebar">
+        @if (selectedIssue(); as issue) {
+          <div class="surface-card__header">
+            <div>
+              <h2>Issue Details</h2>
+              <p>This order has an issue and product needs correction.</p>
+            </div>
+            <span class="status-badge status-badge--warning">{{ issue.issueStatus || 'OPEN' }}</span>
+          </div>
+
+          <div class="detail-stack">
+            <div class="detail-row">
+              <span>Order ID</span>
+              <strong>{{ issue.orderCode || issue.ebayOrderId }}</strong>
+            </div>
+            <div class="detail-row">
+              <span>Product</span>
+              <strong>{{ issue.productTitle || issue.asin }}</strong>
+            </div>
+            <div class="detail-row">
+              <span>Assigned Lister</span>
+              <strong>{{ issue.listerName || 'Not assigned' }}</strong>
+            </div>
+            <div class="detail-row">
+              <span>Issue Reason</span>
+              <strong>{{ issue.issueReason || 'No issue note provided.' }}</strong>
+            </div>
+            <div class="detail-row">
+              <span>Profit / Loss</span>
+              <strong [class.is-negative]="issue.profit < 0">${{ issue.profit | number: '1.2-2' }}</strong>
+            </div>
+            <div class="detail-row">
+              <span>Change Request</span>
+              <strong>{{ issue.changeRequestStatus || 'Not created yet' }}</strong>
+            </div>
+          </div>
+        }
+      </aside>
+    </section>
+  }
+</section>

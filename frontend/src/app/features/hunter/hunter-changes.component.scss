@@ -2,6 +2,10 @@
   display: block;
 }
 
+.grid-toolbar__actions--filters {
+  flex-wrap: wrap;
+}
+
 .request-card {
   display: grid;
   gap: 10px;

@@ -127,6 +127,10 @@ export class AuthService {
       return path.startsWith('/admin') || path.startsWith('/hunter') || path.startsWith('/lister');
     }
 
+    if (role === 'order_processor') {
+      return path.startsWith('/order-processor');
+    }
+
     if (role === 'lister') {
       return path.startsWith('/lister');
     }
@@ -153,6 +157,10 @@ export class AuthService {
 
     if (role === 'lister') {
       return '/lister/dashboard';
+    }
+
+    if (role === 'order_processor') {
+      return '/order-processor/dashboard';
     }
 
     return '/hunter/dashboard';

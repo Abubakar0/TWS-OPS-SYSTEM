@@ -1,40 +1,40 @@
 <section class="page-shell">
-  <article class="surface-card">
-    <div class="surface-card__header">
-      <div>
-        <h1>Changed Product Requests</h1>
-        <p>Hunter-requested listing updates that still need action on marketplace accounts.</p>
-      </div>
-    </div>
-  </article>
-
   @if (error()) {
     <div class="inline-state inline-state--error">{{ error() }}</div>
   }
 
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h1>Product Change Requests</h1>
+        <p>Fix matched product issues before returning to new listing work.</p>
+      </div>
+    </div>
+  </article>
+
   <section class="stats-grid stats-grid--three">
     <article class="stat-card">
-      <span>Total requests</span>
-      <strong>{{ summary().total }}</strong>
+      <span>Open Requests</span>
+      <strong>{{ summary().open || 0 }}</strong>
     </article>
     <article class="stat-card">
-      <span>Pending</span>
-      <strong>{{ summary().pending }}</strong>
+      <span>In Progress</span>
+      <strong>{{ summary().inProgress || 0 }}</strong>
     </article>
     <article class="stat-card">
-      <span>Completed</span>
-      <strong>{{ summary().completed }}</strong>
+      <span>Fixed Today</span>
+      <strong>{{ summary().fixedToday || 0 }}</strong>
     </article>
   </section>
 
   <article class="surface-card">
     <form class="grid-toolbar" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
       <mat-form-field appearance="outline" class="grid-toolbar__search">
-        <mat-label>Search ASIN, title, or request</mat-label>
+        <mat-label>Search ASIN, order, hunter, or issue</mat-label>
         <input matInput formControlName="search" autocomplete="off" />
       </mat-form-field>
 
-      <div class="grid-toolbar__actions">
+      <div class="grid-toolbar__actions grid-toolbar__actions--filters">
         <mat-form-field appearance="outline">
           <mat-label>Hunter</mat-label>
           <mat-select formControlName="hunterId">
@@ -48,72 +48,166 @@
         <mat-form-field appearance="outline">
           <mat-label>Status</mat-label>
           <mat-select formControlName="status">
-            <mat-option value="pending">Pending</mat-option>
-            <mat-option value="completed">Completed</mat-option>
-            <mat-option value="">All</mat-option>
+            @for (option of statusOptions; track option.value) {
+              <mat-option [value]="option.value">{{ option.label }}</mat-option>
+            }
           </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Issue Type</mat-label>
+          <input matInput formControlName="issueType" autocomplete="off" placeholder="PRICE_INCREASED" />
         </mat-form-field>
 
         <button mat-flat-button color="primary" type="submit">Apply</button>
       </div>
     </form>
+  </article>
 
-    @if (loading()) {
+  @if (loading()) {
+    <article class="surface-card">
       <div class="loading-state">
         <mat-spinner diameter="24"></mat-spinner>
         <span>Loading change requests.</span>
       </div>
-    } @else if (!requests().length) {
+    </article>
+  } @else if (!requests().length) {
+    <article class="surface-card">
       <div class="empty-state">No change requests matched the current filters.</div>
-    } @else {
-      <div class="breakdown-list">
-        @for (request of requests(); track request.id) {
-          <div class="soft-card request-card">
-            <div class="request-card__top">
-              <div>
-                <strong>{{ request.productTitle || request.asin }}</strong>
-                <span>{{ request.hunterName }} | {{ request.asin }}</span>
-              </div>
-              <span class="status-badge" [class.status-badge--success]="request.status === 'completed'" [class.status-badge--warning]="request.status === 'pending'">
-                {{ request.status }}
-              </span>
-            </div>
-
-            <p>{{ request.requestedChanges }}</p>
-            <small>Account: {{ request.accountName || 'Not listed yet' }}</small>
-
-            @if (request.status === 'pending') {
-              <div class="request-card__actions">
-                <mat-form-field appearance="outline">
-                  <mat-label>Completion note</mat-label>
-                  <textarea
-                    matInput
-                    rows="3"
-                    [value]="completionNotes()[request.id] || ''"
-                    (input)="setCompletionNotes(request.id, $any($event.target).value)"
-                  ></textarea>
-                </mat-form-field>
-                <button mat-flat-button color="primary" type="button" (click)="completeRequest(request.id)" [disabled]="savingId() === request.id">
-                  <mat-icon>done</mat-icon>
-                  <span>{{ savingId() === request.id ? 'Saving' : 'Mark as Changed' }}</span>
-                </button>
-              </div>
-            } @else {
-              <small>Completed {{ request.completedAt | date: 'MMM d, y, h:mm a' }}</small>
-            }
+    </article>
+  } @else {
+    <section class="changes-layout">
+      <article class="surface-card changes-list">
+        <div class="changes-table">
+          <div class="changes-table__head">
+            <span>Product</span>
+            <span>Hunter</span>
+            <span>Issue</span>
+            <span>Created</span>
+            <span>Status</span>
           </div>
-        }
-      </div>
 
-      <div class="grid-pager">
-        <span class="grid-pager__status">
-          Showing {{ pageIndex() * pageSize + 1 }}-{{ (pageIndex() * pageSize) + requests().length }} of {{ total() }}
-        </span>
-        <div class="grid-toolbar__actions">
-          <button mat-stroked-button type="button" (click)="previousPage()" [disabled]="pageIndex() === 0">Previous</button>
-          <button mat-stroked-button type="button" (click)="nextPage()" [disabled]="(pageIndex() + 1) * pageSize >= total()">Next</button>
+          @for (request of requests(); track request.id) {
+            <button
+              type="button"
+              class="changes-row"
+              [class.is-active]="selectedRequest()?.id === request.id"
+              (click)="selectRequest(request.id)"
+            >
+              <div>
+                <strong [attr.title]="request.productTitle || request.asin">{{ request.productTitle || request.asin }}</strong>
+                <span>ASIN: {{ request.asin }}</span>
+                <small>{{ request.orderCode || 'No order code' }}</small>
+              </div>
+              <div>
+                <strong>{{ request.hunterName }}</strong>
+                <span>{{ request.accountName || 'No account' }}</span>
+              </div>
+              <div>
+                <strong>{{ (request.issueType || 'OTHER').replaceAll('_', ' ') }}</strong>
+                <span>{{ request.issueReason || request.requestedChanges }}</span>
+              </div>
+              <div>
+                <strong>{{ request.createdAt | date: 'MMM d, y' }}</strong>
+                <span>{{ request.createdAt | date: 'h:mm a' }}</span>
+              </div>
+              <div>
+                <span class="status-badge" [class]="statusTone(request.status)">{{ request.status.replaceAll('_', ' ') }}</span>
+              </div>
+            </button>
+          }
         </div>
-      </div>
-    }
-  </article>
+
+        <div class="grid-pager">
+          <span class="grid-pager__status">{{ pageLabel() }}</span>
+          <div class="grid-toolbar__actions">
+            <button mat-stroked-button type="button" (click)="previousPage()" [disabled]="pageIndex() === 0">Previous</button>
+            <button mat-stroked-button type="button" (click)="nextPage()" [disabled]="(pageIndex() + 1) * pageSize >= total()">Next</button>
+          </div>
+        </div>
+      </article>
+
+      <aside class="surface-card changes-sidebar">
+        @if (selectedRequest(); as request) {
+          <div class="surface-card__header">
+            <div>
+              <h2>Fix Request</h2>
+              <p>This request must be fixed before listing new products.</p>
+            </div>
+            <span class="status-badge" [class]="statusTone(request.status)">{{ request.status.replaceAll('_', ' ') }}</span>
+          </div>
+
+          <div class="detail-stack">
+            <div class="detail-row">
+              <span>Product</span>
+              <strong>{{ request.productTitle || request.asin }}</strong>
+            </div>
+            <div class="detail-row">
+              <span>Hunter</span>
+              <strong>{{ request.hunterName }}</strong>
+            </div>
+            <div class="detail-row">
+              <span>Account</span>
+              <strong>{{ request.accountName || 'No account assigned' }}</strong>
+            </div>
+            <div class="detail-row">
+              <span>Issue</span>
+              <strong>{{ (request.issueType || 'OTHER').replaceAll('_', ' ') }}</strong>
+            </div>
+          </div>
+
+          <div class="inline-state inline-state--warning">
+            This order has an issue and the product needs correction before normal listing can continue.
+          </div>
+
+          <form class="action-stack" [formGroup]="fixForm">
+            <mat-form-field appearance="outline">
+              <mat-label>New Amazon link</mat-label>
+              <input matInput formControlName="newAmazonLink" autocomplete="off" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>New eBay link</mat-label>
+              <input matInput formControlName="newEbayLink" autocomplete="off" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>New price</mat-label>
+              <input matInput formControlName="newPrice" autocomplete="off" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Stock count</mat-label>
+              <input matInput formControlName="newStockCount" autocomplete="off" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Fix notes</mat-label>
+              <textarea matInput rows="4" formControlName="notes"></textarea>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Reject reason</mat-label>
+              <textarea matInput rows="3" formControlName="rejectedReason"></textarea>
+            </mat-form-field>
+
+            <div class="action-stack__buttons">
+              <button mat-stroked-button type="button" (click)="startSelected()" [disabled]="!canStartSelected()">
+                <mat-icon>play_arrow</mat-icon>
+                <span>Start Fix</span>
+              </button>
+              <button mat-flat-button color="primary" type="button" (click)="fixSelected()" [disabled]="!canFixSelected()">
+                <mat-icon>done</mat-icon>
+                <span>{{ saving() ? 'Saving' : 'Submit Fix' }}</span>
+              </button>
+              <button mat-stroked-button color="warn" type="button" (click)="rejectSelected()" [disabled]="!canRejectSelected()">
+                <mat-icon>block</mat-icon>
+                <span>Reject Request</span>
+              </button>
+            </div>
+          </form>
+        }
+      </aside>
+    </section>
+  }
 </section>

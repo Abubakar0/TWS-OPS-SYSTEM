@@ -59,6 +59,12 @@ export class ListerDashboardComponent implements OnInit {
     total: 0,
     pending: 0,
     completed: 0,
+    open: 0,
+    inProgress: 0,
+    fixed: 0,
+    rejected: 0,
+    closed: 0,
+    fixedToday: 0,
   });
   readonly selectedRange = signal<RangePreset>('thisMonth');
   readonly activeFilters = signal<HunterDashboardFilters>({});

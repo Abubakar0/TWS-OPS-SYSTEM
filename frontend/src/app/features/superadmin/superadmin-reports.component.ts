@@ -8,8 +8,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
+import { forkJoin } from 'rxjs';
 
 import { User } from '../../core/models/auth.models';
+import { OrderStats } from '../../core/models/order.models';
+import { OrderApiService } from '../../core/api/order-api.service';
 import { AdminService, AdminStats } from '../../core/services/admin.service';
 import { ExportService } from '../../core/services/export.service';
 import { ReferenceDataService } from '../../core/state/reference-data.service';
@@ -55,6 +58,7 @@ const customDateRangeValidator: ValidatorFn = (control): ValidationErrors | null
 export class SuperAdminReportsComponent implements OnInit {
   readonly users = signal<User[]>([]);
   readonly stats = signal<AdminStats | null>(null);
+  readonly orderReports = signal<OrderStats | null>(null);
   readonly loading = signal(false);
   readonly error = signal('');
   readonly selectedRange = signal<ReportRangePreset>('month');
@@ -86,6 +90,7 @@ export class SuperAdminReportsComponent implements OnInit {
 
   constructor(
     private readonly adminApi: AdminService,
+    private readonly orderApi: OrderApiService,
     private readonly exportService: ExportService,
     private readonly referenceData: ReferenceDataService,
     private readonly toast: ToastService,
@@ -201,9 +206,16 @@ export class SuperAdminReportsComponent implements OnInit {
   private loadStats(dateFilters: { from?: string; to?: string }): void {
     this.loading.set(true);
     this.error.set('');
+    const filters = this.buildApiFilters(dateFilters);
 
-    this.adminApi.getAdminStats(this.buildApiFilters(dateFilters)).subscribe({
-      next: (stats) => this.stats.set(stats),
+    forkJoin({
+      stats: this.adminApi.getAdminStats(filters),
+      orderReports: this.orderApi.getReports(filters),
+    }).subscribe({
+      next: ({ stats, orderReports }) => {
+        this.stats.set(stats);
+        this.orderReports.set(orderReports);
+      },
       error: (error) => {
         this.error.set(error?.error?.message || 'Could not load Super Admin reports.');
         this.loading.set(false);
@@ -257,6 +269,10 @@ export class SuperAdminReportsComponent implements OnInit {
       { section: 'Summary', name: 'Listed', metricA: stats.listed, metricB: '', notes: '' },
       { section: 'Summary', name: 'Hunters', metricA: stats.byHunter.length, metricB: '', notes: '' },
       { section: 'Summary', name: 'Accounts Used', metricA: stats.byAccount.length, metricB: '', notes: '' },
+      { section: 'Orders', name: 'Total Orders', metricA: this.orderReports()?.totalOrders ?? 0, metricB: '', notes: '' },
+      { section: 'Orders', name: 'Revenue', metricA: this.orderReports()?.totalRevenue ?? 0, metricB: '', notes: '' },
+      { section: 'Orders', name: 'Profit', metricA: this.orderReports()?.totalProfit ?? 0, metricB: '', notes: '' },
+      { section: 'Orders', name: 'Average ROI', metricA: this.orderReports()?.averageRoi ?? 0, metricB: '', notes: '' },
       ...stats.byHunter.map((row) => ({
         section: 'Hunter',
         name: row.name,

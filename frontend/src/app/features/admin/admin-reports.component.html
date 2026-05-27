@@ -116,6 +116,32 @@
     </article>
   </section>
 
+  <section class="stats-grid stats-grid--four">
+    <article class="stat-card">
+      <span>Total Orders</span>
+      <strong>{{ orderReports()?.totalOrders || 0 }}</strong>
+      <small class="stat-card__trend">All orders in the current filters</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Revenue</span>
+      <strong>${{ (orderReports()?.totalRevenue || 0) | number: '1.2-2' }}</strong>
+      <small class="stat-card__trend">Gross order revenue</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Profit</span>
+      <strong>${{ (orderReports()?.totalProfit || 0) | number: '1.2-2' }}</strong>
+      <small class="stat-card__trend">Profit captured from linked orders</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Average ROI</span>
+      <strong>{{ (orderReports()?.averageRoi || 0) | number: '1.2-2' }}%</strong>
+      <small class="stat-card__trend">Average order ROI</small>
+    </article>
+  </section>
+
   <section class="section-grid">
     <article class="surface-card">
       <div class="surface-card__header">
@@ -288,6 +314,44 @@
     <article class="surface-card">
       <div class="surface-card__header">
         <div>
+          <h2>Orders by hunter</h2>
+          <p>Which hunters are driving order volume.</p>
+        </div>
+      </div>
+
+      @if (orderReports()?.byHunter?.length) {
+        <div class="table-wrap">
+          <table class="data-table data-table--compact">
+            <thead>
+              <tr>
+                <th>Hunter</th>
+                <th>Orders</th>
+                <th>Revenue</th>
+                <th>Profit</th>
+                <th>ROI</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of orderReports()?.byHunter || []; track row.hunterId) {
+                <tr>
+                  <td>{{ row.hunterName }}</td>
+                  <td>{{ row.orderCount }}</td>
+                  <td>${{ row.revenue | number: '1.2-2' }}</td>
+                  <td>${{ row.profit | number: '1.2-2' }}</td>
+                  <td>{{ row.roi | number: '1.2-2' }}%</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <div class="empty-state">No order rows matched the current hunter filter.</div>
+      }
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
           <h2>Hunter listings by account</h2>
           <p>Which hunter products are landing on which accounts.</p>
         </div>
@@ -316,6 +380,42 @@
         </div>
       } @else {
         <div class="empty-state">No hunter-account listing data matched this filter.</div>
+      }
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Orders by account</h2>
+          <p>Revenue and profit split across listing accounts.</p>
+        </div>
+      </div>
+
+      @if (orderReports()?.byAccount?.length) {
+        <div class="table-wrap">
+          <table class="data-table data-table--compact">
+            <thead>
+              <tr>
+                <th>Account</th>
+                <th>Orders</th>
+                <th>Revenue</th>
+                <th>Profit</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of orderReports()?.byAccount || []; track row.accountId) {
+                <tr>
+                  <td>{{ row.accountName }}</td>
+                  <td>{{ row.orderCount }}</td>
+                  <td>${{ row.revenue | number: '1.2-2' }}</td>
+                  <td>${{ row.profit | number: '1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <div class="empty-state">No order-account data matched this filter.</div>
       }
     </article>
   </section>

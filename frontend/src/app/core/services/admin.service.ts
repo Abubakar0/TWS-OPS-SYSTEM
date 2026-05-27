@@ -4,6 +4,7 @@ import { map } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { HunterAssignment, LoginResponse, User, UserPermissions, UserRole } from '../models/auth.models';
+import { OrderStats } from '../models/order.models';
 import { Account, HuntingCriteria } from '../models/product.models';
 import { PageResult } from '../state/query-state.models';
 
@@ -25,6 +26,7 @@ export interface AdminStats {
     listedCount: number;
   }>;
   daily: Array<{ date: string; hunted: number; listed: number; rejected: number; profit: number; roi: number }>;
+  orderStats?: OrderStats;
 }
 
 export interface SuperAdminStats {
@@ -41,6 +43,7 @@ export interface SuperAdminStats {
   byHunter: Array<{ id: string; name: string; hunted: number; listed: number }>;
   byLister: Array<{ id: string; name: string; listed: number; assignedHunters: number }>;
   byAccount: Array<{ id: string; name: string; listed: number }>;
+  orderStats?: OrderStats;
 }
 
 export interface AuditLogEntry {
@@ -58,6 +61,9 @@ export interface AuditLogEntry {
   targetRole?: string | null;
   productTitle?: string | null;
   productAsin?: string | null;
+  orderCode?: string | null;
+  orderEbayId?: string | null;
+  orderProductTitle?: string | null;
   accountName?: string | null;
   details?: Record<string, unknown> | null;
 }

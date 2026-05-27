@@ -5,7 +5,12 @@ import { firstValueFrom } from 'rxjs';
 
 import { ProductAdminApiService } from '../api/product-admin-api.service';
 import { AuthService } from '../auth/auth.service';
-import { Product, ProductFilters, ProductQualityLabel, ProductStatus } from '../models/product.models';
+import {
+  Product,
+  ProductFilters,
+  ProductQualityLabel,
+  ProductStatus,
+} from '../models/product.models';
 import { ExportService } from '../services/export.service';
 import { ReferenceDataService } from '../state/reference-data.service';
 import { WorkspaceSyncService } from '../state/workspace-sync.service';
@@ -67,9 +72,9 @@ export class AdminProductsFacade {
   );
   readonly canRestore = computed(() => this.auth.currentUser()?.role === 'super_admin');
   readonly qualityOptions: ProductQualityLabel[] = [
-    'Excellent Hunting',
-    'Good Hunting',
-    'Average Hunting',
+    'Best Hunt',
+    'Good Hunt',
+    'Avg Hunt',
     'Rejected',
   ];
 
@@ -87,18 +92,24 @@ export class AdminProductsFacade {
     this.referenceData
       .getUsers('hunter')
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((users) => this.availableHunters.set(users.map((user) => ({ id: user.id, name: user.name }))));
+      .subscribe((users) =>
+        this.availableHunters.set(users.map((user) => ({ id: user.id, name: user.name }))),
+      );
 
     this.referenceData
       .getUsers('lister')
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((users) => this.availableListers.set(users.map((user) => ({ id: user.id, name: user.name }))));
+      .subscribe((users) =>
+        this.availableListers.set(users.map((user) => ({ id: user.id, name: user.name }))),
+      );
 
     this.referenceData
       .getAccounts(true)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((accounts) =>
-        this.availableAccounts.set(accounts.map((account) => ({ id: account.id, name: account.name }))),
+        this.availableAccounts.set(
+          accounts.map((account) => ({ id: account.id, name: account.name })),
+        ),
       );
   }
 
@@ -230,19 +241,21 @@ export class AdminProductsFacade {
     this.error.set('');
     const action = permanent ? this.api.permanentlyDeleteProducts : this.api.softDeleteProducts;
 
-    action.call(this.api, this.selectedIds(), this.deleteForm.controls.reason.value.trim()).subscribe({
-      next: () => {
-        this.workspaceSync.notifyProductsChanged();
-        this.toast.success(permanent ? 'Products permanently deleted.' : 'Products deleted.');
-        this.closeDeleteModal(true);
-        this.loadProducts();
-        this.deleting.set(false);
-      },
-      error: (error) => {
-        this.error.set(error?.error?.message || 'Could not delete products.');
-        this.deleting.set(false);
-      },
-    });
+    action
+      .call(this.api, this.selectedIds(), this.deleteForm.controls.reason.value.trim())
+      .subscribe({
+        next: () => {
+          this.workspaceSync.notifyProductsChanged();
+          this.toast.success(permanent ? 'Products permanently deleted.' : 'Products deleted.');
+          this.closeDeleteModal(true);
+          this.loadProducts();
+          this.deleting.set(false);
+        },
+        error: (error) => {
+          this.error.set(error?.error?.message || 'Could not delete products.');
+          this.deleting.set(false);
+        },
+      });
   }
 
   restoreProduct(product: Product): void {
@@ -256,7 +269,7 @@ export class AdminProductsFacade {
         this.toast.success('Product restored.');
         this.loadProducts();
       },
-      error: (error) => (this.error.set(error?.error?.message || 'Could not restore product.')),
+      error: (error) => this.error.set(error?.error?.message || 'Could not restore product.'),
     });
   }
 
@@ -266,12 +279,16 @@ export class AdminProductsFacade {
 
     try {
       const filters = this.buildFilters();
-      const firstPage = await firstValueFrom(this.api.listProducts({ ...filters, page: 1, limit: 100 }));
+      const firstPage = await firstValueFrom(
+        this.api.listProducts({ ...filters, page: 1, limit: 100 }),
+      );
       const totalPages = Math.max(1, Math.ceil(firstPage.total / firstPage.limit));
       const rows = [...firstPage.items];
 
       for (let page = 2; page <= totalPages; page += 1) {
-        const nextPage = await firstValueFrom(this.api.listProducts({ ...filters, page, limit: 100 }));
+        const nextPage = await firstValueFrom(
+          this.api.listProducts({ ...filters, page, limit: 100 }),
+        );
         rows.push(...nextPage.items);
       }
 

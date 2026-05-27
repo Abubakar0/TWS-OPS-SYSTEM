@@ -12,6 +12,14 @@
       </div>
 
       <div class="page-actions">
+        <a mat-stroked-button routerLink="/admin/order-issues">
+          <mat-icon>error_outline</mat-icon>
+          <span>Order Issues</span>
+        </a>
+        <a mat-stroked-button routerLink="/admin/change-requests">
+          <mat-icon>fact_check</mat-icon>
+          <span>Change Requests</span>
+        </a>
         <a mat-stroked-button routerLink="/admin/activity">
           <mat-icon>history</mat-icon>
           <span>Activity Feed</span>
@@ -101,6 +109,21 @@
         <strong>{{ stats()?.byAccount?.length || 0 }}</strong>
         <small class="stat-card__trend">Listing accounts with activity</small>
       </article>
+    </section>
+
+    <section class="stats-grid stats-grid--four">
+      @for (card of orderHighlights(); track card.label) {
+        <article class="stat-card">
+          <div class="stat-card__header">
+            <div class="stat-card__icon" [class.stat-card__icon--success]="card.tone === 'stat-card__icon--success'" [class.stat-card__icon--warning]="card.tone === 'stat-card__icon--warning'" [class.stat-card__icon--danger]="card.tone === 'stat-card__icon--danger'">
+              <mat-icon>{{ card.icon }}</mat-icon>
+            </div>
+          </div>
+          <span>{{ card.label }}</span>
+          <strong>{{ card.value }}</strong>
+          <small class="stat-card__trend">{{ card.detail }}</small>
+        </article>
+      }
     </section>
 
     <section class="section-grid section-grid--three">

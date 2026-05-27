@@ -1,10 +1,11 @@
-const { pool } = require('../../db/pool');
-const { getCriteria } = require('../criteria/criteria.service');
+const { pool } = require("../../db/pool");
+const { getCriteria } = require("../criteria/criteria.service");
+const { getOrderStats } = require("../orders/orders.service");
 
-const addDateFilters = ({ query, where, params, column = 'p.created_at' }) => {
+const addDateFilters = ({ query, where, params, column = "p.created_at" }) => {
   const add = (sql, value) => {
     params.push(value);
-    where.push(sql.replace('?', `$${params.length}`));
+    where.push(sql.replace("?", `$${params.length}`));
   };
 
   if (query.from) {
@@ -16,7 +17,7 @@ const addDateFilters = ({ query, where, params, column = 'p.created_at' }) => {
   }
 };
 
-const buildProductFilters = (query, column = 'p.created_at') => {
+const buildProductFilters = (query, column = "p.created_at") => {
   const clauses = [];
   const params = [];
 
@@ -32,7 +33,9 @@ const buildProductFilters = (query, column = 'p.created_at') => {
     const assignedIndex = params.length;
     params.push(query.listerId);
     const listedIndex = params.length;
-    clauses.push(`(p.assigned_lister_id = $${assignedIndex} OR p.listed_by = $${listedIndex})`);
+    clauses.push(
+      `(p.assigned_lister_id = $${assignedIndex} OR p.listed_by = $${listedIndex})`,
+    );
   }
 
   return {
@@ -41,14 +44,16 @@ const buildProductFilters = (query, column = 'p.created_at') => {
   };
 };
 
-const toWhereSql = (clauses) => (clauses.length ? `WHERE ${clauses.join(' AND ')}` : '');
-const toJoinSql = (clauses) => (clauses.length ? ` AND ${clauses.join(' AND ')}` : '');
+const toWhereSql = (clauses) =>
+  clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+const toJoinSql = (clauses) =>
+  clauses.length ? ` AND ${clauses.join(" AND ")}` : "";
 
 const getSuperAdminDateFilters = (query) => {
   const clauses = [];
   const params = [];
 
-  addDateFilters({ query, where: clauses, params, column: 'p.created_at' });
+  addDateFilters({ query, where: clauses, params, column: "p.created_at" });
 
   return {
     clauses,
@@ -59,15 +64,15 @@ const getSuperAdminDateFilters = (query) => {
 };
 
 const admin = async (req, res) => {
-  const filters = buildProductFilters(req.query, 'p.created_at');
+  const filters = buildProductFilters(req.query, "p.created_at");
   const whereSql = toWhereSql(filters.clauses);
   const joinSql = toJoinSql(filters.clauses);
 
   const byHunterParams = [...filters.params];
   const byListerParams = [...filters.params];
 
-  let hunterUserFilter = '';
-  let listerUserFilter = '';
+  let hunterUserFilter = "";
+  let listerUserFilter = "";
 
   if (req.query.hunterId) {
     byHunterParams.push(req.query.hunterId);
@@ -79,7 +84,15 @@ const admin = async (req, res) => {
     listerUserFilter = `AND lister.id = $${byListerParams.length}`;
   }
 
-  const [summary, byHunter, byLister, byAccount, byHunterAccount, daily] = await Promise.all([
+  const [
+    summary,
+    byHunter,
+    byLister,
+    byAccount,
+    byHunterAccount,
+    daily,
+    orderStats,
+  ] = await Promise.all([
     pool.query(
       `
         SELECT
@@ -156,7 +169,7 @@ const admin = async (req, res) => {
         JOIN users hunter ON hunter.id = p.hunter_id
         JOIN accounts account ON account.id = p.account_used
         WHERE p.status = 'listed'
-          ${filters.clauses.length ? `AND ${filters.clauses.join(' AND ')}` : ''}
+          ${filters.clauses.length ? `AND ${filters.clauses.join(" AND ")}` : ""}
         GROUP BY hunter.id, hunter.name, account.id, account.name
         ORDER BY hunter.name, "listedCount" DESC, account.name
       `,
@@ -179,6 +192,7 @@ const admin = async (req, res) => {
       `,
       filters.params,
     ),
+    getOrderStats(req.user, req.query),
   ]);
 
   const row = summary.rows[0];
@@ -195,6 +209,7 @@ const admin = async (req, res) => {
       byLister: byLister.rows,
       byAccount: byAccount.rows,
       byHunterAccount: byHunterAccount.rows,
+      orderStats,
       daily: daily.rows.map((entry) => ({
         ...entry,
         profit: Number(entry.profit),
@@ -209,7 +224,7 @@ const hunter = async (req, res) => {
   const summaryWhere = [];
   const summaryParams = [];
 
-  if (req.user.role === 'hunter') {
+  if (req.user.role === "hunter") {
     summaryParams.push(req.user.id);
     summaryWhere.push(`p.hunter_id = $${summaryParams.length}`);
   } else if (req.query.hunterId) {
@@ -217,22 +232,41 @@ const hunter = async (req, res) => {
     summaryWhere.push(`p.hunter_id = $${summaryParams.length}`);
   }
 
-  addDateFilters({ query: req.query, where: summaryWhere, params: summaryParams, column: 'p.created_at' });
+  addDateFilters({
+    query: req.query,
+    where: summaryWhere,
+    params: summaryParams,
+    column: "p.created_at",
+  });
 
-  const summaryClause = summaryWhere.length ? `WHERE ${summaryWhere.join(' AND ')}` : '';
+  const summaryClause = summaryWhere.length
+    ? `WHERE ${summaryWhere.join(" AND ")}`
+    : "";
   const accountWhere = [...summaryWhere, "p.status = 'listed'"];
-  const accountClause = `WHERE ${accountWhere.join(' AND ')}`;
-  const listerWhere = [...summaryWhere, 'p.assigned_lister_id IS NOT NULL'];
-  const listerClause = `WHERE ${listerWhere.join(' AND ')}`;
+  const accountClause = `WHERE ${accountWhere.join(" AND ")}`;
+  const listerWhere = [...summaryWhere, "p.assigned_lister_id IS NOT NULL"];
+  const listerClause = `WHERE ${listerWhere.join(" AND ")}`;
 
-  const excellentRoi = Math.max(criteria.minRoi + 15, criteria.minRoi * 1.35, 35);
-  const excellentProfit = Math.max(criteria.minProfit + 5, criteria.minProfit * 1.5, 5);
+  const excellentRoi = Math.max(
+    criteria.minRoi + 15,
+    criteria.minRoi * 1.35,
+    35,
+  );
+  const excellentProfit = Math.max(
+    criteria.minProfit + 5,
+    criteria.minProfit * 1.5,
+    5,
+  );
   const excellentSales = Math.max(
     criteria.minSalesLastTwoMonths + 12,
     criteria.minSalesLastTwoMonths * 1.4,
     12,
   );
-  const excellentStock = Math.max(criteria.minStockCount + 4, criteria.minStockCount * 1.3, 12);
+  const excellentStock = Math.max(
+    criteria.minStockCount + 4,
+    criteria.minStockCount * 1.3,
+    12,
+  );
   const excellentRating = Math.max(criteria.minRating + 0.5, 4.2);
   const qualityCase = `
     CASE
@@ -242,7 +276,7 @@ const hunter = async (req, res) => {
         AND COALESCE(p.sales_last_two_months, 0) >= ${excellentSales}
         AND COALESCE(p.stock_quantity, 0) >= ${excellentStock}
         AND COALESCE(p.rating, 0) >= ${excellentRating}
-      THEN 'Excellent Hunting'
+      THEN 'Best Hunt'
       WHEN (
         CASE WHEN p.roi >= ${excellentRoi} THEN 1 ELSE 0 END
         + CASE WHEN p.profit >= ${excellentProfit} THEN 1 ELSE 0 END
@@ -250,12 +284,12 @@ const hunter = async (req, res) => {
         + CASE WHEN COALESCE(p.stock_quantity, 0) >= ${excellentStock} THEN 1 ELSE 0 END
         + CASE WHEN COALESCE(p.rating, 0) >= ${excellentRating} THEN 1 ELSE 0 END
       ) >= 2
-      THEN 'Good Hunting'
-      ELSE 'Average Hunting'
+      THEN 'Good Hunt'
+      ELSE 'Avg Hunt'
     END
   `;
 
-  const [summary, byAccount, byLister] = await Promise.all([
+  const [summary, byAccount, byLister, orderStats] = await Promise.all([
     pool.query(
       `
         WITH scoped AS (
@@ -271,9 +305,9 @@ const hunter = async (req, res) => {
           COUNT(*) FILTER (WHERE scoped.status = 'assigned')::int AS "pending",
           COUNT(*) FILTER (WHERE scoped.status = 'rejected')::int AS "rejected",
           COUNT(*) FILTER (WHERE scoped.status = 'listed')::int AS "listed",
-          COUNT(*) FILTER (WHERE scoped.quality_label = 'Excellent Hunting')::int AS "excellent",
-          COUNT(*) FILTER (WHERE scoped.quality_label = 'Good Hunting')::int AS "good",
-          COUNT(*) FILTER (WHERE scoped.quality_label = 'Average Hunting')::int AS "average"
+          COUNT(*) FILTER (WHERE scoped.quality_label = 'Best Hunt')::int AS "excellent",
+          COUNT(*) FILTER (WHERE scoped.quality_label = 'Good Hunt')::int AS "good",
+          COUNT(*) FILTER (WHERE scoped.quality_label = 'Average Hunt')::int AS "average"
         FROM scoped
       `,
       summaryParams,
@@ -306,6 +340,7 @@ const hunter = async (req, res) => {
       `,
       summaryParams,
     ),
+    getOrderStats(req.user, req.query),
   ]);
 
   const row = summary.rows[0];
@@ -322,6 +357,7 @@ const hunter = async (req, res) => {
       average: row.average,
       byAccount: byAccount.rows,
       byLister: byLister.rows,
+      orderStats,
     },
   });
 };
@@ -330,27 +366,43 @@ const lister = async (req, res) => {
   const listedWhere = ["p.status = 'listed'"];
   const listedParams = [];
 
-  if (req.user.role === 'lister') {
+  if (req.user.role === "lister") {
     listedParams.push(req.user.id);
     listedWhere.push(`p.listed_by = $${listedParams.length}`);
   }
 
-  addDateFilters({ query: req.query, where: listedWhere, params: listedParams, column: 'p.listed_at' });
+  addDateFilters({
+    query: req.query,
+    where: listedWhere,
+    params: listedParams,
+    column: "p.listed_at",
+  });
 
   const rejectedWhere = ["p.status = 'rejected'"];
   const rejectedParams = [];
 
-  if (req.user.role === 'lister') {
+  if (req.user.role === "lister") {
     rejectedParams.push(req.user.id);
     rejectedWhere.push(`p.assigned_lister_id = $${rejectedParams.length}`);
   }
 
-  addDateFilters({ query: req.query, where: rejectedWhere, params: rejectedParams, column: 'p.updated_at' });
+  addDateFilters({
+    query: req.query,
+    where: rejectedWhere,
+    params: rejectedParams,
+    column: "p.updated_at",
+  });
 
-  const listedClause = `WHERE ${listedWhere.join(' AND ')}`;
-  const rejectedClause = `WHERE ${rejectedWhere.join(' AND ')}`;
+  const listedClause = `WHERE ${listedWhere.join(" AND ")}`;
+  const rejectedClause = `WHERE ${rejectedWhere.join(" AND ")}`;
 
-  const [summary, rejectedSummary, byHunterListed, byHunterRejected, byAccount] = await Promise.all([
+  const [
+    summary,
+    rejectedSummary,
+    byHunterListed,
+    byHunterRejected,
+    byAccount,
+  ] = await Promise.all([
     pool.query(
       `
         SELECT COUNT(*)::int AS "totalListed"
@@ -412,7 +464,9 @@ const lister = async (req, res) => {
   ]);
 
   const byHunter = byHunterListed.rows.map((row) => {
-    const rejectedRow = byHunterRejected.rows.find((entry) => entry.hunterId === row.hunterId);
+    const rejectedRow = byHunterRejected.rows.find(
+      (entry) => entry.hunterId === row.hunterId,
+    );
     return {
       ...row,
       rejectedCount: rejectedRow ? rejectedRow.rejectedCount : 0,
@@ -433,7 +487,7 @@ const listerHunterAccounts = async (req, res) => {
   const where = ["p.status = 'listed'"];
   const params = [];
 
-  if (req.user.role === 'lister') {
+  if (req.user.role === "lister") {
     params.push(req.user.id);
     where.push(`p.listed_by = $${params.length}`);
   } else if (req.query.listerId) {
@@ -458,7 +512,7 @@ const listerHunterAccounts = async (req, res) => {
       FROM products p
       JOIN accounts account ON account.id = p.account_used
       JOIN users hunter ON hunter.id = p.hunter_id
-      WHERE ${where.join(' AND ')}
+      WHERE ${where.join(" AND ")}
       GROUP BY account.id, account.name, hunter.id, hunter.name
       ORDER BY "listedCount" DESC, account.name
     `,
@@ -470,7 +524,15 @@ const listerHunterAccounts = async (req, res) => {
 
 const superAdmin = async (req, res) => {
   const filters = getSuperAdminDateFilters(req.query);
-  const [userCounts, productCounts, byHunter, byLister, byAccount, systemActivity] = await Promise.all([
+  const [
+    userCounts,
+    productCounts,
+    byHunter,
+    byLister,
+    byAccount,
+    systemActivity,
+    orderStats,
+  ] = await Promise.all([
     pool.query(
       `
         SELECT
@@ -552,6 +614,7 @@ const superAdmin = async (req, res) => {
       `,
       [req.query.from || null, req.query.to || null],
     ),
+    getOrderStats(req.user, req.query),
   ]);
 
   res.json({
@@ -562,6 +625,7 @@ const superAdmin = async (req, res) => {
       byHunter: byHunter.rows,
       byLister: byLister.rows,
       byAccount: byAccount.rows,
+      orderStats,
     },
   });
 };

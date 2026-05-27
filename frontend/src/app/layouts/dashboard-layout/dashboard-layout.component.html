@@ -62,26 +62,6 @@
       </div>
 
       <div class="app-sidebar__footer">
-        <div class="sidebar-platforms" [class.is-collapsed]="vm.sidebarCollapsed">
-          @for (platform of vm.footerPlatforms; track platform.key) {
-            <a
-              class="sidebar-platform-link"
-              [href]="platform.href"
-              [target]="platform.external ? '_blank' : null"
-              [rel]="platform.external ? 'noopener noreferrer' : null"
-              [matTooltip]="vm.sidebarCollapsed ? platform.label : ''"
-            >
-              <mat-icon>{{ platform.icon }}</mat-icon>
-              <span [class.is-hidden]="vm.sidebarCollapsed">{{ platform.label }}</span>
-            </a>
-          }
-        </div>
-
-        <div class="sidebar-meta" [class.is-collapsed]="vm.sidebarCollapsed">
-          <span [class.is-hidden]="vm.sidebarCollapsed">{{ vm.version }}</span>
-          <span [class.is-hidden]="vm.sidebarCollapsed">{{ vm.environmentLabel }}</span>
-        </div>
-
         <button
           mat-button
           type="button"
@@ -94,7 +74,6 @@
           <span class="sidebar-user__meta" [class.is-hidden]="vm.sidebarCollapsed">
             <strong>{{ vm.userName }}</strong>
             <small>{{ vm.userEmail }}</small>
-            <span class="sidebar-user__role">{{ vm.roleLabel }}</span>
           </span>
           <mat-icon [class.is-hidden]="vm.sidebarCollapsed">expand_more</mat-icon>
         </button>
@@ -119,22 +98,6 @@
 
   <mat-menu #userMenu="matMenu" xPosition="before" class="tw-menu">
     <div class="menu-panel">
-      <div class="menu-panel__header">
-        <span class="menu-panel__avatar">{{ vm.userInitials }}</span>
-        <div class="menu-panel__identity">
-          <strong>{{ vm.userName }}</strong>
-          <span>{{ vm.userEmail }}</span>
-        </div>
-      </div>
-
-      <div class="menu-role-card">
-        <mat-icon>shield_person</mat-icon>
-        <div>
-          <strong>{{ vm.roleLabel }}</strong>
-          <span>{{ branding.productName }}</span>
-        </div>
-      </div>
-
       <button mat-menu-item type="button" (click)="logout()">
         <mat-icon>logout</mat-icon>
         <p>Log out</p>

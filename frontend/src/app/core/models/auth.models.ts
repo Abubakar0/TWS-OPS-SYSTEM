@@ -1,4 +1,4 @@
-export type UserRole = 'super_admin' | 'admin' | 'hunter' | 'lister';
+export type UserRole = 'super_admin' | 'admin' | 'hunter' | 'lister' | 'order_processor';
 export type UserStatus = 'active' | 'disabled' | 'locked' | 'deleted';
 export type UserPermissionKey =
   | 'canManageAdmins'
@@ -6,6 +6,8 @@ export type UserPermissionKey =
   | 'canViewReports'
   | 'canExportReports'
   | 'canManageSettings'
+  | 'canProcessOrders'
+  | 'canViewAllOrders'
   | 'canViewLogs'
   | 'canImpersonate'
   | 'canDeleteUsers'

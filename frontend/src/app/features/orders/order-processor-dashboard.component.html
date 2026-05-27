@@ -1,0 +1,92 @@
+<section class="page-shell">
+  @if (error()) {
+    <div class="inline-state inline-state--error">
+      <mat-icon>error</mat-icon>
+      <div class="inline-state__content">
+        <strong>Dashboard needs attention</strong>
+        <span>{{ error() }}</span>
+      </div>
+    </div>
+  }
+
+  <article class="surface-card processor-dashboard__toolbar">
+    <div>
+      <h1>Order Processor Dashboard</h1>
+      <p>Keep new, placed, issue, and unmatched order work moving.</p>
+    </div>
+
+    <div class="processor-dashboard__actions">
+      <div class="processor-dashboard__chips">
+        <button mat-stroked-button type="button" [class.is-active]="range() === 'today'" (click)="setRange('today')">Today</button>
+        <button mat-stroked-button type="button" [class.is-active]="range() === 'yesterday'" (click)="setRange('yesterday')">Yesterday</button>
+        <button mat-stroked-button type="button" [class.is-active]="range() === 'month'" (click)="setRange('month')">This Month</button>
+      </div>
+
+      <div class="processor-dashboard__custom">
+        <mat-form-field appearance="outline">
+          <mat-label>From</mat-label>
+          <input matInput type="date" [formControl]="customFrom" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>To</mat-label>
+          <input matInput type="date" [formControl]="customTo" />
+        </mat-form-field>
+        <button mat-flat-button color="primary" type="button" (click)="applyCustomRange()">Apply</button>
+      </div>
+    </div>
+  </article>
+
+  @if (loading()) {
+    <article class="surface-card">
+      <div class="loading-state">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>Loading processor dashboard.</span>
+      </div>
+    </article>
+  } @else {
+    <section class="processor-dashboard__cards">
+      @for (card of cards(); track card.label) {
+        <article class="surface-card processor-card">
+          <span class="status-badge" [ngClass]="card.tone">{{ card.label }}</span>
+          <strong>{{ card.value }}</strong>
+        </article>
+      }
+    </section>
+
+    <section class="processor-dashboard__layout">
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Recent activity</h2>
+            <p>Latest order processing updates in your current range.</p>
+          </div>
+          <a mat-stroked-button routerLink="/order-processor/orders">
+            <mat-icon>receipt_long</mat-icon>
+            <span>Open Orders</span>
+          </a>
+        </div>
+
+        @if (recentActivity().length) {
+          <div class="processor-activity">
+            @for (item of recentActivity(); track item.id) {
+              <a class="processor-activity__item" [routerLink]="['/order-processor/orders', item.id]">
+                <div>
+                  <strong>{{ item.label }}</strong>
+                  <span>{{ item.orderCode }} • {{ item.asin }}</span>
+                </div>
+                <div class="processor-activity__meta">
+                  <span class="status-badge" [ngClass]="item.status === 'ISSUE' ? 'status-badge--order-issue' : 'status-badge--order-placed'">
+                    {{ item.status.replaceAll('_', ' ') }}
+                  </span>
+                  <small>{{ item.createdAt | date: 'MMM d, y, h:mm a' }}</small>
+                </div>
+              </a>
+            }
+          </div>
+        } @else {
+          <app-empty-state title="No activity yet" message="Orders you add or update will show up here." icon="schedule" />
+        }
+      </article>
+    </section>
+  }
+</section>

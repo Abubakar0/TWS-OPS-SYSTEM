@@ -3,6 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { map } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
+import { OrderStats } from '../models/order.models';
 
 export interface HunterDashboardFilters {
   from?: string;
@@ -40,6 +41,7 @@ export interface HunterDashboardStats {
   average: number;
   byAccount: HunterAccountStat[];
   byLister: HunterListerStat[];
+  orderStats?: OrderStats;
 }
 
 export interface ListerHunterStat {
@@ -54,6 +56,7 @@ export interface ListerDashboardStats {
   rejected: number;
   byHunter: ListerHunterStat[];
   byAccount: HunterAccountStat[];
+  orderStats?: OrderStats;
 }
 
 export interface ListerHunterAccountUsage {

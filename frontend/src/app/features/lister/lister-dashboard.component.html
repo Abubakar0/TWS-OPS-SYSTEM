@@ -3,7 +3,12 @@
     <div class="inline-state inline-state--warning">
       <mat-icon>fact_check</mat-icon>
       <div class="inline-state__content">
-        <strong>{{ changeRequestSummary().pending }} listing change request{{ changeRequestSummary().pending === 1 ? '' : 's' }} still pending</strong>
+        <strong
+          >{{ changeRequestSummary().pending }} listing change request{{
+            changeRequestSummary().pending === 1 ? '' : 's'
+          }}
+          still pending</strong
+        >
         <span>Keep these account updates moving until hunters see them completed.</span>
       </div>
       <a mat-stroked-button routerLink="/lister/changes">Open Change Requests</a>
@@ -14,7 +19,9 @@
     <div>
       <span class="hero-banner__eyebrow">Lister workspace</span>
       <h1 class="hero-banner__title">Listing output at a glance</h1>
-      <p class="hero-banner__subtitle">Review listing velocity, rejected items, and account usage.</p>
+      <p class="hero-banner__subtitle">
+        Review listing velocity, rejected items, and account usage.
+      </p>
     </div>
 
     <div class="hero-banner__meta">
@@ -75,7 +82,12 @@
           <input matInput type="date" formControlName="to" />
         </mat-form-field>
 
-        <button mat-flat-button color="primary" type="submit" [disabled]="loading() || customRangeForm.invalid">
+        <button
+          mat-flat-button
+          color="primary"
+          type="submit"
+          [disabled]="loading() || customRangeForm.invalid"
+        >
           <mat-icon>filter_list</mat-icon>
           <span>Apply Range</span>
         </button>
@@ -108,7 +120,9 @@
 
     <article class="stat-card">
       <div class="stat-card__header">
-        <div class="stat-card__icon stat-card__icon--success"><mat-icon>travel_explore</mat-icon></div>
+        <div class="stat-card__icon stat-card__icon--success">
+          <mat-icon>travel_explore</mat-icon>
+        </div>
       </div>
       <span>Hunters with listings</span>
       <strong>{{ hunterCount() }}</strong>
@@ -145,7 +159,10 @@
             <div class="breakdown-row">
               <div>
                 <strong>{{ hunter.hunterName }}</strong>
-                <span>Listed {{ hunter.listedCount }} | Rejected {{ hunter.rejectedCount || 0 }}</span>
+                <span
+                  >Listed {{ hunter.listedCount }} <b>|</b> Rejected
+                  {{ hunter.rejectedCount || 0 }}</span
+                >
               </div>
               <strong class="breakdown-row__count">{{ hunter.listedCount }}</strong>
             </div>

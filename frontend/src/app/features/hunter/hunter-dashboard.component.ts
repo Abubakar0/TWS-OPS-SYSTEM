@@ -1,7 +1,23 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, Injector, OnInit, computed, effect, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  Injector,
+  OnInit,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, ValidatorFn } from '@angular/forms';
+import {
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  ValidationErrors,
+  ValidatorFn,
+} from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -11,8 +27,16 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { ChangeRequestApiService } from '../../core/api/change-request-api.service';
 import { WeeklyReviewApiService } from '../../core/api/weekly-review-api.service';
-import { DashboardService, HunterDashboardFilters, HunterDashboardStats } from '../../core/services/dashboard.service';
-import { ChangeRequestSummary, HuntingCriteria, WeeklyReviewStatus } from '../../core/models/product.models';
+import {
+  DashboardService,
+  HunterDashboardFilters,
+  HunterDashboardStats,
+} from '../../core/services/dashboard.service';
+import {
+  ChangeRequestSummary,
+  HuntingCriteria,
+  WeeklyReviewStatus,
+} from '../../core/models/product.models';
 import { ReferenceDataService } from '../../core/state/reference-data.service';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
 
@@ -80,6 +104,12 @@ export class HunterDashboardComponent implements OnInit {
     total: 0,
     pending: 0,
     completed: 0,
+    open: 0,
+    inProgress: 0,
+    fixed: 0,
+    rejected: 0,
+    closed: 0,
+    fixedToday: 0,
   });
   readonly selectedRange = signal<RangePreset>('thisMonth');
   readonly activeFilters = signal<HunterDashboardFilters>({});
@@ -111,25 +141,88 @@ export class HunterDashboardComponent implements OnInit {
   readonly averageCount = computed(() => this.stats()?.average ?? 0);
   readonly accountStats = computed(() => this.stats()?.byAccount ?? []);
   readonly listerStats = computed(() => this.stats()?.byLister ?? []);
+  readonly orderStats = computed(() => this.stats()?.orderStats ?? null);
+  readonly orderHighlights = computed(() => [
+    {
+      label: 'Products Needing Fix',
+      value: this.changeRequestSummary().pending || 0,
+      detail: 'Linked products with open listing fixes.',
+      icon: 'build_circle',
+      tone: 'stat-card__icon--warning',
+    },
+    {
+      label: 'My Orders',
+      value: this.orderStats()?.totalOrders ?? 0,
+      detail: 'Orders connected to your hunted products.',
+      icon: 'receipt_long',
+      tone: '',
+    },
+    {
+      label: 'Order Profit',
+      value: `$${(this.orderStats()?.totalProfit ?? 0).toFixed(2)}`,
+      detail: 'Profit captured from linked orders.',
+      icon: 'attach_money',
+      tone: 'stat-card__icon--success',
+    },
+    {
+      label: 'Pending Orders',
+      value: this.orderStats()?.pendingPlacement ?? 0,
+      detail: 'Orders still waiting on placement.',
+      icon: 'schedule',
+      tone: 'stat-card__icon--warning',
+    },
+    {
+      label: 'Delivered Orders',
+      value: this.orderStats()?.deliveredOrders ?? 0,
+      detail: 'Orders delivered to the buyer.',
+      icon: 'inventory',
+      tone: 'stat-card__icon--success',
+    },
+    {
+      label: 'Issue Orders',
+      value: this.orderStats()?.issueOrders ?? 0,
+      detail: 'Orders currently flagged for follow-up.',
+      icon: 'priority_high',
+      tone: 'stat-card__icon--danger',
+    },
+    {
+      label: 'Loss Orders',
+      value: this.orderStats()?.lossOrders ?? 0,
+      detail: 'Linked orders currently running below break-even.',
+      icon: 'trending_down',
+      tone: 'stat-card__icon--danger',
+    },
+    {
+      label: 'Unavailable Issues',
+      value: this.orderStats()?.unavailableIssues ?? 0,
+      detail: 'Matched orders where the product could not be sourced.',
+      icon: 'remove_shopping_cart',
+      tone: 'stat-card__icon--warning',
+    },
+  ]);
   readonly qualityGuide = computed(() => {
     const criteria = this.criteria();
     const excellentRoi = Math.max(criteria.minRoi + 15, criteria.minRoi * 1.35, 35);
     const excellentProfit = Math.max(criteria.minProfit + 5, criteria.minProfit * 1.5, 5);
-    const excellentSales = Math.max(criteria.minSalesLastTwoMonths + 12, criteria.minSalesLastTwoMonths * 1.4, 12);
+    const excellentSales = Math.max(
+      criteria.minSalesLastTwoMonths + 12,
+      criteria.minSalesLastTwoMonths * 1.4,
+      12,
+    );
     const excellentStock = Math.max(criteria.minStockCount + 4, criteria.minStockCount * 1.3, 12);
     const excellentRating = Math.max(criteria.minRating + 0.5, 4.2);
 
     return [
       {
-        label: 'Excellent Hunting',
+        label: 'Best Hunt',
         detail: `Passes every rule and hits at least 4 strong signals: ROI ${excellentRoi.toFixed(0)}%+, profit ${excellentProfit.toFixed(2)}+, sales ${excellentSales}+, stock ${excellentStock}+, rating ${excellentRating.toFixed(1)}+.`,
       },
       {
-        label: 'Good Hunting',
+        label: 'Good Hunt',
         detail: 'Passes every rule and lands at least 2 strong signals above the current baseline.',
       },
       {
-        label: 'Average Hunting',
+        label: 'Avg Hunt',
         detail: 'Passes the required rules but stays close to the minimum thresholds.',
       },
       {

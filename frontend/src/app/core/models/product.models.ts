@@ -1,9 +1,5 @@
 export type ProductStatus = 'approved' | 'rejected' | 'assigned' | 'listed';
-export type ProductQualityLabel =
-  | 'Excellent Hunting'
-  | 'Good Hunting'
-  | 'Average Hunting'
-  | 'Rejected';
+export type ProductQualityLabel = 'Best Hunt' | 'Good Hunt' | 'Avg Hunt' | 'Rejected';
 
 export interface ValidationNote {
   rule: string;
@@ -171,32 +167,67 @@ export interface BulkListedPayload {
 export interface ChangeRequest {
   id: string;
   productId: string;
+  orderId?: string | null;
   hunterId: string;
   hunterName: string;
   hunterEmail?: string | null;
   listerId: string | null;
   listerName: string | null;
   listerEmail?: string | null;
+  accountId?: string | null;
+  accountName?: string | null;
   asin: string;
   productTitle: string | null;
   requestedChanges: string;
-  status: 'pending' | 'completed';
+  issueType?: string | null;
+  issueReason?: string | null;
+  currentAmazonLink?: string | null;
+  currentEbayLink?: string | null;
+  currentPrice?: number | null;
+  newAmazonLink?: string | null;
+  newEbayLink?: string | null;
+  newPrice?: number | null;
+  newStockCount?: number | null;
+  notes?: string | null;
+  rejectedReason?: string | null;
+  status: 'OPEN' | 'IN_PROGRESS' | 'FIXED' | 'REJECTED' | 'CLOSED';
   completionNotes: string | null;
   completedBy: string | null;
   completedByName: string | null;
   completedAt: string | null;
+  createdBy?: string | null;
+  createdByName?: string | null;
+  startedAt?: string | null;
+  startedBy?: string | null;
+  startedByName?: string | null;
+  resolvedAt?: string | null;
+  resolvedBy?: string | null;
+  resolvedByName?: string | null;
   createdAt: string;
   updatedAt: string;
-  accountId?: string | null;
-  accountName?: string | null;
   productStatus?: ProductStatus | null;
   listingUrl?: string | null;
+  orderCode?: string | null;
+  orderStatus?: string | null;
+  orderIssueStatus?: string | null;
+  currentStockCount?: number | null;
 }
 
 export interface ChangeRequestSummary {
   total: number;
   pending: number;
   completed: number;
+  open?: number;
+  inProgress?: number;
+  fixed?: number;
+  rejected?: number;
+  closed?: number;
+  fixedToday?: number;
+}
+
+export interface ListerChangeRequestBlockStatus {
+  blocked: boolean;
+  openRequests: number;
 }
 
 export interface WeeklyReviewStatus {

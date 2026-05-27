@@ -3,7 +3,9 @@
     <div>
       <span class="hero-banner__eyebrow">Super Admin</span>
       <h1 class="hero-banner__title">Global control panel</h1>
-      <p class="hero-banner__subtitle">Track the full platform across users, workflow, and system activity.</p>
+      <p class="hero-banner__subtitle">
+        Track the full platform across users, workflow, and system activity.
+      </p>
     </div>
 
     <div class="hero-banner__meta">
@@ -11,7 +13,12 @@
         <mat-icon>analytics</mat-icon>
         <span>Open Reports</span>
       </a>
-      <button mat-stroked-button type="button" (click)="applyPreset(selectedRange())" [disabled]="loading()">
+      <button
+        mat-stroked-button
+        type="button"
+        (click)="applyPreset(selectedRange())"
+        [disabled]="loading()"
+      >
         <mat-icon>refresh</mat-icon>
         <span>Refresh</span>
       </button>
@@ -56,7 +63,12 @@
           <input matInput type="date" formControlName="to" />
         </mat-form-field>
 
-        <button mat-flat-button color="primary" type="submit" [disabled]="loading() || customRangeForm.invalid">
+        <button
+          mat-flat-button
+          color="primary"
+          type="submit"
+          [disabled]="loading() || customRangeForm.invalid"
+        >
           <mat-icon>date_range</mat-icon>
           <span>Apply Range</span>
         </button>
@@ -116,6 +128,21 @@
     </article>
   </section>
 
+  <section class="stats-grid stats-grid--four">
+    @for (card of orderHighlights(); track card.label) {
+      <article class="stat-card">
+        <div class="stat-card__header">
+          <div class="stat-card__icon" [class.stat-card__icon--success]="card.tone === 'stat-card__icon--success'" [class.stat-card__icon--warning]="card.tone === 'stat-card__icon--warning'" [class.stat-card__icon--danger]="card.tone === 'stat-card__icon--danger'">
+            <mat-icon>{{ card.icon }}</mat-icon>
+          </div>
+        </div>
+        <span>{{ card.label }}</span>
+        <strong>{{ card.value }}</strong>
+        <small>{{ card.detail }}</small>
+      </article>
+    }
+  </section>
+
   <section class="section-grid section-grid--three">
     <article class="surface-card">
       <div class="surface-card__header">
@@ -136,7 +163,7 @@
             <div class="breakdown-row">
               <div>
                 <strong>{{ row.name }}</strong>
-                <span>Hunted {{ row.hunted }} | Listed {{ row.listed }}</span>
+                <span>Hunted {{ row.hunted }} <b>|</b> Listed {{ row.listed }}</span>
               </div>
             </div>
           }
@@ -165,7 +192,9 @@
             <div class="breakdown-row">
               <div>
                 <strong>{{ row.name }}</strong>
-                <span>Listed {{ row.listed }} | Assigned hunters {{ row.assignedHunters }}</span>
+                <span
+                  >Listed {{ row.listed }} <b>|</b> Assigned hunters {{ row.assignedHunters }}</span
+                >
               </div>
             </div>
           }

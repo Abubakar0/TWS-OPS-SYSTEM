@@ -1,0 +1,1027 @@
+@if (pageVm(); as page) {
+  <section class="page-shell orders-workspace">
+    @if (facade.error()) {
+      <div class="inline-state inline-state--error">
+        <mat-icon>error</mat-icon>
+        <div class="inline-state__content">
+          <strong>Orders workspace needs attention</strong>
+          <span>{{ facade.error() }}</span>
+        </div>
+      </div>
+    }
+
+    @if (page.showProcessingBar) {
+      @if (facade.productivityBar(); as bar) {
+        <article class="surface-card orders-summary-bar">
+          <div class="orders-summary-bar__item">
+            <span>Current Hunter</span>
+            <strong>{{ bar.hunterName }}</strong>
+          </div>
+          <div class="orders-summary-bar__item">
+            <span>Listed</span>
+            <strong>{{ bar.listed }}</strong>
+          </div>
+          <div class="orders-summary-bar__item">
+            <span>Pending</span>
+            <strong>{{ bar.pending }}</strong>
+          </div>
+          <div class="orders-summary-bar__item">
+            <span>Rejected</span>
+            <strong>{{ bar.rejected }}</strong>
+          </div>
+          <div class="orders-summary-bar__item">
+            <span>Progress</span>
+            <strong>{{ bar.progressLabel }}</strong>
+            <small>{{ bar.completionPercent }}% complete</small>
+          </div>
+        </article>
+      }
+    }
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h1>{{ page.title }}</h1>
+          <p>{{ page.subtitle }}</p>
+        </div>
+
+        <div class="page-actions">
+          @if (page.showExport) {
+            <button
+              mat-flat-button
+              color="primary"
+              type="button"
+              (click)="facade.exportOrders()"
+              [disabled]="facade.exporting() || facade.loading() || !facade.total()"
+            >
+              <mat-icon>download</mat-icon>
+              <span>{{ facade.exporting() ? 'Exporting' : 'Export Orders' }}</span>
+            </button>
+          }
+
+          @if (facade.canWrite() && !facade.isProcessingWorkspace()) {
+            <a mat-stroked-button routerLink="/orders/processing">
+              <mat-icon>bolt</mat-icon>
+              <span>Processing Queue</span>
+            </a>
+          }
+
+          @if (page.showCreate && facade.canWrite()) {
+            <button mat-stroked-button type="button" (click)="facade.openCreateModal()">
+              <mat-icon>add_circle</mat-icon>
+              <span>Add Order</span>
+            </button>
+          }
+
+          <button
+            mat-stroked-button
+            type="button"
+            (click)="facade.refresh()"
+            [disabled]="facade.loading() || facade.statsLoading()"
+          >
+            <mat-icon>refresh</mat-icon>
+            <span>Refresh</span>
+          </button>
+
+          <button mat-stroked-button type="button" (click)="facade.toggleFiltersCollapsed()">
+            <mat-icon>{{ facade.filtersCollapsed() ? 'unfold_more' : 'unfold_less' }}</mat-icon>
+            <span>{{ facade.filtersCollapsed() ? 'Show Filters' : 'Hide Filters' }}</span>
+          </button>
+        </div>
+      </div>
+
+      <form class="filters-form" [formGroup]="facade.filters" (ngSubmit)="facade.applyFilters()">
+        <div class="filters-grid filters-grid--summary">
+          <mat-form-field appearance="outline" class="filters-grid__search">
+            <mat-label>Search orders</mat-label>
+            <input
+              matInput
+              formControlName="search"
+              autocomplete="off"
+              placeholder="eBay order, ASIN, product, hunter, account"
+            />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Placement</mat-label>
+            <mat-select formControlName="placementStatus">
+              <mat-option value="">All placement states</mat-option>
+              @for (status of facade.placementStatusOptions; track status) {
+                <mat-option [value]="status">{{ status.replaceAll('_', ' ') }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Status</mat-label>
+            <mat-select formControlName="status">
+              <mat-option value="">All statuses</mat-option>
+              @for (status of facade.orderStatusOptions; track status) {
+                <mat-option [value]="status">{{ status.replaceAll('_', ' ') }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        @if (!facade.filtersCollapsed()) {
+          <div class="filters-grid">
+            @if (facade.showHunterFilter()) {
+              <mat-form-field appearance="outline">
+                <mat-label>Hunter</mat-label>
+                <mat-select formControlName="hunterId">
+                  <mat-option value="">All hunters</mat-option>
+                  @for (hunter of facade.availableHunters(); track hunter.id) {
+                    <mat-option [value]="hunter.id">{{ hunter.name }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+
+            @if (facade.showListerFilter()) {
+              <mat-form-field appearance="outline">
+                <mat-label>Lister</mat-label>
+                <mat-select formControlName="listerId">
+                  <mat-option value="">All listers</mat-option>
+                  @for (lister of facade.availableListers(); track lister.id) {
+                    <mat-option [value]="lister.id">{{ lister.name }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+
+            <mat-form-field appearance="outline">
+              <mat-label>Account</mat-label>
+              <mat-select formControlName="accountId">
+                <mat-option value="">All accounts</mat-option>
+                @for (account of facade.availableAccounts(); track account.id) {
+                  <mat-option [value]="account.id">{{ account.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>ASIN</mat-label>
+              <input matInput formControlName="asin" autocomplete="off" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>eBay Order ID</mat-label>
+              <input matInput formControlName="ebayOrderId" autocomplete="off" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Amazon Order ID</mat-label>
+              <input matInput formControlName="amazonOrderId" autocomplete="off" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>From date</mat-label>
+              <input matInput type="date" formControlName="dateFrom" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>To date</mat-label>
+              <input matInput type="date" formControlName="dateTo" />
+            </mat-form-field>
+          </div>
+
+          <div class="filters-actions">
+            <mat-checkbox formControlName="unmatched">Unmatched orders only</mat-checkbox>
+
+            @if (facade.showDeletedFilter()) {
+              <mat-form-field appearance="outline" class="filters-grid__deleted">
+                <mat-label>Deleted state</mat-label>
+                <mat-select formControlName="deletedState">
+                  <mat-option value="active">Active only</mat-option>
+                  <mat-option value="deleted">Deleted only</mat-option>
+                  <mat-option value="all">All orders</mat-option>
+                </mat-select>
+              </mat-form-field>
+            }
+
+            <div class="grid-toolbar__actions">
+              <button mat-flat-button color="primary" type="submit" [disabled]="facade.loading()">
+                <mat-icon>filter_list</mat-icon>
+                <span>Apply</span>
+              </button>
+              <button mat-stroked-button type="button" (click)="facade.resetFilters()" [disabled]="facade.loading()">
+                <mat-icon>restart_alt</mat-icon>
+                <span>Reset</span>
+              </button>
+            </div>
+          </div>
+        }
+      </form>
+    </article>
+
+    @if (facade.loading()) {
+      <article class="surface-card">
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading orders.</span>
+        </div>
+      </article>
+    } @else if (!facade.orderRows().length) {
+      <app-empty-state [title]="page.emptyTitle" [message]="page.emptyMessage" icon="receipt_long" />
+    } @else {
+      <section class="orders-layout">
+        <article class="surface-card orders-main">
+          <div class="orders-table">
+            <div class="orders-table__head">
+              <span>Order</span>
+              <span>Product</span>
+              <span>Hunter / Account</span>
+              <span>Financials</span>
+              <span>Placement</span>
+              <span>Status</span>
+            </div>
+
+            @for (row of facade.orderRows(); track row.id) {
+              <button
+                type="button"
+                class="order-row"
+                [class.is-active]="facade.selectedOrderId() === row.id"
+                (click)="facade.selectOrder(row.id)"
+              >
+                <div class="order-row__cell order-row__summary">
+                  <strong>{{ row.orderCode }}</strong>
+                  <span>{{ row.ebayOrderId }}</span>
+                  <small>{{ row.dateLabel }}</small>
+                </div>
+
+                <div class="order-row__cell">
+                  <strong [attr.title]="row.title">{{ row.title }}</strong>
+                  <span>{{ row.asin || 'Unmatched product' }}</span>
+                  <small>{{ row.matchedLabel }}</small>
+                </div>
+
+                <div class="order-row__cell">
+                  <strong>{{ row.hunterName || 'Manual order' }}</strong>
+                  <span>{{ row.accountName || 'No account' }}</span>
+                  @if (row.listerName) {
+                    <small>Lister: {{ row.listerName }}</small>
+                  }
+                </div>
+
+                <div class="order-row__cell order-row__financials">
+                  <strong [class.is-negative]="row.profit < 0">${{ row.profit | number: '1.2-2' }}</strong>
+                  <span>Sale ${{ row.salePrice | number: '1.2-2' }}</span>
+                  <small>ROI {{ row.roi | number: '1.0-2' }}%</small>
+                </div>
+
+                <div class="order-row__cell">
+                  <span class="status-badge" [ngClass]="row.placementTone">{{ row.placementLabel }}</span>
+                  <small>{{ row.amazonOrderId || row.amazonOrderLink || 'Awaiting supplier placement' }}</small>
+                </div>
+
+                <div class="order-row__cell order-row__status">
+                  <span class="status-badge" [ngClass]="row.statusTone">{{ row.statusLabel }}</span>
+                  <span class="status-badge" [ngClass]="row.qualityTone">{{ row.qualityLabel }}</span>
+                </div>
+              </button>
+            }
+          </div>
+
+          <div class="grid-pager">
+            <span class="grid-pager__status">{{ facade.pageLabel() }}</span>
+
+            <div class="grid-toolbar__actions">
+              <mat-form-field appearance="outline" class="page-size-field">
+                <mat-label>Rows</mat-label>
+                <mat-select [value]="facade.pageSize()" (valueChange)="facade.setPageSize($event)">
+                  @for (size of facade.pageSizeOptions; track size) {
+                    <mat-option [value]="size">{{ size }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+
+              <button mat-stroked-button type="button" (click)="facade.previousPage()" [disabled]="facade.pageIndex() === 0">
+                <mat-icon>chevron_left</mat-icon>
+                <span>Previous</span>
+              </button>
+
+              <button
+                mat-stroked-button
+                type="button"
+                (click)="facade.nextPage()"
+                [disabled]="facade.pageIndex() >= facade.pageCount() - 1"
+              >
+                <span>Next</span>
+                <mat-icon>chevron_right</mat-icon>
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <aside class="surface-card orders-sidebar">
+          @if (facade.selectedOrderVm(); as order) {
+            <div class="orders-sidebar__top">
+              <div>
+                <h2>Order Details</h2>
+                <p>{{ order.orderCode }}</p>
+              </div>
+
+              <div class="grid-toolbar__actions">
+                @if (facade.canWrite()) {
+                  <button mat-stroked-button type="button" (click)="facade.openEditModal(order)">
+                    <mat-icon>edit</mat-icon>
+                    <span>Edit</span>
+                  </button>
+                }
+
+                @if (facade.canDelete() && !order.deletedAt) {
+                  <button mat-stroked-button type="button" (click)="facade.openDeleteModal(order)">
+                    <mat-icon>delete</mat-icon>
+                    <span>Delete</span>
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div class="order-detail-summary">
+              <div class="order-detail-summary__icon">
+                <mat-icon>local_shipping</mat-icon>
+              </div>
+
+              <div class="order-detail-summary__copy">
+                <strong [attr.title]="order.title">{{ order.title }}</strong>
+                <span>eBay Order: {{ order.ebayOrderId }}</span>
+                <small>{{ order.hunterName || 'Manual order' }} • {{ order.accountName || 'No account selected' }}</small>
+              </div>
+
+              <div class="order-detail-summary__badges">
+                <span class="status-badge" [ngClass]="order.statusTone">{{ order.statusLabel }}</span>
+                <span class="status-badge" [ngClass]="order.placementTone">{{ order.placementLabel }}</span>
+                <span class="status-badge" [ngClass]="order.qualityTone">{{ order.qualityLabel }}</span>
+              </div>
+            </div>
+
+            <div class="detail-facts">
+              <div class="detail-fact">
+                <span>ASIN</span>
+                <strong>{{ order.asin || 'Not linked yet' }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Quantity</span>
+                <strong>{{ order.quantity }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Order date</span>
+                <strong>{{ order.orderDate | date: 'MMM d, y' }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Buyer</span>
+                <strong>{{ order.buyerCountry || order.buyerName || 'Not captured' }}</strong>
+              </div>
+            </div>
+
+            <div class="detail-section">
+              <h3>Product</h3>
+              <div class="detail-stack">
+                <div class="detail-row">
+                  <span>Custom label</span>
+                  <strong>{{ order.customLabel || '—' }}</strong>
+                </div>
+                <div class="detail-row">
+                  <span>Amazon link</span>
+                  @if (order.productAmazonUrl) {
+                    <a [href]="order.productAmazonUrl" target="_blank" rel="noreferrer">Open supplier product</a>
+                  } @else {
+                    <strong>—</strong>
+                  }
+                </div>
+                <div class="detail-row">
+                  <span>eBay listing</span>
+                  @if (order.productEbayUrl || order.listingUrl || order.ebayListingUrl) {
+                    <a
+                      [href]="order.listingUrl || order.productEbayUrl || order.ebayListingUrl || ''"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Open listing
+                    </a>
+                  } @else {
+                    <strong>—</strong>
+                  }
+                </div>
+              </div>
+            </div>
+
+            <div class="detail-section">
+              <h3>Financials</h3>
+              <div class="detail-metrics">
+                <div class="detail-metric">
+                  <span>Sale Price</span>
+                  <strong>${{ order.salePrice | number: '1.2-2' }}</strong>
+                </div>
+                <div class="detail-metric">
+                  <span>Total Cost</span>
+                  <strong>${{ order.totalCost | number: '1.2-2' }}</strong>
+                </div>
+                <div class="detail-metric">
+                  <span>Profit</span>
+                  <strong [class.is-negative]="order.profit < 0">${{ order.profit | number: '1.2-2' }}</strong>
+                </div>
+                <div class="detail-metric">
+                  <span>ROI</span>
+                  <strong>{{ order.roi | number: '1.0-2' }}%</strong>
+                </div>
+                <div class="detail-metric">
+                  <span>eBay Fee</span>
+                  <strong>${{ (order.ebayFee || 0) | number: '1.2-2' }}</strong>
+                </div>
+                <div class="detail-metric">
+                  <span>Buying Price</span>
+                  <strong>${{ order.amazonBuyingPrice | number: '1.2-2' }}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="detail-section">
+              <h3>Placement</h3>
+              <div class="detail-stack">
+                <div class="detail-row">
+                  <span>Amazon order</span>
+                  <strong>{{ order.amazonOrderId || 'Not placed yet' }}</strong>
+                </div>
+                <div class="detail-row">
+                  <span>Amazon link</span>
+                  @if (order.amazonOrderLink) {
+                    <a [href]="order.amazonOrderLink" target="_blank" rel="noreferrer">Open Amazon order</a>
+                  } @else {
+                    <strong>—</strong>
+                  }
+                </div>
+                <div class="detail-row">
+                  <span>Tracking</span>
+                  <strong>{{ order.trackingNumber || 'Not shipped yet' }}</strong>
+                </div>
+                <div class="detail-row">
+                  <span>Carrier</span>
+                  <strong>{{ order.carrier || '—' }}</strong>
+                </div>
+                <div class="detail-row">
+                  <span>Payment</span>
+                  <strong>{{ order.paymentLabel }}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="detail-section">
+              <h3>Timeline</h3>
+              <div class="timeline-list">
+                @for (step of order.timeline; track step.label) {
+                  <div class="timeline-item">
+                    <span class="timeline-item__dot"></span>
+                    <div>
+                      <strong>{{ step.label }}</strong>
+                      <small>{{ step.value ? (step.value | date: 'MMM d, y, h:mm a') : 'Pending' }}</small>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+
+            @if (order.notes || order.issueReason) {
+              <div class="detail-section">
+                <h3>Notes</h3>
+                <div class="detail-stack">
+                  @if (order.notes) {
+                    <div class="inline-state">
+                      <mat-icon>note</mat-icon>
+                      <div class="inline-state__content">
+                        <strong>Internal note</strong>
+                        <span>{{ order.notes }}</span>
+                      </div>
+                    </div>
+                  }
+
+                  @if (order.issueReason) {
+                    <div class="inline-state inline-state--warning">
+                      <mat-icon>priority_high</mat-icon>
+                      <div class="inline-state__content">
+                        <strong>{{ order.issueType ? order.issueType.replaceAll('_', ' ') : 'Issue reason' }}</strong>
+                        <span>{{ order.issueReason }}</span>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+
+            @if (facade.canWrite()) {
+              <div class="detail-section">
+                <h3>Update Order</h3>
+                <div class="form-grid form-grid--compact">
+                  <mat-form-field appearance="outline">
+                    <mat-label>Amazon Order ID</mat-label>
+                    <input matInput formControlName="amazonOrderId" autocomplete="off" />
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Amazon Product Link</mat-label>
+                    <input matInput formControlName="amazonOrderLink" autocomplete="off" />
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Purchasing Price</mat-label>
+                    <input matInput formControlName="amazonBuyingPrice" autocomplete="off" />
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Tracking Number</mat-label>
+                    <input matInput formControlName="trackingNumber" autocomplete="off" />
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Carrier</mat-label>
+                    <input matInput formControlName="carrier" autocomplete="off" />
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Issue Type</mat-label>
+                    <mat-select formControlName="issueType">
+                      @for (type of facade.issueTypeOptions; track type) {
+                        <mat-option [value]="type">{{ type.replaceAll('_', ' ') }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="field-span-2">
+                    <mat-label>Issue Reason</mat-label>
+                    <input matInput formControlName="issueReason" autocomplete="off" />
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="field-span-2">
+                    <mat-label>Notes</mat-label>
+                    <textarea matInput formControlName="notes" rows="3"></textarea>
+                  </mat-form-field>
+                </div>
+              </div>
+
+              <div class="detail-section">
+                <h3>Queue Actions</h3>
+                <div class="action-stack">
+                  <button
+                    mat-flat-button
+                    color="primary"
+                    type="button"
+                    (click)="facade.markSelectedPlaced()"
+                    [disabled]="!facade.processingActionsVm().canMarkPlaced"
+                  >
+                    <mat-icon>shopping_cart_checkout</mat-icon>
+                    <span>Mark Placed</span>
+                  </button>
+
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    (click)="facade.markSelectedShipped()"
+                    [disabled]="!facade.processingActionsVm().canMarkShipped"
+                  >
+                    <mat-icon>local_shipping</mat-icon>
+                    <span>Mark Shipped</span>
+                  </button>
+
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    (click)="facade.markSelectedDelivered()"
+                    [disabled]="!facade.processingActionsVm().canMarkDelivered"
+                  >
+                    <mat-icon>inventory</mat-icon>
+                    <span>Mark Delivered</span>
+                  </button>
+
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    (click)="facade.markSelectedIssue()"
+                    [disabled]="!facade.processingActionsVm().canMarkIssue"
+                  >
+                    <mat-icon>warning</mat-icon>
+                    <span>Mark Issue</span>
+                  </button>
+
+                  @if (facade.canRestore() && order.deletedAt) {
+                    <button mat-stroked-button type="button" (click)="facade.restoreSelectedOrder()">
+                      <mat-icon>restore</mat-icon>
+                      <span>Restore</span>
+                    </button>
+
+                    <button mat-stroked-button type="button" (click)="facade.openDeleteModal(order, true)">
+                      <mat-icon>delete_forever</mat-icon>
+                      <span>Delete Forever</span>
+                    </button>
+                  }
+                </div>
+              </div>
+            }
+          } @else {
+            <app-empty-state title="Select an order" message="Choose an order row to inspect details." icon="receipt_long" />
+          }
+        </aside>
+      </section>
+    }
+
+    @if (facade.modalState().open) {
+      <div class="app-modal-backdrop" (click)="facade.closeOrderModal()">
+        <article class="app-modal order-modal order-modal--wide" (click)="$event.stopPropagation()">
+          <div class="app-modal__header">
+            <div>
+              <h2>{{ facade.modalTitle() }}</h2>
+              <p>
+                {{
+                  facade.usesMinimalProcessorForm()
+                    ? 'Capture the essentials now. Placement, tracking, and issue handling can be updated later.'
+                    : 'Connect the order to a product, account, hunter, and placement workflow.'
+                }}
+              </p>
+            </div>
+
+            <button mat-icon-button type="button" (click)="facade.closeOrderModal()">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+
+          <form class="app-modal__body order-form-shell" [formGroup]="facade.orderForm">
+            <div class="order-form">
+            <section class="order-form__section">
+              <div class="order-form__section-header">
+                <h3>eBay Order Details</h3>
+                @if (facade.duplicateMessage()) {
+                  <span
+                    class="status-badge"
+                    [class.status-badge--danger]="facade.duplicateState() === 'duplicate'"
+                    [class.status-badge--success]="facade.duplicateState() === 'allowed'"
+                    [class.status-badge--warning]="facade.duplicateState() === 'checking'"
+                  >
+                    {{ facade.duplicateMessage() }}
+                  </span>
+                }
+              </div>
+
+              <div class="form-grid">
+                <mat-form-field appearance="outline">
+                  <mat-label>eBay Order ID</mat-label>
+                  <input matInput formControlName="ebayOrderId" autocomplete="off" />
+                  @if (facade.orderFormErrors().ebayOrderId) {
+                    <mat-error>{{ facade.orderFormErrors().ebayOrderId }}</mat-error>
+                  }
+                </mat-form-field>
+
+                @if (!facade.usesMinimalProcessorForm()) {
+                  <mat-form-field appearance="outline">
+                  <mat-label>eBay Item ID</mat-label>
+                  <input matInput formControlName="ebayItemId" autocomplete="off" />
+                  </mat-form-field>
+                }
+
+                @if (!facade.usesMinimalProcessorForm()) {
+                <mat-form-field appearance="outline">
+                  <mat-label>Order date</mat-label>
+                  <input matInput type="date" formControlName="orderDate" />
+                  @if (facade.orderFormErrors().orderDate) {
+                    <mat-error>{{ facade.orderFormErrors().orderDate }}</mat-error>
+                  }
+                </mat-form-field>
+                }
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Selling Price</mat-label>
+                  <input matInput formControlName="salePrice" autocomplete="off" />
+                  @if (facade.orderFormErrors().salePrice) {
+                    <mat-error>{{ facade.orderFormErrors().salePrice }}</mat-error>
+                  }
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Account</mat-label>
+                  <mat-select formControlName="accountId">
+                    <mat-option value="">Select account</mat-option>
+                    @for (account of facade.availableAccounts(); track account.id) {
+                      <mat-option [value]="account.id">{{ account.name }}</mat-option>
+                    }
+                  </mat-select>
+                  @if (facade.orderFormErrors().accountId) {
+                    <mat-error>{{ facade.orderFormErrors().accountId }}</mat-error>
+                  }
+                </mat-form-field>
+
+                @if (!facade.usesMinimalProcessorForm()) {
+                  <mat-form-field appearance="outline" class="field-span-2">
+                    <mat-label>eBay Listing URL</mat-label>
+                    <input matInput formControlName="ebayListingUrl" autocomplete="off" />
+                    @if (facade.orderFormErrors().ebayListingUrl) {
+                      <mat-error>{{ facade.orderFormErrors().ebayListingUrl }}</mat-error>
+                    }
+                  </mat-form-field>
+                }
+              </div>
+            </section>
+
+            <section class="order-form__section">
+              <div class="order-form__section-header">
+                <div>
+                  <h3>Product Matching</h3>
+                  <p>{{ facade.matchingSummary() }}</p>
+                </div>
+
+                <button mat-stroked-button type="button" (click)="facade.findProductMatches()" [disabled]="facade.matchLoading()">
+                  <mat-icon>travel_explore</mat-icon>
+                  <span>{{ facade.matchLoading() ? 'Matching' : 'Find Match' }}</span>
+                </button>
+              </div>
+
+              <div class="form-grid">
+                <mat-form-field appearance="outline">
+                  <mat-label>ASIN</mat-label>
+                  <input matInput formControlName="asin" autocomplete="off" />
+                  @if (facade.orderFormErrors().asin) {
+                    <mat-error>{{ facade.orderFormErrors().asin }}</mat-error>
+                  }
+                </mat-form-field>
+
+                @if (!facade.usesMinimalProcessorForm()) {
+                  <mat-form-field appearance="outline">
+                  <mat-label>Custom label</mat-label>
+                  <input matInput formControlName="customLabel" autocomplete="off" />
+                  </mat-form-field>
+                }
+
+                @if (!facade.usesMinimalProcessorForm()) {
+                  <mat-form-field appearance="outline" class="field-span-2">
+                    <mat-label>Product title</mat-label>
+                    <input matInput formControlName="productTitle" autocomplete="off" />
+                  </mat-form-field>
+                }
+
+                @if (!facade.usesMinimalProcessorForm()) {
+                  <mat-form-field appearance="outline">
+                  <mat-label>Hunter</mat-label>
+                  <mat-select formControlName="hunterId">
+                    <mat-option value="">Select hunter</mat-option>
+                    @for (hunter of facade.availableHunters(); track hunter.id) {
+                      <mat-option [value]="hunter.id">{{ hunter.name }}</mat-option>
+                    }
+                  </mat-select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                  <mat-label>Lister</mat-label>
+                  <mat-select formControlName="listerId">
+                    <mat-option value="">Optional lister</mat-option>
+                    @for (lister of facade.availableListers(); track lister.id) {
+                      <mat-option [value]="lister.id">{{ lister.name }}</mat-option>
+                    }
+                  </mat-select>
+                  </mat-form-field>
+                }
+              </div>
+
+              @if (facade.matchResults().length) {
+                <div class="match-grid">
+                  @for (match of facade.matchResults(); track match.id) {
+                    <button
+                      type="button"
+                      class="match-card"
+                      [class.is-active]="facade.selectedMatchId() === match.id"
+                      (click)="facade.applyMatch(match)"
+                    >
+                      <strong>{{ match.title || match.asin || 'Matched product' }}</strong>
+                      <span>{{ match.asin || 'No ASIN' }}</span>
+                      <small>{{ match.hunterName }} • {{ match.accountName || 'No account' }}</small>
+                    </button>
+                  }
+                </div>
+              }
+            </section>
+
+            <section class="order-form__section">
+              <div class="order-form__section-header">
+                <h3>{{ facade.usesMinimalProcessorForm() ? 'Pricing & Optional Details' : 'Placement Details' }}</h3>
+              </div>
+
+              <div class="form-grid">
+                <mat-form-field appearance="outline">
+                  <mat-label>Amazon Order ID</mat-label>
+                  <input matInput formControlName="amazonOrderId" autocomplete="off" />
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>{{ facade.usesMinimalProcessorForm() ? 'Amazon Product Link' : 'Amazon Order Link' }}</mat-label>
+                  <input matInput formControlName="amazonOrderLink" autocomplete="off" />
+                  @if (facade.orderFormErrors().amazonOrderLink) {
+                    <mat-error>{{ facade.orderFormErrors().amazonOrderLink }}</mat-error>
+                  }
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Purchasing Price</mat-label>
+                  <input matInput formControlName="amazonBuyingPrice" autocomplete="off" />
+                  @if (facade.orderFormErrors().amazonBuyingPrice) {
+                    <mat-error>{{ facade.orderFormErrors().amazonBuyingPrice }}</mat-error>
+                  }
+                </mat-form-field>
+
+                @if (!facade.usesMinimalProcessorForm()) {
+                  <mat-form-field appearance="outline">
+                  <mat-label>Buyer country</mat-label>
+                  <input matInput formControlName="buyerCountry" autocomplete="off" />
+                  </mat-form-field>
+                }
+
+                @if (!facade.usesMinimalProcessorForm()) {
+                  <mat-form-field appearance="outline">
+                  <mat-label>Supplier shipping cost</mat-label>
+                  <input matInput formControlName="supplierShippingCost" autocomplete="off" />
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                  <mat-label>Other cost</mat-label>
+                  <input matInput formControlName="otherCost" autocomplete="off" />
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                  <mat-label>eBay fee</mat-label>
+                  <input matInput formControlName="ebayFee" autocomplete="off" />
+                  </mat-form-field>
+                }
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Tracking number</mat-label>
+                  <input matInput formControlName="trackingNumber" autocomplete="off" />
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Carrier</mat-label>
+                  <input matInput formControlName="carrier" autocomplete="off" />
+                </mat-form-field>
+
+                @if (!facade.usesMinimalProcessorForm()) {
+                  <mat-form-field appearance="outline">
+                  <mat-label>Placement status</mat-label>
+                  <mat-select formControlName="placementStatus">
+                    @for (status of facade.placementStatusOptions; track status) {
+                      <mat-option [value]="status">{{ status.replaceAll('_', ' ') }}</mat-option>
+                    }
+                  </mat-select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                  <mat-label>Order status</mat-label>
+                  <mat-select formControlName="orderStatus">
+                    @for (status of facade.orderStatusOptions; track status) {
+                      <mat-option [value]="status">{{ status.replaceAll('_', ' ') }}</mat-option>
+                    }
+                  </mat-select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                  <mat-label>Payment status</mat-label>
+                  <mat-select formControlName="paymentStatus">
+                    @for (status of facade.paymentStatusOptions; track status) {
+                      <mat-option [value]="status">{{ status.replaceAll('_', ' ') }}</mat-option>
+                    }
+                  </mat-select>
+                  </mat-form-field>
+                }
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Issue Type</mat-label>
+                  <mat-select formControlName="issueType">
+                    @for (type of facade.issueTypeOptions; track type) {
+                      <mat-option [value]="type">{{ type.replaceAll('_', ' ') }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Order impact</mat-label>
+                  <mat-select formControlName="orderImpact">
+                    <mat-option value="">Select impact</mat-option>
+                    @for (impact of facade.orderImpactOptions; track impact) {
+                      <mat-option [value]="impact">{{ impact }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Issue reason</mat-label>
+                  <input matInput formControlName="issueReason" autocomplete="off" />
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="field-span-2">
+                  <mat-label>Notes</mat-label>
+                  <textarea matInput formControlName="notes" rows="4"></textarea>
+                </mat-form-field>
+              </div>
+            </section>
+            </div>
+
+            <aside class="order-form__summary">
+              <section class="order-form__section">
+                <div class="order-form__section-header">
+                  <h3>Order Summary</h3>
+                </div>
+
+                <div class="detail-metrics">
+                  <div class="detail-metric">
+                    <span>Selling Price</span>
+                    <strong>${{ facade.modalSummaryVm().salePrice | number: '1.2-2' }}</strong>
+                  </div>
+                  <div class="detail-metric">
+                    <span>Purchasing Price</span>
+                    <strong>${{ facade.modalSummaryVm().buyingPrice | number: '1.2-2' }}</strong>
+                  </div>
+                  <div class="detail-metric">
+                    <span>Profit</span>
+                    <strong [class.is-negative]="facade.modalSummaryVm().profit < 0">
+                      ${{ facade.modalSummaryVm().profit | number: '1.2-2' }}
+                    </strong>
+                  </div>
+                  <div class="detail-metric">
+                    <span>ROI</span>
+                    <strong>{{ facade.modalSummaryVm().roi | number: '1.0-2' }}%</strong>
+                  </div>
+                </div>
+
+                <div class="detail-stack">
+                  <div class="detail-row">
+                    <span>Status</span>
+                    <strong>{{ facade.modalSummaryVm().statusLabel }}</strong>
+                  </div>
+                  <div class="detail-row">
+                    <span>Matched Hunter</span>
+                    <strong>{{ facade.modalSummaryVm().matchedHunter }}</strong>
+                  </div>
+                  <div class="detail-row">
+                    <span>Matched Product</span>
+                    <strong>{{ facade.modalSummaryVm().matchedProduct }}</strong>
+                  </div>
+                  <div class="detail-row">
+                    <span>Match State</span>
+                    <strong>{{ facade.modalSummaryVm().matchStatus }}</strong>
+                  </div>
+                  <div class="detail-row">
+                    <span>Quality</span>
+                    <strong>{{ facade.modalSummaryVm().qualityLabel }}</strong>
+                  </div>
+                </div>
+              </section>
+            </aside>
+          </form>
+
+          <div class="app-modal__footer">
+            <button mat-stroked-button type="button" (click)="facade.closeOrderModal()" [disabled]="facade.saving()">
+              Cancel
+            </button>
+            <button mat-flat-button color="primary" type="button" (click)="facade.submitOrder()" [disabled]="!facade.canSubmitOrder()">
+              <mat-icon>{{ facade.saving() ? 'hourglass_top' : 'save' }}</mat-icon>
+              <span>{{ facade.saving() ? 'Saving' : 'Save Order' }}</span>
+            </button>
+          </div>
+        </article>
+      </div>
+    }
+
+    @if (facade.deleteModalOpen()) {
+      <div class="app-modal-backdrop" (click)="facade.closeDeleteModal()">
+        <article class="app-modal" (click)="$event.stopPropagation()">
+          <div class="app-modal__header">
+            <div>
+              <h2>{{ facade.deletePermanent() ? 'Permanently delete order?' : 'Delete order?' }}</h2>
+              <p>
+                {{
+                  facade.deletePermanent()
+                    ? 'This action cannot be undone.'
+                    : 'The order will leave active views and can be restored later by Super Admin.'
+                }}
+              </p>
+            </div>
+            <button mat-icon-button type="button" (click)="facade.closeDeleteModal()">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+
+          <div class="app-modal__body">
+            <mat-form-field appearance="outline">
+              <mat-label>Deletion reason</mat-label>
+              <textarea matInput [formControl]="facade.deleteReasonControl" rows="4"></textarea>
+            </mat-form-field>
+          </div>
+
+          <div class="app-modal__footer">
+            <button mat-stroked-button type="button" (click)="facade.closeDeleteModal()" [disabled]="facade.saving()">
+              Cancel
+            </button>
+            <button mat-flat-button color="warn" type="button" (click)="facade.confirmDelete()" [disabled]="facade.saving()">
+              <mat-icon>delete</mat-icon>
+              <span>{{ facade.deletePermanent() ? 'Delete Forever' : 'Delete Order' }}</span>
+            </button>
+          </div>
+        </article>
+      </div>
+    }
+  </section>
+}

@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { AbstractControl } from '@angular/forms';
 
+import { OrderForm } from '../../shared/forms/order.form';
 import { HuntingCriteria } from '../models/product.models';
 import { SubmissionControlName } from '../../shared/forms/product-submission.form';
 
@@ -177,6 +178,55 @@ export class ValidationMessageService {
 
     if (control.hasError('minlength')) {
       return 'Password must be at least 8 characters.';
+    }
+
+    return '';
+  }
+
+  orderFieldError(control: AbstractControl | null, field: keyof OrderForm['controls'], touched: boolean): string {
+    if (!control || !touched) {
+      return '';
+    }
+
+    if (control.hasError('required')) {
+      switch (field) {
+        case 'ebayOrderId':
+          return 'eBay Order ID is required.';
+        case 'orderDate':
+          return 'Order date is required.';
+        case 'quantity':
+          return 'Quantity is required.';
+        case 'salePrice':
+          return 'Sale price is required.';
+        case 'accountId':
+          return 'Choose an account.';
+        default:
+          return 'This field is required.';
+      }
+    }
+
+    if (control.hasError('integer')) {
+      return 'Use a whole number.';
+    }
+
+    if (control.hasError('decimal')) {
+      return 'Use a number with up to 2 decimals.';
+    }
+
+    if (control.hasError('min')) {
+      return 'Enter a value greater than zero.';
+    }
+
+    if (control.hasError('asin')) {
+      return 'Enter a valid 10-character ASIN.';
+    }
+
+    if (control.hasError('url')) {
+      return 'Enter a valid URL.';
+    }
+
+    if (control.hasError('marketplace')) {
+      return field === 'amazonOrderLink' ? 'Enter a valid Amazon URL.' : 'Enter a valid eBay URL.';
     }
 
     return '';

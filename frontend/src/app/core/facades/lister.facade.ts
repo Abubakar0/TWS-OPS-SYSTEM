@@ -3,9 +3,17 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, FormRecord, Validators } from '@angular/forms';
 import { catchError, debounceTime, distinctUntilChanged, finalize, firstValueFrom, of, Subject, switchMap } from 'rxjs';
 
+import { ChangeRequestApiService } from '../api/change-request-api.service';
 import { ListerApiService } from '../api/lister-api.service';
 import { SEARCH_DEBOUNCE_MS } from '../config/validation';
-import { Account, AssignedHunter, Product, ProductFilters, ProductStatus } from '../models/product.models';
+import {
+  Account,
+  AssignedHunter,
+  ListerChangeRequestBlockStatus,
+  Product,
+  ProductFilters,
+  ProductStatus,
+} from '../models/product.models';
 import { ExportService } from '../services/export.service';
 import { ReferenceDataService } from '../state/reference-data.service';
 import { WorkspaceSyncService } from '../state/workspace-sync.service';
@@ -36,6 +44,10 @@ export class ListerFacade {
   readonly rejectingId = signal('');
   readonly actionFormVersion = signal(0);
   readonly attemptedCurrentAction = signal(false);
+  readonly changeRequestBlockStatus = signal<ListerChangeRequestBlockStatus>({
+    blocked: false,
+    openRequests: 0,
+  });
 
   readonly filters = new FormGroup({
     search: new FormControl('', { nonNullable: true }),
@@ -53,6 +65,16 @@ export class ListerFacade {
   readonly rejectionReasonControls = new FormRecord<FormControl<string>>({});
 
   readonly hasAssignedAccounts = computed(() => this.accounts().length > 0);
+  readonly isListingBlocked = computed(() => this.changeRequestBlockStatus().blocked);
+  readonly listingBlockMessage = computed(() => {
+    const block = this.changeRequestBlockStatus();
+
+    if (!block.blocked) {
+      return '';
+    }
+
+    return `You have ${block.openRequests} product change request${block.openRequests === 1 ? '' : 's'} pending. Please fix them before listing new products.`;
+  });
   readonly selectedAccountId = computed(() => {
     this.actionFormVersion();
     return this.actionForm.controls.accountId.value.trim();
@@ -138,6 +160,7 @@ export class ListerFacade {
     }
 
     return (
+      !this.isListingBlocked() &&
       this.canMarkListed(product) &&
       this.hasValidSelectedAccount() &&
       Boolean(listingControl.value.trim()) &&
@@ -189,6 +212,10 @@ export class ListerFacade {
       return 'Select a product to start listing.';
     }
 
+    if (this.isListingBlocked()) {
+      return this.listingBlockMessage();
+    }
+
     if (!this.hasAssignedAccounts()) {
       return 'No listing accounts are assigned to you yet.';
     }
@@ -223,6 +250,7 @@ export class ListerFacade {
 
   constructor(
     private readonly listerApi: ListerApiService,
+    private readonly changeRequestApi: ChangeRequestApiService,
     private readonly referenceData: ReferenceDataService,
     private readonly exportService: ExportService,
     private readonly workspaceSync: WorkspaceSyncService,
@@ -234,6 +262,7 @@ export class ListerFacade {
 
   loadInitial(): void {
     this.error.set('');
+    this.refreshChangeRequestBlockStatus();
 
     this.listerApi.listAssignedHunters().subscribe({
       next: (hunters) => {
@@ -406,6 +435,11 @@ export class ListerFacade {
       return;
     }
 
+    if (this.isListingBlocked()) {
+      this.toast.warning(this.listingBlockMessage());
+      return;
+    }
+
     const confirmed = await this.confirm.ask({
       title: 'Reject product?',
       message: 'This will send the product back to the hunter with the entered rejection reason.',
@@ -519,6 +553,14 @@ export class ListerFacade {
         }
 
         this.loadProducts();
+      }
+    });
+
+    effect(() => {
+      const version = this.workspaceSync.changeRequestsVersion();
+
+      if (version > 0) {
+        this.refreshChangeRequestBlockStatus();
       }
     });
   }
@@ -755,6 +797,20 @@ export class ListerFacade {
     } catch (error) {
       return true;
     }
+  }
+
+  private refreshChangeRequestBlockStatus(): void {
+    this.changeRequestApi
+      .getListerBlockStatus()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (status) => this.changeRequestBlockStatus.set(status),
+        error: () =>
+          this.changeRequestBlockStatus.set({
+            blocked: false,
+            openRequests: 0,
+          }),
+      });
   }
 
   private async exportAllProducts(): Promise<void> {

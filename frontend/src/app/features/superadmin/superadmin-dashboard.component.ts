@@ -72,6 +72,58 @@ export class SuperAdminDashboardComponent implements OnInit {
   readonly topHunters = computed(() => this.stats()?.byHunter.slice(0, 6) ?? []);
   readonly topListers = computed(() => this.stats()?.byLister.slice(0, 6) ?? []);
   readonly topAccounts = computed(() => this.stats()?.byAccount.slice(0, 6) ?? []);
+  readonly orderStats = computed(() => this.stats()?.orderStats ?? null);
+  readonly orderHighlights = computed(() => [
+    {
+      label: 'Orders Today',
+      value: this.orderStats()?.ordersToday ?? 0,
+      detail: 'Fresh order intake today.',
+      icon: 'today',
+      tone: '',
+    },
+    {
+      label: 'Orders This Month',
+      value: this.orderStats()?.ordersThisMonth ?? 0,
+      detail: 'Monthly order volume.',
+      icon: 'calendar_month',
+      tone: '',
+    },
+    {
+      label: 'Pending Placement',
+      value: this.orderStats()?.pendingPlacement ?? 0,
+      detail: 'Orders still waiting for supplier placement.',
+      icon: 'schedule',
+      tone: 'stat-card__icon--warning',
+    },
+    {
+      label: 'Delivered Orders',
+      value: this.orderStats()?.deliveredOrders ?? 0,
+      detail: 'Orders marked delivered.',
+      icon: 'inventory',
+      tone: 'stat-card__icon--success',
+    },
+    {
+      label: 'Issue Orders',
+      value: this.orderStats()?.issueOrders ?? 0,
+      detail: 'Orders currently in issue state.',
+      icon: 'priority_high',
+      tone: 'stat-card__icon--danger',
+    },
+    {
+      label: 'Order Profit',
+      value: `$${(this.orderStats()?.totalProfit ?? 0).toFixed(2)}`,
+      detail: 'Profit across all linked orders.',
+      icon: 'attach_money',
+      tone: 'stat-card__icon--success',
+    },
+    {
+      label: 'Average Order ROI',
+      value: `${(this.orderStats()?.averageRoi ?? 0).toFixed(2)}%`,
+      detail: 'Average ROI from order performance.',
+      icon: 'insights',
+      tone: '',
+    },
+  ]);
 
   constructor(private readonly adminApi: AdminService) {}
 

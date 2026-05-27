@@ -16,10 +16,6 @@ export interface ConfirmationDialogData {
   imports: [MatDialogModule, MatButtonModule, MatIconModule],
   template: `
     <div class="app-dialog">
-      <div class="app-dialog__icon" [class.app-dialog__icon--danger]="data.tone === 'danger'">
-        <mat-icon>{{ data.tone === 'danger' ? 'warning_amber' : 'help_outline' }}</mat-icon>
-      </div>
-
       <div class="app-dialog__body">
         <h2>{{ data.title }}</h2>
         <p>{{ data.message }}</p>

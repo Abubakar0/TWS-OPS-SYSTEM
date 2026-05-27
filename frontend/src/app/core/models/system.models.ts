@@ -3,6 +3,7 @@ export interface ApiLimitSettings {
   hunters: number;
   listers: number;
   products: number;
+  orders: number;
   accounts: number;
   reports: number;
   assignments: number;

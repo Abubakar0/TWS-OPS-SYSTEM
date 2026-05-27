@@ -11,6 +11,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { AdminFacade } from '../../core/facades/admin.facade';
+import { ROLE_LABELS } from '../../core/config/roles';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../shared/error-state/error-state.component';
 
@@ -37,4 +38,5 @@ import { ErrorStateComponent } from '../../shared/error-state/error-state.compon
 })
 export class AdminUsersComponent {
   readonly facade = inject(AdminFacade);
+  readonly roleLabels = ROLE_LABELS;
 }

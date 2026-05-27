@@ -18,7 +18,12 @@
     <div class="inline-state inline-state--warning">
       <mat-icon>edit_note</mat-icon>
       <div class="inline-state__content">
-        <strong>{{ changeRequestSummary().pending }} change request{{ changeRequestSummary().pending === 1 ? '' : 's' }} still open</strong>
+        <strong
+          >{{ changeRequestSummary().pending }} change request{{
+            changeRequestSummary().pending === 1 ? '' : 's'
+          }}
+          still open</strong
+        >
         <span>Track pending listing updates until the assigned lister finishes them.</span>
       </div>
       <a mat-stroked-button routerLink="/hunter/changes">Open Requests</a>
@@ -39,6 +44,10 @@
         <a mat-stroked-button routerLink="/hunter/changes">
           <mat-icon>edit_note</mat-icon>
           <span>Changes</span>
+        </a>
+        <a mat-stroked-button routerLink="/hunter/order-issues">
+          <mat-icon>priority_high</mat-icon>
+          <span>Order Issues</span>
         </a>
         <a mat-stroked-button routerLink="/hunter/products">
           <mat-icon>table_view</mat-icon>
@@ -77,7 +86,12 @@
           <input matInput type="date" formControlName="to" />
         </mat-form-field>
 
-        <button mat-flat-button color="primary" type="submit" [disabled]="loading() || customRangeForm.invalid">
+        <button
+          mat-flat-button
+          color="primary"
+          type="submit"
+          [disabled]="loading() || customRangeForm.invalid"
+        >
           <mat-icon>filter_list</mat-icon>
           <span>Apply Range</span>
         </button>
@@ -101,7 +115,9 @@
 
     <article class="stat-card">
       <div class="stat-card__header">
-        <div class="stat-card__icon stat-card__icon--success"><mat-icon>check_circle</mat-icon></div>
+        <div class="stat-card__icon stat-card__icon--success">
+          <mat-icon>check_circle</mat-icon>
+        </div>
       </div>
       <span>Approved products</span>
       <strong>{{ approvedCount() }}</strong>
@@ -139,9 +155,11 @@
   <section class="stats-grid stats-grid--four">
     <article class="stat-card">
       <div class="stat-card__header">
-        <div class="stat-card__icon stat-card__icon--success"><mat-icon>workspace_premium</mat-icon></div>
+        <div class="stat-card__icon stat-card__icon--success">
+          <mat-icon>workspace_premium</mat-icon>
+        </div>
       </div>
-      <span>Excellent hunted</span>
+      <span>Best hunted</span>
       <strong>{{ excellentCount() }}</strong>
       <small>Well above the current approval baseline.</small>
     </article>
@@ -159,7 +177,7 @@
       <div class="stat-card__header">
         <div class="stat-card__icon stat-card__icon--warning"><mat-icon>balance</mat-icon></div>
       </div>
-      <span>Average hunted</span>
+      <span>Avg hunted</span>
       <strong>{{ averageCount() }}</strong>
       <small>Passed, but close to the minimum thresholds.</small>
     </article>
@@ -172,6 +190,26 @@
       <strong>{{ rejectedCount() }}</strong>
       <small>Products that failed required checks.</small>
     </article>
+  </section>
+
+  <section class="stats-grid stats-grid--three">
+    @for (card of orderHighlights(); track card.label) {
+      <article class="stat-card">
+        <div class="stat-card__header">
+          <div
+            class="stat-card__icon"
+            [class.stat-card__icon--success]="card.tone === 'stat-card__icon--success'"
+            [class.stat-card__icon--warning]="card.tone === 'stat-card__icon--warning'"
+            [class.stat-card__icon--danger]="card.tone === 'stat-card__icon--danger'"
+          >
+            <mat-icon>{{ card.icon }}</mat-icon>
+          </div>
+        </div>
+        <span>{{ card.label }}</span>
+        <strong>{{ card.value }}</strong>
+        <small>{{ card.detail }}</small>
+      </article>
+    }
   </section>
 
   <section class="section-grid section-grid--three">
@@ -220,6 +258,40 @@
         </div>
       } @else {
         <div class="empty-state">No lister assignments are active for this range.</div>
+      }
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Order performance</h2>
+          <p>How your hunts are converting into shipped work.</p>
+        </div>
+      </div>
+
+      @if (orderStats()) {
+        <div class="breakdown-list">
+          <div class="breakdown-row">
+            <div>
+              <strong>Orders this month</strong>
+              <span>Fresh order volume in the current month.</span>
+            </div>
+            <strong class="breakdown-row__count">{{ orderStats()?.ordersThisMonth ?? 0 }}</strong>
+          </div>
+          <div class="breakdown-row">
+            <div>
+              <strong>Best selling product</strong>
+              <span>Top order driver in this date range.</span>
+            </div>
+            <strong class="breakdown-row__count">{{
+              orderStats()?.bestSellingProduct || '—'
+            }}</strong>
+          </div>
+        </div>
+      } @else {
+        <div class="empty-state">
+          Order performance will show up as linked orders start coming in.
+        </div>
       }
     </article>
   </section>

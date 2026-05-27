@@ -25,6 +25,17 @@
     </article>
   }
 
+  @if (facade.isListingBlocked()) {
+    <article class="surface-card inline-state inline-state--warning listing-blocker-banner">
+      <mat-icon>priority_high</mat-icon>
+      <div class="inline-state__content">
+        <strong>Action required</strong>
+        <span>{{ facade.listingBlockMessage() }}</span>
+      </div>
+      <a mat-stroked-button routerLink="/lister/changes">View Change Requests</a>
+    </article>
+  }
+
   <article class="surface-card">
     <div class="surface-card__header">
       <div>
@@ -51,11 +62,7 @@
           <mat-icon>refresh</mat-icon>
           <span>Refresh</span>
         </button>
-        <button
-          mat-stroked-button
-          type="button"
-          (click)="facade.toggleFiltersCollapsed()"
-        >
+        <button mat-stroked-button type="button" (click)="facade.toggleFiltersCollapsed()">
           <mat-icon>{{ facade.filtersCollapsed() ? 'unfold_more' : 'unfold_less' }}</mat-icon>
           <span>{{ facade.filtersCollapsed() ? 'Show Filters' : 'Hide Filters' }}</span>
         </button>
@@ -248,9 +255,9 @@
                 @if (product.qualityLabel) {
                   <span
                     class="status-badge"
-                    [class.status-badge--success]="product.qualityLabel === 'Excellent Hunting'"
-                    [class.status-badge--listed]="product.qualityLabel === 'Good Hunting'"
-                    [class.status-badge--warning]="product.qualityLabel === 'Average Hunting'"
+                    [class.status-badge--success]="product.qualityLabel === 'Best Hunt'"
+                    [class.status-badge--listed]="product.qualityLabel === 'Good Hunt'"
+                    [class.status-badge--warning]="product.qualityLabel === 'Avg Hunt'"
                     [class.status-badge--danger]="product.qualityLabel === 'Rejected'"
                   >
                     {{ product.qualityLabel }}
@@ -336,11 +343,9 @@
               @if (currentProduct.qualityLabel) {
                 <span
                   class="status-badge"
-                  [class.status-badge--success]="
-                    currentProduct.qualityLabel === 'Excellent Hunting'
-                  "
-                  [class.status-badge--listed]="currentProduct.qualityLabel === 'Good Hunting'"
-                  [class.status-badge--warning]="currentProduct.qualityLabel === 'Average Hunting'"
+                  [class.status-badge--success]="currentProduct.qualityLabel === 'Best Hunt'"
+                  [class.status-badge--listed]="currentProduct.qualityLabel === 'Good Hunt'"
+                  [class.status-badge--warning]="currentProduct.qualityLabel === 'Avg Hunt'"
                   [class.status-badge--danger]="currentProduct.qualityLabel === 'Rejected'"
                 >
                   {{ currentProduct.qualityLabel }}
@@ -507,6 +512,7 @@
                 class="reject-button"
                 (click)="facade.rejectCurrentProduct()"
                 [disabled]="
+                  facade.isListingBlocked() ||
                   !facade.canReject(currentProduct) ||
                   facade.rejectingId() === currentProduct.id ||
                   facade.saving()

@@ -3,15 +3,28 @@
     <div>
       <span class="kicker">Super Admin</span>
       <h1>Reports</h1>
-      <p>Filter by date window or operator, then export the current management view to Excel or CSV.</p>
+      <p>
+        Filter by date window or operator, then export the current management view to Excel or CSV.
+      </p>
     </div>
 
     <div class="page-actions">
-      <button mat-flat-button color="primary" type="button" (click)="exportExcel()" [disabled]="loading() || !stats()">
+      <button
+        mat-flat-button
+        color="primary"
+        type="button"
+        (click)="exportExcel()"
+        [disabled]="loading() || !stats()"
+      >
         <mat-icon>download</mat-icon>
         <span>Export Excel</span>
       </button>
-      <button mat-stroked-button type="button" (click)="exportCsv()" [disabled]="loading() || !stats()">
+      <button
+        mat-stroked-button
+        type="button"
+        (click)="exportCsv()"
+        [disabled]="loading() || !stats()"
+      >
         <mat-icon>table_view</mat-icon>
         <span>Export CSV</span>
       </button>
@@ -26,7 +39,10 @@
     <div class="surface-card__header">
       <div>
         <h2>Report filters</h2>
-        <p>Presets cover the common review windows, and the custom range is there when you need a tighter cut.</p>
+        <p>
+          Presets cover the common review windows, and the custom range is there when you need a
+          tighter cut.
+        </p>
       </div>
     </div>
 
@@ -73,7 +89,12 @@
           <input matInput type="date" formControlName="to" />
         </mat-form-field>
 
-        <button mat-flat-button color="primary" type="submit" [disabled]="loading() || customRangeForm.invalid">
+        <button
+          mat-flat-button
+          color="primary"
+          type="submit"
+          [disabled]="loading() || customRangeForm.invalid"
+        >
           <mat-icon>date_range</mat-icon>
           <span>Apply Range</span>
         </button>
@@ -118,6 +139,29 @@
     </article>
   </section>
 
+  <section class="stats-grid stats-grid--four">
+    <article class="stat-card">
+      <span>Total Orders</span>
+      <strong>{{ orderReports()?.totalOrders || 0 }}</strong>
+      <small>All orders in the current filter.</small>
+    </article>
+    <article class="stat-card">
+      <span>Revenue</span>
+      <strong>${{ (orderReports()?.totalRevenue || 0) | number: '1.2-2' }}</strong>
+      <small>Gross order revenue.</small>
+    </article>
+    <article class="stat-card">
+      <span>Profit</span>
+      <strong>${{ (orderReports()?.totalProfit || 0) | number: '1.2-2' }}</strong>
+      <small>Order profit in range.</small>
+    </article>
+    <article class="stat-card">
+      <span>Average ROI</span>
+      <strong>{{ (orderReports()?.averageRoi || 0) | number: '1.2-2' }}%</strong>
+      <small>Average ROI from linked orders.</small>
+    </article>
+  </section>
+
   <section class="section-grid section-grid--three">
     <article class="surface-card">
       <div class="surface-card__header">
@@ -138,7 +182,7 @@
             <div class="breakdown-row">
               <div>
                 <strong>{{ row.name }}</strong>
-                <span>Hunted {{ row.hunted }} | Listed {{ row.listed }}</span>
+                <span>Hunted {{ row.hunted }} <b>|</b> Listed {{ row.listed }}</span>
               </div>
             </div>
           }
@@ -167,7 +211,10 @@
             <div class="breakdown-row">
               <div>
                 <strong>{{ row.name }}</strong>
-                <span>Listed {{ row.listed }} | Hunters {{ row.assignedHunters }} | Rejected {{ row.rejected || 0 }}</span>
+                <span
+                  >Listed {{ row.listed }} | Hunters {{ row.assignedHunters }} <b>|</b> Rejected
+                  {{ row.rejected || 0 }}</span
+                >
               </div>
             </div>
           }
@@ -240,6 +287,80 @@
         </div>
       } @else {
         <div class="empty-state">No hunter-account listing data matched this filter.</div>
+      }
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Orders by hunter</h2>
+          <p>Order volume, revenue, and profit by hunter.</p>
+        </div>
+      </div>
+
+      @if (orderReports()?.byHunter?.length) {
+        <div class="table-wrap">
+          <table class="data-table data-table--compact">
+            <thead>
+              <tr>
+                <th>Hunter</th>
+                <th>Orders</th>
+                <th>Revenue</th>
+                <th>Profit</th>
+                <th>ROI</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of orderReports()?.byHunter || []; track row.hunterId) {
+                <tr>
+                  <td>{{ row.hunterName }}</td>
+                  <td>{{ row.orderCount }}</td>
+                  <td>${{ row.revenue | number: '1.2-2' }}</td>
+                  <td>${{ row.profit | number: '1.2-2' }}</td>
+                  <td>{{ row.roi | number: '1.2-2' }}%</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <div class="empty-state">No order-hunter rows matched this filter.</div>
+      }
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Orders by account</h2>
+          <p>Which accounts are carrying order load.</p>
+        </div>
+      </div>
+
+      @if (orderReports()?.byAccount?.length) {
+        <div class="table-wrap">
+          <table class="data-table data-table--compact">
+            <thead>
+              <tr>
+                <th>Account</th>
+                <th>Orders</th>
+                <th>Revenue</th>
+                <th>Profit</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of orderReports()?.byAccount || []; track row.accountId) {
+                <tr>
+                  <td>{{ row.accountName }}</td>
+                  <td>{{ row.orderCount }}</td>
+                  <td>${{ row.revenue | number: '1.2-2' }}</td>
+                  <td>${{ row.profit | number: '1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <div class="empty-state">No order-account rows matched this filter.</div>
       }
     </article>
   </section>

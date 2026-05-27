@@ -11,6 +11,11 @@ const listChangeRequests = async (req, res) => {
   });
 };
 
+const getChangeRequestById = async (req, res) => {
+  const changeRequest = await changeRequestsService.getChangeRequestById(req.user, req.params.id);
+  res.json({ changeRequest });
+};
+
 const getSummary = async (req, res) => {
   const summary = await changeRequestsService.getChangeRequestSummary(req.user);
   res.json({ summary });
@@ -21,18 +26,45 @@ const createChangeRequest = async (req, res) => {
   res.status(201).json({ changeRequest });
 };
 
+const startChangeRequest = async (req, res) => {
+  const changeRequest = await changeRequestsService.startChangeRequest(req.user, req.params.id);
+  res.json({ changeRequest });
+};
+
+const fixChangeRequest = async (req, res) => {
+  const changeRequest = await changeRequestsService.fixChangeRequest(req.user, req.params.id, req.body);
+  res.json({ changeRequest });
+};
+
+const rejectChangeRequest = async (req, res) => {
+  const changeRequest = await changeRequestsService.rejectChangeRequest(req.user, req.params.id, req.body);
+  res.json({ changeRequest });
+};
+
+const reassignChangeRequest = async (req, res) => {
+  const changeRequest = await changeRequestsService.reassignChangeRequest(req.user, req.params.id, req.body);
+  res.json({ changeRequest });
+};
+
+const closeChangeRequest = async (req, res) => {
+  const changeRequest = await changeRequestsService.closeChangeRequest(req.user, req.params.id, req.body);
+  res.json({ changeRequest });
+};
+
 const completeChangeRequest = async (req, res) => {
-  const changeRequest = await changeRequestsService.completeChangeRequest(
-    req.user,
-    req.params.id,
-    req.body,
-  );
+  const changeRequest = await changeRequestsService.fixChangeRequest(req.user, req.params.id, req.body);
   res.json({ changeRequest });
 };
 
 module.exports = {
   listChangeRequests,
+  getChangeRequestById,
   getSummary,
   createChangeRequest,
+  startChangeRequest,
+  fixChangeRequest,
+  rejectChangeRequest,
+  reassignChangeRequest,
+  closeChangeRequest,
   completeChangeRequest,
 };

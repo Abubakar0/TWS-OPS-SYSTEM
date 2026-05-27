@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { authGuard, dashboardRedirectGuard, roleGuard } from './core/guards/auth.guard';
+import { authGuard, dashboardRedirectGuard, permissionGuard, roleGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   {
@@ -56,6 +56,18 @@ export const routes: Routes = [
               ),
           },
           {
+            path: 'orders',
+            loadComponent: () =>
+              import('./features/orders/hunter-orders.component').then((m) => m.HunterOrdersComponent),
+          },
+          {
+            path: 'order-issues',
+            loadComponent: () =>
+              import('./features/hunter/hunter-order-issues.component').then(
+                (m) => m.HunterOrderIssuesComponent,
+              ),
+          },
+          {
             path: 'changes',
             loadComponent: () =>
               import('./features/hunter/hunter-changes.component').then(
@@ -101,6 +113,11 @@ export const routes: Routes = [
               import('./features/lister/lister-products.component').then(
                 (m) => m.ListerProductsComponent,
               ),
+          },
+          {
+            path: 'orders',
+            loadComponent: () =>
+              import('./features/orders/lister-orders.component').then((m) => m.ListerOrdersComponent),
           },
           {
             path: 'changes',
@@ -157,6 +174,25 @@ export const routes: Routes = [
               ),
           },
           {
+            path: 'orders',
+            loadComponent: () =>
+              import('./features/orders/admin-orders.component').then((m) => m.AdminOrdersComponent),
+          },
+          {
+            path: 'order-issues',
+            loadComponent: () =>
+              import('./features/admin/admin-order-issues.component').then(
+                (m) => m.AdminOrderIssuesComponent,
+              ),
+          },
+          {
+            path: 'change-requests',
+            loadComponent: () =>
+              import('./features/admin/admin-change-requests.component').then(
+                (m) => m.AdminChangeRequestsComponent,
+              ),
+          },
+          {
             path: 'settings',
             loadComponent: () =>
               import('./features/admin/admin-settings.component').then(
@@ -194,6 +230,60 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'orders/processing',
+        canActivate: [permissionGuard],
+        data: { permissions: ['canProcessOrders'] },
+        loadComponent: () =>
+          import('./features/orders/order-processing.component').then((m) => m.OrderProcessingComponent),
+      },
+      {
+        path: 'order-processor',
+        canActivate: [roleGuard],
+        data: { roles: ['order_processor', 'admin', 'super_admin'] },
+        children: [
+          {
+            path: '',
+            pathMatch: 'full',
+            redirectTo: 'dashboard',
+          },
+          {
+            path: 'dashboard',
+            loadComponent: () =>
+              import('./features/orders/order-processor-dashboard.component').then(
+                (m) => m.OrderProcessorDashboardComponent,
+              ),
+          },
+          {
+            path: 'orders',
+            loadComponent: () =>
+              import('./features/orders/order-processor-orders.component').then(
+                (m) => m.OrderProcessorOrdersComponent,
+              ),
+          },
+          {
+            path: 'orders/new',
+            loadComponent: () =>
+              import('./features/orders/order-processor-new-order.component').then(
+                (m) => m.OrderProcessorNewOrderComponent,
+              ),
+          },
+          {
+            path: 'orders/:id',
+            loadComponent: () =>
+              import('./features/orders/order-processor-order-detail.component').then(
+                (m) => m.OrderProcessorOrderDetailComponent,
+              ),
+          },
+          {
+            path: 'issues',
+            loadComponent: () =>
+              import('./features/orders/order-processor-issues.component').then(
+                (m) => m.OrderProcessorIssuesComponent,
+              ),
+          },
+        ],
+      },
+      {
         path: 'superadmin',
         canActivate: [roleGuard],
         data: { roles: ['super_admin'] },
@@ -229,6 +319,13 @@ export const routes: Routes = [
             loadComponent: () =>
               import('./features/superadmin/superadmin-reports.component').then(
                 (m) => m.SuperAdminReportsComponent,
+              ),
+          },
+          {
+            path: 'orders',
+            loadComponent: () =>
+              import('./features/orders/superadmin-orders.component').then(
+                (m) => m.SuperAdminOrdersComponent,
               ),
           },
           {

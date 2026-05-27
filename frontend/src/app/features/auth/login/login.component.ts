@@ -24,6 +24,7 @@ import { BRANDING } from '../../../core/config/branding';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LoginComponent implements OnInit {
+  private static readonly navigationTimeoutMs = 4000;
   readonly branding = BRANDING;
   readonly loading = signal(false);
   readonly redirecting = signal(false);
@@ -73,26 +74,12 @@ export class LoginComponent implements OnInit {
       returnUrl,
     );
 
-    void this.router
-      .navigateByUrl(destination)
-      .then((navigated) => {
-        if (navigated) {
-          return;
-        }
-
-        return this.router
-          .navigateByUrl(this.auth.homeForRole(this.auth.currentUser()?.role))
-          .then((fallbackNavigated) => {
-            if (!fallbackNavigated) {
-              this.redirecting.set(false);
-              this.error.set('Your session is active, but the workspace could not be opened.');
-            }
-          });
-      })
-      .catch(() => {
+    void this.openWorkspace(destination, this.auth.currentUser()?.role).then((opened) => {
+      if (!opened) {
         this.redirecting.set(false);
         this.error.set('Your session is active, but the workspace could not be opened.');
-      });
+      }
+    });
   }
 
   private resolveFieldError(name: 'email' | 'password'): string {
@@ -117,6 +104,31 @@ export class LoginComponent implements OnInit {
     this.passwordHidden.update((value) => !value);
   }
 
+  private async openWorkspace(destination: string, role = this.auth.currentUser()?.role): Promise<boolean> {
+    const fallbackDestination = this.auth.homeForRole(role);
+    const destinations = destination === fallbackDestination ? [destination] : [destination, fallbackDestination];
+
+    for (const target of destinations) {
+      try {
+        const navigated = await Promise.race<boolean>([
+          this.router.navigateByUrl(target),
+          new Promise<boolean>((resolve) =>
+            window.setTimeout(() => resolve(false), LoginComponent.navigationTimeoutMs),
+          ),
+        ]);
+
+        if (navigated) {
+          return true;
+        }
+      } catch {
+        // fall through to the next destination or hard redirect
+      }
+    }
+
+    window.location.replace(destinations[0] || fallbackDestination);
+    return true;
+  }
+
   async submit(): Promise<void> {
     if (this.form.invalid || this.loading() || this.redirecting()) {
       this.form.markAllAsTouched();
@@ -135,21 +147,9 @@ export class LoginComponent implements OnInit {
         const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
         const destination = this.auth.resolvePostLoginDestination(response.user.role, returnUrl);
 
-        try {
-          const navigated = await this.router.navigateByUrl(destination);
+        const opened = await this.openWorkspace(destination, response.user.role);
 
-          if (!navigated) {
-            const fallbackNavigated = await this.router.navigateByUrl(
-              this.auth.homeForRole(response.user.role),
-            );
-
-            if (!fallbackNavigated) {
-              this.error.set('Sign-in worked, but the workspace could not be opened.');
-              this.loading.set(false);
-              this.redirecting.set(false);
-            }
-          }
-        } catch {
+        if (!opened) {
           this.error.set('Sign-in worked, but the workspace could not be opened.');
           this.loading.set(false);
           this.redirecting.set(false);

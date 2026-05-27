@@ -7,7 +7,7 @@ import { AdminApiService } from '../api/admin-api.service';
 import { AuthService } from '../auth/auth.service';
 import { ADMIN_MANAGED_ROLES, SUPER_ADMIN_MANAGED_ROLES } from '../config/roles';
 import { SEARCH_DEBOUNCE_MS } from '../config/validation';
-import { User, UserRole } from '../models/auth.models';
+import { User, UserPermissions, UserRole } from '../models/auth.models';
 import { ExportService } from '../services/export.service';
 import { mapUserRow } from '../mappers/user-row.mapper';
 import { ReferenceDataService } from '../state/reference-data.service';
@@ -17,6 +17,22 @@ import { ToastService } from '../ui/toast.service';
 import { ValidationMessageService } from '../ui/validation-message.service';
 import { createUserForm } from '../../shared/forms/user.form';
 import { GridSortState, paginateRecords, sortRecords } from '../../shared/grid/grid.utils';
+
+const buildPermissions = (
+  overrides: Partial<UserPermissions> = {},
+): UserPermissions => ({
+  canManageAdmins: Boolean(overrides.canManageAdmins),
+  canManageUsers: Boolean(overrides.canManageUsers),
+  canViewReports: Boolean(overrides.canViewReports),
+  canExportReports: Boolean(overrides.canExportReports),
+  canManageSettings: Boolean(overrides.canManageSettings),
+  canProcessOrders: Boolean(overrides.canProcessOrders),
+  canViewAllOrders: Boolean(overrides.canViewAllOrders),
+  canViewLogs: Boolean(overrides.canViewLogs),
+  canImpersonate: Boolean(overrides.canImpersonate),
+  canDeleteUsers: Boolean(overrides.canDeleteUsers),
+  canRestoreRecords: Boolean(overrides.canRestoreRecords),
+});
 
 @Injectable()
 export class AdminFacade {
@@ -45,6 +61,7 @@ export class AdminFacade {
   readonly adminCount = computed(() => this.users().filter((user) => user.role === 'admin').length);
   readonly hunterCount = computed(() => this.users().filter((user) => user.role === 'hunter').length);
   readonly listerCount = computed(() => this.users().filter((user) => user.role === 'lister').length);
+  readonly orderProcessorCount = computed(() => this.users().filter((user) => user.role === 'order_processor').length);
   readonly activeCount = computed(() => this.users().filter((user) => user.isActive).length);
   readonly disabledCount = computed(() => this.users().filter((user) => !user.isActive).length);
   readonly availableRoles = computed<UserRole[]>(() =>
@@ -162,6 +179,8 @@ export class AdminFacade {
       password: '',
       role: 'hunter',
       isActive: true,
+      canProcessOrders: false,
+      canViewAllOrders: false,
     });
     this.userForm.controls.password.setValidators([Validators.required, Validators.minLength(8)]);
     this.userForm.controls.password.updateValueAndValidity({ emitEvent: false });
@@ -177,6 +196,8 @@ export class AdminFacade {
       password: '',
       role: user.role,
       isActive: user.isActive,
+      canProcessOrders: Boolean(user.permissions?.canProcessOrders),
+      canViewAllOrders: Boolean(user.permissions?.canViewAllOrders),
     });
     this.userForm.controls.password.setValidators([Validators.minLength(8)]);
     this.userForm.controls.password.updateValueAndValidity({ emitEvent: false });
@@ -197,6 +218,8 @@ export class AdminFacade {
       password: '',
       role: 'hunter',
       isActive: true,
+      canProcessOrders: false,
+      canViewAllOrders: false,
     });
   }
 
@@ -216,6 +239,10 @@ export class AdminFacade {
         .createUser({
           ...raw,
           password: raw.password || 'Password123!',
+          permissions: {
+            canProcessOrders: raw.canProcessOrders,
+            canViewAllOrders: raw.canViewAllOrders,
+          },
         })
         .pipe(finalize(() => this.saving.set(false)))
         .subscribe({
@@ -237,6 +264,11 @@ export class AdminFacade {
       email: raw.email,
       role: raw.role,
       isActive: raw.isActive,
+      permissions: buildPermissions({
+        ...editingUser.permissions,
+        canProcessOrders: raw.canProcessOrders,
+        canViewAllOrders: raw.canViewAllOrders,
+      }),
     };
 
     if (raw.password.trim()) {
