@@ -25,91 +25,83 @@
   }
 
   <article class="surface-card">
-    <details class="filter-panel">
-      <summary>
-        <div class="filter-panel__title">
-          <h2>Filters</h2>
-          <p>Filter change requests by status, issue type, ownership, account, or date.</p>
-        </div>
-        <div class="filter-panel__meta">
-          <span>{{ total() }} requests</span>
-          <span class="filter-panel__chevron">
-            <mat-icon>expand_more</mat-icon>
-          </span>
-        </div>
-      </summary>
+    <app-filter-panel
+      title="Filters"
+      summary="Filter change requests by status, issue type, ownership, account, or date."
+      icon="filter_list"
+      [badge]="total() + ' requests'"
+      storageKey="tws_admin_change_request_filters"
+    >
+      <form class="grid-toolbar" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
+        <mat-form-field appearance="outline" class="grid-toolbar__search">
+          <mat-label>Search requests</mat-label>
+          <input matInput formControlName="search" autocomplete="off" />
+        </mat-form-field>
 
-      <div class="filter-panel__content">
-        <form class="grid-toolbar" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
-          <mat-form-field appearance="outline" class="grid-toolbar__search">
-            <mat-label>Search requests</mat-label>
-            <input matInput formControlName="search" autocomplete="off" />
+        <div class="grid-toolbar__actions grid-toolbar__actions--filters">
+          <mat-form-field appearance="outline">
+            <mat-label>Status</mat-label>
+            <mat-select formControlName="status">
+              @for (option of statusOptions; track option.value) {
+                <mat-option [value]="option.value">{{ option.label }}</mat-option>
+              }
+            </mat-select>
           </mat-form-field>
 
-          <div class="grid-toolbar__actions grid-toolbar__actions--filters">
-            <mat-form-field appearance="outline">
-              <mat-label>Status</mat-label>
-              <mat-select formControlName="status">
-                @for (option of statusOptions; track option.value) {
-                  <mat-option [value]="option.value">{{ option.label }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Issue Type</mat-label>
+            <mat-select formControlName="issueType">
+              @for (option of issueTypeOptions; track option.value) {
+                <mat-option [value]="option.value">{{ option.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
 
-            <mat-form-field appearance="outline">
-              <mat-label>Issue Type</mat-label>
-              <mat-select formControlName="issueType">
-                @for (option of issueTypeOptions; track option.value) {
-                  <mat-option [value]="option.value">{{ option.label }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Hunter</mat-label>
+            <mat-select formControlName="hunterId">
+              <mat-option value="">All hunters</mat-option>
+              @for (hunter of hunters(); track hunter.id) {
+                <mat-option [value]="hunter.id">{{ hunter.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
 
-            <mat-form-field appearance="outline">
-              <mat-label>Hunter</mat-label>
-              <mat-select formControlName="hunterId">
-                <mat-option value="">All hunters</mat-option>
-                @for (hunter of hunters(); track hunter.id) {
-                  <mat-option [value]="hunter.id">{{ hunter.name }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Lister</mat-label>
+            <mat-select formControlName="listerId">
+              <mat-option value="">All listers</mat-option>
+              @for (lister of listers(); track lister.id) {
+                <mat-option [value]="lister.id">{{ lister.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
 
-            <mat-form-field appearance="outline">
-              <mat-label>Lister</mat-label>
-              <mat-select formControlName="listerId">
-                <mat-option value="">All listers</mat-option>
-                @for (lister of listers(); track lister.id) {
-                  <mat-option [value]="lister.id">{{ lister.name }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Account</mat-label>
+            <mat-select formControlName="accountId">
+              <mat-option value="">All accounts</mat-option>
+              @for (account of accounts(); track account.id) {
+                <mat-option [value]="account.id">{{ account.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
 
-            <mat-form-field appearance="outline">
-              <mat-label>Account</mat-label>
-              <mat-select formControlName="accountId">
-                <mat-option value="">All accounts</mat-option>
-                @for (account of accounts(); track account.id) {
-                  <mat-option [value]="account.id">{{ account.name }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>From date</mat-label>
+            <input matInput type="date" formControlName="dateFrom" />
+          </mat-form-field>
 
-            <mat-form-field appearance="outline">
-              <mat-label>From date</mat-label>
-              <input matInput type="date" formControlName="dateFrom" />
-            </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>To date</mat-label>
+            <input matInput type="date" formControlName="dateTo" />
+          </mat-form-field>
 
-            <mat-form-field appearance="outline">
-              <mat-label>To date</mat-label>
-              <input matInput type="date" formControlName="dateTo" />
-            </mat-form-field>
-
-            <button mat-flat-button color="primary" type="submit">Apply</button>
-          </div>
-        </form>
-      </div>
-    </details>
+          <button mat-flat-button color="primary" type="submit">Apply</button>
+          <button mat-stroked-button type="button" (click)="resetFilters()">Reset</button>
+        </div>
+      </form>
+    </app-filter-panel>
   </article>
 
   @if (loading()) {
@@ -162,7 +154,7 @@
                 <span>{{ request.createdAt | date: 'h:mm a' }}</span>
               </div>
               <div>
-                <span class="status-badge status-badge--warning">{{ request.status }}</span>
+                <span class="status-badge status-badge--warning">{{ request.status.replaceAll('_', ' ') }}</span>
               </div>
             </button>
           }
@@ -198,7 +190,7 @@
               <h2>Request Details</h2>
               <p>Manage the assigned lister and close requests when the product is corrected.</p>
             </div>
-            <span class="status-badge status-badge--warning">{{ request.status }}</span>
+            <span class="status-badge status-badge--warning">{{ request.status.replaceAll('_', ' ') }}</span>
           </div>
 
           <div class="detail-stack">
@@ -207,8 +199,8 @@
             <div class="detail-row"><span>Current Lister</span><strong>{{ request.listerName || 'Not assigned' }}</strong></div>
             <div class="detail-row"><span>Issue Type</span><strong>{{ (request.issueType || 'OTHER').replaceAll('_', ' ') }}</strong></div>
             <div class="detail-row"><span>Issue Reason</span><strong>{{ request.issueReason || request.requestedChanges }}</strong></div>
-            <div class="detail-row"><span>Current Amazon Link</span><strong>{{ request.currentAmazonLink || '—' }}</strong></div>
-            <div class="detail-row"><span>Current eBay Link</span><strong>{{ request.currentEbayLink || request.listingUrl || '—' }}</strong></div>
+            <div class="detail-row"><span>Current Amazon Link</span><strong>{{ request.currentAmazonLink || 'Not Available' }}</strong></div>
+            <div class="detail-row"><span>Current eBay Link</span><strong>{{ request.currentEbayLink || request.listingUrl || 'Not Available' }}</strong></div>
           </div>
 
           <div class="detail-form">

@@ -23,6 +23,7 @@ import { ExportService } from '../../core/services/export.service';
 import { ReferenceDataService } from '../../core/state/reference-data.service';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
 import { ToastService } from '../../core/ui/toast.service';
+import { FilterPanelComponent } from '../../shared/ui/filter-panel.component';
 
 type IssueStatusFilter = '' | 'OPEN' | 'IN_REVIEW' | 'FIXED' | 'REJECTED' | 'CLOSED';
 type IssueTypeFilter = '' | OrderIssueType;
@@ -38,6 +39,7 @@ type IssueTypeFilter = '' | OrderIssueType;
     MatInputModule,
     MatProgressSpinnerModule,
     MatSelectModule,
+    FilterPanelComponent,
   ],
   templateUrl: './admin-order-issues.component.html',
   styleUrl: './admin-order-issues.component.scss',
@@ -165,6 +167,24 @@ export class AdminOrderIssuesComponent {
   }
 
   applyFilters(): void {
+    this.pageIndex.set(0);
+    this.load();
+  }
+
+  resetFilters(): void {
+    this.filtersForm.reset(
+      {
+        search: '',
+        issueType: '',
+        status: 'OPEN',
+        hunterId: '',
+        listerId: '',
+        accountId: '',
+        dateFrom: '',
+        dateTo: '',
+      },
+      { emitEvent: false },
+    );
     this.pageIndex.set(0);
     this.load();
   }

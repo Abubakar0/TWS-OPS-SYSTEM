@@ -19,83 +19,75 @@
   }
 
   <article class="surface-card">
-    <details class="filter-panel">
-      <summary>
-        <div class="filter-panel__title">
-          <h2>Filters</h2>
-          <p>Search issues and narrow them by type, owner, account, or date.</p>
-        </div>
-        <div class="filter-panel__meta">
-          <span>{{ total() }} issues</span>
-          <span class="filter-panel__chevron">
-            <mat-icon>expand_more</mat-icon>
-          </span>
-        </div>
-      </summary>
-
-      <div class="filter-panel__content">
-        <form class="grid-toolbar" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
-          <mat-form-field appearance="outline" class="grid-toolbar__search">
-            <mat-label>Search issues</mat-label>
-            <input matInput formControlName="search" autocomplete="off" />
+    <app-filter-panel
+      title="Filters"
+      summary="Search issues and narrow them by type, owner, account, or date."
+      icon="filter_list"
+      [badge]="total() + ' issues'"
+      storageKey="tws_admin_order_issue_filters"
+    >
+      <form class="grid-toolbar" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
+        <mat-form-field appearance="outline" class="grid-toolbar__search">
+          <mat-label>Search issues</mat-label>
+          <input matInput formControlName="search" autocomplete="off" />
+        </mat-form-field>
+        <div class="grid-toolbar__actions grid-toolbar__actions--filters">
+          <mat-form-field appearance="outline">
+            <mat-label>Issue Type</mat-label>
+            <mat-select formControlName="issueType">
+              @for (option of issueTypeOptions; track option.value) {
+                <mat-option [value]="option.value">{{ option.label }}</mat-option>
+              }
+            </mat-select>
           </mat-form-field>
-          <div class="grid-toolbar__actions grid-toolbar__actions--filters">
-            <mat-form-field appearance="outline">
-              <mat-label>Issue Type</mat-label>
-              <mat-select formControlName="issueType">
-                @for (option of issueTypeOptions; track option.value) {
-                  <mat-option [value]="option.value">{{ option.label }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Status</mat-label>
-              <mat-select formControlName="status">
-                @for (option of issueStatusOptions; track option.value) {
-                  <mat-option [value]="option.value">{{ option.label }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Hunter</mat-label>
-              <mat-select formControlName="hunterId">
-                <mat-option value="">All hunters</mat-option>
-                @for (hunter of hunters(); track hunter.id) {
-                  <mat-option [value]="hunter.id">{{ hunter.name }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Lister</mat-label>
-              <mat-select formControlName="listerId">
-                <mat-option value="">All listers</mat-option>
-                @for (lister of listers(); track lister.id) {
-                  <mat-option [value]="lister.id">{{ lister.name }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Account</mat-label>
-              <mat-select formControlName="accountId">
-                <mat-option value="">All accounts</mat-option>
-                @for (account of accounts(); track account.id) {
-                  <mat-option [value]="account.id">{{ account.name }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>From date</mat-label>
-              <input matInput type="date" formControlName="dateFrom" />
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>To date</mat-label>
-              <input matInput type="date" formControlName="dateTo" />
-            </mat-form-field>
-            <button mat-flat-button color="primary" type="submit">Apply</button>
-          </div>
-        </form>
-      </div>
-    </details>
+          <mat-form-field appearance="outline">
+            <mat-label>Status</mat-label>
+            <mat-select formControlName="status">
+              @for (option of issueStatusOptions; track option.value) {
+                <mat-option [value]="option.value">{{ option.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Hunter</mat-label>
+            <mat-select formControlName="hunterId">
+              <mat-option value="">All hunters</mat-option>
+              @for (hunter of hunters(); track hunter.id) {
+                <mat-option [value]="hunter.id">{{ hunter.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Lister</mat-label>
+            <mat-select formControlName="listerId">
+              <mat-option value="">All listers</mat-option>
+              @for (lister of listers(); track lister.id) {
+                <mat-option [value]="lister.id">{{ lister.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Account</mat-label>
+            <mat-select formControlName="accountId">
+              <mat-option value="">All accounts</mat-option>
+              @for (account of accounts(); track account.id) {
+                <mat-option [value]="account.id">{{ account.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>From date</mat-label>
+            <input matInput type="date" formControlName="dateFrom" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>To date</mat-label>
+            <input matInput type="date" formControlName="dateTo" />
+          </mat-form-field>
+          <button mat-flat-button color="primary" type="submit">Apply</button>
+          <button mat-stroked-button type="button" (click)="resetFilters()">Reset</button>
+        </div>
+      </form>
+    </app-filter-panel>
   </article>
 
   @if (loading()) {
@@ -137,7 +129,7 @@
                 <span>{{ issue.issueReason || 'No issue note' }}</span>
               </div>
               <div>
-                <span class="status-badge status-badge--warning">{{ issue.issueStatus || 'OPEN' }}</span>
+                <span class="status-badge status-badge--warning">{{ (issue.issueStatus || 'OPEN').replaceAll('_', ' ') }}</span>
               </div>
             </button>
           }

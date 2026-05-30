@@ -72,7 +72,7 @@
               <a class="processor-activity__item" [routerLink]="['/order-processor/orders', item.id]">
                 <div>
                   <strong>{{ item.label }}</strong>
-                  <span>{{ item.orderCode }} • {{ item.asin }}</span>
+                  <span>{{ item.orderCode }} | {{ item.asin }}</span>
                 </div>
                 <div class="processor-activity__meta">
                   <span class="status-badge" [ngClass]="item.status === 'ISSUE' ? 'status-badge--order-issue' : 'status-badge--order-placed'">

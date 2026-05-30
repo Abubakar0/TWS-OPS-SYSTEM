@@ -218,7 +218,7 @@
                   }}</strong>
                   <span>ASIN: {{ product.asin || 'No ASIN' }}</span>
                   <small>{{
-                    product.category ? product.hunterName + ' · ' + product.category : product.hunterName
+                    product.category ? product.hunterName + ' | ' + product.category : product.hunterName
                   }}</small>
                 </div>
               </div>
@@ -262,7 +262,7 @@
               </div>
 
               <div class="listing-row__listing">
-                <span>{{ product.accountName || 'Open details' }}</span>
+                <span>{{ product.accountName || 'Not Assigned' }}</span>
                 @if (product.qualityLabel) {
                   <span
                     class="status-badge"

@@ -22,6 +22,7 @@ import { ListerApiService } from '../../core/api/lister-api.service';
 import { ChangeRequest, ChangeRequestSummary } from '../../core/models/product.models';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
 import { ToastService } from '../../core/ui/toast.service';
+import { FilterPanelComponent } from '../../shared/ui/filter-panel.component';
 import { decimalMinValidator, decimalValidator } from '../../shared/validators/price.validator';
 import { marketplaceUrlValidator } from '../../shared/validators/listing-link.validator';
 
@@ -38,6 +39,7 @@ type ChangeRequestStatusFilter = '' | 'OPEN' | 'IN_PROGRESS' | 'FIXED' | 'REJECT
     MatInputModule,
     MatProgressSpinnerModule,
     MatSelectModule,
+    FilterPanelComponent,
   ],
   templateUrl: './lister-changes.component.html',
   styleUrl: './lister-changes.component.scss',
@@ -202,6 +204,20 @@ export class ListerChangesComponent {
   }
 
   applyFilters(): void {
+    this.pageIndex.set(0);
+    this.load();
+  }
+
+  resetFilters(): void {
+    this.filtersForm.reset(
+      {
+        status: 'OPEN',
+        issueType: '',
+        search: '',
+        hunterId: '',
+      },
+      { emitEvent: false },
+    );
     this.pageIndex.set(0);
     this.load();
   }

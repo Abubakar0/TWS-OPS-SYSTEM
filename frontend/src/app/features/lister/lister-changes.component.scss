@@ -8,7 +8,7 @@
 
 .changes-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.9fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(340px, 0.88fr);
   gap: 18px;
   align-items: start;
 }
@@ -16,6 +16,7 @@
 .changes-list,
 .changes-sidebar {
   min-width: 0;
+  overflow: hidden;
 }
 
 .changes-sidebar {
@@ -31,7 +32,12 @@
 .changes-table__head,
 .changes-row {
   display: grid;
-  grid-template-columns: minmax(220px, 1.4fr) minmax(120px, 0.8fr) minmax(220px, 1.2fr) minmax(120px, 0.7fr) minmax(100px, 0.55fr);
+  grid-template-columns:
+    minmax(180px, 1.35fr)
+    minmax(120px, 0.8fr)
+    minmax(180px, 1.1fr)
+    minmax(120px, 0.7fr)
+    minmax(96px, 0.5fr);
   gap: 14px;
   align-items: start;
 }
@@ -60,6 +66,10 @@
   background: rgba(81, 146, 229, 0.05);
 }
 
+.changes-row > div {
+  min-width: 0;
+}
+
 .changes-row strong,
 .detail-row strong {
   display: block;
@@ -67,6 +77,7 @@
   font-size: 0.95rem;
   font-weight: 700;
   line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .changes-row span,
@@ -76,6 +87,7 @@
   color: var(--tws-muted);
   font-size: 0.82rem;
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .detail-stack {
@@ -102,7 +114,7 @@
   gap: 12px;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1500px) {
   .changes-layout {
     grid-template-columns: 1fr;
   }
@@ -112,7 +124,7 @@
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 1080px) {
   .changes-table__head {
     display: none;
   }

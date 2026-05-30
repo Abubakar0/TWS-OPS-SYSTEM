@@ -28,57 +28,49 @@
   </section>
 
   <article class="surface-card">
-    <details class="filter-panel">
-      <summary>
-        <div class="filter-panel__title">
-          <h2>Filters</h2>
-          <p>Focus assigned fixes by hunter, status, or issue type.</p>
-        </div>
-        <div class="filter-panel__meta">
-          <span>{{ total() }} requests</span>
-          <span class="filter-panel__chevron">
-            <mat-icon>expand_more</mat-icon>
-          </span>
-        </div>
-      </summary>
+    <app-filter-panel
+      title="Filters"
+      summary="Focus assigned fixes by hunter, status, or issue type."
+      icon="filter_list"
+      [badge]="total() + ' requests'"
+      storageKey="tws_lister_change_request_filters"
+    >
+      <form class="grid-toolbar" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
+        <mat-form-field appearance="outline" class="grid-toolbar__search">
+          <mat-label>Search ASIN, order, hunter, or issue</mat-label>
+          <input matInput formControlName="search" autocomplete="off" />
+        </mat-form-field>
 
-      <div class="filter-panel__content">
-        <form class="grid-toolbar" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
-          <mat-form-field appearance="outline" class="grid-toolbar__search">
-            <mat-label>Search ASIN, order, hunter, or issue</mat-label>
-            <input matInput formControlName="search" autocomplete="off" />
+        <div class="grid-toolbar__actions grid-toolbar__actions--filters">
+          <mat-form-field appearance="outline">
+            <mat-label>Hunter</mat-label>
+            <mat-select formControlName="hunterId">
+              <mat-option value="">All hunters</mat-option>
+              @for (hunter of hunters(); track hunter.id) {
+                <mat-option [value]="hunter.id">{{ hunter.name }}</mat-option>
+              }
+            </mat-select>
           </mat-form-field>
 
-          <div class="grid-toolbar__actions grid-toolbar__actions--filters">
-            <mat-form-field appearance="outline">
-              <mat-label>Hunter</mat-label>
-              <mat-select formControlName="hunterId">
-                <mat-option value="">All hunters</mat-option>
-                @for (hunter of hunters(); track hunter.id) {
-                  <mat-option [value]="hunter.id">{{ hunter.name }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Status</mat-label>
+            <mat-select formControlName="status">
+              @for (option of statusOptions; track option.value) {
+                <mat-option [value]="option.value">{{ option.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
 
-            <mat-form-field appearance="outline">
-              <mat-label>Status</mat-label>
-              <mat-select formControlName="status">
-                @for (option of statusOptions; track option.value) {
-                  <mat-option [value]="option.value">{{ option.label }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Issue Type</mat-label>
+            <input matInput formControlName="issueType" autocomplete="off" placeholder="PRICE_INCREASED" />
+          </mat-form-field>
 
-            <mat-form-field appearance="outline">
-              <mat-label>Issue Type</mat-label>
-              <input matInput formControlName="issueType" autocomplete="off" placeholder="PRICE_INCREASED" />
-            </mat-form-field>
-
-            <button mat-flat-button color="primary" type="submit">Apply</button>
-          </div>
-        </form>
-      </div>
-    </details>
+          <button mat-flat-button color="primary" type="submit">Apply</button>
+          <button mat-stroked-button type="button" (click)="resetFilters()">Reset</button>
+        </div>
+      </form>
+    </app-filter-panel>
   </article>
 
   @if (loading()) {

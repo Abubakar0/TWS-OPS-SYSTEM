@@ -356,7 +356,7 @@
               <div class="order-detail-summary__copy">
                 <strong [attr.title]="order.title">{{ order.title }}</strong>
                 <span>eBay Order: {{ order.ebayOrderId }}</span>
-                <small>{{ order.hunterName || 'Manual order' }} · {{ order.accountName || 'Not Assigned' }}</small>
+                <small>{{ order.hunterName || 'Manual order' }} | {{ order.accountName || 'Not Assigned' }}</small>
               </div>
 
               <div class="order-detail-summary__badges">
@@ -804,7 +804,7 @@
                     >
                       <strong>{{ match.title || match.asin || 'Matched product' }}</strong>
                       <span>{{ match.asin || 'No ASIN' }}</span>
-                      <small>{{ match.hunterName }} · {{ match.accountName || 'Not Assigned' }}</small>
+                      <small>{{ match.hunterName }} | {{ match.accountName || 'Not Assigned' }}</small>
                     </button>
                   }
                 </div>

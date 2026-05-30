@@ -22,6 +22,7 @@ import { OrderIssueApiService } from '../../core/api/order-issue-api.service';
 import { OrderIssue } from '../../core/models/order.models';
 import { OrderIssueStatus, OrderIssueType } from '../../core/models/order.models';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
+import { FilterPanelComponent } from '../../shared/ui/filter-panel.component';
 
 type IssueTypeFilter = '' | OrderIssueType;
 type IssueStatusFilter = '' | OrderIssueStatus;
@@ -38,6 +39,7 @@ type IssueStatusFilter = '' | OrderIssueStatus;
     MatInputModule,
     MatProgressSpinnerModule,
     MatSelectModule,
+    FilterPanelComponent,
   ],
   templateUrl: './hunter-order-issues.component.html',
   styleUrl: './hunter-order-issues.component.scss',
@@ -153,6 +155,23 @@ export class HunterOrderIssuesComponent {
   }
 
   applyFilters(): void {
+    this.pageIndex.set(0);
+    this.load();
+  }
+
+  resetFilters(): void {
+    this.filtersForm.reset(
+      {
+        search: '',
+        issueType: '',
+        status: 'OPEN',
+        accountId: '',
+        listerId: '',
+        dateFrom: '',
+        dateTo: '',
+      },
+      { emitEvent: false },
+    );
     this.pageIndex.set(0);
     this.load();
   }
