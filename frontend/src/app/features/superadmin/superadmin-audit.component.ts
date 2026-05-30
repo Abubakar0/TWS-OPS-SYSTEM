@@ -8,7 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
-import { debounceTime, distinctUntilChanged } from 'rxjs';
+import { Subject, catchError, debounceTime, distinctUntilChanged, finalize, of, switchMap } from 'rxjs';
 
 import { AdminService, AuditLogEntry } from '../../core/services/admin.service';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
@@ -39,6 +39,7 @@ export class SuperAdminAuditComponent implements OnInit {
   readonly error = signal('');
   readonly searchControl = new FormControl('', { nonNullable: true });
   private readonly destroyRef = inject(DestroyRef);
+  private readonly reloadLogs$ = new Subject<void>();
 
   readonly filtersForm = new FormGroup({
     action: new FormControl('', { nonNullable: true }),
@@ -69,39 +70,47 @@ export class SuperAdminAuditComponent implements OnInit {
       .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.loadLogs());
 
+    this.reloadLogs$
+      .pipe(
+        switchMap(() => {
+          this.loading.set(true);
+          this.error.set('');
+
+          return this.adminApi
+            .listAuditLogs({
+              search: this.searchControl.value.trim(),
+              action: this.filtersForm.controls.action.value || undefined,
+              from: this.filtersForm.controls.from.value || undefined,
+              to: this.filtersForm.controls.to.value || undefined,
+            })
+            .pipe(
+              catchError((error) => {
+                this.error.set(error?.error?.message || 'Could not load audit logs.');
+                return of<AuditLogEntry[]>([]);
+              }),
+              finalize(() => this.loading.set(false)),
+            );
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((logs) => {
+        this.logs.set(logs);
+        this.auditRows.set(
+          logs.map((log) => ({
+            ...log,
+            detailsSummary: !log.details
+              ? 'No additional details.'
+              : Object.entries(log.details)
+                  .map(([key, value]) => `${key}: ${value}`)
+                  .join(' | '),
+          })),
+        );
+      });
+
     this.loadLogs();
   }
 
   loadLogs(): void {
-    this.loading.set(true);
-    this.error.set('');
-
-    this.adminApi
-      .listAuditLogs({
-        search: this.searchControl.value.trim(),
-        action: this.filtersForm.controls.action.value || undefined,
-        from: this.filtersForm.controls.from.value || undefined,
-        to: this.filtersForm.controls.to.value || undefined,
-      })
-      .subscribe({
-        next: (logs) => {
-          this.logs.set(logs);
-          this.auditRows.set(
-            logs.map((log) => ({
-              ...log,
-              detailsSummary: !log.details
-                ? 'No additional details.'
-                : Object.entries(log.details)
-                    .map(([key, value]) => `${key}: ${value}`)
-                    .join(' | '),
-            })),
-          );
-        },
-        error: (error) => {
-          this.error.set(error?.error?.message || 'Could not load audit logs.');
-          this.loading.set(false);
-        },
-        complete: () => this.loading.set(false),
-      });
+    this.reloadLogs$.next();
   }
 }

@@ -12,8 +12,8 @@
   z-index: 6;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
-  padding: 14px 18px;
+  gap: 10px;
+  padding: 12px 16px;
 }
 
 .orders-summary-bar__item {
@@ -36,13 +36,13 @@
 
 .filters-form {
   display: grid;
-  gap: 16px;
+  gap: 14px;
 }
 
 .filters-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+  gap: 12px;
 }
 
 .filters-grid--summary {
@@ -84,7 +84,7 @@
 
 .orders-table {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .orders-table__head,
@@ -111,7 +111,7 @@
 }
 
 .order-row {
-  padding: 16px 12px;
+  padding: 13px 12px;
   border: 1px solid rgba(226, 232, 240, 0.92);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.88);
@@ -249,7 +249,7 @@
 }
 
 .detail-section {
-  margin-top: 18px;
+  margin-top: 16px;
 }
 
 .detail-section h3 {
@@ -363,13 +363,13 @@
 
 .order-form {
   display: grid;
-  gap: 18px;
+  gap: 16px;
 }
 
 .order-form-shell {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.85fr);
-  gap: 20px;
+  gap: 18px;
   align-items: start;
 }
 

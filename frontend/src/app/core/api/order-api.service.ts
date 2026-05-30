@@ -1,14 +1,19 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { map, Observable } from 'rxjs';
+import { map, Observable, tap } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
+import { CACHE_NAMESPACE, CACHE_TTL, makeCacheKey } from '../config/cache';
 import { Order, OrderFilters, OrderIssueType, OrderProductMatch, OrderStats, OrderStatus, OrderUpsertPayload } from '../models/order.models';
+import { RequestCacheService } from '../state/request-cache.service';
 import { PageResult } from '../state/query-state.models';
 
 @Injectable({ providedIn: 'root' })
 export class OrderApiService {
-  constructor(private readonly http: HttpClient) {}
+  constructor(
+    private readonly http: HttpClient,
+    private readonly requestCache: RequestCacheService,
+  ) {}
 
   listOrders(filters: OrderFilters = {}): Observable<PageResult<Order>> {
     let params = new HttpParams();
@@ -19,20 +24,25 @@ export class OrderApiService {
       }
     });
 
-    return this.http
-      .get<{ orders: Order[]; page: number; limit: number; total: number; hasMore: boolean }>(
-        `${environment.apiUrl}/orders`,
-        { params },
-      )
-      .pipe(
-        map((response) => ({
-          items: response.orders,
-          page: response.page,
-          limit: response.limit,
-          total: response.total,
-          hasMore: response.hasMore,
-        })),
-      );
+    return this.requestCache.getOrCreate(
+      makeCacheKey(CACHE_NAMESPACE.orders, { type: 'list', ...filters }),
+      CACHE_TTL.short,
+      () =>
+        this.http
+          .get<{ orders: Order[]; page: number; limit: number; total: number; hasMore: boolean }>(
+            `${environment.apiUrl}/orders`,
+            { params },
+          )
+          .pipe(
+            map((response) => ({
+              items: response.orders,
+              page: response.page,
+              limit: response.limit,
+              total: response.total,
+              hasMore: response.hasMore,
+            })),
+          ),
+    );
   }
 
   getOrder(id: string, includeDeleted = false): Observable<Order> {
@@ -42,21 +52,32 @@ export class OrderApiService {
       params = params.set('includeDeleted', 'true');
     }
 
-    return this.http
-      .get<{ order: Order }>(`${environment.apiUrl}/orders/${id}`, { params })
-      .pipe(map((response) => response.order));
+    return this.requestCache.getOrCreate(
+      makeCacheKey(CACHE_NAMESPACE.orders, { type: 'detail', id, includeDeleted }),
+      CACHE_TTL.short,
+      () =>
+        this.http
+          .get<{ order: Order }>(`${environment.apiUrl}/orders/${id}`, { params })
+          .pipe(map((response) => response.order)),
+    );
   }
 
   createOrder(payload: OrderUpsertPayload): Observable<Order> {
     return this.http
       .post<{ order: Order }>(`${environment.apiUrl}/orders`, payload)
-      .pipe(map((response) => response.order));
+      .pipe(
+        map((response) => response.order),
+        tap(() => this.invalidateOrderCaches()),
+      );
   }
 
   updateOrder(id: string, payload: Partial<OrderUpsertPayload>): Observable<Order> {
     return this.http
       .patch<{ order: Order }>(`${environment.apiUrl}/orders/${id}`, payload)
-      .pipe(map((response) => response.order));
+      .pipe(
+        map((response) => response.order),
+        tap(() => this.invalidateOrderCaches()),
+      );
   }
 
   deleteOrder(id: string, options: { permanent?: boolean; reason?: string } = {}): Observable<void> {
@@ -70,37 +91,53 @@ export class OrderApiService {
       .request<void>('delete', `${environment.apiUrl}/orders/${id}`, {
         params,
         body: options.reason ? { reason: options.reason } : undefined,
-      });
+      })
+      .pipe(tap(() => this.invalidateOrderCaches()));
   }
 
   restoreOrder(id: string): Observable<Order> {
     return this.http
       .post<{ order: Order }>(`${environment.apiUrl}/orders/${id}/restore`, {})
-      .pipe(map((response) => response.order));
+      .pipe(
+        map((response) => response.order),
+        tap(() => this.invalidateOrderCaches()),
+      );
   }
 
   markPlaced(id: string, payload: Partial<OrderUpsertPayload>): Observable<Order> {
     return this.http
       .post<{ order: Order }>(`${environment.apiUrl}/orders/${id}/mark-placed`, payload)
-      .pipe(map((response) => response.order));
+      .pipe(
+        map((response) => response.order),
+        tap(() => this.invalidateOrderCaches()),
+      );
   }
 
   markShipped(id: string, payload: Pick<OrderUpsertPayload, 'trackingNumber' | 'carrier'>): Observable<Order> {
     return this.http
       .post<{ order: Order }>(`${environment.apiUrl}/orders/${id}/mark-shipped`, payload)
-      .pipe(map((response) => response.order));
+      .pipe(
+        map((response) => response.order),
+        tap(() => this.invalidateOrderCaches()),
+      );
   }
 
   markDelivered(id: string, payload: { deliveredDate?: string | null } = {}): Observable<Order> {
     return this.http
       .post<{ order: Order }>(`${environment.apiUrl}/orders/${id}/mark-delivered`, payload)
-      .pipe(map((response) => response.order));
+      .pipe(
+        map((response) => response.order),
+        tap(() => this.invalidateOrderCaches()),
+      );
   }
 
   markIssue(id: string, issueReason: string): Observable<Order> {
     return this.http
       .post<{ order: Order }>(`${environment.apiUrl}/orders/${id}/mark-issue`, { issueReason })
-      .pipe(map((response) => response.order));
+      .pipe(
+        map((response) => response.order),
+        tap(() => this.invalidateOrderCaches()),
+      );
   }
 
   markIssueWithType(
@@ -109,7 +146,10 @@ export class OrderApiService {
   ): Observable<Order> {
     return this.http
       .post<{ order: Order }>(`${environment.apiUrl}/orders/${id}/mark-issue`, payload)
-      .pipe(map((response) => response.order));
+      .pipe(
+        map((response) => response.order),
+        tap(() => this.invalidateOrderCaches()),
+      );
   }
 
   updateStatus(
@@ -118,7 +158,10 @@ export class OrderApiService {
   ): Observable<Order> {
     return this.http
       .patch<{ order: Order }>(`${environment.apiUrl}/orders/${id}/status`, payload)
-      .pipe(map((response) => response.order));
+      .pipe(
+        map((response) => response.order),
+        tap(() => this.invalidateOrderCaches()),
+      );
   }
 
   getStats(filters: OrderFilters = {}): Observable<OrderStats> {
@@ -130,9 +173,14 @@ export class OrderApiService {
       }
     });
 
-    return this.http
-      .get<{ stats: OrderStats }>(`${environment.apiUrl}/orders/stats`, { params })
-      .pipe(map((response) => response.stats));
+    return this.requestCache.getOrCreate(
+      makeCacheKey(CACHE_NAMESPACE.orders, { type: 'stats', ...filters }),
+      CACHE_TTL.short,
+      () =>
+        this.http
+          .get<{ stats: OrderStats }>(`${environment.apiUrl}/orders/stats`, { params })
+          .pipe(map((response) => response.stats)),
+    );
   }
 
   getReports(filters: OrderFilters = {}): Observable<OrderStats> {
@@ -144,9 +192,14 @@ export class OrderApiService {
       }
     });
 
-    return this.http
-      .get<{ reports: OrderStats }>(`${environment.apiUrl}/orders/reports`, { params })
-      .pipe(map((response) => response.reports));
+    return this.requestCache.getOrCreate(
+      makeCacheKey(CACHE_NAMESPACE.orders, { type: 'reports', ...filters }),
+      CACHE_TTL.short,
+      () =>
+        this.http
+          .get<{ reports: OrderStats }>(`${environment.apiUrl}/orders/reports`, { params })
+          .pipe(map((response) => response.reports)),
+    );
   }
 
   matchProduct(query: {
@@ -167,9 +220,14 @@ export class OrderApiService {
       }
     });
 
-    return this.http
-      .get<{ matches: OrderProductMatch[] }>(`${environment.apiUrl}/orders/match-product`, { params })
-      .pipe(map((response) => response.matches));
+    return this.requestCache.getOrCreate(
+      makeCacheKey(CACHE_NAMESPACE.orders, { type: 'match', ...query }),
+      CACHE_TTL.short,
+      () =>
+        this.http
+          .get<{ matches: OrderProductMatch[] }>(`${environment.apiUrl}/orders/match-product`, { params })
+          .pipe(map((response) => response.matches)),
+    );
   }
 
   matchByAsin(query: { asin?: string; search?: string; title?: string; customLabel?: string; limit?: number }): Observable<OrderProductMatch[]> {
@@ -181,8 +239,17 @@ export class OrderApiService {
       }
     });
 
-    return this.http
-      .get<{ matches: OrderProductMatch[] }>(`${environment.apiUrl}/orders/match-by-asin`, { params })
-      .pipe(map((response) => response.matches));
+    return this.requestCache.getOrCreate(
+      makeCacheKey(CACHE_NAMESPACE.orders, { type: 'match-asin', ...query }),
+      CACHE_TTL.short,
+      () =>
+        this.http
+          .get<{ matches: OrderProductMatch[] }>(`${environment.apiUrl}/orders/match-by-asin`, { params })
+          .pipe(map((response) => response.matches)),
+    );
+  }
+
+  private invalidateOrderCaches(): void {
+    this.requestCache.invalidatePrefix(CACHE_NAMESPACE.orders);
   }
 }

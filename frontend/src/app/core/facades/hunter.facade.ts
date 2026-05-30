@@ -12,6 +12,7 @@ import {
   AsinCheckResult,
   HuntingCriteria,
   Product,
+  ProductCategory,
   ProductCreatePayload,
   ProductDuplicateInfo,
   ProductQualityLabel,
@@ -45,6 +46,7 @@ export interface SubmissionModalState {
 
 const SUBMISSION_FIELDS: readonly SubmissionControlName[] = [
   'title',
+  'category',
   'amazonUrl',
   'amazonAltUrl',
   'ebayUrl',
@@ -75,6 +77,7 @@ export class HunterFacade {
   readonly weeklyReviewStatus = signal<WeeklyReviewStatus | null>(null);
   readonly lastSubmitted = signal<Product | null>(null);
   readonly submissionModal = signal<SubmissionModalState | null>(null);
+  readonly availableCategories = signal<ProductCategory[]>([]);
   readonly criteria = signal<HuntingCriteria>({
     minRoi: 30,
     minProfit: 0,
@@ -107,6 +110,16 @@ export class HunterFacade {
   readonly defaultCustomLabel = computed(
     () => this.auth.currentUser()?.name || `${BRANDING.logoLabel} Hunter`,
   );
+  readonly filteredCategories = computed(() => {
+    const term = this.form.controls.category.value.trim().toLowerCase();
+    const categories = this.availableCategories();
+
+    if (!term) {
+      return categories;
+    }
+
+    return categories.filter((category) => category.name.toLowerCase().includes(term));
+  });
   readonly asinTouched = computed(() => this.asinControl.touched || this.attemptedSubmit());
   readonly asinMessage = computed(() =>
     this.messages.asinError(this.asinControl, this.asinTouched()),
@@ -543,6 +556,7 @@ export class HunterFacade {
     const raw = this.form.getRawValue();
     const payload: ProductCreatePayload = {
       title: raw.title,
+      category: raw.category.trim() || null,
       amazonUrl: raw.amazonUrl,
       amazonAltUrl: raw.amazonAltUrl || null,
       ebayUrl: raw.ebayUrl,
@@ -653,6 +667,13 @@ export class HunterFacade {
         error: () => this.criteriaLoading.set(false),
       });
 
+    this.referenceData
+      .getProductCategories()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (categories) => this.availableCategories.set(categories),
+      });
+
     this.weeklyReviewApi
       .getStatus()
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -738,6 +759,7 @@ export class HunterFacade {
     this.form.reset(
       {
         title: '',
+        category: '',
         amazonUrl: '',
         amazonAltUrl: '',
         ebayUrl: '',

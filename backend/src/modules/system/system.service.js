@@ -6,6 +6,7 @@ const { writeAuditLog } = require('../users/audit.service');
 const SETTING_KEYS = {
   apiLimits: 'api_limits',
   ipRestriction: 'ip_restriction',
+  productCategories: 'product_categories',
 };
 
 const DEFAULT_API_LIMITS = {
@@ -26,6 +27,34 @@ const DEFAULT_IP_RESTRICTION = {
   enabled: false,
   allowedIps: [],
 };
+
+const DEFAULT_PRODUCT_CATEGORIES = [
+  'Electronics',
+  'Sports',
+  'Home',
+  'Kitchen',
+  'Automotive',
+  'Pet Supplies',
+  'Toys',
+  'Health',
+  'Beauty',
+  'Tools',
+  'Office',
+  'Garden',
+  'Fashion',
+  'Shoes',
+  'Baby',
+  'Books',
+  'Gaming',
+  'Phone Accessories',
+  'Computer Accessories',
+  'Other',
+].map((name, index) => ({
+  id: `default-${index + 1}`,
+  name,
+  active: true,
+  sortOrder: index + 1,
+}));
 
 const settingsCache = new Map();
 const CACHE_TTL_MS = 30_000;
@@ -74,6 +103,21 @@ const sanitizeIpRestriction = (value = {}) => ({
   allowedIps: sanitizeAllowedIps(value.allowedIps),
 });
 
+const sanitizeProductCategories = (value = []) =>
+  (Array.isArray(value) ? value : [])
+    .map((entry, index) => ({
+      id: String(entry?.id || randomUUID()),
+      name: String(entry?.name || '')
+        .trim()
+        .replace(/\s+/g, ' '),
+      active: entry?.active !== false,
+      sortOrder: Number.isFinite(Number(entry?.sortOrder))
+        ? Number(entry.sortOrder)
+        : index + 1,
+    }))
+    .filter((entry) => Boolean(entry.name))
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name));
+
 const normalizeSettingRow = (key, value) => {
   if (key === SETTING_KEYS.apiLimits) {
     return sanitizeApiLimits(value);
@@ -81,6 +125,10 @@ const normalizeSettingRow = (key, value) => {
 
   if (key === SETTING_KEYS.ipRestriction) {
     return sanitizeIpRestriction(value);
+  }
+
+  if (key === SETTING_KEYS.productCategories) {
+    return sanitizeProductCategories(value);
   }
 
   return value || {};
@@ -171,6 +219,135 @@ const updateApiLimits = async (user, payload = {}) => {
 
 const getIpRestriction = async () => getSetting(SETTING_KEYS.ipRestriction, DEFAULT_IP_RESTRICTION);
 
+const getProductCategories = async ({ includeInactive = false } = {}) => {
+  const categories = await getSetting(
+    SETTING_KEYS.productCategories,
+    DEFAULT_PRODUCT_CATEGORIES,
+  );
+
+  return includeInactive ? categories : categories.filter((entry) => entry.active);
+};
+
+const createProductCategory = async (user, payload = {}) => {
+  const name = String(payload.name || '')
+    .trim()
+    .replace(/\s+/g, ' ');
+
+  if (!name) {
+    throw new AppError('Category name is required.', 400);
+  }
+
+  const categories = await getSetting(
+    SETTING_KEYS.productCategories,
+    DEFAULT_PRODUCT_CATEGORIES,
+  );
+
+  if (categories.some((entry) => entry.name.toLowerCase() === name.toLowerCase())) {
+    throw new AppError('A category with this name already exists.', 409);
+  }
+
+  const next = sanitizeProductCategories([
+    ...categories,
+    {
+      id: randomUUID(),
+      name,
+      active: payload.active !== false,
+      sortOrder: categories.length + 1,
+    },
+  ]);
+
+  const saved = await saveSetting(user, SETTING_KEYS.productCategories, next);
+
+  await writeAuditLog({
+    actorUserId: user.id,
+    action: 'settings.product_categories.create',
+    targetType: 'system',
+    targetId: user.id,
+    details: { name },
+  });
+
+  return saved;
+};
+
+const updateProductCategory = async (user, id, payload = {}) => {
+  const categories = await getSetting(
+    SETTING_KEYS.productCategories,
+    DEFAULT_PRODUCT_CATEGORIES,
+  );
+  const index = categories.findIndex((entry) => entry.id === id);
+
+  if (index < 0) {
+    throw new AppError('Category not found.', 404);
+  }
+
+  const name = String(payload.name ?? categories[index].name)
+    .trim()
+    .replace(/\s+/g, ' ');
+
+  if (!name) {
+    throw new AppError('Category name is required.', 400);
+  }
+
+  if (
+    categories.some(
+      (entry, entryIndex) =>
+        entryIndex !== index && entry.name.toLowerCase() === name.toLowerCase(),
+    )
+  ) {
+    throw new AppError('A category with this name already exists.', 409);
+  }
+
+  const next = sanitizeProductCategories(
+    categories.map((entry, entryIndex) =>
+      entryIndex === index
+        ? {
+            ...entry,
+            name,
+            active: payload.active ?? entry.active,
+            sortOrder: payload.sortOrder ?? entry.sortOrder,
+          }
+        : entry,
+    ),
+  );
+
+  const saved = await saveSetting(user, SETTING_KEYS.productCategories, next);
+
+  await writeAuditLog({
+    actorUserId: user.id,
+    action: 'settings.product_categories.update',
+    targetType: 'system',
+    targetId: user.id,
+    details: { id, name, active: payload.active },
+  });
+
+  return saved;
+};
+
+const deleteProductCategory = async (user, id) => {
+  const categories = await getSetting(
+    SETTING_KEYS.productCategories,
+    DEFAULT_PRODUCT_CATEGORIES,
+  );
+  const category = categories.find((entry) => entry.id === id);
+
+  if (!category) {
+    throw new AppError('Category not found.', 404);
+  }
+
+  const next = sanitizeProductCategories(categories.filter((entry) => entry.id !== id));
+  const saved = await saveSetting(user, SETTING_KEYS.productCategories, next);
+
+  await writeAuditLog({
+    actorUserId: user.id,
+    action: 'settings.product_categories.delete',
+    targetType: 'system',
+    targetId: user.id,
+    details: { id, name: category.name },
+  });
+
+  return saved;
+};
+
 const updateIpRestriction = async (user, payload = {}) => {
   const next = sanitizeIpRestriction(payload);
   const saved = await saveSetting(user, SETTING_KEYS.ipRestriction, next);
@@ -259,11 +436,16 @@ const getSystemSettings = async (req) => {
 module.exports = {
   DEFAULT_API_LIMITS,
   DEFAULT_IP_RESTRICTION,
+  DEFAULT_PRODUCT_CATEGORIES,
   getApiLimits,
   getConfiguredLimit,
   updateApiLimits,
   getIpRestriction,
   updateIpRestriction,
+  getProductCategories,
+  createProductCategory,
+  updateProductCategory,
+  deleteProductCategory,
   getCurrentRequestIp,
   evaluateIpRestriction,
   assertIpAllowed,

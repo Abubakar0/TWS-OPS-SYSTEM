@@ -140,6 +140,7 @@ const orderSelect = `
   o.asin,
   o.product_title AS "productTitle",
   o.custom_label AS "customLabel",
+  product.category AS "productCategory",
   o.hunter_id AS "hunterId",
   hunter.name AS "hunterName",
   o.lister_id AS "listerId",
@@ -223,6 +224,7 @@ const orderCandidateSelect = `
   p.asin,
   p.title,
   p.custom_label AS "customLabel",
+  p.category,
   p.hunter_id AS "hunterId",
   hunter.name AS "hunterName",
   p.assigned_lister_id AS "listerId",
@@ -442,6 +444,10 @@ const buildAccessFilters = (user, query = {}, { column = 'o.order_date' } = {}) 
 
   if (query.accountId) {
     add('o.account_id = ?', query.accountId);
+  }
+
+  if (query.category) {
+    add('EXISTS (SELECT 1 FROM products p WHERE p.id = o.product_id AND p.category = ?)', query.category);
   }
 
   if (query.status) {

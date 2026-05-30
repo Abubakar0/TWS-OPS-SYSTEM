@@ -11,8 +11,9 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { Account, HuntingCriteria } from '../../core/models/product.models';
 import { ApiLimitSettings } from '../../core/models/system.models';
+import { AccountApiService } from '../../core/api/account-api.service';
+import { AdminApiService } from '../../core/api/admin-api.service';
 import { SystemApiService } from '../../core/api/system-api.service';
-import { AdminService } from '../../core/services/admin.service';
 import { ReferenceDataService } from '../../core/state/reference-data.service';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
 import { ConfirmService } from '../../core/ui/confirm.service';
@@ -87,7 +88,8 @@ export class SuperAdminSettingsComponent implements OnInit {
   });
 
   constructor(
-    private readonly adminApi: AdminService,
+    private readonly adminApi: AdminApiService,
+    private readonly accountApi: AccountApiService,
     private readonly systemApi: SystemApiService,
     private readonly referenceData: ReferenceDataService,
     private readonly workspaceSync: WorkspaceSyncService,
@@ -156,7 +158,7 @@ export class SuperAdminSettingsComponent implements OnInit {
     this.saving.set(true);
     this.error.set('');
 
-    this.adminApi.createAccount(this.accountForm.getRawValue()).subscribe({
+    this.accountApi.createAccount(this.accountForm.getRawValue()).subscribe({
       next: () => {
         this.accountForm.reset({ name: '', marketplace: 'ebay', isActive: true });
         this.referenceData.refreshAccounts();
@@ -185,7 +187,7 @@ export class SuperAdminSettingsComponent implements OnInit {
       }
     }
 
-    this.adminApi.updateAccount(account.id, { isActive: !account.isActive }).subscribe({
+    this.accountApi.updateAccount(account.id, { isActive: !account.isActive }).subscribe({
       next: () => {
         this.referenceData.refreshAccounts();
         this.workspaceSync.notifySettingsChanged();

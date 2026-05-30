@@ -9,6 +9,7 @@ import { MatSelectModule } from '@angular/material/select';
 
 import { ListerApiService } from '../../core/api/lister-api.service';
 import { DashboardService, ListerHunterAccountUsage } from '../../core/services/dashboard.service';
+import { SessionCacheService } from '../../core/state/session-cache.service';
 
 @Component({
   selector: 'app-lister-account-usage',
@@ -37,17 +38,27 @@ export class ListerAccountUsageComponent {
   constructor(
     private readonly listerApi: ListerApiService,
     private readonly dashboardApi: DashboardService,
+    private readonly sessionCache: SessionCacheService,
   ) {
+    const cachedHunters = this.sessionCache
+      .assignedHunters()
+      .map((hunter) => ({ id: hunter.id, name: hunter.name }));
+
+    if (cachedHunters.length) {
+      this.hunters.set(cachedHunters);
+      this.filtersForm.controls.hunterId.setValue(cachedHunters[0].id);
+      this.load();
+    }
+
     this.listerApi.listAssignedHunters().subscribe({
       next: (hunters) => {
         const options = hunters.map((hunter) => ({ id: hunter.id, name: hunter.name }));
         this.hunters.set(options);
 
-        if (options[0]) {
+        if (!this.filtersForm.controls.hunterId.value && options[0]) {
           this.filtersForm.controls.hunterId.setValue(options[0].id);
-          this.load();
         } else {
-          this.loading.set(false);
+          this.load();
         }
       },
       error: (error) => {

@@ -24,6 +24,7 @@ export interface Product {
   ebayUrl: string;
   asin: string | null;
   title: string | null;
+  category?: string | null;
   customLabel: string | null;
   amazonPrice: number | null;
   ebayPrice: number | null;
@@ -55,6 +56,7 @@ export interface Product {
 
 export interface ProductCreatePayload {
   title: string;
+  category?: string | null;
   customLabel?: string | null;
   amazonUrl: string;
   amazonAltUrl?: string | null;
@@ -116,6 +118,13 @@ export interface AssignedHunter {
   rejectedCount?: number;
 }
 
+export interface ProductCategory {
+  id: string;
+  name: string;
+  active: boolean;
+  sortOrder: number;
+}
+
 export interface HuntingCriteria {
   minRoi: number;
   minProfit: number;
@@ -140,6 +149,7 @@ export interface HuntingCriteria {
 export interface ProductFilters {
   search?: string;
   status?: ProductStatus | '';
+  category?: string;
   hunterId?: string;
   listerId?: string;
   accountId?: string;

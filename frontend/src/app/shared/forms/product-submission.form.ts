@@ -5,6 +5,7 @@ import { asinValidator } from '../validators/asin.validator';
 
 export type SubmissionControlName =
   | 'title'
+  | 'category'
   | 'amazonUrl'
   | 'amazonAltUrl'
   | 'ebayUrl'
@@ -28,6 +29,7 @@ export interface SubmissionFieldState {
 
 export type ProductSubmissionForm = FormGroup<{
   title: FormControl<string>;
+  category: FormControl<string>;
   amazonUrl: FormControl<string>;
   amazonAltUrl: FormControl<string>;
   ebayUrl: FormControl<string>;
@@ -54,6 +56,7 @@ export const createSubmissionAsinControl = () =>
 export const createProductSubmissionForm = (): ProductSubmissionForm =>
   new FormGroup({
     title: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    category: new FormControl('', { nonNullable: true }),
     amazonUrl: new FormControl('', {
       nonNullable: true,
       validators: [Validators.required, marketplaceUrlValidator('amazon')],

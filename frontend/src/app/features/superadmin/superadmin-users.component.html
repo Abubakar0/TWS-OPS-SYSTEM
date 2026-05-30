@@ -49,13 +49,30 @@
       <span class="count-badge">{{ visibleUsers().length }} matching</span>
     </div>
 
-    <div class="grid-toolbar">
-      <mat-form-field appearance="outline" class="grid-toolbar__search">
-        <mat-label>Search name, email, role, or status</mat-label>
-        <input matInput [formControl]="searchControl" autocomplete="off" />
-        <mat-icon matSuffix>search</mat-icon>
-      </mat-form-field>
-    </div>
+    <details class="filter-panel">
+      <summary>
+        <div class="filter-panel__title">
+          <mat-icon>filter_list</mat-icon>
+          <span>Filters</span>
+        </div>
+        <div class="filter-panel__meta">
+          <span>Search and narrow operator records</span>
+          <span class="filter-panel__chevron">
+            <mat-icon>expand_more</mat-icon>
+          </span>
+        </div>
+      </summary>
+
+      <div class="filter-panel__content">
+        <div class="grid-toolbar">
+          <mat-form-field appearance="outline" class="grid-toolbar__search">
+            <mat-label>Search name, email, role, or status</mat-label>
+            <input matInput [formControl]="searchControl" autocomplete="off" />
+            <mat-icon matSuffix>search</mat-icon>
+          </mat-form-field>
+        </div>
+      </div>
+    </details>
 
     @if (loading()) {
       <div class="loading-state">

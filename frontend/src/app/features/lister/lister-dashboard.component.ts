@@ -12,6 +12,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ChangeRequestApiService } from '../../core/api/change-request-api.service';
 import { DashboardService, HunterDashboardFilters, ListerDashboardStats } from '../../core/services/dashboard.service';
 import { ChangeRequestSummary } from '../../core/models/product.models';
+import { SessionCacheService } from '../../core/state/session-cache.service';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
 
 type RangePreset = 'today' | 'yesterday' | 'thisMonth' | 'lastMonth' | 'thisYear' | 'custom';
@@ -95,6 +96,7 @@ export class ListerDashboardComponent implements OnInit {
   readonly showChangeBanner = computed(() => (this.changeRequestSummary().pending || 0) > 0);
 
   private readonly destroyRef = inject(DestroyRef);
+  private readonly sessionCache = inject(SessionCacheService);
   private readonly workspaceSync = inject(WorkspaceSyncService);
   private readonly injector = inject(Injector);
 
@@ -104,7 +106,15 @@ export class ListerDashboardComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.applyPreset('thisMonth');
+    const savedRange = this.sessionCache.getDashboardPreference('lister-dashboard-range') as
+      | RangePreset
+      | null;
+    const initialRange =
+      savedRange && this.rangeButtons.some((option) => option.key === savedRange)
+        ? savedRange
+        : 'thisMonth';
+
+    this.applyPreset(initialRange);
     this.changeRequestApi
       .getSummary()
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -126,6 +136,7 @@ export class ListerDashboardComponent implements OnInit {
 
   applyPreset(range: RangePreset): void {
     this.selectedRange.set(range);
+    this.sessionCache.setDashboardPreference('lister-dashboard-range', range);
 
     if (range === 'custom') {
       return;
@@ -144,6 +155,7 @@ export class ListerDashboardComponent implements OnInit {
 
     const filters = this.customRangeForm.getRawValue();
     this.selectedRange.set('custom');
+    this.sessionCache.setDashboardPreference('lister-dashboard-range', 'custom');
     this.activeFilters.set(filters);
     this.loadStats(filters);
   }

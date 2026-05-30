@@ -25,6 +25,17 @@ const startOfMonth = () => {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 };
 
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const maybeMessage = (error as { error?: { message?: unknown } }).error?.message;
+    if (typeof maybeMessage === 'string' && maybeMessage.trim()) {
+      return maybeMessage;
+    }
+  }
+
+  return fallback;
+};
+
 @Component({
   selector: 'app-order-processor-dashboard',
   standalone: true,
@@ -130,8 +141,8 @@ export class OrderProcessorDashboardComponent {
       );
       this.stats.set(result.stats);
       this.recentOrders.set(result.orders.items);
-    } catch (error: any) {
-      this.error.set(error?.error?.message || 'Could not load order processor dashboard.');
+    } catch (error: unknown) {
+      this.error.set(getErrorMessage(error, 'Could not load order processor dashboard.'));
     } finally {
       this.loading.set(false);
     }

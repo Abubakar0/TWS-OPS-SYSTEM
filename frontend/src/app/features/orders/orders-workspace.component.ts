@@ -13,6 +13,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { OrderManagementFacade, OrderWorkspaceMode, ProcessorWorkspaceView } from '../../core/facades/order-management.facade';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
+import { FilterPanelComponent } from '../../shared/ui/filter-panel.component';
 
 @Component({
   selector: 'app-orders-workspace',
@@ -29,6 +30,7 @@ import { EmptyStateComponent } from '../../shared/empty-state/empty-state.compon
     MatSelectModule,
     MatTooltipModule,
     EmptyStateComponent,
+    FilterPanelComponent,
   ],
   templateUrl: './orders-workspace.component.html',
   styleUrl: './orders-workspace.component.scss',

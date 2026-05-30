@@ -1,9 +1,10 @@
-import { Component, DestroyRef, inject } from '@angular/core';
+import { Component, DestroyRef, effect, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationCancel, NavigationEnd, NavigationError, NavigationStart, Router, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 
 import { AuthService } from './core/auth/auth.service';
+import { SessionCacheService } from './core/state/session-cache.service';
 import { LoaderService } from './core/ui/loader.service';
 import { GlobalLoaderComponent } from './shared/global-loader/global-loader.component';
 
@@ -15,12 +16,23 @@ import { GlobalLoaderComponent } from './shared/global-loader/global-loader.comp
 })
 export class App {
   private readonly auth = inject(AuthService);
+  private readonly sessionCache = inject(SessionCacheService);
   private readonly loader = inject(LoaderService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
   constructor() {
     this.auth.initializeSession();
+    effect(() => {
+      const user = this.auth.currentUser();
+
+      if (user) {
+        this.sessionCache.hydrate();
+        return;
+      }
+
+      this.sessionCache.clear();
+    });
 
     this.router.events
       .pipe(

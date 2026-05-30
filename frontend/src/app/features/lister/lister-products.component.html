@@ -62,10 +62,6 @@
           <mat-icon>refresh</mat-icon>
           <span>Refresh</span>
         </button>
-        <button mat-stroked-button type="button" (click)="facade.toggleFiltersCollapsed()">
-          <mat-icon>{{ facade.filtersCollapsed() ? 'unfold_more' : 'unfold_less' }}</mat-icon>
-          <span>{{ facade.filtersCollapsed() ? 'Show Filters' : 'Hide Filters' }}</span>
-        </button>
       </div>
     </div>
 
@@ -73,10 +69,7 @@
       <div class="filters-grid filters-grid--summary">
         <mat-form-field appearance="outline">
           <mat-label>Current hunter</mat-label>
-          <mat-select
-            [value]="facade.selectedHunterId()"
-            (valueChange)="facade.selectHunter($event)"
-          >
+          <mat-select [value]="facade.selectedHunterId()" (valueChange)="facade.selectHunter($event)">
             @for (hunter of facade.hunters(); track hunter.id) {
               <mat-option [value]="hunter.id">{{ hunter.name }}</mat-option>
             }
@@ -84,7 +77,13 @@
         </mat-form-field>
       </div>
 
-      @if (!facade.filtersCollapsed()) {
+      <app-filter-panel
+        title="Queue Filters"
+        summary="Refine the queue by account, category, status, search, and submission date."
+        icon="filter_list"
+        [badge]="facade.pageLabel()"
+        storageKey="tws_lister_queue_filters"
+      >
         <div class="filters-grid">
           <mat-form-field appearance="outline">
             <mat-label>Account</mat-label>
@@ -104,6 +103,16 @@
               <mat-option value="listed">Listed</mat-option>
               <mat-option value="rejected">Rejected</mat-option>
               <mat-option value="">All</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Category</mat-label>
+            <mat-select formControlName="category">
+              <mat-option value="">All categories</mat-option>
+              @for (category of facade.availableCategories(); track category.id) {
+                <mat-option [value]="category.name">{{ category.name }}</mat-option>
+              }
             </mat-select>
           </mat-form-field>
 
@@ -133,17 +142,17 @@
             <mat-icon>filter_list</mat-icon>
             <span>Apply</span>
           </button>
-          <button
-            mat-stroked-button
-            type="button"
-            (click)="facade.resetFilters()"
-            [disabled]="facade.loading()"
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="facade.resetFilters()"
+              [disabled]="facade.loading()"
           >
             <mat-icon>restart_alt</mat-icon>
-            <span>Reset</span>
-          </button>
-        </div>
-      }
+              <span>Reset</span>
+            </button>
+          </div>
+      </app-filter-panel>
 
       @if (!facade.hasAssignedAccounts()) {
         <div class="inline-state inline-state--warning">
@@ -208,7 +217,9 @@
                     product.title || product.asin || 'Untitled product'
                   }}</strong>
                   <span>ASIN: {{ product.asin || 'No ASIN' }}</span>
-                  <small>{{ product.hunterName }}</small>
+                  <small>{{
+                    product.category ? product.hunterName + ' · ' + product.category : product.hunterName
+                  }}</small>
                 </div>
               </div>
 
@@ -358,6 +369,10 @@
             <div class="detail-fact">
               <span>Hunter</span>
               <strong>{{ currentProduct.hunterName }}</strong>
+            </div>
+            <div class="detail-fact">
+              <span>Category</span>
+              <strong>{{ currentProduct.category || 'Not Assigned' }}</strong>
             </div>
             <div class="detail-fact">
               <span>Listing status</span>
@@ -513,7 +528,7 @@
                 (click)="facade.rejectCurrentProduct()"
                 [disabled]="
                   facade.isListingBlocked() ||
-                  !facade.canReject(currentProduct) ||
+                  !facade.canRejectCurrent() ||
                   facade.rejectingId() === currentProduct.id ||
                   facade.saving()
                 "

@@ -7,6 +7,7 @@ import { ProductAdminApiService } from '../api/product-admin-api.service';
 import { AuthService } from '../auth/auth.service';
 import {
   Product,
+  ProductCategory,
   ProductFilters,
   ProductQualityLabel,
   ProductStatus,
@@ -34,6 +35,7 @@ export class AdminProductsFacade {
   readonly availableHunters = signal<Array<{ id: string; name: string }>>([]);
   readonly availableListers = signal<Array<{ id: string; name: string }>>([]);
   readonly availableAccounts = signal<Array<{ id: string; name: string }>>([]);
+  readonly availableCategories = signal<ProductCategory[]>([]);
 
   readonly filters = new FormGroup({
     search: new FormControl('', { nonNullable: true }),
@@ -42,6 +44,7 @@ export class AdminProductsFacade {
     accountId: new FormControl('', { nonNullable: true }),
     status: new FormControl<ProductStatus | ''>('', { nonNullable: true }),
     quality: new FormControl<ProductQualityLabel | ''>('', { nonNullable: true }),
+    category: new FormControl('', { nonNullable: true }),
     deletedState: new FormControl<'active' | 'deleted' | 'all'>('active', { nonNullable: true }),
     from: new FormControl('', { nonNullable: true }),
     to: new FormControl('', { nonNullable: true }),
@@ -111,6 +114,11 @@ export class AdminProductsFacade {
           accounts.map((account) => ({ id: account.id, name: account.name })),
         ),
       );
+
+    this.referenceData
+      .getProductCategories(true)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((categories) => this.availableCategories.set(categories));
   }
 
   loadProducts(): void {
@@ -145,6 +153,7 @@ export class AdminProductsFacade {
         accountId: '',
         status: '',
         quality: '',
+        category: '',
         deletedState: 'active',
         from: '',
         to: '',
@@ -300,6 +309,7 @@ export class AdminProductsFacade {
         columns: [
           { header: 'Product', value: (product) => product.title || '' },
           { header: 'ASIN', value: (product) => product.asin || '' },
+          { header: 'Category', value: (product) => product.category || '' },
           { header: 'Hunter', value: (product) => product.hunterName },
           { header: 'Assigned Lister', value: (product) => product.assignedListerName || '' },
           { header: 'Quality', value: (product) => product.qualityLabel || '' },
@@ -326,6 +336,7 @@ export class AdminProductsFacade {
       accountId: raw.accountId || undefined,
       status: raw.status || undefined,
       quality: raw.quality || undefined,
+      category: raw.category || undefined,
       deletedState: raw.deletedState,
       from: raw.from || undefined,
       to: raw.to || undefined,

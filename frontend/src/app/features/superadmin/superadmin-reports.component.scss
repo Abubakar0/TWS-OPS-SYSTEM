@@ -12,6 +12,15 @@
   align-items: flex-start;
 }
 
+.report-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.report-controls .grid-toolbar__actions {
+  justify-content: flex-start;
+}
+
 .range-chip {
   border-radius: 999px !important;
 }
@@ -58,6 +67,7 @@
 }
 
 @media (max-width: 760px) {
+  .report-controls,
   .section-grid--three,
   .breakdown-row {
     grid-template-columns: 1fr;

@@ -36,74 +36,88 @@
   }
 
   <article class="surface-card">
-    <div class="surface-card__header">
-      <div>
-        <h2>Report filters</h2>
-        <p>
-          Presets cover the common review windows, and the custom range is there when you need a
-          tighter cut.
-        </p>
-      </div>
-    </div>
-
-    <div class="range-toolbar">
-      @for (option of rangeButtons; track option.key) {
-        <button
-          type="button"
-          mat-stroked-button
-          class="range-chip"
-          [class.range-chip--active]="selectedRange() === option.key"
-          (click)="applyPreset(option.key)"
-        >
-          {{ option.label }}
-        </button>
-      }
-    </div>
-
-    <form class="report-controls" [formGroup]="filtersForm" (ngSubmit)="applyUserFilter()">
-      <mat-form-field appearance="outline">
-        <mat-label>User</mat-label>
-        <mat-select formControlName="userId">
-          <mat-option value="">All operators</mat-option>
-          @for (user of reportUsers(); track user.id) {
-            <mat-option [value]="user.id">{{ user.name }} ({{ user.role }})</mat-option>
+    <app-filter-panel
+      title="Filters"
+      summary="Apply a date preset, operator filter, and category filter without losing report density."
+      icon="filter_list"
+      [badge]="selectedRange() | titlecase"
+      storageKey="tws_superadmin_reports_filters"
+    >
+        <div class="range-toolbar">
+          @for (option of rangeButtons; track option.key) {
+            <button
+              type="button"
+              mat-stroked-button
+              class="range-chip"
+              [class.range-chip--active]="selectedRange() === option.key"
+              (click)="applyPreset(option.key)"
+            >
+              {{ option.label }}
+            </button>
           }
-        </mat-select>
-      </mat-form-field>
+        </div>
 
-      <button mat-flat-button color="primary" type="submit" [disabled]="loading()">
-        <mat-icon>filter_list</mat-icon>
-        <span>Apply User Filter</span>
-      </button>
-    </form>
+        <form class="report-controls" [formGroup]="filtersForm" (ngSubmit)="applyUserFilter()">
+          <mat-form-field appearance="outline">
+            <mat-label>User</mat-label>
+            <mat-select formControlName="userId">
+              <mat-option value="">All operators</mat-option>
+              @for (user of reportUsers(); track user.id) {
+                <mat-option [value]="user.id">{{ user.name }} ({{ user.role }})</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
 
-    @if (selectedRange() === 'custom') {
-      <form class="custom-range-form" [formGroup]="customRangeForm" (ngSubmit)="applyCustomRange()">
-        <mat-form-field appearance="outline">
-          <mat-label>From date</mat-label>
-          <input matInput type="date" formControlName="from" />
-        </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Category</mat-label>
+            <mat-select formControlName="category">
+              <mat-option value="">All categories</mat-option>
+              @for (category of categories(); track category.id) {
+                <mat-option [value]="category.name">{{ category.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
 
-        <mat-form-field appearance="outline">
-          <mat-label>To date</mat-label>
-          <input matInput type="date" formControlName="to" />
-        </mat-form-field>
+          <div class="grid-toolbar__actions">
+            <button mat-flat-button color="primary" type="submit" [disabled]="loading()">
+              <mat-icon>filter_list</mat-icon>
+              <span>Apply</span>
+            </button>
+            <button mat-stroked-button type="button" (click)="resetFilters()" [disabled]="loading()">
+              <mat-icon>restart_alt</mat-icon>
+              <span>Reset</span>
+            </button>
+          </div>
+        </form>
 
-        <button
-          mat-flat-button
-          color="primary"
-          type="submit"
-          [disabled]="loading() || customRangeForm.invalid"
-        >
-          <mat-icon>date_range</mat-icon>
-          <span>Apply Range</span>
-        </button>
-      </form>
+        @if (selectedRange() === 'custom') {
+          <form class="custom-range-form" [formGroup]="customRangeForm" (ngSubmit)="applyCustomRange()">
+            <mat-form-field appearance="outline">
+              <mat-label>From date</mat-label>
+              <input matInput type="date" formControlName="from" />
+            </mat-form-field>
 
-      @if (customRangeError()) {
-        <div class="inline-state inline-state--error">{{ customRangeError() }}</div>
-      }
-    }
+            <mat-form-field appearance="outline">
+              <mat-label>To date</mat-label>
+              <input matInput type="date" formControlName="to" />
+            </mat-form-field>
+
+            <button
+              mat-flat-button
+              color="primary"
+              type="submit"
+              [disabled]="loading() || customRangeForm.invalid"
+            >
+              <mat-icon>date_range</mat-icon>
+              <span>Apply Range</span>
+            </button>
+          </form>
+
+          @if (customRangeError()) {
+            <div class="inline-state inline-state--error">{{ customRangeError() }}</div>
+          }
+        }
+    </app-filter-panel>
   </article>
 
   <section class="stats-grid">

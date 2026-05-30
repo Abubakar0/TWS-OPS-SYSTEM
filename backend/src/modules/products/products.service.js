@@ -41,6 +41,7 @@ const productSelect = `
   p.ebay_url AS "ebayUrl",
   p.asin,
   p.title,
+  p.category,
   p.custom_label AS "customLabel",
   p.amazon_price AS "amazonPrice",
   p.ebay_price AS "ebayPrice",
@@ -167,7 +168,8 @@ const ensureProductColumns = async () => {
     ALTER TABLE products
       ADD COLUMN IF NOT EXISTS basket_count INTEGER,
       ADD COLUMN IF NOT EXISTS delivery_days INTEGER,
-      ADD COLUMN IF NOT EXISTS monthly_graph_uptrend BOOLEAN
+      ADD COLUMN IF NOT EXISTS monthly_graph_uptrend BOOLEAN,
+      ADD COLUMN IF NOT EXISTS category TEXT
   `);
 };
 
@@ -268,6 +270,10 @@ const buildProductFilters = (user, query = {}, criteria = null) => {
 
   if (query.status) {
     add("p.status = ?", query.status);
+  }
+
+  if (query.category) {
+    add("p.category = ?", query.category);
   }
 
   if (query.search) {
@@ -471,6 +477,7 @@ const createProduct = async (user, payload) => {
         ebay_url,
         asin,
         title,
+        category,
         custom_label,
         amazon_price,
         ebay_price,
@@ -493,7 +500,7 @@ const createProduct = async (user, payload) => {
       VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
         $11, $12, $13, $14, $15, $16, $17, $18,
-        $19, $20, $21, $22, $23, $24, $25::jsonb
+        $19, $20, $21, $22, $23, $24, $25, $26::jsonb
       )
       RETURNING id
     `,
@@ -505,6 +512,7 @@ const createProduct = async (user, payload) => {
       input.ebayUrl,
       input.asin || null,
       input.title || null,
+      input.category || null,
       input.customLabel || null,
       input.amazonPrice,
       input.ebayPrice,

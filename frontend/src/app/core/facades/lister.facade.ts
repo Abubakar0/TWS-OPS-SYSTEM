@@ -11,11 +11,13 @@ import {
   AssignedHunter,
   ListerChangeRequestBlockStatus,
   Product,
+  ProductCategory,
   ProductFilters,
   ProductStatus,
 } from '../models/product.models';
 import { ExportService } from '../services/export.service';
 import { ReferenceDataService } from '../state/reference-data.service';
+import { SessionCacheService } from '../state/session-cache.service';
 import { WorkspaceSyncService } from '../state/workspace-sync.service';
 import { ConfirmService } from '../ui/confirm.service';
 import { ToastService } from '../ui/toast.service';
@@ -29,6 +31,7 @@ export class ListerFacade {
   readonly pageSizeOptions = [10, 25, 50];
   readonly hunters = signal<AssignedHunter[]>([]);
   readonly accounts = signal<Account[]>([]);
+  readonly availableCategories = signal<ProductCategory[]>([]);
   readonly products = signal<Product[]>([]);
   readonly totalCount = signal(0);
   readonly selectedHunterId = signal('');
@@ -52,6 +55,7 @@ export class ListerFacade {
   readonly filters = new FormGroup({
     search: new FormControl('', { nonNullable: true }),
     status: new FormControl<ProductStatus | ''>('assigned', { nonNullable: true }),
+    category: new FormControl('', { nonNullable: true }),
     accountId: new FormControl('', { nonNullable: true }),
     from: new FormControl('', { nonNullable: true }),
     to: new FormControl('', { nonNullable: true }),
@@ -168,6 +172,10 @@ export class ListerFacade {
       !this.saving()
     );
   });
+  readonly canRejectCurrent = computed(() => {
+    const product = this.selectedProduct();
+    return product ? this.canReject(product) : false;
+  });
   readonly currentListingLinkError = computed(() => {
     this.actionFormVersion();
     const control = this.currentListingLinkControl();
@@ -252,6 +260,7 @@ export class ListerFacade {
     private readonly listerApi: ListerApiService,
     private readonly changeRequestApi: ChangeRequestApiService,
     private readonly referenceData: ReferenceDataService,
+    private readonly sessionCache: SessionCacheService,
     private readonly exportService: ExportService,
     private readonly workspaceSync: WorkspaceSyncService,
     private readonly confirm: ConfirmService,
@@ -263,6 +272,16 @@ export class ListerFacade {
   loadInitial(): void {
     this.error.set('');
     this.refreshChangeRequestBlockStatus();
+
+    const cachedHunters = this.sessionCache.assignedHunters();
+
+    if (cachedHunters.length) {
+      this.hunters.set(cachedHunters);
+
+      if (!this.selectedHunterId() && cachedHunters[0]) {
+        this.selectHunter(cachedHunters[0].id);
+      }
+    }
 
     this.listerApi.listAssignedHunters().subscribe({
       next: (hunters) => {
@@ -278,6 +297,13 @@ export class ListerFacade {
     if (!this.accountsSubscribed) {
       this.accountsSubscribed = true;
 
+      const cachedAccounts = this.sessionCache.assignedAccounts();
+
+      if (cachedAccounts.length) {
+        this.accounts.set(cachedAccounts);
+        this.syncAccountControls(cachedAccounts);
+      }
+
       this.referenceData
         .getAccounts()
         .pipe(takeUntilDestroyed(this.destroyRef))
@@ -288,6 +314,11 @@ export class ListerFacade {
           },
           error: (error) => this.error.set(error?.error?.message || 'Could not load accounts.'),
         });
+
+      this.referenceData
+        .getProductCategories()
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe((categories) => this.availableCategories.set(categories));
     }
   }
 
@@ -309,6 +340,7 @@ export class ListerFacade {
       {
         search: '',
         status: 'assigned',
+        category: '',
         accountId: '',
         from: '',
         to: '',
@@ -571,6 +603,7 @@ export class ListerFacade {
     return {
       search: raw.search.trim() || undefined,
       status: raw.status || undefined,
+      category: raw.category || undefined,
       accountId: raw.accountId || undefined,
       from: raw.from || undefined,
       to: raw.to || undefined,
@@ -851,6 +884,7 @@ export class ListerFacade {
           { header: 'Hunter', value: (product) => product.hunterName },
           { header: 'Title', value: (product) => product.title || '' },
           { header: 'ASIN', value: (product) => product.asin || '' },
+          { header: 'Category', value: (product) => product.category || '' },
           { header: 'Custom Label', value: (product) => product.customLabel || '' },
           { header: 'Status', value: (product) => product.status },
           { header: 'Amazon Link', value: (product) => product.amazonUrl },

@@ -17,64 +17,81 @@
       </div>
     </div>
 
-    <form class="activity-toolbar" [formGroup]="facade.filters" (ngSubmit)="facade.loadLogs()">
-      <mat-form-field appearance="outline" class="grid-toolbar__search">
-        <mat-label>Search activity</mat-label>
-        <input matInput formControlName="search" autocomplete="off" />
-        <mat-icon matSuffix>search</mat-icon>
-      </mat-form-field>
+    <details class="filter-panel">
+      <summary>
+        <div class="filter-panel__title">
+          <h2>Filters</h2>
+          <p>Search by actor, role, action, or date range.</p>
+        </div>
+        <div class="filter-panel__meta">
+          <span>{{ facade.total() }} events</span>
+          <span class="filter-panel__chevron">
+            <mat-icon>expand_more</mat-icon>
+          </span>
+        </div>
+      </summary>
 
-      <mat-form-field appearance="outline" class="toolbar-select">
-        <mat-label>User</mat-label>
-        <mat-select formControlName="actorUserId">
-          <mat-option value="">All users</mat-option>
-          @for (user of facade.filterUsers(); track user.id) {
-            <mat-option [value]="user.id">{{ user.name }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
+      <div class="filter-panel__content">
+        <form class="activity-toolbar" [formGroup]="facade.filters" (ngSubmit)="facade.loadLogs()">
+          <mat-form-field appearance="outline" class="grid-toolbar__search">
+            <mat-label>Search activity</mat-label>
+            <input matInput formControlName="search" autocomplete="off" />
+            <mat-icon matSuffix>search</mat-icon>
+          </mat-form-field>
 
-      <mat-form-field appearance="outline" class="toolbar-select">
-        <mat-label>Role</mat-label>
-        <mat-select formControlName="actorRole">
-          <mat-option value="">All roles</mat-option>
-          <mat-option value="admin">Admin</mat-option>
-          <mat-option value="hunter">Hunter</mat-option>
-          <mat-option value="lister">Lister</mat-option>
-          <mat-option value="super_admin">Super Admin</mat-option>
-        </mat-select>
-      </mat-form-field>
+          <mat-form-field appearance="outline" class="toolbar-select">
+            <mat-label>User</mat-label>
+            <mat-select formControlName="actorUserId">
+              <mat-option value="">All users</mat-option>
+              @for (user of facade.filterUsers(); track user.id) {
+                <mat-option [value]="user.id">{{ user.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
 
-      <mat-form-field appearance="outline" class="toolbar-select">
-        <mat-label>Action</mat-label>
-        <mat-select formControlName="action">
-          @for (option of facade.actionOptions; track option.value) {
-            <mat-option [value]="option.value">{{ option.label }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
+          <mat-form-field appearance="outline" class="toolbar-select">
+            <mat-label>Role</mat-label>
+            <mat-select formControlName="actorRole">
+              <mat-option value="">All roles</mat-option>
+              <mat-option value="admin">Admin</mat-option>
+              <mat-option value="hunter">Hunter</mat-option>
+              <mat-option value="lister">Lister</mat-option>
+              <mat-option value="super_admin">Super Admin</mat-option>
+            </mat-select>
+          </mat-form-field>
 
-      <mat-form-field appearance="outline" class="date-field">
-        <mat-label>From</mat-label>
-        <input matInput type="date" formControlName="from" />
-      </mat-form-field>
+          <mat-form-field appearance="outline" class="toolbar-select">
+            <mat-label>Action</mat-label>
+            <mat-select formControlName="action">
+              @for (option of facade.actionOptions; track option.value) {
+                <mat-option [value]="option.value">{{ option.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
 
-      <mat-form-field appearance="outline" class="date-field">
-        <mat-label>To</mat-label>
-        <input matInput type="date" formControlName="to" />
-      </mat-form-field>
+          <mat-form-field appearance="outline" class="date-field">
+            <mat-label>From</mat-label>
+            <input matInput type="date" formControlName="from" />
+          </mat-form-field>
 
-      <div class="grid-toolbar__actions">
-        <button mat-stroked-button type="button" (click)="facade.resetFilters()">
-          <mat-icon>restart_alt</mat-icon>
-          <span>Reset</span>
-        </button>
-        <button mat-flat-button color="primary" type="submit" [disabled]="facade.loading()">
-          <mat-icon>filter_alt</mat-icon>
-          <span>Apply</span>
-        </button>
+          <mat-form-field appearance="outline" class="date-field">
+            <mat-label>To</mat-label>
+            <input matInput type="date" formControlName="to" />
+          </mat-form-field>
+
+          <div class="grid-toolbar__actions">
+            <button mat-stroked-button type="button" (click)="facade.resetFilters()">
+              <mat-icon>restart_alt</mat-icon>
+              <span>Reset</span>
+            </button>
+            <button mat-flat-button color="primary" type="submit" [disabled]="facade.loading()">
+              <mat-icon>filter_alt</mat-icon>
+              <span>Apply</span>
+            </button>
+          </div>
+        </form>
       </div>
-    </form>
+    </details>
 
     @if (facade.loading()) {
       <div class="loading-state">

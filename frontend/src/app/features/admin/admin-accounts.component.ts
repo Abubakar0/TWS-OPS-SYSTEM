@@ -52,6 +52,7 @@ export class AdminAccountsComponent implements OnInit {
   readonly listerModalOpen = signal(false);
   readonly activeAccount = signal<Account | null>(null);
   readonly selectedListerIds = signal<string[]>([]);
+  readonly selectedListerIdSet = computed(() => new Set(this.selectedListerIds()));
   readonly searchControl = new FormControl('', { nonNullable: true });
   readonly marketplaceControl = new FormControl<'all' | 'amazon' | 'ebay'>('all', { nonNullable: true });
   readonly statusControl = new FormControl<'all' | 'active' | 'disabled'>('all', { nonNullable: true });
@@ -87,6 +88,7 @@ export class AdminAccountsComponent implements OnInit {
   });
 
   private readonly destroyRef = inject(DestroyRef);
+  private accountsSubscribed = false;
 
   constructor(
     private readonly adminApi: AdminService,
@@ -116,19 +118,26 @@ export class AdminAccountsComponent implements OnInit {
     this.loading.set(true);
     this.error.set('');
 
-    this.referenceData
-      .getAccounts(true)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (accounts) => {
-          this.accounts.set(accounts);
-          this.loading.set(false);
-        },
-        error: (error) => {
-          this.error.set(error?.error?.message || 'Could not load accounts.');
-          this.loading.set(false);
-        },
-      });
+    if (!this.accountsSubscribed) {
+      this.accountsSubscribed = true;
+
+      this.referenceData
+        .getAccounts(true)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (accounts) => {
+            this.accounts.set(accounts);
+            this.loading.set(false);
+          },
+          error: (error) => {
+            this.error.set(error?.error?.message || 'Could not load accounts.');
+            this.loading.set(false);
+          },
+        });
+      return;
+    }
+
+    this.referenceData.refreshAccounts();
   }
 
   resetFilters(): void {
@@ -166,10 +175,6 @@ export class AdminAccountsComponent implements OnInit {
     this.selectedListerIds.set([]);
   }
 
-  isListerSelected(listerId: string): boolean {
-    return this.selectedListerIds().includes(listerId);
-  }
-
   toggleListerSelection(listerId: string, checked: boolean): void {
     const next = new Set(this.selectedListerIds());
 
@@ -199,7 +204,6 @@ export class AdminAccountsComponent implements OnInit {
         this.workspaceSync.notifySettingsChanged();
         this.toast.success('Account created.');
         this.closeAccountModal(true);
-        this.loadAccounts();
       },
       error: (error) => {
         this.error.set(error?.error?.message || 'Could not create account.');
@@ -225,7 +229,6 @@ export class AdminAccountsComponent implements OnInit {
         this.workspaceSync.notifySettingsChanged();
         this.toast.success('Assigned listers updated.');
         this.closeListerModal(true);
-        this.loadAccounts();
       },
       error: (error) => {
         this.error.set(error?.error?.message || 'Could not update assigned listers.');
@@ -252,7 +255,6 @@ export class AdminAccountsComponent implements OnInit {
         this.referenceData.refreshAccounts();
         this.workspaceSync.notifySettingsChanged();
         this.toast.success(account.isActive ? 'Account disabled.' : 'Account enabled.');
-        this.loadAccounts();
       },
       error: (error) => this.error.set(error?.error?.message || 'Could not update account.'),
     });

@@ -38,6 +38,7 @@ import {
   WeeklyReviewStatus,
 } from '../../core/models/product.models';
 import { ReferenceDataService } from '../../core/state/reference-data.service';
+import { SessionCacheService } from '../../core/state/session-cache.service';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
 
 type RangePreset = 'today' | 'yesterday' | 'thisMonth' | 'lastMonth' | 'thisYear' | 'custom';
@@ -235,6 +236,7 @@ export class HunterDashboardComponent implements OnInit {
   readonly showChangeBanner = computed(() => (this.changeRequestSummary().pending || 0) > 0);
 
   private readonly destroyRef = inject(DestroyRef);
+  private readonly sessionCache = inject(SessionCacheService);
   private readonly workspaceSync = inject(WorkspaceSyncService);
   private readonly injector = inject(Injector);
 
@@ -246,6 +248,12 @@ export class HunterDashboardComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    const cachedCriteria = this.sessionCache.criteria();
+
+    if (cachedCriteria) {
+      this.criteria.set(cachedCriteria);
+    }
+
     this.referenceData
       .getCriteria()
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -253,7 +261,15 @@ export class HunterDashboardComponent implements OnInit {
         next: (criteria) => this.criteria.set(criteria),
       });
 
-    this.applyPreset('thisMonth');
+    const savedRange = this.sessionCache.getDashboardPreference('hunter-dashboard-range') as
+      | RangePreset
+      | null;
+    const initialRange =
+      savedRange && this.rangeButtons.some((option) => option.key === savedRange)
+        ? savedRange
+        : 'thisMonth';
+
+    this.applyPreset(initialRange);
     this.loadDashboardSignals();
 
     effect(
@@ -281,6 +297,7 @@ export class HunterDashboardComponent implements OnInit {
 
   applyPreset(range: RangePreset): void {
     this.selectedRange.set(range);
+    this.sessionCache.setDashboardPreference('hunter-dashboard-range', range);
 
     if (range === 'custom') {
       return;
@@ -299,6 +316,7 @@ export class HunterDashboardComponent implements OnInit {
 
     const filters = this.customRangeForm.getRawValue();
     this.selectedRange.set('custom');
+    this.sessionCache.setDashboardPreference('hunter-dashboard-range', 'custom');
     this.activeFilters.set(filters);
     this.loadStats(filters);
   }

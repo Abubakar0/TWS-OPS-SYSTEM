@@ -4,20 +4,22 @@
 
 .queue-summary-bar {
   position: sticky;
-  top: 0px;
+  top: 0;
   z-index: 10;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 0px;
-  padding: 5px 25px;
-  opacity: 1;
-  background: aliceblue;
+  gap: 10px;
+  margin-bottom: 0;
+  padding: 12px 16px;
+  border: 1px solid rgba(226, 232, 240, 0.94);
+  border-radius: 16px;
+  background: rgba(248, 251, 255, 0.96);
+  box-shadow: var(--tws-shadow-xs);
 }
 
 .listing-blocker-banner {
   position: sticky;
-  top: 82px;
+  top: 76px;
   z-index: 11;
   display: flex;
   align-items: center;
@@ -87,7 +89,7 @@
 
 .listing-table {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .listing-table__head,
@@ -111,7 +113,7 @@
 }
 
 .listing-row {
-  padding: 16px 12px;
+  padding: 13px 12px;
   border: 1px solid rgba(226, 232, 240, 0.92);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.88);
@@ -279,7 +281,7 @@
 }
 
 .detail-section {
-  margin-top: 18px;
+  margin-top: 16px;
 }
 
 .detail-section h3 {

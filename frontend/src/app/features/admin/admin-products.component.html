@@ -10,112 +10,156 @@
         <p>{{ facade.total() }} products match the current filters</p>
       </div>
       <div class="page-actions">
-        <button mat-stroked-button type="button" (click)="facade.exportProducts()" [disabled]="facade.exporting() || facade.loading()">
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="facade.exportProducts()"
+          [disabled]="facade.exporting() || facade.loading()"
+        >
           <mat-icon>download</mat-icon>
           <span>{{ facade.exporting() ? 'Exporting' : 'Export Excel' }}</span>
         </button>
-        <button mat-flat-button color="primary" type="button" (click)="facade.loadProducts()" [disabled]="facade.loading()">
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          (click)="facade.loadProducts()"
+          [disabled]="facade.loading()"
+        >
           <mat-icon>refresh</mat-icon>
           <span>Refresh</span>
         </button>
       </div>
     </div>
 
-    <form class="filters-grid" [formGroup]="facade.filters" (ngSubmit)="facade.applyFilters()">
-      <mat-form-field appearance="outline" class="filters-grid__search">
-        <mat-label>Search product, ASIN, hunter, or lister</mat-label>
-        <input matInput formControlName="search" autocomplete="off" />
-      </mat-form-field>
+    <app-filter-panel
+      title="Filters"
+      summary="Search, segment, and bulk-manage products without leaving the page."
+      icon="filter_list"
+      [badge]="facade.total() + ' results'"
+      storageKey="tws_admin_products_filters"
+    >
+      <form class="filters-grid" [formGroup]="facade.filters" (ngSubmit)="facade.applyFilters()">
+        <mat-form-field appearance="outline" class="filters-grid__search">
+          <mat-label>Search product, ASIN, hunter, or lister</mat-label>
+          <input matInput formControlName="search" autocomplete="off" />
+        </mat-form-field>
 
-      <mat-form-field appearance="outline">
-        <mat-label>Hunter</mat-label>
-        <mat-select formControlName="hunterId">
-          <mat-option value="">All hunters</mat-option>
-          @for (hunter of facade.availableHunters(); track hunter.id) {
-            <mat-option [value]="hunter.id">{{ hunter.name }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Hunter</mat-label>
+          <mat-select formControlName="hunterId">
+            <mat-option value="">All hunters</mat-option>
+            @for (hunter of facade.availableHunters(); track hunter.id) {
+              <mat-option [value]="hunter.id">{{ hunter.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
 
-      <mat-form-field appearance="outline">
-        <mat-label>Lister</mat-label>
-        <mat-select formControlName="listerId">
-          <mat-option value="">All listers</mat-option>
-          @for (lister of facade.availableListers(); track lister.id) {
-            <mat-option [value]="lister.id">{{ lister.name }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Lister</mat-label>
+          <mat-select formControlName="listerId">
+            <mat-option value="">All listers</mat-option>
+            @for (lister of facade.availableListers(); track lister.id) {
+              <mat-option [value]="lister.id">{{ lister.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
 
-      <mat-form-field appearance="outline">
-        <mat-label>Account</mat-label>
-        <mat-select formControlName="accountId">
-          <mat-option value="">All accounts</mat-option>
-          @for (account of facade.availableAccounts(); track account.id) {
-            <mat-option [value]="account.id">{{ account.name }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Account</mat-label>
+          <mat-select formControlName="accountId">
+            <mat-option value="">All accounts</mat-option>
+            @for (account of facade.availableAccounts(); track account.id) {
+              <mat-option [value]="account.id">{{ account.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
 
-      <mat-form-field appearance="outline">
-        <mat-label>Status</mat-label>
-        <mat-select formControlName="status">
-          <mat-option value="">All statuses</mat-option>
-          <mat-option value="approved">Approved</mat-option>
-          <mat-option value="assigned">Assigned</mat-option>
-          <mat-option value="listed">Listed</mat-option>
-          <mat-option value="rejected">Rejected</mat-option>
-        </mat-select>
-      </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Category</mat-label>
+          <mat-select formControlName="category">
+            <mat-option value="">All categories</mat-option>
+            @for (category of facade.availableCategories(); track category.id) {
+              <mat-option [value]="category.name">{{ category.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
 
-      <mat-form-field appearance="outline">
-        <mat-label>Quality</mat-label>
-        <mat-select formControlName="quality">
-          <mat-option value="">All quality</mat-option>
-          @for (quality of facade.qualityOptions; track quality) {
-            <mat-option [value]="quality">{{ quality }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Status</mat-label>
+          <mat-select formControlName="status">
+            <mat-option value="">All statuses</mat-option>
+            <mat-option value="approved">Approved</mat-option>
+            <mat-option value="assigned">Assigned</mat-option>
+            <mat-option value="listed">Listed</mat-option>
+            <mat-option value="rejected">Rejected</mat-option>
+          </mat-select>
+        </mat-form-field>
 
-      <mat-form-field appearance="outline">
-        <mat-label>Deleted state</mat-label>
-        <mat-select formControlName="deletedState">
-          <mat-option value="active">Active only</mat-option>
-          <mat-option value="deleted">Deleted only</mat-option>
-          <mat-option value="all">All products</mat-option>
-        </mat-select>
-      </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Quality</mat-label>
+          <mat-select formControlName="quality">
+            <mat-option value="">All quality</mat-option>
+            @for (quality of facade.qualityOptions; track quality) {
+              <mat-option [value]="quality">{{ quality }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
 
-      <mat-form-field appearance="outline">
-        <mat-label>From date</mat-label>
-        <input matInput type="date" formControlName="from" />
-      </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Deleted state</mat-label>
+          <mat-select formControlName="deletedState">
+            <mat-option value="active">Active only</mat-option>
+            <mat-option value="deleted">Deleted only</mat-option>
+            <mat-option value="all">All products</mat-option>
+          </mat-select>
+        </mat-form-field>
 
-      <mat-form-field appearance="outline">
-        <mat-label>To date</mat-label>
-        <input matInput type="date" formControlName="to" />
-      </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>From date</mat-label>
+          <input matInput type="date" formControlName="from" />
+        </mat-form-field>
 
-      <div class="filters-actions">
-        <button mat-flat-button color="primary" type="submit" [disabled]="facade.loading()">
-          <mat-icon>filter_list</mat-icon>
-          <span>Apply</span>
-        </button>
-        <button mat-stroked-button type="button" (click)="facade.resetFilters()" [disabled]="facade.loading()">
-          <mat-icon>restart_alt</mat-icon>
-          <span>Reset</span>
-        </button>
-        <button mat-stroked-button type="button" (click)="facade.openDeleteModal('soft')" [disabled]="!facade.selectedIds().length">
-          <mat-icon>delete_outline</mat-icon>
-          <span>Bulk Delete</span>
-        </button>
-        <button mat-stroked-button type="button" (click)="facade.openDeleteModal('permanent')" [disabled]="!facade.selectedIds().length">
-          <mat-icon>delete_forever</mat-icon>
-          <span>Permanent Delete</span>
-        </button>
-      </div>
-    </form>
+        <mat-form-field appearance="outline">
+          <mat-label>To date</mat-label>
+          <input matInput type="date" formControlName="to" />
+        </mat-form-field>
+
+        <div class="filters-actions">
+          <button mat-flat-button color="primary" type="submit" [disabled]="facade.loading()">
+            <mat-icon>filter_list</mat-icon>
+            <span>Apply</span>
+          </button>
+          <button
+            mat-stroked-button
+            type="button"
+            (click)="facade.resetFilters()"
+            [disabled]="facade.loading()"
+          >
+            <mat-icon>restart_alt</mat-icon>
+            <span>Reset</span>
+          </button>
+          <button
+            mat-stroked-button
+            type="button"
+            (click)="facade.openDeleteModal('soft')"
+            [disabled]="!facade.selectedIds().length"
+          >
+            <mat-icon>delete_outline</mat-icon>
+            <span>Bulk Delete</span>
+          </button>
+          <button
+            mat-stroked-button
+            type="button"
+            (click)="facade.openDeleteModal('permanent')"
+            [disabled]="!facade.selectedIds().length"
+          >
+            <mat-icon>delete_forever</mat-icon>
+            <span>Permanent Delete</span>
+          </button>
+        </div>
+      </form>
+    </app-filter-panel>
   </article>
 
   @if (facade.loading()) {
@@ -126,7 +170,11 @@
       </div>
     </article>
   } @else if (!facade.products().length) {
-    <app-empty-state title="No products found" message="Try adjusting the filters." icon="inventory_2" />
+    <app-empty-state
+      title="No products found"
+      message="Try adjusting the filters or clearing one of the active conditions."
+      icon="inventory_2"
+    />
   } @else {
     <article class="surface-card">
       <div class="products-grid">
@@ -137,6 +185,7 @@
             (change)="facade.toggleSelectAll($event.checked)"
           />
           <span>Product</span>
+          <span>Category</span>
           <span>Hunter</span>
           <span>Assigned Lister</span>
           <span>Quality</span>
@@ -153,23 +202,34 @@
               (change)="facade.toggleSelection(product.id, $event.checked)"
             />
             <div class="product-cell">
-              <strong [attr.title]="product.title || product.asin || 'Untitled product'">{{ product.title || product.asin || 'Untitled product' }}</strong>
+              <strong [attr.title]="product.title || product.asin || 'Untitled product'">{{
+                product.title || product.asin || 'Untitled product'
+              }}</strong>
               <small>{{ product.asin || 'No ASIN' }}</small>
             </div>
+            <span>{{ product.category || 'Not Assigned' }}</span>
             <span>{{ product.hunterName }}</span>
-            <span>{{ product.assignedListerName || '—' }}</span>
-            <span class="status-badge">{{ product.qualityLabel || '—' }}</span>
+            <span>{{ product.assignedListerName || 'Not Assigned' }}</span>
+            <span class="status-badge">{{ product.qualityLabel || 'Not Assigned' }}</span>
             <span class="status-badge">{{ product.status }}</span>
             <span>{{ product.createdAt | date: 'MMM d, y' }}</span>
-            <span>{{ product.listedAt ? (product.listedAt | date: 'MMM d, y') : '—' }}</span>
+            <span>{{ product.listedAt ? (product.listedAt | date: 'MMM d, y') : 'Not Listed' }}</span>
             <div class="row-actions">
               <button mat-icon-button type="button" (click)="facade.openDetail(product)">
                 <mat-icon>visibility</mat-icon>
               </button>
-              <button mat-icon-button type="button" (click)="facade.openDeleteModal('soft', [product.id])">
+              <button
+                mat-icon-button
+                type="button"
+                (click)="facade.openDeleteModal('soft', [product.id])"
+              >
                 <mat-icon>delete_outline</mat-icon>
               </button>
-              <button mat-icon-button type="button" (click)="facade.openDeleteModal('permanent', [product.id])">
+              <button
+                mat-icon-button
+                type="button"
+                (click)="facade.openDeleteModal('permanent', [product.id])"
+              >
                 <mat-icon>delete_forever</mat-icon>
               </button>
               @if (product.deletedAt && facade.canRestore()) {
@@ -194,11 +254,21 @@
               <mat-option [value]="200">200</mat-option>
             </mat-select>
           </mat-form-field>
-          <button mat-stroked-button type="button" (click)="facade.previousPage()" [disabled]="facade.pageIndex() === 0">
+          <button
+            mat-stroked-button
+            type="button"
+            (click)="facade.previousPage()"
+            [disabled]="facade.pageIndex() === 0"
+          >
             <mat-icon>chevron_left</mat-icon>
             <span>Previous</span>
           </button>
-          <button mat-stroked-button type="button" (click)="facade.nextPage()" [disabled]="facade.pageIndex() >= facade.pageCount() - 1">
+          <button
+            mat-stroked-button
+            type="button"
+            (click)="facade.nextPage()"
+            [disabled]="facade.pageIndex() >= facade.pageCount() - 1"
+          >
             <span>Next</span>
             <mat-icon>chevron_right</mat-icon>
           </button>
@@ -222,13 +292,20 @@
 
         <div class="detail-grid">
           <div><span>Hunter</span><strong>{{ product.hunterName }}</strong></div>
-          <div><span>Assigned Lister</span><strong>{{ product.assignedListerName || '—' }}</strong></div>
+          <div><span>Category</span><strong>{{ product.category || 'Not Assigned' }}</strong></div>
+          <div>
+            <span>Assigned Lister</span>
+            <strong>{{ product.assignedListerName || 'Not Assigned' }}</strong>
+          </div>
           <div><span>Status</span><strong>{{ product.status }}</strong></div>
-          <div><span>Quality</span><strong>{{ product.qualityLabel || '—' }}</strong></div>
+          <div><span>Quality</span><strong>{{ product.qualityLabel || 'Not Assigned' }}</strong></div>
           <div><span>Created</span><strong>{{ product.createdAt | date: 'MMM d, y, h:mm a' }}</strong></div>
-          <div><span>Listed</span><strong>{{ product.listedAt ? (product.listedAt | date: 'MMM d, y, h:mm a') : '—' }}</strong></div>
-          <div><span>Account</span><strong>{{ product.accountName || '—' }}</strong></div>
-          <div><span>Delete reason</span><strong>{{ product.deleteReason || '—' }}</strong></div>
+          <div>
+            <span>Listed</span>
+            <strong>{{ product.listedAt ? (product.listedAt | date: 'MMM d, y, h:mm a') : 'Not Listed' }}</strong>
+          </div>
+          <div><span>Account</span><strong>{{ product.accountName || 'Not Assigned' }}</strong></div>
+          <div><span>Delete reason</span><strong>{{ product.deleteReason || 'None' }}</strong></div>
         </div>
       </section>
     </div>
@@ -241,9 +318,11 @@
           <div>
             <h2>{{ facade.deleteMode() === 'permanent' ? 'Permanent delete' : 'Soft delete' }}</h2>
             <p>
-              {{ facade.deleteMode() === 'permanent'
-                ? 'This action cannot be undone.'
-                : 'Deleted products can be restored later by Super Admin.' }}
+              {{
+                facade.deleteMode() === 'permanent'
+                  ? 'This action cannot be undone.'
+                  : 'Deleted products can be restored later by Super Admin.'
+              }}
             </p>
           </div>
           <button mat-icon-button type="button" (click)="facade.closeDeleteModal()">
@@ -251,7 +330,11 @@
           </button>
         </div>
 
-        <form [formGroup]="facade.deleteForm" class="action-stack" (ngSubmit)="facade.confirmDelete()">
+        <form
+          [formGroup]="facade.deleteForm"
+          class="action-stack"
+          (ngSubmit)="facade.confirmDelete()"
+        >
           <mat-form-field appearance="outline">
             <mat-label>Reason</mat-label>
             <textarea matInput rows="4" formControlName="reason"></textarea>
@@ -261,10 +344,23 @@
           </mat-form-field>
 
           <div class="modal-actions">
-            <button mat-stroked-button type="button" (click)="facade.closeDeleteModal()">Cancel</button>
-            <button mat-flat-button color="warn" type="submit" [disabled]="facade.deleting() || facade.deleteForm.invalid">
+            <button mat-stroked-button type="button" (click)="facade.closeDeleteModal()">
+              Cancel
+            </button>
+            <button
+              mat-flat-button
+              color="warn"
+              type="submit"
+              [disabled]="facade.deleting() || facade.deleteForm.invalid"
+            >
               <mat-icon>{{ facade.deleteMode() === 'permanent' ? 'delete_forever' : 'delete_outline' }}</mat-icon>
-              <span>{{ facade.deleting() ? 'Deleting' : (facade.deleteMode() === 'permanent' ? 'Delete forever' : 'Delete') }}</span>
+              <span>{{
+                facade.deleting()
+                  ? 'Deleting'
+                  : facade.deleteMode() === 'permanent'
+                    ? 'Delete forever'
+                    : 'Delete'
+              }}</span>
             </button>
           </div>
         </form>

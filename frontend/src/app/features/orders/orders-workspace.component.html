@@ -1,4 +1,4 @@
-@if (pageVm(); as page) {
+﻿@if (pageVm(); as page) {
   <section class="page-shell orders-workspace">
     @if (facade.error()) {
       <div class="inline-state inline-state--error">
@@ -82,49 +82,49 @@
             <mat-icon>refresh</mat-icon>
             <span>Refresh</span>
           </button>
-
-          <button mat-stroked-button type="button" (click)="facade.toggleFiltersCollapsed()">
-            <mat-icon>{{ facade.filtersCollapsed() ? 'unfold_more' : 'unfold_less' }}</mat-icon>
-            <span>{{ facade.filtersCollapsed() ? 'Show Filters' : 'Hide Filters' }}</span>
-          </button>
         </div>
       </div>
 
-      <form class="filters-form" [formGroup]="facade.filters" (ngSubmit)="facade.applyFilters()">
-        <div class="filters-grid filters-grid--summary">
-          <mat-form-field appearance="outline" class="filters-grid__search">
-            <mat-label>Search orders</mat-label>
-            <input
-              matInput
-              formControlName="search"
-              autocomplete="off"
-              placeholder="eBay order, ASIN, product, hunter, account"
-            />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Placement</mat-label>
-            <mat-select formControlName="placementStatus">
-              <mat-option value="">All placement states</mat-option>
-              @for (status of facade.placementStatusOptions; track status) {
-                <mat-option [value]="status">{{ status.replaceAll('_', ' ') }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Status</mat-label>
-            <mat-select formControlName="status">
-              <mat-option value="">All statuses</mat-option>
-              @for (status of facade.orderStatusOptions; track status) {
-                <mat-option [value]="status">{{ status.replaceAll('_', ' ') }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-        </div>
-
-        @if (!facade.filtersCollapsed()) {
+      <app-filter-panel
+        title="Filters"
+        summary="Search by order, ASIN, account, category, and workflow status."
+        icon="filter_list"
+        [badge]="facade.total() + ' orders'"
+        [storageKey]="'tws_orders_filters_' + facade.mode()"
+        [defaultExpanded]="facade.mode() === 'processor'"
+      >
+        <form class="filters-form" [formGroup]="facade.filters" (ngSubmit)="facade.applyFilters()">
           <div class="filters-grid">
+            <mat-form-field appearance="outline" class="filters-grid__search">
+              <mat-label>Search orders</mat-label>
+              <input
+                matInput
+                formControlName="search"
+                autocomplete="off"
+                placeholder="eBay order, ASIN, product, hunter, or account"
+              />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Placement</mat-label>
+              <mat-select formControlName="placementStatus">
+                <mat-option value="">All placement states</mat-option>
+                @for (status of facade.placementStatusOptions; track status) {
+                  <mat-option [value]="status">{{ status.replaceAll('_', ' ') }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Status</mat-label>
+              <mat-select formControlName="status">
+                <mat-option value="">All statuses</mat-option>
+                @for (status of facade.orderStatusOptions; track status) {
+                  <mat-option [value]="status">{{ status.replaceAll('_', ' ') }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
             @if (facade.showHunterFilter()) {
               <mat-form-field appearance="outline">
                 <mat-label>Hunter</mat-label>
@@ -148,6 +148,16 @@
                 </mat-select>
               </mat-form-field>
             }
+
+            <mat-form-field appearance="outline">
+              <mat-label>Category</mat-label>
+              <mat-select formControlName="category">
+                <mat-option value="">All categories</mat-option>
+                @for (category of facade.availableCategories(); track category.id) {
+                  <mat-option [value]="category.name">{{ category.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
 
             <mat-form-field appearance="outline">
               <mat-label>Account</mat-label>
@@ -210,8 +220,8 @@
               </button>
             </div>
           </div>
-        }
-      </form>
+        </form>
+      </app-filter-panel>
     </article>
 
     @if (facade.loading()) {
@@ -257,7 +267,7 @@
 
                 <div class="order-row__cell">
                   <strong>{{ row.hunterName || 'Manual order' }}</strong>
-                  <span>{{ row.accountName || 'No account' }}</span>
+                  <span>{{ row.accountName || 'Not Assigned' }}</span>
                   @if (row.listerName) {
                     <small>Lister: {{ row.listerName }}</small>
                   }
@@ -346,7 +356,7 @@
               <div class="order-detail-summary__copy">
                 <strong [attr.title]="order.title">{{ order.title }}</strong>
                 <span>eBay Order: {{ order.ebayOrderId }}</span>
-                <small>{{ order.hunterName || 'Manual order' }} • {{ order.accountName || 'No account selected' }}</small>
+                <small>{{ order.hunterName || 'Manual order' }} · {{ order.accountName || 'Not Assigned' }}</small>
               </div>
 
               <div class="order-detail-summary__badges">
@@ -360,6 +370,10 @@
               <div class="detail-fact">
                 <span>ASIN</span>
                 <strong>{{ order.asin || 'Not linked yet' }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Category</span>
+                <strong>{{ order.productCategory || 'Not Assigned' }}</strong>
               </div>
               <div class="detail-fact">
                 <span>Quantity</span>
@@ -380,14 +394,14 @@
               <div class="detail-stack">
                 <div class="detail-row">
                   <span>Custom label</span>
-                  <strong>{{ order.customLabel || '—' }}</strong>
+                  <strong>{{ order.customLabel || 'Not Available' }}</strong>
                 </div>
                 <div class="detail-row">
                   <span>Amazon link</span>
                   @if (order.productAmazonUrl) {
                     <a [href]="order.productAmazonUrl" target="_blank" rel="noreferrer">Open supplier product</a>
                   } @else {
-                    <strong>—</strong>
+                    <strong>Not Available</strong>
                   }
                 </div>
                 <div class="detail-row">
@@ -401,7 +415,7 @@
                       Open listing
                     </a>
                   } @else {
-                    <strong>—</strong>
+                    <strong>Not Available</strong>
                   }
                 </div>
               </div>
@@ -449,7 +463,7 @@
                   @if (order.amazonOrderLink) {
                     <a [href]="order.amazonOrderLink" target="_blank" rel="noreferrer">Open Amazon order</a>
                   } @else {
-                    <strong>—</strong>
+                    <strong>Not Available</strong>
                   }
                 </div>
                 <div class="detail-row">
@@ -458,7 +472,7 @@
                 </div>
                 <div class="detail-row">
                   <span>Carrier</span>
-                  <strong>{{ order.carrier || '—' }}</strong>
+                  <strong>{{ order.carrier || 'Not Available' }}</strong>
                 </div>
                 <div class="detail-row">
                   <span>Payment</span>
@@ -790,7 +804,7 @@
                     >
                       <strong>{{ match.title || match.asin || 'Matched product' }}</strong>
                       <span>{{ match.asin || 'No ASIN' }}</span>
-                      <small>{{ match.hunterName }} • {{ match.accountName || 'No account' }}</small>
+                      <small>{{ match.hunterName }} · {{ match.accountName || 'Not Assigned' }}</small>
                     </button>
                   }
                 </div>
@@ -1025,3 +1039,5 @@
     }
   </section>
 }
+
+

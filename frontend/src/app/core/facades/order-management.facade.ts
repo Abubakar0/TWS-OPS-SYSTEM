@@ -20,7 +20,7 @@ import {
   PlacementStatus,
   OrderUpsertPayload,
 } from '../models/order.models';
-import { Account } from '../models/product.models';
+import { Account, ProductCategory } from '../models/product.models';
 import { ExportService } from '../services/export.service';
 import { ReferenceDataService } from '../state/reference-data.service';
 import { WorkspaceSyncService } from '../state/workspace-sync.service';
@@ -129,6 +129,17 @@ const getOrderStatusTone = (status: OrderStatus) => {
   }
 };
 
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error && typeof error === 'object') {
+    const maybeMessage = (error as { error?: { message?: unknown } }).error?.message;
+    if (typeof maybeMessage === 'string' && maybeMessage.trim()) {
+      return maybeMessage;
+    }
+  }
+
+  return fallback;
+};
+
 const getPlacementTone = (status: PlacementStatus) => {
   switch (status) {
     case 'PLACED':
@@ -206,6 +217,7 @@ export class OrderManagementFacade {
   readonly availableHunters = signal<User[]>([]);
   readonly availableListers = signal<User[]>([]);
   readonly availableAccounts = signal<Account[]>([]);
+  readonly availableCategories = signal<ProductCategory[]>([]);
   readonly selectedMatchId = signal('');
   readonly ignoreNextOrdersSync = signal(false);
   readonly suppressProcessorNewAutoOpen = signal(false);
@@ -545,6 +557,7 @@ export class OrderManagementFacade {
   private readonly destroyRef = inject(DestroyRef);
   private readonly injector = inject(Injector);
   private readonly router = inject(Router);
+  private referenceDataSubscribed = false;
 
   constructor(
     private readonly orderApi: OrderApiService,
@@ -652,6 +665,7 @@ export class OrderManagementFacade {
     this.filters.reset(
       {
         search: '',
+        category: '',
         hunterId: '',
         listerId: '',
         accountId: '',
@@ -842,12 +856,13 @@ export class OrderManagementFacade {
       this.ignoreNextOrdersSync.set(true);
       this.workspaceSync.notifyOrdersChanged();
       this.toast.success(this.modalState().mode === 'create' ? 'Order created.' : 'Order updated.');
-    } catch (error: any) {
-      if (error?.status === 409) {
+    } catch (error: unknown) {
+      const status = error && typeof error === 'object' ? (error as { status?: number }).status : undefined;
+      if (status === 409) {
         this.duplicateState.set('duplicate');
         this.duplicateMessage.set('This eBay order already exists.');
       } else {
-        this.error.set(error?.error?.message || 'Could not save the order.');
+        this.error.set(getErrorMessage(error, 'Could not save the order.'));
       }
     } finally {
       this.saving.set(false);
@@ -913,8 +928,8 @@ export class OrderManagementFacade {
       this.workspaceSync.notifyOrdersChanged();
       this.toast.success(this.deletePermanent() ? 'Order deleted forever.' : 'Order deleted.');
       this.closeDeleteModal(true);
-    } catch (error: any) {
-      this.error.set(error?.error?.message || 'Could not delete the order.');
+    } catch (error: unknown) {
+      this.error.set(getErrorMessage(error, 'Could not delete the order.'));
     } finally {
       this.saving.set(false);
     }
@@ -935,8 +950,8 @@ export class OrderManagementFacade {
         this.workspaceSync.notifyOrdersChanged();
         this.toast.success('Order restored.');
       })
-      .catch((error: any) => {
-        this.error.set(error?.error?.message || 'Could not restore the order.');
+      .catch((error: unknown) => {
+        this.error.set(getErrorMessage(error, 'Could not restore the order.'));
       })
       .finally(() => this.saving.set(false));
   }
@@ -966,8 +981,8 @@ export class OrderManagementFacade {
       if (matches[0]) {
         this.applyMatch(matches[0]);
       }
-    } catch (error: any) {
-      this.error.set(error?.error?.message || 'Could not match the product.');
+    } catch (error: unknown) {
+      this.error.set(getErrorMessage(error, 'Could not match the product.'));
     } finally {
       this.matchLoading.set(false);
     }
@@ -1030,8 +1045,8 @@ export class OrderManagementFacade {
         this.workspaceSync.notifyOrdersChanged();
         this.toast.success('Order marked as placed.');
       })
-      .catch((error: any) => {
-        this.error.set(error?.error?.message || 'Could not mark the order as placed.');
+      .catch((error: unknown) => {
+        this.error.set(getErrorMessage(error, 'Could not mark the order as placed.'));
       })
       .finally(() => this.saving.set(false));
   }
@@ -1061,8 +1076,8 @@ export class OrderManagementFacade {
         this.workspaceSync.notifyOrdersChanged();
         this.toast.success('Order marked as shipped.');
       })
-      .catch((error: any) => {
-        this.error.set(error?.error?.message || 'Could not mark the order as shipped.');
+      .catch((error: unknown) => {
+        this.error.set(getErrorMessage(error, 'Could not mark the order as shipped.'));
       })
       .finally(() => this.saving.set(false));
   }
@@ -1083,8 +1098,8 @@ export class OrderManagementFacade {
         this.workspaceSync.notifyOrdersChanged();
         this.toast.success('Order marked as delivered.');
       })
-      .catch((error: any) => {
-        this.error.set(error?.error?.message || 'Could not mark the order as delivered.');
+      .catch((error: unknown) => {
+        this.error.set(getErrorMessage(error, 'Could not mark the order as delivered.'));
       })
       .finally(() => this.saving.set(false));
   }
@@ -1112,8 +1127,8 @@ export class OrderManagementFacade {
         this.workspaceSync.notifyChangeRequestsChanged();
         this.toast.success('Order flagged for issue follow-up.');
       })
-      .catch((error: any) => {
-        this.error.set(error?.error?.message || 'Could not mark the order as an issue.');
+      .catch((error: unknown) => {
+        this.error.set(getErrorMessage(error, 'Could not mark the order as an issue.'));
       })
       .finally(() => this.saving.set(false));
   }
@@ -1156,6 +1171,11 @@ export class OrderManagementFacade {
   }
 
   private async loadReferenceData(): Promise<void> {
+    if (this.referenceDataSubscribed) {
+      return;
+    }
+
+    this.referenceDataSubscribed = true;
     const canManagePeople =
       this.currentRole() === 'admin' ||
       this.currentRole() === 'super_admin' ||
@@ -1168,6 +1188,11 @@ export class OrderManagementFacade {
     accountSource.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (accounts) => this.availableAccounts.set(accounts),
     });
+
+    this.referenceData
+      .getProductCategories(true)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({ next: (categories) => this.availableCategories.set(categories) });
 
     if (canManagePeople) {
       this.referenceData
@@ -1186,6 +1211,7 @@ export class OrderManagementFacade {
 
     return {
       search: raw.search.trim() || undefined,
+      category: raw.category || undefined,
       hunterId: raw.hunterId || undefined,
       listerId: raw.listerId || undefined,
       accountId: raw.accountId || undefined,
@@ -1424,6 +1450,7 @@ export class OrderManagementFacade {
           { header: 'eBay Order ID', value: (row) => row.ebayOrderId },
           { header: 'Product', value: (row) => row.productTitle || '' },
           { header: 'ASIN', value: (row) => row.asin || '' },
+          { header: 'Category', value: (row) => row.productCategory || '' },
           { header: 'Hunter', value: (row) => row.hunterName || '' },
           { header: 'Lister', value: (row) => row.listerName || '' },
           { header: 'Account', value: (row) => row.accountName || '' },
@@ -1475,8 +1502,8 @@ export class OrderManagementFacade {
     this.statsLoading.set(true);
     firstValueFrom(this.orderApi.getStats(this.buildStatsFilters()))
       .then((stats) => this.stats.set(stats))
-      .catch((error: any) => {
-        this.error.set(error?.error?.message || 'Could not refresh order stats.');
+      .catch((error: unknown) => {
+        this.error.set(getErrorMessage(error, 'Could not refresh order stats.'));
       })
       .finally(() => this.statsLoading.set(false));
   }

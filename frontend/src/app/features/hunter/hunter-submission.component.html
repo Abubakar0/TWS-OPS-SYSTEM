@@ -94,6 +94,30 @@
             </div>
 
             <div class="field-shell">
+              <label class="field-label">Category</label>
+              <mat-form-field appearance="outline">
+                <input
+                  matInput
+                  formControlName="category"
+                  autocomplete="off"
+                  [matAutocomplete]="categoryAuto"
+                />
+                <mat-autocomplete #categoryAuto="matAutocomplete" autoActiveFirstOption>
+                  @for (category of facade.filteredCategories(); track category.id) {
+                    <mat-option [value]="category.name">{{ category.name }}</mat-option>
+                  }
+                </mat-autocomplete>
+                @if (facade.fieldStates().category.error) {
+                  <mat-error>{{ facade.fieldStates().category.error }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ facade.fieldStates().category.helper }}</span>
+              </div>
+            </div>
+
+            <div class="field-shell">
               <label class="field-label">Custom label</label>
               <mat-form-field appearance="outline">
                 <input matInput formControlName="customLabel" autocomplete="off" />

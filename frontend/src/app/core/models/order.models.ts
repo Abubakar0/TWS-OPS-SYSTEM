@@ -37,6 +37,7 @@ export interface OrderProductMatch {
   asin: string | null;
   title: string | null;
   customLabel: string | null;
+  category?: string | null;
   hunterId: string;
   hunterName: string;
   listerId: string | null;
@@ -62,6 +63,7 @@ export interface Order {
   asin: string | null;
   productTitle: string | null;
   customLabel: string | null;
+  productCategory?: string | null;
   hunterId: string | null;
   hunterName: string | null;
   listerId: string | null;
@@ -128,6 +130,7 @@ export interface Order {
 
 export interface OrderFilters {
   search?: string;
+  category?: string;
   hunterId?: string;
   listerId?: string;
   accountId?: string;

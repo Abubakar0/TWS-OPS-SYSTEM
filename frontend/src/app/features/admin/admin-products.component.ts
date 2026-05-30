@@ -12,6 +12,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { AdminProductsFacade } from '../../core/facades/admin-products.facade';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../shared/error-state/error-state.component';
+import { FilterPanelComponent } from '../../shared/ui/filter-panel.component';
 
 @Component({
   selector: 'app-admin-products',
@@ -27,6 +28,7 @@ import { ErrorStateComponent } from '../../shared/error-state/error-state.compon
     MatSelectModule,
     EmptyStateComponent,
     ErrorStateComponent,
+    FilterPanelComponent,
   ],
   templateUrl: './admin-products.component.html',
   styleUrl: './admin-products.component.scss',

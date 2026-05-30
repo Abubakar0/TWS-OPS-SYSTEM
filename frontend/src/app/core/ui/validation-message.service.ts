@@ -21,6 +21,8 @@ export class ValidationMessageService {
       switch (field) {
         case 'title':
           return 'Product title is required.';
+        case 'category':
+          return 'Choose a product category.';
         case 'amazonUrl':
           return 'Amazon link is required.';
         case 'ebayUrl':
@@ -113,6 +115,8 @@ export class ValidationMessageService {
 
   submissionHelper(field: SubmissionControlName, criteria: HuntingCriteria): string {
     switch (field) {
+      case 'category':
+        return 'Search and select the closest product category.';
       case 'customLabel':
         return criteria.customLabelRequired ? 'Required by the current rules.' : 'Defaults to your name.';
       case 'amazonStockCount':

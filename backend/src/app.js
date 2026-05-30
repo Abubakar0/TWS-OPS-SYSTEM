@@ -14,6 +14,7 @@ const teamRoutes = require('./modules/teams/teams.routes');
 const orderRoutes = require('./modules/orders/orders.routes');
 const listerRoutes = require('./modules/lister/lister.routes');
 const orderIssueRoutes = require('./modules/order-issues/order-issues.routes');
+const productCategoryRoutes = require('./modules/product-categories/product-categories.routes');
 const { notFound, errorHandler } = require('./middleware/error');
 
 const app = express();
@@ -42,6 +43,7 @@ app.use('/api/lister', listerRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/order-issues', orderIssueRoutes);
+app.use('/api/product-categories', productCategoryRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

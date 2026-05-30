@@ -28,40 +28,57 @@
   </section>
 
   <article class="surface-card">
-    <form class="grid-toolbar" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
-      <mat-form-field appearance="outline" class="grid-toolbar__search">
-        <mat-label>Search ASIN, order, hunter, or issue</mat-label>
-        <input matInput formControlName="search" autocomplete="off" />
-      </mat-form-field>
+    <details class="filter-panel">
+      <summary>
+        <div class="filter-panel__title">
+          <h2>Filters</h2>
+          <p>Focus assigned fixes by hunter, status, or issue type.</p>
+        </div>
+        <div class="filter-panel__meta">
+          <span>{{ total() }} requests</span>
+          <span class="filter-panel__chevron">
+            <mat-icon>expand_more</mat-icon>
+          </span>
+        </div>
+      </summary>
 
-      <div class="grid-toolbar__actions grid-toolbar__actions--filters">
-        <mat-form-field appearance="outline">
-          <mat-label>Hunter</mat-label>
-          <mat-select formControlName="hunterId">
-            <mat-option value="">All hunters</mat-option>
-            @for (hunter of hunters(); track hunter.id) {
-              <mat-option [value]="hunter.id">{{ hunter.name }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+      <div class="filter-panel__content">
+        <form class="grid-toolbar" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
+          <mat-form-field appearance="outline" class="grid-toolbar__search">
+            <mat-label>Search ASIN, order, hunter, or issue</mat-label>
+            <input matInput formControlName="search" autocomplete="off" />
+          </mat-form-field>
 
-        <mat-form-field appearance="outline">
-          <mat-label>Status</mat-label>
-          <mat-select formControlName="status">
-            @for (option of statusOptions; track option.value) {
-              <mat-option [value]="option.value">{{ option.label }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+          <div class="grid-toolbar__actions grid-toolbar__actions--filters">
+            <mat-form-field appearance="outline">
+              <mat-label>Hunter</mat-label>
+              <mat-select formControlName="hunterId">
+                <mat-option value="">All hunters</mat-option>
+                @for (hunter of hunters(); track hunter.id) {
+                  <mat-option [value]="hunter.id">{{ hunter.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
 
-        <mat-form-field appearance="outline">
-          <mat-label>Issue Type</mat-label>
-          <input matInput formControlName="issueType" autocomplete="off" placeholder="PRICE_INCREASED" />
-        </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Status</mat-label>
+              <mat-select formControlName="status">
+                @for (option of statusOptions; track option.value) {
+                  <mat-option [value]="option.value">{{ option.label }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
 
-        <button mat-flat-button color="primary" type="submit">Apply</button>
+            <mat-form-field appearance="outline">
+              <mat-label>Issue Type</mat-label>
+              <input matInput formControlName="issueType" autocomplete="off" placeholder="PRICE_INCREASED" />
+            </mat-form-field>
+
+            <button mat-flat-button color="primary" type="submit">Apply</button>
+          </div>
+        </form>
       </div>
-    </form>
+    </details>
   </article>
 
   @if (loading()) {
@@ -101,7 +118,7 @@
               </div>
               <div>
                 <strong>{{ request.hunterName }}</strong>
-                <span>{{ request.accountName || 'No account' }}</span>
+                <span>{{ request.accountName || 'Not Assigned' }}</span>
               </div>
               <div>
                 <strong>{{ (request.issueType || 'OTHER').replaceAll('_', ' ') }}</strong>
@@ -148,7 +165,7 @@
             </div>
             <div class="detail-row">
               <span>Account</span>
-              <strong>{{ request.accountName || 'No account assigned' }}</strong>
+              <strong>{{ request.accountName || 'Not Assigned' }}</strong>
             </div>
             <div class="detail-row">
               <span>Issue</span>

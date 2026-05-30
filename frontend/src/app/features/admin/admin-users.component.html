@@ -25,39 +25,56 @@
       </div>
     </div>
 
-    <div class="users-toolbar">
-      <mat-form-field appearance="outline" class="grid-toolbar__search">
-        <mat-label>Search users</mat-label>
-        <input matInput [formControl]="facade.searchControl" autocomplete="off" />
-        <mat-icon matSuffix>search</mat-icon>
-      </mat-form-field>
+    <details class="filter-panel">
+      <summary>
+        <div class="filter-panel__title">
+          <h2>Filters</h2>
+          <p>Search by name or email, then narrow by role and status.</p>
+        </div>
+        <div class="filter-panel__meta">
+          <span>{{ facade.userRows().length }} users</span>
+          <span class="filter-panel__chevron">
+            <mat-icon>expand_more</mat-icon>
+          </span>
+        </div>
+      </summary>
 
-      <mat-form-field appearance="outline" class="toolbar-select">
-          <mat-label>Role</mat-label>
-          <mat-select [formControl]="facade.roleFilterControl">
-            <mat-option value="all">All roles</mat-option>
-            @for (role of facade.availableRoles(); track role) {
-              <mat-option [value]="role">{{ roleLabels[role] }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+      <div class="filter-panel__content">
+        <div class="users-toolbar">
+          <mat-form-field appearance="outline" class="grid-toolbar__search">
+            <mat-label>Search users</mat-label>
+            <input matInput [formControl]="facade.searchControl" autocomplete="off" />
+            <mat-icon matSuffix>search</mat-icon>
+          </mat-form-field>
 
-      <mat-form-field appearance="outline" class="toolbar-select">
-        <mat-label>Status</mat-label>
-        <mat-select [formControl]="facade.statusFilterControl">
-          <mat-option value="all">All statuses</mat-option>
-          <mat-option value="active">Active</mat-option>
-          <mat-option value="disabled">Disabled</mat-option>
-        </mat-select>
-      </mat-form-field>
+          <mat-form-field appearance="outline" class="toolbar-select">
+              <mat-label>Role</mat-label>
+              <mat-select [formControl]="facade.roleFilterControl">
+                <mat-option value="all">All roles</mat-option>
+                @for (role of facade.availableRoles(); track role) {
+                  <mat-option [value]="role">{{ roleLabels[role] }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
 
-      <div class="grid-toolbar__actions">
-        <button mat-stroked-button type="button" (click)="facade.resetFilters()">
-          <mat-icon>restart_alt</mat-icon>
-          <span>Reset</span>
-        </button>
+          <mat-form-field appearance="outline" class="toolbar-select">
+            <mat-label>Status</mat-label>
+            <mat-select [formControl]="facade.statusFilterControl">
+              <mat-option value="all">All statuses</mat-option>
+              <mat-option value="active">Active</mat-option>
+              <mat-option value="disabled">Disabled</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <div class="grid-toolbar__actions">
+            <button mat-stroked-button type="button" (click)="facade.resetFilters()">
+              <mat-icon>restart_alt</mat-icon>
+              <span>Reset</span>
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
+    </details>
 
     @if (facade.loading()) {
       <div class="loading-state">

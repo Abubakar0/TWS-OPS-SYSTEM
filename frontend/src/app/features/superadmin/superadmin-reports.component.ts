@@ -12,11 +12,13 @@ import { forkJoin } from 'rxjs';
 
 import { User } from '../../core/models/auth.models';
 import { OrderStats } from '../../core/models/order.models';
+import { ProductCategory } from '../../core/models/product.models';
 import { OrderApiService } from '../../core/api/order-api.service';
 import { AdminService, AdminStats } from '../../core/services/admin.service';
 import { ExportService } from '../../core/services/export.service';
 import { ReferenceDataService } from '../../core/state/reference-data.service';
 import { ToastService } from '../../core/ui/toast.service';
+import { FilterPanelComponent } from '../../shared/ui/filter-panel.component';
 
 type ReportRangePreset = 'today' | 'yesterday' | 'week' | 'month' | 'year' | 'custom';
 
@@ -50,6 +52,7 @@ const customDateRangeValidator: ValidatorFn = (control): ValidationErrors | null
     MatInputModule,
     MatProgressSpinnerModule,
     MatSelectModule,
+    FilterPanelComponent,
   ],
   templateUrl: './superadmin-reports.component.html',
   styleUrl: './superadmin-reports.component.scss',
@@ -57,6 +60,7 @@ const customDateRangeValidator: ValidatorFn = (control): ValidationErrors | null
 })
 export class SuperAdminReportsComponent implements OnInit {
   readonly users = signal<User[]>([]);
+  readonly categories = signal<ProductCategory[]>([]);
   readonly stats = signal<AdminStats | null>(null);
   readonly orderReports = signal<OrderStats | null>(null);
   readonly loading = signal(false);
@@ -69,6 +73,7 @@ export class SuperAdminReportsComponent implements OnInit {
 
   readonly filtersForm = new FormGroup({
     userId: new FormControl('', { nonNullable: true }),
+    category: new FormControl('', { nonNullable: true }),
   });
 
   readonly customRangeForm = new FormGroup(
@@ -105,6 +110,13 @@ export class SuperAdminReportsComponent implements OnInit {
         error: (error) => this.error.set(error?.error?.message || 'Could not load users.'),
       });
 
+    this.referenceData
+      .getProductCategories()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (categories) => this.categories.set(categories),
+      });
+
     this.applyPreset('month');
   }
 
@@ -134,6 +146,28 @@ export class SuperAdminReportsComponent implements OnInit {
 
   applyUserFilter(): void {
     this.loadStats(this.activeDateFilters());
+  }
+
+  resetFilters(): void {
+    this.filtersForm.reset(
+      {
+        userId: '',
+        category: '',
+      },
+      { emitEvent: false },
+    );
+
+    if (this.selectedRange() === 'custom') {
+      this.customRangeForm.reset(
+        {
+          from: '',
+          to: '',
+        },
+        { emitEvent: false },
+      );
+    }
+
+    this.applyPreset(this.selectedRange() === 'custom' ? 'month' : this.selectedRange());
   }
 
   exportExcel(): void {
@@ -231,6 +265,7 @@ export class SuperAdminReportsComponent implements OnInit {
       to: dateFilters.to,
       hunterId: selectedUser?.role === 'hunter' ? selectedUser.id : undefined,
       listerId: selectedUser?.role === 'lister' ? selectedUser.id : undefined,
+      category: this.filtersForm.controls.category.value || undefined,
     };
   }
 

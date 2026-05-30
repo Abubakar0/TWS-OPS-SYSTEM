@@ -1,28 +1,40 @@
 import { Injectable } from '@angular/core';
-import { firstValueFrom, from, Observable, Subject, startWith, switchMap, shareReplay } from 'rxjs';
+import { firstValueFrom, from, Observable, Subject, shareReplay, startWith, switchMap } from 'rxjs';
 
 import { User, UserRole } from '../models/auth.models';
-import { Account, HuntingCriteria } from '../models/product.models';
+import { Account, HuntingCriteria, ProductCategory } from '../models/product.models';
 import { AdminApiService } from '../api/admin-api.service';
 import { AccountApiService } from '../api/account-api.service';
+import { ProductCategoryApiService } from '../api/product-category-api.service';
+import { CACHE_NAMESPACE, CACHE_TTL, makeCacheKey } from '../config/cache';
+import { RequestCacheService } from './request-cache.service';
 
 @Injectable({ providedIn: 'root' })
 export class ReferenceDataService {
   private readonly criteriaRefresh$ = new Subject<void>();
   private readonly usersRefreshMap = new Map<string, Subject<void>>();
-  private readonly usersCache = new Map<string, Observable<User[]>>();
+  private readonly usersStreams = new Map<string, Observable<User[]>>();
   private readonly accountsRefreshMap = new Map<string, Subject<void>>();
-  private readonly accountsCache = new Map<string, Observable<Account[]>>();
-
-  readonly criteria$ = this.criteriaRefresh$.pipe(
+  private readonly accountsStreams = new Map<string, Observable<Account[]>>();
+  private readonly categoriesRefresh$ = new Subject<void>();
+  private readonly categoriesStreams = new Map<string, Observable<ProductCategory[]>>();
+  private readonly criteria$ = this.criteriaRefresh$.pipe(
     startWith(void 0),
-    switchMap(() => this.adminApi.getCriteria()),
+    switchMap(() =>
+      this.requestCache.getOrCreate(
+        makeCacheKey(CACHE_NAMESPACE.criteria),
+        CACHE_TTL.long,
+        () => this.adminApi.getCriteria(),
+      ),
+    ),
     shareReplay({ bufferSize: 1, refCount: true }),
   );
 
   constructor(
     private readonly adminApi: AdminApiService,
     private readonly accountApi: AccountApiService,
+    private readonly productCategoryApi: ProductCategoryApiService,
+    private readonly requestCache: RequestCacheService,
   ) {}
 
   getCriteria(): Observable<HuntingCriteria> {
@@ -30,12 +42,13 @@ export class ReferenceDataService {
   }
 
   refreshCriteria(): void {
+    this.requestCache.invalidatePrefix(CACHE_NAMESPACE.criteria);
     this.criteriaRefresh$.next();
   }
 
   getUsers(role?: UserRole): Observable<User[]> {
     const key = role || 'all';
-    const existing = this.usersCache.get(key);
+    const existing = this.usersStreams.get(key);
 
     if (existing) {
       return existing;
@@ -44,17 +57,24 @@ export class ReferenceDataService {
     const refresh$ = new Subject<void>();
     this.usersRefreshMap.set(key, refresh$);
 
-    const request$ = refresh$.pipe(
+    const stream$ = refresh$.pipe(
       startWith(void 0),
-      switchMap(() => from(this.fetchAllUsers(role))),
+      switchMap(() =>
+        this.requestCache.getOrCreate(
+          makeCacheKey(CACHE_NAMESPACE.users, { role: key }),
+          CACHE_TTL.long,
+          () => from(this.fetchAllUsers(role)),
+        ),
+      ),
       shareReplay({ bufferSize: 1, refCount: true }),
     );
 
-    this.usersCache.set(key, request$);
-    return request$;
+    this.usersStreams.set(key, stream$);
+    return stream$;
   }
 
   refreshUsers(): void {
+    this.requestCache.invalidatePrefix(CACHE_NAMESPACE.users);
     for (const refresh of this.usersRefreshMap.values()) {
       refresh.next();
     }
@@ -62,7 +82,7 @@ export class ReferenceDataService {
 
   getAccounts(includeInactive = false): Observable<Account[]> {
     const key = includeInactive ? 'all' : 'active';
-    const existing = this.accountsCache.get(key);
+    const existing = this.accountsStreams.get(key);
 
     if (existing) {
       return existing;
@@ -71,20 +91,56 @@ export class ReferenceDataService {
     const refresh$ = new Subject<void>();
     this.accountsRefreshMap.set(key, refresh$);
 
-    const request$ = refresh$.pipe(
+    const stream$ = refresh$.pipe(
       startWith(void 0),
-      switchMap(() => from(this.fetchAllAccounts(includeInactive))),
+      switchMap(() =>
+        this.requestCache.getOrCreate(
+          makeCacheKey(CACHE_NAMESPACE.accounts, { includeInactive }),
+          CACHE_TTL.long,
+          () => from(this.fetchAllAccounts(includeInactive)),
+        ),
+      ),
       shareReplay({ bufferSize: 1, refCount: true }),
     );
 
-    this.accountsCache.set(key, request$);
-    return request$;
+    this.accountsStreams.set(key, stream$);
+    return stream$;
   }
 
   refreshAccounts(): void {
+    this.requestCache.invalidatePrefix(CACHE_NAMESPACE.accounts);
     for (const refresh of this.accountsRefreshMap.values()) {
       refresh.next();
     }
+  }
+
+  getProductCategories(includeInactive = false): Observable<ProductCategory[]> {
+    const key = includeInactive ? 'all' : 'active';
+    const existing = this.categoriesStreams.get(key);
+
+    if (existing) {
+      return existing;
+    }
+
+    const stream$ = this.categoriesRefresh$.pipe(
+      startWith(void 0),
+      switchMap(() =>
+        this.requestCache.getOrCreate(
+          makeCacheKey(CACHE_NAMESPACE.categories, { includeInactive }),
+          CACHE_TTL.long,
+          () => this.productCategoryApi.listCategories(includeInactive),
+        ),
+      ),
+      shareReplay({ bufferSize: 1, refCount: true }),
+    );
+
+    this.categoriesStreams.set(key, stream$);
+    return stream$;
+  }
+
+  refreshProductCategories(): void {
+    this.requestCache.invalidatePrefix(CACHE_NAMESPACE.categories);
+    this.categoriesRefresh$.next();
   }
 
   private async fetchAllUsers(role?: UserRole): Promise<User[]> {

@@ -12,14 +12,16 @@ import { MatSelectModule } from '@angular/material/select';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom, Subject, catchError, debounceTime, distinctUntilChanged, finalize, of, switchMap } from 'rxjs';
 
-import { Product, ProductFilters, ProductStatus } from '../../core/models/product.models';
+import { Product, ProductCategory, ProductFilters, ProductStatus } from '../../core/models/product.models';
 import { ExportService } from '../../core/services/export.service';
 import { ProductService } from '../../core/services/product.service';
 import { PageResult } from '../../core/state/query-state.models';
+import { ReferenceDataService } from '../../core/state/reference-data.service';
 import { ErrorStateComponent } from '../../shared/error-state/error-state.component';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
 import { ToastService } from '../../core/ui/toast.service';
 import { ProductsTableComponent } from '../../shared/products-table/products-table.component';
+import { FilterPanelComponent } from '../../shared/ui/filter-panel.component';
 
 @Component({
   selector: 'app-hunter-products',
@@ -35,6 +37,7 @@ import { ProductsTableComponent } from '../../shared/products-table/products-tab
     MatSelectModule,
     ErrorStateComponent,
     ProductsTableComponent,
+    FilterPanelComponent,
   ],
   templateUrl: './hunter-products.component.html',
   styleUrl: './hunter-products.component.scss',
@@ -44,6 +47,7 @@ export class HunterProductsComponent implements OnInit {
   readonly pageSizeOptions = [10, 25, 50];
   readonly products = signal<Product[]>([]);
   readonly total = signal(0);
+  readonly categories = signal<ProductCategory[]>([]);
   readonly pageIndex = signal(0);
   readonly pageSize = signal(this.pageSizeOptions[1]);
   readonly loading = signal(false);
@@ -77,6 +81,7 @@ export class HunterProductsComponent implements OnInit {
   readonly filters = new FormGroup({
     search: new FormControl('', { nonNullable: true }),
     status: new FormControl<ProductStatus | ''>('', { nonNullable: true }),
+    category: new FormControl('', { nonNullable: true }),
     from: new FormControl('', { nonNullable: true }),
     to: new FormControl('', { nonNullable: true }),
     listerName: new FormControl('', { nonNullable: true }),
@@ -91,6 +96,7 @@ export class HunterProductsComponent implements OnInit {
 
   constructor(
     private readonly productsApi: ProductService,
+    private readonly referenceData: ReferenceDataService,
     private readonly exportService: ExportService,
     private readonly workspaceSync: WorkspaceSyncService,
     private readonly toast: ToastService,
@@ -140,6 +146,11 @@ export class HunterProductsComponent implements OnInit {
       },
       { allowSignalWrites: true, injector: this.injector },
     );
+
+    this.referenceData
+      .getProductCategories()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((categories) => this.categories.set(categories));
   }
 
   applyFilters(): void {
@@ -151,6 +162,7 @@ export class HunterProductsComponent implements OnInit {
       {
         search: '',
         status: '',
+        category: '',
         from: '',
         to: '',
         listerName: '',
@@ -185,6 +197,7 @@ export class HunterProductsComponent implements OnInit {
     return {
       search: raw.search.trim() || undefined,
       status: raw.status || undefined,
+      category: raw.category || undefined,
       from: raw.from || undefined,
       to: raw.to || undefined,
       listerName: raw.listerName.trim() || undefined,
@@ -228,6 +241,7 @@ export class HunterProductsComponent implements OnInit {
         columns: [
           { header: 'Title', value: (product) => product.title || '' },
           { header: 'ASIN', value: (product) => product.asin || '' },
+          { header: 'Category', value: (product) => product.category || '' },
           { header: 'Custom Label', value: (product) => product.customLabel || '' },
           { header: 'Status', value: (product) => product.status },
           { header: 'Rejection Reason', value: (product) => product.rejectionReason || '' },

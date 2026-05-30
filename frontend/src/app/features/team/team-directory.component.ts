@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -52,6 +53,7 @@ export class TeamDirectoryComponent {
     description: new FormControl('', { nonNullable: true }),
     memberIds: new FormControl<string[]>([], { nonNullable: true }),
   });
+  private readonly destroyRef = inject(DestroyRef);
 
   constructor(
     private readonly teamApi: TeamApiService,
@@ -79,7 +81,7 @@ export class TeamDirectoryComponent {
     });
 
     if (this.canManage()) {
-      this.referenceData.getUsers().subscribe({
+      this.referenceData.getUsers().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: (users) => this.users.set(users.filter((user) => user.status !== 'deleted')),
       });
     }
@@ -112,10 +114,20 @@ export class TeamDirectoryComponent {
       : this.teamApi.createTeam(payload);
 
     request.subscribe({
-      next: () => {
+      next: (team) => {
         this.toast.success(this.selectedTeamId() ? 'Team updated.' : 'Team created.');
+        this.teams.update((teams) => {
+          const next = [...teams];
+          const index = next.findIndex((entry) => entry.id === team.id);
+
+          if (index >= 0) {
+            next[index] = team;
+            return next;
+          }
+
+          return [team, ...next];
+        });
         this.clearForm();
-        this.load();
       },
       error: (error) => {
         this.error.set(error?.error?.message || 'Could not save team.');
@@ -140,10 +152,10 @@ export class TeamDirectoryComponent {
     this.teamApi.deleteTeam(team.id).subscribe({
       next: () => {
         this.toast.success('Team deleted.');
+        this.teams.update((teams) => teams.filter((entry) => entry.id !== team.id));
         if (this.selectedTeamId() === team.id) {
           this.clearForm();
         }
-        this.load();
       },
       error: (error) => {
         this.error.set(error?.error?.message || 'Could not delete team.');

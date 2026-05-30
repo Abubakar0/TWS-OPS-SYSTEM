@@ -13,6 +13,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { ListerFacade } from '../../core/facades/lister.facade';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../shared/error-state/error-state.component';
+import { FilterPanelComponent } from '../../shared/ui/filter-panel.component';
 
 @Component({
   selector: 'app-lister-products',
@@ -29,6 +30,7 @@ import { ErrorStateComponent } from '../../shared/error-state/error-state.compon
     MatTooltipModule,
     EmptyStateComponent,
     ErrorStateComponent,
+    FilterPanelComponent,
   ],
   templateUrl: './lister-products.component.html',
   styleUrl: './lister-products.component.scss',

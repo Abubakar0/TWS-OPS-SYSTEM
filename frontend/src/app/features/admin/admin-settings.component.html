@@ -3,7 +3,7 @@
     <div class="surface-card__header">
       <div>
         <h1>Settings</h1>
-        <p>Approval rules, stock thresholds, pricing limits, and required fields.</p>
+        <p>Manage review rules, submission requirements, and product categories.</p>
       </div>
       <div class="page-actions">
         <a mat-stroked-button routerLink="/admin/accounts">
@@ -41,7 +41,7 @@
         <div class="surface-card__header">
           <div>
             <h2>Approval rules</h2>
-            <p>System approval thresholds.</p>
+            <p>Set the baseline thresholds the review engine uses for new product submissions.</p>
           </div>
         </div>
 
@@ -61,8 +61,8 @@
       <article class="surface-card">
         <div class="surface-card__header">
           <div>
-            <h2>Pricing & ROI</h2>
-            <p>Economics values used by the review engine.</p>
+            <h2>Pricing and ROI</h2>
+            <p>Keep the economics engine aligned with your current selling and fee model.</p>
           </div>
         </div>
 
@@ -77,8 +77,8 @@
       <article class="surface-card">
         <div class="surface-card__header">
           <div>
-            <h2>Stock & sales</h2>
-            <p>Minimum volume checks.</p>
+            <h2>Stock and sales</h2>
+            <p>Control the minimum volume signals required before a product can move forward.</p>
           </div>
         </div>
 
@@ -90,7 +90,11 @@
 
           <mat-form-field appearance="outline">
             <mat-label>Minimum alternate stock</mat-label>
-            <input matInput type="number" [formControl]="criteriaForm.controls.minAlternateStockCount" />
+            <input
+              matInput
+              type="number"
+              [formControl]="criteriaForm.controls.minAlternateStockCount"
+            />
           </mat-form-field>
 
           <mat-form-field appearance="outline">
@@ -100,7 +104,11 @@
 
           <mat-form-field appearance="outline">
             <mat-label>Minimum sales in 2 months</mat-label>
-            <input matInput type="number" [formControl]="criteriaForm.controls.minSalesLastTwoMonths" />
+            <input
+              matInput
+              type="number"
+              [formControl]="criteriaForm.controls.minSalesLastTwoMonths"
+            />
           </mat-form-field>
 
           <mat-form-field appearance="outline">
@@ -124,18 +132,154 @@
         <div class="surface-card__header">
           <div>
             <h2>Required fields</h2>
-            <p>Controls for mandatory submission fields.</p>
+            <p>Decide which optional signals become mandatory in the submission workflow.</p>
           </div>
         </div>
 
         <div class="toggle-stack">
-          <label class="toggle-row"><mat-checkbox [formControl]="criteriaForm.controls.asinRequired">Require ASIN</mat-checkbox></label>
-          <label class="toggle-row"><mat-checkbox [formControl]="criteriaForm.controls.customLabelRequired">Require custom label</mat-checkbox></label>
-          <label class="toggle-row"><mat-checkbox [formControl]="criteriaForm.controls.watchersRequired">Require watchers</mat-checkbox></label>
-          <label class="toggle-row"><mat-checkbox [formControl]="criteriaForm.controls.basketCountRequired">Require basket count</mat-checkbox></label>
-          <label class="toggle-row"><mat-checkbox [formControl]="criteriaForm.controls.deliveryDaysRequired">Require delivery days</mat-checkbox></label>
-          <label class="toggle-row"><mat-checkbox [formControl]="criteriaForm.controls.monthlyGraphRequired">Require 1-month graph uptrend</mat-checkbox></label>
+          <label class="toggle-row">
+            <mat-checkbox [formControl]="criteriaForm.controls.asinRequired">Require ASIN</mat-checkbox>
+          </label>
+          <label class="toggle-row">
+            <mat-checkbox [formControl]="criteriaForm.controls.customLabelRequired"
+              >Require custom label</mat-checkbox
+            >
+          </label>
+          <label class="toggle-row">
+            <mat-checkbox [formControl]="criteriaForm.controls.watchersRequired"
+              >Require watchers</mat-checkbox
+            >
+          </label>
+          <label class="toggle-row">
+            <mat-checkbox [formControl]="criteriaForm.controls.basketCountRequired"
+              >Require basket count</mat-checkbox
+            >
+          </label>
+          <label class="toggle-row">
+            <mat-checkbox [formControl]="criteriaForm.controls.deliveryDaysRequired"
+              >Require delivery days</mat-checkbox
+            >
+          </label>
+          <label class="toggle-row">
+            <mat-checkbox [formControl]="criteriaForm.controls.monthlyGraphRequired"
+              >Require 1-month graph uptrend</mat-checkbox
+            >
+          </label>
         </div>
+      </article>
+
+      <article class="surface-card categories-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Product categories</h2>
+            <p>
+              Maintain the active category list used in hunter submissions, product filters, orders,
+              and exports.
+            </p>
+          </div>
+          <span class="count-badge">{{ activeCategoryCount() }} active</span>
+        </div>
+
+        @if (categoryError()) {
+          <div class="inline-state inline-state--error">{{ categoryError() }}</div>
+        }
+
+        <div class="category-toolbar">
+          <mat-form-field appearance="outline">
+            <mat-label>Search categories</mat-label>
+            <input matInput [formControl]="categorySearch" autocomplete="off" />
+          </mat-form-field>
+
+          <form class="category-form" [formGroup]="categoryForm" (ngSubmit)="saveCategory()">
+            <mat-form-field appearance="outline">
+              <mat-label>Category name</mat-label>
+              <input matInput formControlName="name" autocomplete="off" />
+              @if (categoryForm.controls.name.touched && categoryForm.controls.name.invalid) {
+                <mat-error>Enter at least 2 characters.</mat-error>
+              }
+            </mat-form-field>
+
+            <label class="toggle-row category-form__toggle">
+              <mat-checkbox [formControl]="categoryForm.controls.active">Active</mat-checkbox>
+            </label>
+
+            <div class="category-form__actions">
+              @if (editingCategoryId()) {
+                <button mat-stroked-button type="button" (click)="cancelCategoryEdit()">
+                  Cancel
+                </button>
+              }
+              <button
+                mat-flat-button
+                color="primary"
+                type="submit"
+                [disabled]="categoryForm.invalid || categorySaving()"
+              >
+                <mat-icon>{{ editingCategoryId() ? 'save' : 'add' }}</mat-icon>
+                <span>{{ categorySaving() ? 'Saving' : categoryFormTitle() }}</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        @if (categoryLoading()) {
+          <div class="loading-state">
+            <mat-spinner diameter="24"></mat-spinner>
+            <span>Loading product categories.</span>
+          </div>
+        } @else if (!filteredCategories().length) {
+          <app-empty-state
+            title="No categories found"
+            message="Add the first category or clear the current search."
+            icon="category"
+          />
+        } @else {
+          <div class="category-list">
+            @for (category of filteredCategories(); track category.id) {
+              <div class="category-row">
+                <div class="category-row__content">
+                  <strong>{{ category.name }}</strong>
+                  <span>Sort order {{ category.sortOrder }}</span>
+                </div>
+
+                <div class="category-row__meta">
+                  <span
+                    class="status-badge"
+                    [class.status-badge--success]="category.active"
+                    [class.status-badge--neutral]="!category.active"
+                  >
+                    {{ category.active ? 'Active' : 'Disabled' }}
+                  </span>
+
+                  <button mat-stroked-button type="button" (click)="startCategoryEdit(category)">
+                    <mat-icon>edit</mat-icon>
+                    <span>Edit</span>
+                  </button>
+
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    (click)="toggleCategoryActive(category)"
+                    [disabled]="categorySaving()"
+                  >
+                    <mat-icon>{{ category.active ? 'toggle_off' : 'toggle_on' }}</mat-icon>
+                    <span>{{ category.active ? 'Disable' : 'Enable' }}</span>
+                  </button>
+
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    (click)="deleteCategory(category)"
+                    [disabled]="categorySaving()"
+                  >
+                    <mat-icon>delete_outline</mat-icon>
+                    <span>Delete</span>
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        }
       </article>
     </section>
   }
@@ -147,7 +291,13 @@
     </div>
     <div class="settings-savebar__actions">
       <button mat-stroked-button type="button" (click)="resetCriteria()">Reset</button>
-      <button mat-flat-button color="primary" type="button" (click)="saveCriteria()" [disabled]="criteriaForm.invalid || saving()">
+      <button
+        mat-flat-button
+        color="primary"
+        type="button"
+        (click)="saveCriteria()"
+        [disabled]="criteriaForm.invalid || saving()"
+      >
         <mat-icon>save</mat-icon>
         <span>{{ saving() ? 'Saving' : 'Save Changes' }}</span>
       </button>

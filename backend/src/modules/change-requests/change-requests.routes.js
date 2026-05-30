@@ -13,14 +13,14 @@ router.get(
   asyncHandler(controller.listChangeRequests),
 );
 router.get(
-  '/:id',
-  requireRoles('hunter', 'lister', 'admin', 'super_admin'),
-  asyncHandler(controller.getChangeRequestById),
-);
-router.get(
   '/summary',
   requireRoles('hunter', 'lister', 'admin', 'super_admin'),
   asyncHandler(controller.getSummary),
+);
+router.get(
+  '/:id',
+  requireRoles('hunter', 'lister', 'admin', 'super_admin'),
+  asyncHandler(controller.getChangeRequestById),
 );
 router.post('/', requireRoles('hunter'), asyncHandler(controller.createChangeRequest));
 router.patch(

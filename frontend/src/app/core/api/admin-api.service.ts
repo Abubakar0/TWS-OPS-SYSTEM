@@ -1,16 +1,21 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { map, Observable } from 'rxjs';
+import { map, Observable, tap } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
+import { CACHE_NAMESPACE, CACHE_TTL, makeCacheKey } from '../config/cache';
 import { LoginResponse, User, UserPermissions, UserRole } from '../models/auth.models';
 import { HuntingCriteria } from '../models/product.models';
+import { RequestCacheService } from '../state/request-cache.service';
 import { PageResult } from '../state/query-state.models';
 import { AuditLogEntry, PermissionMatrixRow, UserFilters } from '../services/admin.service';
 
 @Injectable({ providedIn: 'root' })
 export class AdminApiService {
-  constructor(private readonly http: HttpClient) {}
+  constructor(
+    private readonly http: HttpClient,
+    private readonly requestCache: RequestCacheService,
+  ) {}
 
   listUsers(
     role?: UserRole,
@@ -42,20 +47,25 @@ export class AdminApiService {
       params = params.set('limit', String(filters.limit));
     }
 
-    return this.http
-      .get<{ users: User[]; page: number; limit: number; total: number; hasMore: boolean }>(
-        `${environment.apiUrl}/users`,
-        { params },
-      )
-      .pipe(
-        map((response) => ({
-          items: response.users,
-          page: response.page,
-          limit: response.limit,
-          total: response.total,
-          hasMore: response.hasMore,
-        })),
-      );
+    return this.requestCache.getOrCreate(
+      makeCacheKey(CACHE_NAMESPACE.users, { role, ...filters }),
+      filters.search || filters.page ? CACHE_TTL.short : CACHE_TTL.long,
+      () =>
+        this.http
+          .get<{ users: User[]; page: number; limit: number; total: number; hasMore: boolean }>(
+            `${environment.apiUrl}/users`,
+            { params },
+          )
+          .pipe(
+            map((response) => ({
+              items: response.users,
+              page: response.page,
+              limit: response.limit,
+              total: response.total,
+              hasMore: response.hasMore,
+            })),
+          ),
+    );
   }
 
   createUser(payload: {
@@ -68,19 +78,28 @@ export class AdminApiService {
   }): Observable<User> {
     return this.http
       .post<{ user: User }>(`${environment.apiUrl}/users`, payload)
-      .pipe(map((response) => response.user));
+      .pipe(
+        map((response) => response.user),
+        tap(() => this.invalidateUserCaches()),
+      );
   }
 
   updateUser(id: string, payload: Partial<User> & { password?: string }): Observable<User> {
     return this.http
       .patch<{ user: User }>(`${environment.apiUrl}/users/${id}`, payload)
-      .pipe(map((response) => response.user));
+      .pipe(
+        map((response) => response.user),
+        tap(() => this.invalidateUserCaches()),
+      );
   }
 
   resetUserPassword(id: string, password?: string): Observable<User> {
     return this.http
       .post<{ user: User }>(`${environment.apiUrl}/users/${id}/reset-password`, { password })
-      .pipe(map((response) => response.user));
+      .pipe(
+        map((response) => response.user),
+        tap(() => this.invalidateUserCaches()),
+      );
   }
 
   impersonateUser(id: string): Observable<LoginResponse> {
@@ -96,37 +115,60 @@ export class AdminApiService {
       }
     });
 
-    return this.http
-      .get<{ logs: AuditLogEntry[]; page: number; limit: number; total: number; hasMore: boolean }>(
-        `${environment.apiUrl}/users/audit`,
-        { params },
-      )
-      .pipe(
-        map((response) => ({
-          items: response.logs,
-          page: response.page,
-          limit: response.limit,
-          total: response.total,
-          hasMore: response.hasMore,
-        })),
-      );
+    return this.requestCache.getOrCreate(
+      makeCacheKey(CACHE_NAMESPACE.audit, filters),
+      CACHE_TTL.short,
+      () =>
+        this.http
+          .get<{ logs: AuditLogEntry[]; page: number; limit: number; total: number; hasMore: boolean }>(
+            `${environment.apiUrl}/users/audit`,
+            { params },
+          )
+          .pipe(
+            map((response) => ({
+              items: response.logs,
+              page: response.page,
+              limit: response.limit,
+              total: response.total,
+              hasMore: response.hasMore,
+            })),
+          ),
+    );
   }
 
   getPermissionMatrix(): Observable<PermissionMatrixRow[]> {
-    return this.http
-      .get<{ matrix: PermissionMatrixRow[] }>(`${environment.apiUrl}/users/permissions/matrix`)
-      .pipe(map((response) => response.matrix));
+    return this.requestCache.getOrCreate(
+      makeCacheKey(CACHE_NAMESPACE.users, 'permission-matrix'),
+      CACHE_TTL.long,
+      () =>
+        this.http
+          .get<{ matrix: PermissionMatrixRow[] }>(`${environment.apiUrl}/users/permissions/matrix`)
+          .pipe(map((response) => response.matrix)),
+    );
   }
 
   getCriteria(): Observable<HuntingCriteria> {
-    return this.http
-      .get<{ criteria: HuntingCriteria }>(`${environment.apiUrl}/criteria`)
-      .pipe(map((response) => response.criteria));
+    return this.requestCache.getOrCreate(
+      makeCacheKey(CACHE_NAMESPACE.criteria),
+      CACHE_TTL.long,
+      () =>
+        this.http
+          .get<{ criteria: HuntingCriteria }>(`${environment.apiUrl}/criteria`)
+          .pipe(map((response) => response.criteria)),
+    );
   }
 
   updateCriteria(payload: HuntingCriteria): Observable<HuntingCriteria> {
     return this.http
       .put<{ criteria: HuntingCriteria }>(`${environment.apiUrl}/criteria`, payload)
-      .pipe(map((response) => response.criteria));
+      .pipe(
+        map((response) => response.criteria),
+        tap(() => this.requestCache.invalidatePrefix(CACHE_NAMESPACE.criteria)),
+      );
+  }
+
+  private invalidateUserCaches(): void {
+    this.requestCache.invalidatePrefix(CACHE_NAMESPACE.users);
+    this.requestCache.invalidatePrefix(CACHE_NAMESPACE.audit);
   }
 }

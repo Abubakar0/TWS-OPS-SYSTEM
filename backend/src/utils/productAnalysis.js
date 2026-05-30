@@ -160,6 +160,7 @@ const extractAsin = (amazonUrl) => {
 
 const normalizeProductPayload = (payload = {}) => ({
   title: String(payload.title || "").trim(),
+  category: String(payload.category || "").trim(),
   asin: String(payload.asin || extractAsin(payload.amazonUrl))
     .trim()
     .toUpperCase(),

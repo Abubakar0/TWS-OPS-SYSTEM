@@ -17,6 +17,13 @@ const addDateFilters = ({ query, where, params, column = "p.created_at" }) => {
   }
 };
 
+const ensureCategoryColumn = async () => {
+  await pool.query(`
+    ALTER TABLE products
+      ADD COLUMN IF NOT EXISTS category TEXT
+  `);
+};
+
 const buildProductFilters = (query, column = "p.created_at") => {
   const clauses = [];
   const params = [];
@@ -36,6 +43,11 @@ const buildProductFilters = (query, column = "p.created_at") => {
     clauses.push(
       `(p.assigned_lister_id = $${assignedIndex} OR p.listed_by = $${listedIndex})`,
     );
+  }
+
+  if (query.category) {
+    params.push(query.category);
+    clauses.push(`p.category = $${params.length}`);
   }
 
   return {
@@ -64,6 +76,10 @@ const getSuperAdminDateFilters = (query) => {
 };
 
 const admin = async (req, res) => {
+  if (req.query.category) {
+    await ensureCategoryColumn();
+  }
+
   const filters = buildProductFilters(req.query, "p.created_at");
   const whereSql = toWhereSql(filters.clauses);
   const joinSql = toJoinSql(filters.clauses);
@@ -220,6 +236,10 @@ const admin = async (req, res) => {
 };
 
 const hunter = async (req, res) => {
+  if (req.query.category) {
+    await ensureCategoryColumn();
+  }
+
   const criteria = await getCriteria();
   const summaryWhere = [];
   const summaryParams = [];
@@ -363,6 +383,10 @@ const hunter = async (req, res) => {
 };
 
 const lister = async (req, res) => {
+  if (req.query.category) {
+    await ensureCategoryColumn();
+  }
+
   const listedWhere = ["p.status = 'listed'"];
   const listedParams = [];
 
@@ -523,6 +547,10 @@ const listerHunterAccounts = async (req, res) => {
 };
 
 const superAdmin = async (req, res) => {
+  if (req.query.category) {
+    await ensureCategoryColumn();
+  }
+
   const filters = getSuperAdminDateFilters(req.query);
   const [
     userCounts,

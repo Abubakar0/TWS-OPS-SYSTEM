@@ -3,7 +3,9 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { map } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
+import { CACHE_NAMESPACE, CACHE_TTL, makeCacheKey } from '../config/cache';
 import { OrderStats } from '../models/order.models';
+import { RequestCacheService } from '../state/request-cache.service';
 
 export interface HunterDashboardFilters {
   from?: string;
@@ -70,7 +72,10 @@ export interface ListerHunterAccountUsage {
 
 @Injectable({ providedIn: 'root' })
 export class DashboardService {
-  constructor(private readonly http: HttpClient) {}
+  constructor(
+    private readonly http: HttpClient,
+    private readonly requestCache: RequestCacheService,
+  ) {}
 
   getHunterStats(filters: HunterDashboardFilters = {}) {
     let params = new HttpParams();
@@ -81,9 +86,14 @@ export class DashboardService {
       }
     });
 
-    return this.http
-      .get<{ stats: HunterDashboardStats }>(`${environment.apiUrl}/dashboard/hunter`, { params })
-      .pipe(map((response) => response.stats));
+    return this.requestCache.getOrCreate(
+      makeCacheKey(CACHE_NAMESPACE.dashboards, { scope: 'hunter', ...filters }),
+      CACHE_TTL.medium,
+      () =>
+        this.http
+          .get<{ stats: HunterDashboardStats }>(`${environment.apiUrl}/dashboard/hunter`, { params })
+          .pipe(map((response) => response.stats)),
+    );
   }
 
   getListerStats(filters: HunterDashboardFilters = {}) {
@@ -95,9 +105,14 @@ export class DashboardService {
       }
     });
 
-    return this.http
-      .get<{ stats: ListerDashboardStats }>(`${environment.apiUrl}/dashboard/lister`, { params })
-      .pipe(map((response) => response.stats));
+    return this.requestCache.getOrCreate(
+      makeCacheKey(CACHE_NAMESPACE.dashboards, { scope: 'lister', ...filters }),
+      CACHE_TTL.medium,
+      () =>
+        this.http
+          .get<{ stats: ListerDashboardStats }>(`${environment.apiUrl}/dashboard/lister`, { params })
+          .pipe(map((response) => response.stats)),
+    );
   }
 
   getListerHunterAccountUsage(filters: { hunterId?: string; listerId?: string } = {}) {
@@ -109,10 +124,18 @@ export class DashboardService {
       }
     });
 
-    return this.http
-      .get<{ rows: ListerHunterAccountUsage[] }>(`${environment.apiUrl}/dashboard/lister-account-usage`, {
-        params,
-      })
-      .pipe(map((response) => response.rows));
+    return this.requestCache.getOrCreate(
+      makeCacheKey(CACHE_NAMESPACE.dashboards, { scope: 'lister-account-usage', ...filters }),
+      CACHE_TTL.short,
+      () =>
+        this.http
+          .get<{ rows: ListerHunterAccountUsage[] }>(
+            `${environment.apiUrl}/dashboard/lister-account-usage`,
+            {
+              params,
+            },
+          )
+          .pipe(map((response) => response.rows)),
+    );
   }
 }

@@ -1,4 +1,4 @@
-@import './fonts';
+@use './fonts';
 @import '@angular/material/prebuilt-themes/azure-blue.css';
 
 :root {
@@ -54,8 +54,8 @@ body {
     linear-gradient(180deg, #f8fbff 0%, var(--tws-bg) 100%);
   color: var(--tws-text);
   font-family: var(--tws-body);
-  font-size: 15px;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 1.45;
 }
 
 h1,
@@ -129,10 +129,10 @@ img {
 
 .mat-mdc-unelevated-button,
 .mat-mdc-outlined-button {
-  min-height: 40px;
-  font-size: 0.87rem !important;
+  min-height: 38px;
+  font-size: 0.84rem !important;
   font-weight: 600 !important;
-  padding-inline: 14px !important;
+  padding-inline: 13px !important;
 }
 
 .mat-mdc-button-base .mat-icon {
@@ -153,9 +153,9 @@ img {
 }
 
 .mat-mdc-form-field-infix {
-  min-height: 44px !important;
-  padding-top: 10px !important;
-  padding-bottom: 10px !important;
+  min-height: 42px !important;
+  padding-top: 9px !important;
+  padding-bottom: 9px !important;
 }
 
 .mdc-floating-label,
@@ -387,7 +387,7 @@ textarea.mat-mdc-input-element {
 }
 
 .surface-card {
-  padding: 20px;
+  padding: 18px;
 }
 
 .surface-card__header {
@@ -395,7 +395,7 @@ textarea.mat-mdc-input-element {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .surface-card__header p {
@@ -407,7 +407,7 @@ textarea.mat-mdc-input-element {
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 12px;
 }
 
 .field-span-2 {
@@ -792,7 +792,7 @@ textarea.mat-mdc-input-element {
 
 .data-table th,
 .data-table td {
-  padding: 13px 14px;
+  padding: 11px 12px;
   border-bottom: 1px solid #edf2f7;
   vertical-align: top;
   text-align: left;
@@ -1054,6 +1054,87 @@ textarea.mat-mdc-input-element {
   color: inherit !important;
 }
 
+.filter-panel {
+  margin: 0 0 0.9rem;
+  border: 1px solid var(--tws-border);
+  border-radius: var(--tws-radius-lg);
+  background: var(--tws-surface-muted);
+  box-shadow: var(--tws-shadow-xs);
+  overflow: clip;
+}
+
+.filter-panel[open] {
+  background: var(--tws-surface);
+}
+
+.filter-panel > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.filter-panel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.filter-panel__title {
+  min-width: 0;
+}
+
+.filter-panel__title h2 {
+  margin: 0;
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: var(--tws-text);
+}
+
+.filter-panel__title p {
+  margin: 0.25rem 0 0;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--tws-muted);
+}
+
+.filter-panel__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--tws-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.filter-panel__chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  background: var(--tws-primary-softer);
+  color: var(--tws-primary-strong);
+  transition: transform 180ms ease, background 180ms ease;
+}
+
+.filter-panel[open] .filter-panel__chevron {
+  transform: rotate(180deg);
+}
+
+.filter-panel__content {
+  padding: 0 1rem 1rem;
+  border-top: 1px solid var(--tws-border);
+}
+
+.filter-panel__content > *:first-child {
+  margin-top: 1rem;
+}
+
 @media (max-width: 1180px) {
   .stats-grid,
   .section-grid {
@@ -1087,6 +1168,18 @@ textarea.mat-mdc-input-element {
 
   .field-span-2 {
     grid-column: span 1;
+  }
+
+  .filter-panel > summary {
+    align-items: flex-start;
+  }
+
+  .filter-panel__meta {
+    gap: 0.5rem;
+  }
+
+  .filter-panel__content {
+    padding: 0 1rem 1rem;
   }
 }
 

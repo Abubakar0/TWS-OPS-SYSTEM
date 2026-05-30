@@ -136,6 +136,7 @@ export const createOrderForm = (): OrderForm =>
 
 export type OrderFilterForm = FormGroup<{
   search: FormControl<string>;
+  category: FormControl<string>;
   hunterId: FormControl<string>;
   listerId: FormControl<string>;
   accountId: FormControl<string>;
@@ -153,6 +154,7 @@ export type OrderFilterForm = FormGroup<{
 export const createOrderFilterForm = (): OrderFilterForm =>
   new FormGroup({
     search: new FormControl('', { nonNullable: true }),
+    category: new FormControl('', { nonNullable: true }),
     hunterId: new FormControl('', { nonNullable: true }),
     listerId: new FormControl('', { nonNullable: true }),
     accountId: new FormControl('', { nonNullable: true }),
