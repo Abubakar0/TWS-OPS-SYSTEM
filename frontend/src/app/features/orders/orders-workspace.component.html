@@ -524,110 +524,112 @@
             }
 
             @if (facade.canWrite()) {
-              <div class="detail-section">
-                <h3>Update Order</h3>
-                <div class="form-grid form-grid--compact">
-                  <mat-form-field appearance="outline">
-                    <mat-label>Amazon Order ID</mat-label>
-                    <input matInput formControlName="amazonOrderId" autocomplete="off" />
-                  </mat-form-field>
+              <div class="detail-form-shell" [formGroup]="facade.orderForm">
+                <div class="detail-section">
+                  <h3>Update Order</h3>
+                  <div class="form-grid form-grid--compact">
+                    <mat-form-field appearance="outline">
+                      <mat-label>Amazon Order ID</mat-label>
+                      <input matInput formControlName="amazonOrderId" autocomplete="off" />
+                    </mat-form-field>
 
-                  <mat-form-field appearance="outline">
-                    <mat-label>Amazon Product Link</mat-label>
-                    <input matInput formControlName="amazonOrderLink" autocomplete="off" />
-                  </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Amazon Product Link</mat-label>
+                      <input matInput formControlName="amazonOrderLink" autocomplete="off" />
+                    </mat-form-field>
 
-                  <mat-form-field appearance="outline">
-                    <mat-label>Purchasing Price</mat-label>
-                    <input matInput formControlName="amazonBuyingPrice" autocomplete="off" />
-                  </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Purchasing Price</mat-label>
+                      <input matInput formControlName="amazonBuyingPrice" autocomplete="off" />
+                    </mat-form-field>
 
-                  <mat-form-field appearance="outline">
-                    <mat-label>Tracking Number</mat-label>
-                    <input matInput formControlName="trackingNumber" autocomplete="off" />
-                  </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Tracking Number</mat-label>
+                      <input matInput formControlName="trackingNumber" autocomplete="off" />
+                    </mat-form-field>
 
-                  <mat-form-field appearance="outline">
-                    <mat-label>Carrier</mat-label>
-                    <input matInput formControlName="carrier" autocomplete="off" />
-                  </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Carrier</mat-label>
+                      <input matInput formControlName="carrier" autocomplete="off" />
+                    </mat-form-field>
 
-                  <mat-form-field appearance="outline">
-                    <mat-label>Issue Type</mat-label>
-                    <mat-select formControlName="issueType">
-                      @for (type of facade.issueTypeOptions; track type) {
-                        <mat-option [value]="type">{{ type.replaceAll('_', ' ') }}</mat-option>
-                      }
-                    </mat-select>
-                  </mat-form-field>
+                    <mat-form-field appearance="outline">
+                      <mat-label>Issue Type</mat-label>
+                      <mat-select formControlName="issueType">
+                        @for (type of facade.issueTypeOptions; track type) {
+                          <mat-option [value]="type">{{ type.replaceAll('_', ' ') }}</mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
 
-                  <mat-form-field appearance="outline" class="field-span-2">
-                    <mat-label>Issue Reason</mat-label>
-                    <input matInput formControlName="issueReason" autocomplete="off" />
-                  </mat-form-field>
+                    <mat-form-field appearance="outline" class="field-span-2">
+                      <mat-label>Issue Reason</mat-label>
+                      <input matInput formControlName="issueReason" autocomplete="off" />
+                    </mat-form-field>
 
-                  <mat-form-field appearance="outline" class="field-span-2">
-                    <mat-label>Notes</mat-label>
-                    <textarea matInput formControlName="notes" rows="3"></textarea>
-                  </mat-form-field>
+                    <mat-form-field appearance="outline" class="field-span-2">
+                      <mat-label>Notes</mat-label>
+                      <textarea matInput formControlName="notes" rows="3"></textarea>
+                    </mat-form-field>
+                  </div>
                 </div>
-              </div>
 
-              <div class="detail-section">
-                <h3>Queue Actions</h3>
-                <div class="action-stack">
-                  <button
-                    mat-flat-button
-                    color="primary"
-                    type="button"
-                    (click)="facade.markSelectedPlaced()"
-                    [disabled]="!facade.processingActionsVm().canMarkPlaced"
-                  >
-                    <mat-icon>shopping_cart_checkout</mat-icon>
-                    <span>Mark Placed</span>
-                  </button>
-
-                  <button
-                    mat-stroked-button
-                    type="button"
-                    (click)="facade.markSelectedShipped()"
-                    [disabled]="!facade.processingActionsVm().canMarkShipped"
-                  >
-                    <mat-icon>local_shipping</mat-icon>
-                    <span>Mark Shipped</span>
-                  </button>
-
-                  <button
-                    mat-stroked-button
-                    type="button"
-                    (click)="facade.markSelectedDelivered()"
-                    [disabled]="!facade.processingActionsVm().canMarkDelivered"
-                  >
-                    <mat-icon>inventory</mat-icon>
-                    <span>Mark Delivered</span>
-                  </button>
-
-                  <button
-                    mat-stroked-button
-                    type="button"
-                    (click)="facade.markSelectedIssue()"
-                    [disabled]="!facade.processingActionsVm().canMarkIssue"
-                  >
-                    <mat-icon>warning</mat-icon>
-                    <span>Mark Issue</span>
-                  </button>
-
-                  @if (facade.canRestore() && order.deletedAt) {
-                    <button mat-stroked-button type="button" (click)="facade.restoreSelectedOrder()">
-                      <mat-icon>restore</mat-icon>
-                      <span>Restore</span>
+                <div class="detail-section">
+                  <h3>Queue Actions</h3>
+                  <div class="action-stack">
+                    <button
+                      mat-flat-button
+                      color="primary"
+                      type="button"
+                      (click)="facade.markSelectedPlaced()"
+                      [disabled]="!facade.processingActionsVm().canMarkPlaced"
+                    >
+                      <mat-icon>shopping_cart_checkout</mat-icon>
+                      <span>Mark Placed</span>
                     </button>
 
-                    <button mat-stroked-button type="button" (click)="facade.openDeleteModal(order, true)">
-                      <mat-icon>delete_forever</mat-icon>
-                      <span>Delete Forever</span>
+                    <button
+                      mat-stroked-button
+                      type="button"
+                      (click)="facade.markSelectedShipped()"
+                      [disabled]="!facade.processingActionsVm().canMarkShipped"
+                    >
+                      <mat-icon>local_shipping</mat-icon>
+                      <span>Mark Shipped</span>
                     </button>
-                  }
+
+                    <button
+                      mat-stroked-button
+                      type="button"
+                      (click)="facade.markSelectedDelivered()"
+                      [disabled]="!facade.processingActionsVm().canMarkDelivered"
+                    >
+                      <mat-icon>inventory</mat-icon>
+                      <span>Mark Delivered</span>
+                    </button>
+
+                    <button
+                      mat-stroked-button
+                      type="button"
+                      (click)="facade.markSelectedIssue()"
+                      [disabled]="!facade.processingActionsVm().canMarkIssue"
+                    >
+                      <mat-icon>warning</mat-icon>
+                      <span>Mark Issue</span>
+                    </button>
+
+                    @if (facade.canRestore() && order.deletedAt) {
+                      <button mat-stroked-button type="button" (click)="facade.restoreSelectedOrder()">
+                        <mat-icon>restore</mat-icon>
+                        <span>Restore</span>
+                      </button>
+
+                      <button mat-stroked-button type="button" (click)="facade.openDeleteModal(order, true)">
+                        <mat-icon>delete_forever</mat-icon>
+                        <span>Delete Forever</span>
+                      </button>
+                    }
+                  </div>
                 </div>
               </div>
             }

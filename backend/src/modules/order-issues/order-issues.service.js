@@ -11,7 +11,7 @@ const toText = (value) => {
 };
 
 const buildAccessFilters = (user, query = {}) => {
-  const where = ["o.issue_status IS NOT NULL"];
+  const where = ["(o.issue_status IS NOT NULL OR o.order_status = 'ISSUE')"];
   const params = [];
   const add = (sql, value) => {
     params.push(value);
@@ -100,7 +100,7 @@ const issueSelect = `
   o.order_status AS "orderStatus",
   o.issue_type AS "issueType",
   o.issue_reason AS "issueReason",
-  o.issue_status AS "issueStatus",
+  COALESCE(o.issue_status, CASE WHEN o.order_status = 'ISSUE' THEN 'OPEN' ELSE NULL END) AS "issueStatus",
   o.order_impact AS "orderImpact",
   o.issue_created_at AS "issueCreatedAt",
   o.issue_created_by AS "issueCreatedBy",

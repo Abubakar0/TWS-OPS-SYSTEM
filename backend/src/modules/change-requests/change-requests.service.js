@@ -353,7 +353,7 @@ const getChangeRequestRecord = async (user, id, { forUpdate = false } = {}) => {
   const params = [...filters.params, id];
   const where = [filters.whereSql ? filters.whereSql.replace(/^WHERE\s+/i, '') : 'TRUE', `req.id = $${params.length}`];
 
-  const lockSql = forUpdate ? 'FOR UPDATE' : '';
+  const lockSql = forUpdate ? 'FOR UPDATE OF req' : '';
   const result = await pool.query(
     `
       SELECT ${changeRequestSelect}
