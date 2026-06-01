@@ -27,8 +27,8 @@
 
   @if (facade.isListingBlocked()) {
     <article class="surface-card inline-state inline-state--warning listing-blocker-banner">
-      <mat-icon>priority_high</mat-icon>
       <div class="inline-state__content">
+        <mat-icon>priority_high</mat-icon>
         <strong>Action required</strong>
         <span>{{ facade.listingBlockMessage() }}</span>
       </div>
@@ -69,7 +69,10 @@
       <div class="filters-grid filters-grid--summary">
         <mat-form-field appearance="outline">
           <mat-label>Current hunter</mat-label>
-          <mat-select [value]="facade.selectedHunterId()" (valueChange)="facade.selectHunter($event)">
+          <mat-select
+            [value]="facade.selectedHunterId()"
+            (valueChange)="facade.selectHunter($event)"
+          >
             @for (hunter of facade.hunters(); track hunter.id) {
               <mat-option [value]="hunter.id">{{ hunter.name }}</mat-option>
             }
@@ -142,16 +145,16 @@
             <mat-icon>filter_list</mat-icon>
             <span>Apply</span>
           </button>
-            <button
-              mat-stroked-button
-              type="button"
-              (click)="facade.resetFilters()"
-              [disabled]="facade.loading()"
+          <button
+            mat-stroked-button
+            type="button"
+            (click)="facade.resetFilters()"
+            [disabled]="facade.loading()"
           >
             <mat-icon>restart_alt</mat-icon>
-              <span>Reset</span>
-            </button>
-          </div>
+            <span>Reset</span>
+          </button>
+        </div>
       </app-filter-panel>
 
       @if (!facade.hasAssignedAccounts()) {
@@ -218,7 +221,9 @@
                   }}</strong>
                   <span>ASIN: {{ product.asin || 'No ASIN' }}</span>
                   <small>{{
-                    product.category ? product.hunterName + ' | ' + product.category : product.hunterName
+                    product.category
+                      ? product.hunterName + ' | ' + product.category
+                      : product.hunterName
                   }}</small>
                 </div>
               </div>

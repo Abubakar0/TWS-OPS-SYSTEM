@@ -10,8 +10,8 @@ import { MatIconModule } from '@angular/material/icon';
     <section class="filter-panel-card">
       <button type="button" class="filter-panel-card__summary" (click)="toggle()">
         <div class="filter-panel__title">
-          <mat-icon>{{ icon() }}</mat-icon>
           <div>
+            <mat-icon>{{ icon() }}</mat-icon>
             <span class="filter-panel-card__heading">{{ title() }}</span>
             @if (summary()) {
               <p>{{ summary() }}</p>
@@ -119,7 +119,9 @@ export class FilterPanelComponent implements OnInit {
     }
 
     try {
-      return JSON.parse(localStorage.getItem(key) || JSON.stringify(this.defaultExpanded())) === true;
+      return (
+        JSON.parse(localStorage.getItem(key) || JSON.stringify(this.defaultExpanded())) === true
+      );
     } catch {
       return this.defaultExpanded();
     }

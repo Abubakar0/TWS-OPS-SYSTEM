@@ -1045,6 +1045,7 @@ textarea.mat-mdc-input-element {
 }
 
 .mdc-button__label {
+  word-break: break-all;
   display: flex;
   gap: 10px;
 }
@@ -1119,7 +1120,9 @@ textarea.mat-mdc-input-element {
   border-radius: 999px;
   background: var(--tws-primary-softer);
   color: var(--tws-primary-strong);
-  transition: transform 180ms ease, background 180ms ease;
+  transition:
+    transform 180ms ease,
+    background 180ms ease;
 }
 
 .filter-panel[open] .filter-panel__chevron {
