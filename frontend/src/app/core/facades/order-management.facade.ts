@@ -187,6 +187,26 @@ const getQualityTone = (label: string) => {
   }
 };
 
+const isClosedOrderStatus = (status: OrderStatus | null | undefined) =>
+  status === 'CANCELLED' || status === 'REFUNDED';
+
+const hasOpenOrderIssue = (order: Order | null | undefined) =>
+  Boolean(
+    order &&
+    order.orderStatus === 'ISSUE' &&
+    (!order.issueStatus || order.issueStatus === 'OPEN' || order.issueStatus === 'IN_REVIEW'),
+  );
+
+const isPlacedOrder = (order: Order | null | undefined) =>
+  Boolean(
+    order &&
+    (order.placementStatus === 'PLACED' ||
+      order.orderStatus === 'PLACED' ||
+      order.orderStatus === 'SHIPPED' ||
+      order.orderStatus === 'DELIVERED' ||
+      Boolean(order.placedDate)),
+  );
+
 @Injectable()
 export class OrderManagementFacade {
   private readonly auth = inject(AuthService);
@@ -285,6 +305,7 @@ export class OrderManagementFacade {
   readonly modalTitle = computed(() =>
     this.modalState().mode === 'create' ? 'Add Order' : 'Edit Order',
   );
+  readonly usesMinimalOrderEntry = computed(() => this.modalState().mode === 'create');
   readonly processorRouteLabel = computed(() => {
     if (this.processorView() === 'new') {
       return 'Add Order';
@@ -300,7 +321,6 @@ export class OrderManagementFacade {
 
     return 'Orders';
   });
-  readonly usesMinimalProcessorForm = computed(() => this.mode() === 'processor');
   readonly orderRows = computed(() =>
     this.orders().map((order) => {
       const qualityLabel = getQualityLabel(order.profit, order.roi);
@@ -396,19 +416,12 @@ export class OrderManagementFacade {
     };
   });
   readonly canSubmitOrder = computed(() => {
-    const hasMatchedProduct = Boolean(this.orderForm.controls.productId.value.trim());
-    const hasManualFallback = Boolean(
-      this.orderForm.controls.asin.value.trim() ||
-      this.orderForm.controls.productTitle.value.trim(),
-    );
-
     return (
       this.canWrite() &&
       this.modalState().open &&
       this.orderForm.valid &&
       this.duplicateState() !== 'duplicate' &&
-      !this.saving() &&
-      (hasMatchedProduct || hasManualFallback)
+      !this.saving()
     );
   });
   readonly orderFormErrors = computed(() => ({
@@ -456,7 +469,7 @@ export class OrderManagementFacade {
     ),
     amazonBuyingPrice: this.messages.orderFieldError(
       this.orderForm.controls.amazonBuyingPrice,
-      'salePrice',
+      'amazonBuyingPrice',
       this.orderForm.controls.amazonBuyingPrice.touched ||
         this.orderForm.controls.amazonBuyingPrice.dirty,
     ),
@@ -513,42 +526,57 @@ export class OrderManagementFacade {
   readonly processingActionsVm = computed(() => {
     const order = this.selectedOrder();
     const issueType = this.orderForm.controls.issueType.value;
+    const orderImpact = this.orderForm.controls.orderImpact.value;
     const amazonBuyingPrice = decimalValue(this.orderForm.controls.amazonBuyingPrice.value) ?? 0;
     const amazonOrderId = this.orderForm.controls.amazonOrderId.value.trim();
     const amazonOrderLink = this.orderForm.controls.amazonOrderLink.value.trim();
     const trackingNumber = this.orderForm.controls.trackingNumber.value.trim();
     const carrier = this.orderForm.controls.carrier.value.trim();
     const issueReason = this.orderForm.controls.issueReason.value.trim();
+    const deleted = Boolean(order?.deletedAt);
+    const closedStatus = isClosedOrderStatus(order?.orderStatus);
+    const alreadyPlaced = Boolean(order?.placementStatus === 'PLACED');
+    const alreadyShipped = Boolean(order?.orderStatus === 'SHIPPED');
+    const alreadyDelivered = Boolean(order?.orderStatus === 'DELIVERED');
 
     return {
       canMarkPlaced:
         this.canWrite() &&
         Boolean(order) &&
-        order?.deletedAt === null &&
-        order?.placementStatus !== 'PLACED' &&
+        !deleted &&
+        !closedStatus &&
+        !alreadyPlaced &&
+        !alreadyShipped &&
+        !alreadyDelivered &&
         amazonBuyingPrice > 0 &&
         Boolean(amazonOrderId || amazonOrderLink) &&
         !this.saving(),
       canMarkShipped:
         this.canWrite() &&
         Boolean(order) &&
-        order?.deletedAt === null &&
-        order?.orderStatus !== 'SHIPPED' &&
-        order?.orderStatus !== 'DELIVERED' &&
+        !deleted &&
+        !closedStatus &&
+        order?.orderStatus !== 'ISSUE' &&
+        !alreadyShipped &&
+        !alreadyDelivered &&
+        isPlacedOrder(order) &&
         Boolean(trackingNumber && carrier) &&
         !this.saving(),
       canMarkDelivered:
         this.canWrite() &&
         Boolean(order) &&
-        order?.deletedAt === null &&
-        order?.orderStatus !== 'DELIVERED' &&
+        !deleted &&
+        !closedStatus &&
+        order?.orderStatus === 'SHIPPED' &&
         !this.saving(),
       canMarkIssue:
         this.canWrite() &&
         Boolean(order) &&
-        order?.deletedAt === null &&
+        !deleted &&
+        !closedStatus &&
+        !hasOpenOrderIssue(order) &&
         Boolean(issueType) &&
-        Boolean(this.orderForm.controls.orderImpact.value) &&
+        Boolean(orderImpact) &&
         Boolean(issueReason) &&
         !this.saving(),
     };
@@ -1008,7 +1036,7 @@ export class OrderManagementFacade {
   markSelectedPlaced(): void {
     const order = this.selectedOrder();
 
-    if (!order) {
+    if (!order || !this.processingActionsVm().canMarkPlaced) {
       return;
     }
 
@@ -1054,7 +1082,7 @@ export class OrderManagementFacade {
   markSelectedShipped(): void {
     const order = this.selectedOrder();
 
-    if (!order) {
+    if (!order || !this.processingActionsVm().canMarkShipped) {
       return;
     }
 
@@ -1085,7 +1113,7 @@ export class OrderManagementFacade {
   markSelectedDelivered(): void {
     const order = this.selectedOrder();
 
-    if (!order) {
+    if (!order || !this.processingActionsVm().canMarkDelivered) {
       return;
     }
 
@@ -1110,7 +1138,7 @@ export class OrderManagementFacade {
     const orderImpact = this.orderForm.controls.orderImpact.value;
     const issueReason = this.orderForm.controls.issueReason.value.trim();
 
-    if (!order || !issueType || !orderImpact || !issueReason) {
+    if (!order || !this.processingActionsVm().canMarkIssue || !issueType || !orderImpact || !issueReason) {
       this.orderForm.controls.issueType.markAsTouched();
       this.orderForm.controls.orderImpact.markAsTouched();
       this.orderForm.controls.issueReason.markAsTouched();
@@ -1242,7 +1270,7 @@ export class OrderManagementFacade {
       ebayOrderId: raw.ebayOrderId.trim(),
       ebayItemId: raw.ebayItemId.trim() || null,
       ebayListingUrl: raw.ebayListingUrl.trim() || null,
-      orderDate: raw.orderDate,
+      orderDate: raw.orderDate || new Date().toISOString().slice(0, 10),
       quantity: raw.quantity || 1,
       salePrice: raw.salePrice.trim(),
       buyerCountry: raw.buyerCountry.trim() || null,
@@ -1588,7 +1616,12 @@ export class OrderManagementFacade {
         taxCollected: order.taxCollected === null ? '' : String(order.taxCollected),
         trackingNumber: order.trackingNumber || '',
         carrier: order.carrier || '',
+        orderStatus: order.orderStatus,
+        placementStatus: order.placementStatus,
+        paymentStatus: order.paymentStatus,
         issueType: order.issueType || 'OTHER',
+        issueStatus: order.issueStatus || '',
+        orderImpact: order.orderImpact || '',
         issueReason: order.issueReason || '',
         notes: order.notes || '',
       },

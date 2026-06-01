@@ -80,6 +80,25 @@ const toBooleanText = (value, allowedValues, fallback) => {
   return normalized;
 };
 
+const isClosedOrderStatus = (status) => ['CANCELLED', 'REFUNDED'].includes(status);
+
+const hasOpenIssue = (order) =>
+  Boolean(
+    order &&
+    order.orderStatus === 'ISSUE' &&
+    (!order.issueStatus || ['OPEN', 'IN_REVIEW'].includes(order.issueStatus)),
+  );
+
+const isPlacedOrder = (order) =>
+  Boolean(
+    order &&
+    (order.placementStatus === 'PLACED' ||
+      order.orderStatus === 'PLACED' ||
+      order.orderStatus === 'SHIPPED' ||
+      order.orderStatus === 'DELIVERED' ||
+      order.placedDate),
+  );
+
 const isValidHttpUrl = (value, marketplace = null) => {
   if (!value) {
     return true;
@@ -661,16 +680,29 @@ const prepareOrderPayload = async (payload, { existingOrder = null } = {}) => {
   const productTitle = toText(payload.productTitle) || matchedProduct?.title || existingOrder?.productTitle || null;
   const customLabel = toText(payload.customLabel) || matchedProduct?.customLabel || existingOrder?.customLabel || null;
   const matchStatus = matchedProduct || productId ? 'matched' : 'unmatched';
-  const issueType = toBooleanText(payload.issueType, ISSUE_TYPES, existingOrder?.issueType || 'OTHER');
-  const issueStatus = toBooleanText(payload.issueStatus, ISSUE_STATUSES, existingOrder?.issueStatus || null);
-  const orderImpact = toText(payload.orderImpact) || existingOrder?.orderImpact || null;
+  const shouldPersistIssueState = Boolean(
+    toText(payload.issueReason) ||
+      toText(payload.orderImpact) ||
+      existingOrder?.issueStatus ||
+      existingOrder?.issueReason ||
+      existingOrder?.orderStatus === 'ISSUE',
+  );
+  const issueType = shouldPersistIssueState
+    ? toBooleanText(payload.issueType, ISSUE_TYPES, existingOrder?.issueType || 'OTHER')
+    : null;
+  const issueStatus = shouldPersistIssueState
+    ? toBooleanText(payload.issueStatus, ISSUE_STATUSES, existingOrder?.issueStatus || null)
+    : existingOrder?.issueStatus || null;
+  const orderImpact = shouldPersistIssueState
+    ? toText(payload.orderImpact) || existingOrder?.orderImpact || null
+    : null;
 
   if (!accountId) {
     throw new AppError('Account is required.', 400);
   }
 
-  if (!productId && !asin && !productTitle) {
-    throw new AppError('Provide an ASIN or product title when the order is not matched to a product.', 400);
+  if (!asin) {
+    throw new AppError('ASIN is required.', 400);
   }
 
   const ebayOrderId = toText(payload.ebayOrderId) || existingOrder?.ebayOrderId;
@@ -679,11 +711,7 @@ const prepareOrderPayload = async (payload, { existingOrder = null } = {}) => {
     throw new AppError('eBay Order ID is required.', 400);
   }
 
-  const orderDate = payload.orderDate || existingOrder?.orderDate;
-
-  if (!orderDate) {
-    throw new AppError('Order date is required.', 400);
-  }
+  const orderDate = payload.orderDate || existingOrder?.orderDate || new Date().toISOString();
 
   const salePrice = toMoney(payload.salePrice, existingOrder?.salePrice ?? 0);
 
@@ -692,6 +720,11 @@ const prepareOrderPayload = async (payload, { existingOrder = null } = {}) => {
   }
 
   const amazonBuyingPrice = toMoney(payload.amazonBuyingPrice, existingOrder?.amazonBuyingPrice ?? 0);
+
+  if (amazonBuyingPrice <= 0) {
+    throw new AppError('Purchasing price is required.', 400);
+  }
+
   const ebayFee = toMoney(payload.ebayFee, existingOrder?.ebayFee ?? 0);
   const supplierShippingCost = toMoney(payload.supplierShippingCost, existingOrder?.supplierShippingCost ?? 0);
   const otherCost = toMoney(payload.otherCost, existingOrder?.otherCost ?? 0);
@@ -750,7 +783,9 @@ const prepareOrderPayload = async (payload, { existingOrder = null } = {}) => {
     issueStatus,
     orderImpact,
     notes: toText(payload.notes) || existingOrder?.notes || null,
-    issueReason: toText(payload.issueReason) || existingOrder?.issueReason || null,
+    issueReason: shouldPersistIssueState
+      ? toText(payload.issueReason) || existingOrder?.issueReason || null
+      : null,
     matchedProduct,
   };
 };
@@ -1114,6 +1149,19 @@ const markOrderPlaced = async (user, id, payload = {}) => {
   }
 
   const order = await getOrderById(user, id, { includeDeleted: true });
+
+  if (order.deletedAt) {
+    throw new AppError('Deleted orders cannot be updated.', 409);
+  }
+
+  if (order.placementStatus === 'PLACED') {
+    throw new AppError('This order is already marked as placed.', 409);
+  }
+
+  if (isClosedOrderStatus(order.orderStatus) || order.orderStatus === 'SHIPPED' || order.orderStatus === 'DELIVERED') {
+    throw new AppError('Only active pre-shipment orders can be marked as placed.', 409);
+  }
+
   const amazonBuyingPrice = payload.amazonBuyingPrice !== undefined ? toMoney(payload.amazonBuyingPrice, 0) : order.amazonBuyingPrice;
   const amazonOrderId = toText(payload.amazonOrderId) || order.amazonOrderId || null;
   const amazonOrderLink = toText(payload.amazonOrderLink) || order.amazonOrderLink || null;
@@ -1190,6 +1238,27 @@ const markOrderShipped = async (user, id, payload = {}) => {
   }
 
   const order = await getOrderById(user, id, { includeDeleted: true });
+
+  if (order.deletedAt) {
+    throw new AppError('Deleted orders cannot be updated.', 409);
+  }
+
+  if (order.orderStatus === 'SHIPPED') {
+    throw new AppError('This order is already marked as shipped.', 409);
+  }
+
+  if (order.orderStatus === 'DELIVERED') {
+    throw new AppError('Delivered orders cannot be marked as shipped again.', 409);
+  }
+
+  if (isClosedOrderStatus(order.orderStatus) || order.orderStatus === 'ISSUE') {
+    throw new AppError('This order cannot be marked as shipped in its current state.', 409);
+  }
+
+  if (!isPlacedOrder(order)) {
+    throw new AppError('Order must be placed before it can be marked as shipped.', 409);
+  }
+
   const trackingNumber = toText(payload.trackingNumber) || order.trackingNumber;
   const carrier = toText(payload.carrier) || order.carrier;
 
@@ -1232,7 +1301,24 @@ const markOrderDelivered = async (user, id, payload = {}) => {
     throw new AppError('You do not have permission to mark delivery.', 403);
   }
 
-  await getOrderById(user, id, { includeDeleted: true });
+  const order = await getOrderById(user, id, { includeDeleted: true });
+
+  if (order.deletedAt) {
+    throw new AppError('Deleted orders cannot be updated.', 409);
+  }
+
+  if (order.orderStatus === 'DELIVERED') {
+    throw new AppError('This order is already marked as delivered.', 409);
+  }
+
+  if (isClosedOrderStatus(order.orderStatus)) {
+    throw new AppError('Cancelled or refunded orders cannot be marked as delivered.', 409);
+  }
+
+  if (order.orderStatus !== 'SHIPPED') {
+    throw new AppError('Only shipped orders can be marked as delivered.', 409);
+  }
+
   await pool.query(
     `
       UPDATE orders
@@ -1336,6 +1422,19 @@ const markOrderIssue = async (user, id, payload = {}) => {
   }
 
   const existingOrder = await getOrderById(user, id, { includeDeleted: true });
+
+  if (existingOrder.deletedAt) {
+    throw new AppError('Deleted orders cannot be updated.', 409);
+  }
+
+  if (isClosedOrderStatus(existingOrder.orderStatus)) {
+    throw new AppError('Cancelled or refunded orders cannot be flagged as issues.', 409);
+  }
+
+  if (hasOpenIssue(existingOrder)) {
+    throw new AppError('This order already has an open issue.', 409);
+  }
+
   await pool.query(
     `
       UPDATE orders

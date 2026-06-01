@@ -562,6 +562,16 @@
                       </mat-select>
                     </mat-form-field>
 
+                    <mat-form-field appearance="outline">
+                      <mat-label>Order Impact</mat-label>
+                      <mat-select formControlName="orderImpact">
+                        <mat-option value="">Select impact</mat-option>
+                        @for (impact of facade.orderImpactOptions; track impact) {
+                          <mat-option [value]="impact">{{ impact }}</mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
+
                     <mat-form-field appearance="outline" class="field-span-2">
                       <mat-label>Issue Reason</mat-label>
                       <input matInput formControlName="issueReason" autocomplete="off" />
@@ -648,9 +658,9 @@
               <h2>{{ facade.modalTitle() }}</h2>
               <p>
                 {{
-                  facade.usesMinimalProcessorForm()
+                  facade.usesMinimalOrderEntry()
                     ? 'Capture the essentials now. Placement, tracking, and issue handling can be updated later.'
-                    : 'Connect the order to a product, account, hunter, and placement workflow.'
+                    : 'Update placement, tracking, matching, and issue handling for this order.'
                 }}
               </p>
             </div>
@@ -664,7 +674,7 @@
             <div class="order-form">
             <section class="order-form__section">
               <div class="order-form__section-header">
-                <h3>eBay Order Details</h3>
+                <h3>Required Order Details</h3>
                 @if (facade.duplicateMessage()) {
                   <span
                     class="status-badge"
@@ -686,28 +696,27 @@
                   }
                 </mat-form-field>
 
-                @if (!facade.usesMinimalProcessorForm()) {
-                  <mat-form-field appearance="outline">
-                  <mat-label>eBay Item ID</mat-label>
-                  <input matInput formControlName="ebayItemId" autocomplete="off" />
-                  </mat-form-field>
-                }
-
-                @if (!facade.usesMinimalProcessorForm()) {
                 <mat-form-field appearance="outline">
-                  <mat-label>Order date</mat-label>
-                  <input matInput type="date" formControlName="orderDate" />
-                  @if (facade.orderFormErrors().orderDate) {
-                    <mat-error>{{ facade.orderFormErrors().orderDate }}</mat-error>
+                  <mat-label>ASIN</mat-label>
+                  <input matInput formControlName="asin" autocomplete="off" />
+                  @if (facade.orderFormErrors().asin) {
+                    <mat-error>{{ facade.orderFormErrors().asin }}</mat-error>
                   }
                 </mat-form-field>
-                }
 
                 <mat-form-field appearance="outline">
                   <mat-label>Selling Price</mat-label>
                   <input matInput formControlName="salePrice" autocomplete="off" />
                   @if (facade.orderFormErrors().salePrice) {
                     <mat-error>{{ facade.orderFormErrors().salePrice }}</mat-error>
+                  }
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Purchasing Price</mat-label>
+                  <input matInput formControlName="amazonBuyingPrice" autocomplete="off" />
+                  @if (facade.orderFormErrors().amazonBuyingPrice) {
+                    <mat-error>{{ facade.orderFormErrors().amazonBuyingPrice }}</mat-error>
                   }
                 </mat-form-field>
 
@@ -724,7 +733,24 @@
                   }
                 </mat-form-field>
 
-                @if (!facade.usesMinimalProcessorForm()) {
+                @if (!facade.usesMinimalOrderEntry()) {
+                  <mat-form-field appearance="outline">
+                  <mat-label>eBay Item ID</mat-label>
+                  <input matInput formControlName="ebayItemId" autocomplete="off" />
+                  </mat-form-field>
+                }
+
+                @if (!facade.usesMinimalOrderEntry()) {
+                <mat-form-field appearance="outline">
+                  <mat-label>Order date</mat-label>
+                  <input matInput type="date" formControlName="orderDate" />
+                  @if (facade.orderFormErrors().orderDate) {
+                    <mat-error>{{ facade.orderFormErrors().orderDate }}</mat-error>
+                  }
+                </mat-form-field>
+                }
+
+                @if (!facade.usesMinimalOrderEntry()) {
                   <mat-form-field appearance="outline" class="field-span-2">
                     <mat-label>eBay Listing URL</mat-label>
                     <input matInput formControlName="ebayListingUrl" autocomplete="off" />
@@ -749,30 +775,18 @@
                 </button>
               </div>
 
-              <div class="form-grid">
-                <mat-form-field appearance="outline">
-                  <mat-label>ASIN</mat-label>
-                  <input matInput formControlName="asin" autocomplete="off" />
-                  @if (facade.orderFormErrors().asin) {
-                    <mat-error>{{ facade.orderFormErrors().asin }}</mat-error>
-                  }
-                </mat-form-field>
-
-                @if (!facade.usesMinimalProcessorForm()) {
+              @if (!facade.usesMinimalOrderEntry()) {
+                <div class="form-grid">
                   <mat-form-field appearance="outline">
                   <mat-label>Custom label</mat-label>
                   <input matInput formControlName="customLabel" autocomplete="off" />
                   </mat-form-field>
-                }
 
-                @if (!facade.usesMinimalProcessorForm()) {
                   <mat-form-field appearance="outline" class="field-span-2">
                     <mat-label>Product title</mat-label>
                     <input matInput formControlName="productTitle" autocomplete="off" />
                   </mat-form-field>
-                }
 
-                @if (!facade.usesMinimalProcessorForm()) {
                   <mat-form-field appearance="outline">
                   <mat-label>Hunter</mat-label>
                   <mat-select formControlName="hunterId">
@@ -792,8 +806,8 @@
                     }
                   </mat-select>
                   </mat-form-field>
-                }
-              </div>
+                </div>
+              }
 
               @if (facade.matchResults().length) {
                 <div class="match-grid">
@@ -815,7 +829,7 @@
 
             <section class="order-form__section">
               <div class="order-form__section-header">
-                <h3>{{ facade.usesMinimalProcessorForm() ? 'Pricing & Optional Details' : 'Placement Details' }}</h3>
+                <h3>{{ facade.usesMinimalOrderEntry() ? 'Optional Details' : 'Placement Details' }}</h3>
               </div>
 
               <div class="form-grid">
@@ -825,29 +839,21 @@
                 </mat-form-field>
 
                 <mat-form-field appearance="outline">
-                  <mat-label>{{ facade.usesMinimalProcessorForm() ? 'Amazon Product Link' : 'Amazon Order Link' }}</mat-label>
+                  <mat-label>{{ facade.usesMinimalOrderEntry() ? 'Amazon Product Link' : 'Amazon Order Link' }}</mat-label>
                   <input matInput formControlName="amazonOrderLink" autocomplete="off" />
                   @if (facade.orderFormErrors().amazonOrderLink) {
                     <mat-error>{{ facade.orderFormErrors().amazonOrderLink }}</mat-error>
                   }
                 </mat-form-field>
 
-                <mat-form-field appearance="outline">
-                  <mat-label>Purchasing Price</mat-label>
-                  <input matInput formControlName="amazonBuyingPrice" autocomplete="off" />
-                  @if (facade.orderFormErrors().amazonBuyingPrice) {
-                    <mat-error>{{ facade.orderFormErrors().amazonBuyingPrice }}</mat-error>
-                  }
-                </mat-form-field>
-
-                @if (!facade.usesMinimalProcessorForm()) {
+                @if (!facade.usesMinimalOrderEntry()) {
                   <mat-form-field appearance="outline">
                   <mat-label>Buyer country</mat-label>
                   <input matInput formControlName="buyerCountry" autocomplete="off" />
                   </mat-form-field>
                 }
 
-                @if (!facade.usesMinimalProcessorForm()) {
+                @if (!facade.usesMinimalOrderEntry()) {
                   <mat-form-field appearance="outline">
                   <mat-label>Supplier shipping cost</mat-label>
                   <input matInput formControlName="supplierShippingCost" autocomplete="off" />
@@ -874,7 +880,7 @@
                   <input matInput formControlName="carrier" autocomplete="off" />
                 </mat-form-field>
 
-                @if (!facade.usesMinimalProcessorForm()) {
+                @if (!facade.usesMinimalOrderEntry()) {
                   <mat-form-field appearance="outline">
                   <mat-label>Placement status</mat-label>
                   <mat-select formControlName="placementStatus">

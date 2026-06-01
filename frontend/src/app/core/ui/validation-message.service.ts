@@ -196,12 +196,12 @@ export class ValidationMessageService {
       switch (field) {
         case 'ebayOrderId':
           return 'eBay Order ID is required.';
-        case 'orderDate':
-          return 'Order date is required.';
-        case 'quantity':
-          return 'Quantity is required.';
+        case 'asin':
+          return 'ASIN is required.';
         case 'salePrice':
-          return 'Sale price is required.';
+          return 'Selling price is required.';
+        case 'amazonBuyingPrice':
+          return 'Purchasing price is required.';
         case 'accountId':
           return 'Choose an account.';
         default:

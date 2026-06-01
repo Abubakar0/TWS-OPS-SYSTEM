@@ -57,9 +57,9 @@ export const createOrderForm = (): OrderForm =>
       nonNullable: true,
       validators: [marketplaceUrlValidator('ebay')],
     }),
-    orderDate: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    orderDate: new FormControl('', { nonNullable: true }),
     quantity: new FormControl<number | null>(1, {
-      validators: [Validators.required, Validators.min(1), integerValidator],
+      validators: [Validators.min(1), integerValidator],
     }),
     salePrice: new FormControl('', {
       nonNullable: true,
@@ -73,7 +73,7 @@ export const createOrderForm = (): OrderForm =>
     hunterId: new FormControl('', { nonNullable: true }),
     listerId: new FormControl('', { nonNullable: true }),
     accountId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-    asin: new FormControl('', { nonNullable: true, validators: [asinValidator] }),
+    asin: new FormControl('', { nonNullable: true, validators: [Validators.required, asinValidator] }),
     productTitle: new FormControl('', { nonNullable: true }),
     customLabel: new FormControl('', { nonNullable: true }),
     amazonOrderId: new FormControl('', { nonNullable: true }),
@@ -83,7 +83,7 @@ export const createOrderForm = (): OrderForm =>
     }),
     amazonBuyingPrice: new FormControl('', {
       nonNullable: true,
-      validators: [decimalValidator, decimalMinValidator(0)],
+      validators: [Validators.required, decimalValidator, decimalMinValidator(0.01)],
     }),
     supplierShippingCost: new FormControl('', {
       nonNullable: true,
@@ -124,10 +124,7 @@ export const createOrderForm = (): OrderForm =>
       nonNullable: true,
       validators: [Validators.required],
     }),
-    issueType: new FormControl<OrderIssueType>('OTHER', {
-      nonNullable: true,
-      validators: [Validators.required],
-    }),
+    issueType: new FormControl<OrderIssueType>('OTHER', { nonNullable: true }),
     issueStatus: new FormControl<OrderIssueStatus | ''>('', { nonNullable: true }),
     orderImpact: new FormControl<OrderImpact | ''>('', { nonNullable: true }),
     notes: new FormControl('', { nonNullable: true }),
