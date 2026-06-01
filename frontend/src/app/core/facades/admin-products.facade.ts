@@ -23,6 +23,7 @@ export class AdminProductsFacade {
   readonly loading = signal(false);
   readonly exporting = signal(false);
   readonly deleting = signal(false);
+  readonly bulkEditing = signal(false);
   readonly error = signal('');
   readonly products = signal<Product[]>([]);
   readonly total = signal(0);
@@ -32,6 +33,7 @@ export class AdminProductsFacade {
   readonly detailProduct = signal<Product | null>(null);
   readonly deleteModalOpen = signal(false);
   readonly deleteMode = signal<'soft' | 'permanent'>('soft');
+  readonly bulkEditModalOpen = signal(false);
   readonly availableHunters = signal<Array<{ id: string; name: string }>>([]);
   readonly availableListers = signal<Array<{ id: string; name: string }>>([]);
   readonly availableAccounts = signal<Array<{ id: string; name: string }>>([]);
@@ -56,6 +58,13 @@ export class AdminProductsFacade {
       validators: [Validators.required, Validators.minLength(3)],
     }),
   });
+  readonly bulkEditForm = new FormGroup({
+    title: new FormControl('', { nonNullable: true }),
+    customLabel: new FormControl('', { nonNullable: true }),
+    category: new FormControl('', { nonNullable: true }),
+    amazonUrl: new FormControl('', { nonNullable: true }),
+    ebayUrl: new FormControl('', { nonNullable: true }),
+  });
 
   readonly pageCount = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize())));
   readonly pageLabel = computed(() => {
@@ -74,6 +83,7 @@ export class AdminProductsFacade {
     () => this.selectedIds().length > 0 && this.selectedIds().length < this.products().length,
   );
   readonly canRestore = computed(() => this.auth.currentUser()?.role === 'super_admin');
+  readonly canBulkEdit = computed(() => this.auth.currentUser()?.role === 'super_admin');
   readonly qualityOptions: ProductQualityLabel[] = [
     'Best Hunt',
     'Good Hunt',
@@ -224,6 +234,86 @@ export class AdminProductsFacade {
     }
 
     this.deleteModalOpen.set(false);
+  }
+
+  openBulkEditModal(productIds?: string[]): void {
+    if (!this.canBulkEdit()) {
+      return;
+    }
+
+    const ids = productIds?.length ? productIds : this.selectedIds();
+
+    if (!ids.length) {
+      this.toast.warning('Select at least one product first.');
+      return;
+    }
+
+    this.selectedIds.set(ids);
+    this.bulkEditForm.reset(
+      {
+        title: '',
+        customLabel: '',
+        category: '',
+        amazonUrl: '',
+        ebayUrl: '',
+      },
+      { emitEvent: false },
+    );
+    this.bulkEditModalOpen.set(true);
+  }
+
+  closeBulkEditModal(force = false): void {
+    if (this.bulkEditing() && !force) {
+      return;
+    }
+
+    this.bulkEditModalOpen.set(false);
+  }
+
+  confirmBulkEdit(): void {
+    if (!this.canBulkEdit() || this.bulkEditing()) {
+      return;
+    }
+
+    const raw = this.bulkEditForm.getRawValue();
+    const payload = {
+      title: raw.title.trim() || undefined,
+      customLabel: raw.customLabel.trim() || undefined,
+      category: raw.category || undefined,
+      amazonUrl: raw.amazonUrl.trim() || undefined,
+      ebayUrl: raw.ebayUrl.trim() || undefined,
+    };
+
+    if (!payload.title && !payload.customLabel && !payload.category && !payload.amazonUrl && !payload.ebayUrl) {
+      this.toast.warning('Add at least one field to apply.');
+      return;
+    }
+
+    this.bulkEditing.set(true);
+    this.error.set('');
+
+    this.api.bulkUpdateProducts(this.selectedIds(), payload).subscribe({
+      next: (updatedProducts) => {
+        const updatedById = new Map(updatedProducts.map((product) => [product.id, product]));
+        this.products.update((products) =>
+          products.map((product) => updatedById.get(product.id) ?? product),
+        );
+
+        const currentDetail = this.detailProduct();
+        if (currentDetail && updatedById.has(currentDetail.id)) {
+          this.detailProduct.set(updatedById.get(currentDetail.id) ?? currentDetail);
+        }
+
+        this.workspaceSync.notifyProductsChanged();
+        this.toast.success('Selected products updated.');
+        this.closeBulkEditModal(true);
+        this.bulkEditing.set(false);
+      },
+      error: (error) => {
+        this.error.set(error?.error?.message || 'Could not bulk update products.');
+        this.bulkEditing.set(false);
+      },
+    });
   }
 
   async confirmDelete(): Promise<void> {

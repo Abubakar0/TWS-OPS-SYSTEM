@@ -201,37 +201,6 @@ export class HunterDashboardComponent implements OnInit {
       tone: 'stat-card__icon--warning',
     },
   ]);
-  readonly qualityGuide = computed(() => {
-    const criteria = this.criteria();
-    const excellentRoi = Math.max(criteria.minRoi + 15, criteria.minRoi * 1.35, 35);
-    const excellentProfit = Math.max(criteria.minProfit + 5, criteria.minProfit * 1.5, 5);
-    const excellentSales = Math.max(
-      criteria.minSalesLastTwoMonths + 12,
-      criteria.minSalesLastTwoMonths * 1.4,
-      12,
-    );
-    const excellentStock = Math.max(criteria.minStockCount + 4, criteria.minStockCount * 1.3, 12);
-    const excellentRating = Math.max(criteria.minRating + 0.5, 4.2);
-
-    return [
-      {
-        label: 'Best Hunt',
-        detail: `Passes every rule and hits at least 4 strong signals: ROI ${excellentRoi.toFixed(0)}%+, profit ${excellentProfit.toFixed(2)}+, sales ${excellentSales}+, stock ${excellentStock}+, rating ${excellentRating.toFixed(1)}+.`,
-      },
-      {
-        label: 'Good Hunt',
-        detail: 'Passes every rule and lands at least 2 strong signals above the current baseline.',
-      },
-      {
-        label: 'Avg Hunt',
-        detail: 'Passes the required rules but stays close to the minimum thresholds.',
-      },
-      {
-        label: 'Rejected',
-        detail: 'Misses one or more required rules for approval.',
-      },
-    ];
-  });
   readonly showReviewBanner = computed(() => this.weeklyReviewStatus()?.required === true);
   readonly showChangeBanner = computed(() => (this.changeRequestSummary().pending || 0) > 0);
 

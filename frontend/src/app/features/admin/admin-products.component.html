@@ -148,6 +148,17 @@
             <mat-icon>delete_outline</mat-icon>
             <span>Bulk Delete</span>
           </button>
+          @if (facade.canBulkEdit()) {
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="facade.openBulkEditModal()"
+              [disabled]="!facade.selectedIds().length"
+            >
+              <mat-icon>edit_note</mat-icon>
+              <span>Bulk Edit</span>
+            </button>
+          }
           <button
             mat-stroked-button
             type="button"
@@ -307,6 +318,75 @@
           <div><span>Account</span><strong>{{ product.accountName || 'Not Assigned' }}</strong></div>
           <div><span>Delete reason</span><strong>{{ product.deleteReason || 'None' }}</strong></div>
         </div>
+      </section>
+    </div>
+  }
+
+  @if (facade.bulkEditModalOpen()) {
+    <div class="app-modal-backdrop" (click)="facade.closeBulkEditModal()">
+      <section class="app-modal bulk-edit-modal" (click)="$event.stopPropagation()">
+        <div class="app-modal__header">
+          <div>
+            <h2>Bulk edit products</h2>
+            <p>Only filled fields will be applied to every selected product.</p>
+          </div>
+          <button mat-icon-button type="button" (click)="facade.closeBulkEditModal()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <form
+          [formGroup]="facade.bulkEditForm"
+          class="action-stack"
+          (ngSubmit)="facade.confirmBulkEdit()"
+        >
+          <div class="bulk-edit-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Product title</mat-label>
+              <input matInput formControlName="title" autocomplete="off" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Custom label</mat-label>
+              <input matInput formControlName="customLabel" autocomplete="off" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Category</mat-label>
+              <mat-select formControlName="category">
+                <mat-option value="">Keep current category</mat-option>
+                @for (category of facade.availableCategories(); track category.id) {
+                  <mat-option [value]="category.name">{{ category.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Amazon link</mat-label>
+              <input matInput formControlName="amazonUrl" autocomplete="off" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="bulk-edit-grid__wide">
+              <mat-label>eBay link</mat-label>
+              <input matInput formControlName="ebayUrl" autocomplete="off" />
+            </mat-form-field>
+          </div>
+
+          <div class="modal-actions">
+            <button mat-stroked-button type="button" (click)="facade.closeBulkEditModal()">
+              Cancel
+            </button>
+            <button
+              mat-flat-button
+              color="primary"
+              type="submit"
+              [disabled]="facade.bulkEditing()"
+            >
+              <mat-icon>save</mat-icon>
+              <span>{{ facade.bulkEditing() ? 'Applying' : 'Apply Changes' }}</span>
+            </button>
+          </div>
+        </form>
       </section>
     </div>
   }

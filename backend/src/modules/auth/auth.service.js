@@ -5,6 +5,7 @@ const { env } = require('../../config/env');
 const { AppError } = require('../../middleware/error');
 const { resolvePermissions } = require('../users/permissions');
 const { writeAuditLog } = require('../users/audit.service');
+const { assertIpAllowed } = require('../system/system.service');
 
 const userSelect = `
   id,
@@ -57,7 +58,7 @@ const signToken = (user) =>
     { expiresIn: env.jwtExpiresIn },
   );
 
-const login = async ({ email, password }) => {
+const login = async ({ email, password }, req) => {
   if (!email || !password) {
     throw new AppError('Email and password are required.', 400);
   }
@@ -104,6 +105,12 @@ const login = async ({ email, password }) => {
 
   if (!isValidPassword) {
     throw new AppError('Invalid email or password.', 401);
+  }
+
+  const loginProfile = buildProfile(user);
+
+  if (req) {
+    await assertIpAllowed(loginProfile, req);
   }
 
   const updateResult = await pool.query(

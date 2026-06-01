@@ -330,6 +330,7 @@ module.exports = {
   extractAsin,
   normalizeProductPayload,
   analyzeProduct,
+  isAmazonUrl,
   isEbayUrl,
   calculateEconomics,
   getQualityLabel,

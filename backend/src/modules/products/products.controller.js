@@ -46,6 +46,11 @@ const softDeleteProducts = async (req, res) => {
   res.json({ deletedIds });
 };
 
+const bulkUpdateProducts = async (req, res) => {
+  const products = await productsService.bulkUpdateProducts(req.user, req.body);
+  res.json({ products });
+};
+
 const permanentlyDeleteProducts = async (req, res) => {
   const deletedIds = await productsService.permanentlyDeleteProducts(req.user, req.body);
   res.json({ deletedIds });
@@ -65,6 +70,7 @@ module.exports = {
   markProductsListed,
   rejectProduct,
   softDeleteProducts,
+  bulkUpdateProducts,
   permanentlyDeleteProducts,
   restoreProduct,
 };

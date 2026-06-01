@@ -65,6 +65,24 @@
           }
         </div>
       </article>
+
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Quality guide</h2>
+            <p>How hunting labels are assigned once a product passes validation.</p>
+          </div>
+        </div>
+
+        <div class="quality-guide">
+          @for (rule of qualityGuide(); track rule.label) {
+            <div class="quality-guide__row">
+              <strong>{{ rule.label }}</strong>
+              <span>{{ rule.detail }}</span>
+            </div>
+          }
+        </div>
+      </article>
     </section>
   }
 </section>

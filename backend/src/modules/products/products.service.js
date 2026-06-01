@@ -7,6 +7,7 @@ const {
 const {
   analyzeProduct,
   normalizeProductPayload,
+  isAmazonUrl,
   isEbayUrl,
   getQualityLabel,
 } = require("../../utils/productAnalysis");
@@ -877,6 +878,120 @@ const softDeleteProducts = async (user, payload = {}) => {
   return result.rows.map((row) => row.id);
 };
 
+const bulkUpdateProducts = async (user, payload = {}) => {
+  const productIds = [...new Set((payload.productIds || []).filter(Boolean))];
+
+  if (productIds.length === 0) {
+    throw new AppError("Select at least one product to update.", 400);
+  }
+
+  const title = String(payload.title || "").trim();
+  const customLabel = String(payload.customLabel || "").trim();
+  const category = String(payload.category || "").trim();
+  const amazonUrl = String(payload.amazonUrl || "").trim();
+  const ebayUrl = String(payload.ebayUrl || "").trim();
+  const updates = [];
+  const values = [productIds];
+
+  if (title) {
+    values.push(title);
+    updates.push(`title = $${values.length}`);
+  }
+
+  if (customLabel) {
+    values.push(customLabel);
+    updates.push(`custom_label = $${values.length}`);
+  }
+
+  if (category) {
+    values.push(category);
+    updates.push(`category = $${values.length}`);
+  }
+
+  if (amazonUrl) {
+    if (!isAmazonUrl(amazonUrl)) {
+      throw new AppError("Amazon link must be a valid Amazon URL.", 400);
+    }
+
+    values.push(amazonUrl);
+    updates.push(`amazon_url = $${values.length}`);
+  }
+
+  if (ebayUrl) {
+    if (!isEbayUrl(ebayUrl)) {
+      throw new AppError("eBay link must be a valid eBay URL.", 400);
+    }
+
+    values.push(ebayUrl);
+    updates.push(`ebay_url = $${values.length}`);
+  }
+
+  if (!updates.length) {
+    throw new AppError("Add at least one field to bulk update.", 400);
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+      const result = await client.query(
+        `
+          UPDATE products
+          SET ${updates.join(", ")},
+              updated_at = NOW()
+          WHERE id = ANY($1::uuid[])
+            AND deleted_at IS NULL
+          RETURNING id
+        `,
+        values,
+      );
+
+    if (result.rowCount !== productIds.length) {
+      throw new AppError("Some selected products could not be updated.", 400);
+    }
+
+    if (ebayUrl) {
+      await client.query(
+        `
+          UPDATE listings
+          SET listing_url = $2,
+              updated_at = NOW()
+          WHERE product_id = ANY($1::uuid[])
+        `,
+        [productIds, ebayUrl],
+      );
+    }
+
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  const changedFields = {
+    ...(title ? { title } : {}),
+    ...(customLabel ? { customLabel } : {}),
+    ...(category ? { category } : {}),
+    ...(amazonUrl ? { amazonUrl } : {}),
+    ...(ebayUrl ? { ebayUrl } : {}),
+  };
+
+  for (const productId of productIds) {
+    await writeAuditLog({
+      actorUserId: user.id,
+      action: "product.bulk_update",
+      targetType: "product",
+      targetId: productId,
+      details: changedFields,
+    });
+  }
+
+  return getProductsByIds(user, productIds);
+};
+
 const permanentlyDeleteProducts = async (user, payload = {}) => {
   const productIds = [...new Set((payload.productIds || []).filter(Boolean))];
   const deleteReason = assertDeleteReason(payload.reason);
@@ -946,6 +1061,7 @@ module.exports = {
   markProductsListed,
   rejectProduct,
   softDeleteProducts,
+  bulkUpdateProducts,
   permanentlyDeleteProducts,
   restoreProduct,
 };

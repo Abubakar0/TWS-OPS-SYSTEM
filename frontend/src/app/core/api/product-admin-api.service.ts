@@ -57,6 +57,27 @@ export class ProductAdminApiService {
       );
   }
 
+  bulkUpdateProducts(
+    productIds: string[],
+    payload: {
+      title?: string;
+      customLabel?: string;
+      category?: string;
+      amazonUrl?: string;
+      ebayUrl?: string;
+    },
+  ): Observable<Product[]> {
+    return this.http
+      .patch<{ products: Product[] }>(`${environment.apiUrl}/products/bulk-update`, {
+        productIds,
+        ...payload,
+      })
+      .pipe(
+        map((response) => response.products),
+        tap(() => this.requestCache.invalidatePrefix(CACHE_NAMESPACE.products)),
+      );
+  }
+
   permanentlyDeleteProducts(productIds: string[], reason: string): Observable<string[]> {
     return this.http
       .request<{ deletedIds: string[] }>('delete', `${environment.apiUrl}/products/bulk-delete`, {
