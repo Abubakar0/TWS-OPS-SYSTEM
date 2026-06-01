@@ -11,7 +11,6 @@ import { MatIconModule } from '@angular/material/icon';
       <button type="button" class="filter-panel-card__summary" (click)="toggle()">
         <div class="filter-panel__title">
           <div>
-            <mat-icon>{{ icon() }}</mat-icon>
             <span class="filter-panel-card__heading">{{ title() }}</span>
             @if (summary()) {
               <p>{{ summary() }}</p>

@@ -8,8 +8,8 @@
 
 .changes-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(340px, 0.88fr);
-  gap: 18px;
+  grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.92fr);
+  gap: 14px;
   align-items: start;
 }
 
@@ -21,7 +21,7 @@
 
 .changes-sidebar {
   position: sticky;
-  top: 16px;
+  top: 12px;
 }
 
 .changes-table {
@@ -33,28 +33,28 @@
 .changes-row {
   display: grid;
   grid-template-columns:
-    minmax(180px, 1.35fr)
-    minmax(120px, 0.8fr)
-    minmax(180px, 1.1fr)
-    minmax(120px, 0.7fr)
-    minmax(96px, 0.5fr);
-  gap: 14px;
+    minmax(166px, 1.24fr)
+    minmax(112px, 0.72fr)
+    minmax(164px, 0.98fr)
+    minmax(110px, 0.64fr)
+    minmax(88px, 0.42fr);
+  gap: 10px;
   align-items: start;
 }
 
 .changes-table__head {
-  padding: 0 10px 10px;
+  padding: 0 10px 8px;
   color: var(--tws-muted);
-  font-size: 0.75rem;
+  font-size: 0.71rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 
 .changes-row {
-  padding: 14px;
+  padding: 10px 11px;
   border: 1px solid rgba(226, 232, 240, 0.92);
-  border-radius: 18px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.92);
   text-align: left;
   cursor: pointer;
@@ -74,9 +74,9 @@
 .detail-row strong {
   display: block;
   color: var(--tws-text);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 700;
-  line-height: 1.35;
+  line-height: 1.28;
   overflow-wrap: anywhere;
 }
 
@@ -85,27 +85,27 @@
 .detail-row span {
   display: block;
   color: var(--tws-muted);
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
 
 .detail-stack {
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 
 .detail-row {
-  padding: 12px 14px;
+  padding: 10px 12px;
   border: 1px solid rgba(226, 232, 240, 0.9);
-  border-radius: 16px;
+  border-radius: 14px;
   background: rgba(248, 250, 252, 0.85);
 }
 
 .action-stack {
   display: grid;
-  gap: 14px;
-  margin-top: 18px;
+  gap: 12px;
+  margin-top: 14px;
 }
 
 .action-stack__buttons {
@@ -114,7 +114,7 @@
   gap: 12px;
 }
 
-@media (max-width: 1500px) {
+@media (max-width: 1320px) {
   .changes-layout {
     grid-template-columns: 1fr;
   }
@@ -124,7 +124,7 @@
   }
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1180px) {
   .changes-table__head {
     display: none;
   }
