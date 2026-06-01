@@ -12,8 +12,8 @@
   z-index: 6;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
-  padding: 12px 16px;
+  gap: 8px;
+  padding: 10px 14px;
 }
 
 .orders-summary-bar__item {
@@ -30,7 +30,7 @@
 
 .orders-summary-bar__item strong {
   color: var(--tws-text);
-  font-size: 1rem;
+  font-size: 0.96rem;
   font-weight: 700;
 }
 
@@ -67,9 +67,14 @@
 
 .orders-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.62fr) minmax(320px, 0.94fr);
-  gap: 14px;
+  grid-template-columns: minmax(0, 1.72fr) minmax(300px, 0.88fr);
+  gap: 12px;
   align-items: start;
+}
+
+.orders-workspace > .surface-card > .surface-card__header .page-actions {
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .orders-main,
@@ -85,7 +90,7 @@
 
 .orders-table {
   display: grid;
-  gap: 8px;
+  gap: 5px;
 }
 
 .orders-table__head,
@@ -103,16 +108,16 @@
 }
 
 .orders-table__head {
-  padding: 0 10px 8px;
+  padding: 0 10px 6px;
   color: var(--tws-muted);
-  font-size: 0.71rem;
+  font-size: 0.69rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .order-row {
-  padding: 10px 11px;
+  padding: 7px 9px;
   border: 1px solid rgba(226, 232, 240, 0.92);
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.88);
@@ -139,7 +144,7 @@
 
 .order-row__cell strong {
   color: var(--tws-text);
-  font-size: 0.91rem;
+  font-size: 0.85rem;
   font-weight: 700;
   line-height: 1.28;
 }
@@ -147,7 +152,7 @@
 .order-row__cell span,
 .order-row__cell small {
   color: var(--tws-muted);
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   overflow-wrap: anywhere;
 }
 
@@ -174,7 +179,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .orders-sidebar__top p {
@@ -295,6 +300,7 @@
   font-size: 0.84rem;
   font-weight: 700;
   overflow-wrap: anywhere;
+  word-break: break-word;
   text-align: right;
 }
 
@@ -447,7 +453,7 @@
 }
 
 .order-modal--wide {
-  width: min(100%, 960px);
+  width: min(100%, 920px);
 }
 
 .status-badge--order-new {

@@ -199,8 +199,8 @@
             <div class="detail-row"><span>Current Lister</span><strong>{{ request.listerName || 'Not assigned' }}</strong></div>
             <div class="detail-row"><span>Issue Type</span><strong>{{ (request.issueType || 'OTHER').replaceAll('_', ' ') }}</strong></div>
             <div class="detail-row"><span>Issue Reason</span><strong>{{ request.issueReason || request.requestedChanges }}</strong></div>
-            <div class="detail-row"><span>Current Amazon Link</span><strong>{{ request.currentAmazonLink || 'Not Available' }}</strong></div>
-            <div class="detail-row"><span>Current eBay Link</span><strong>{{ request.currentEbayLink || request.listingUrl || 'Not Available' }}</strong></div>
+            <div class="detail-row detail-row--link"><span>Current Amazon Link</span><strong>{{ request.currentAmazonLink || 'Not Available' }}</strong></div>
+            <div class="detail-row detail-row--link"><span>Current eBay Link</span><strong>{{ request.currentEbayLink || request.listingUrl || 'Not Available' }}</strong></div>
           </div>
 
           <div class="detail-form">

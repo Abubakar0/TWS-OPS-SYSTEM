@@ -102,6 +102,14 @@
   line-height: 1;
 }
 
+.breakdown-row__count {
+  max-width: 18ch;
+  text-align: right;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  line-height: 1.2;
+}
+
 @media (max-width: 1240px) {
   .stats-grid--five {
     grid-template-columns: repeat(3, minmax(0, 1fr));

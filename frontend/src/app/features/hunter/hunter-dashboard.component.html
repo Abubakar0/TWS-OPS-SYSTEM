@@ -265,8 +265,8 @@
               <strong>Best selling product</strong>
               <span>Top order driver in this date range.</span>
             </div>
-            <strong class="breakdown-row__count">{{
-              orderStats()?.bestSellingProduct || '—'
+            <strong class="breakdown-row__value breakdown-row__value--multiline">{{
+              orderStats()?.bestSellingProduct || 'Not available'
             }}</strong>
           </div>
         </div>
@@ -310,3 +310,4 @@
     </article>
   </section>
 </section>
+

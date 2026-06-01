@@ -4,9 +4,9 @@
 }
 
 .list-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   gap: 16px;
   border: 1px solid var(--tws-border);
   border-radius: 18px;
@@ -25,14 +25,18 @@
 }
 
 .row-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, max-content));
   gap: 10px;
+  justify-content: flex-end;
 }
 
 @media (max-width: 760px) {
   .list-row {
-    flex-direction: column;
-    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .row-actions {
+    justify-content: flex-start;
   }
 }

@@ -53,10 +53,13 @@
       <summary>
         <div class="filter-panel__title">
           <mat-icon>filter_list</mat-icon>
-          <span>Filters</span>
+          <div>
+            <span>Filters</span>
+            <p>Search and narrow operator records.</p>
+          </div>
         </div>
         <div class="filter-panel__meta">
-          <span>Search and narrow operator records</span>
+          <span>{{ visibleUsers().length }} matching</span>
           <span class="filter-panel__chevron">
             <mat-icon>expand_more</mat-icon>
           </span>

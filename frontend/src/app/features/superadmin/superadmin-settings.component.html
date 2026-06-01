@@ -69,24 +69,26 @@
           <input matInput type="number" formControlName="feePercent" />
         </mat-form-field>
 
-        <label class="toggle-row field-span-2">
-          <mat-checkbox formControlName="asinRequired">Require ASIN</mat-checkbox>
-        </label>
-        <label class="toggle-row field-span-2">
-          <mat-checkbox formControlName="customLabelRequired">Require custom label</mat-checkbox>
-        </label>
-        <label class="toggle-row field-span-2">
-          <mat-checkbox formControlName="watchersRequired">Require product watchers</mat-checkbox>
-        </label>
-        <label class="toggle-row field-span-2">
-          <mat-checkbox formControlName="basketCountRequired">Require basket count</mat-checkbox>
-        </label>
-        <label class="toggle-row field-span-2">
-          <mat-checkbox formControlName="deliveryDaysRequired">Require delivery days</mat-checkbox>
-        </label>
-        <label class="toggle-row field-span-2">
-          <mat-checkbox formControlName="monthlyGraphRequired">Require 1-month graph uptrend</mat-checkbox>
-        </label>
+        <div class="toggle-stack field-span-2">
+          <label class="toggle-row">
+            <mat-checkbox formControlName="asinRequired">Require ASIN</mat-checkbox>
+          </label>
+          <label class="toggle-row">
+            <mat-checkbox formControlName="customLabelRequired">Require custom label</mat-checkbox>
+          </label>
+          <label class="toggle-row">
+            <mat-checkbox formControlName="watchersRequired">Require product watchers</mat-checkbox>
+          </label>
+          <label class="toggle-row">
+            <mat-checkbox formControlName="basketCountRequired">Require basket count</mat-checkbox>
+          </label>
+          <label class="toggle-row">
+            <mat-checkbox formControlName="deliveryDaysRequired">Require delivery days</mat-checkbox>
+          </label>
+          <label class="toggle-row">
+            <mat-checkbox formControlName="monthlyGraphRequired">Require 1-month graph uptrend</mat-checkbox>
+          </label>
+        </div>
 
         <div class="field-span-2 actions-row">
           <button mat-flat-button color="primary" type="submit" [disabled]="criteriaForm.invalid || saving()">

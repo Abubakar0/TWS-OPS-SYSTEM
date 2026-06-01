@@ -101,6 +101,14 @@
   background: rgba(248, 250, 252, 0.85);
 }
 
+.detail-row--link strong {
+  max-height: 9rem;
+  overflow: auto;
+  padding-right: 2px;
+  word-break: break-all;
+  line-height: 1.38;
+}
+
 .detail-form {
   display: grid;
   gap: 10px;

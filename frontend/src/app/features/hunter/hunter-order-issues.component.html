@@ -26,13 +26,13 @@
       [badge]="total() + ' issues'"
       storageKey="tws_hunter_order_issue_filters"
     >
-      <form class="grid-toolbar" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
+      <form class="issues-filters-form" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
         <mat-form-field appearance="outline" class="grid-toolbar__search">
           <mat-label>Search order, product, ASIN, or issue</mat-label>
           <input matInput formControlName="search" autocomplete="off" />
         </mat-form-field>
 
-        <div class="grid-toolbar__actions grid-toolbar__actions--filters">
+        <div class="issues-filters-grid">
           <mat-form-field appearance="outline">
             <mat-label>Issue Type</mat-label>
             <mat-select formControlName="issueType">
@@ -81,6 +81,9 @@
             <input matInput type="date" formControlName="dateTo" />
           </mat-form-field>
 
+        </div>
+
+        <div class="filters-actions filters-actions--end">
           <button mat-flat-button color="primary" type="submit">Apply</button>
           <button mat-stroked-button type="button" (click)="resetFilters()">Reset</button>
         </div>

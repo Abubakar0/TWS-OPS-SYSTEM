@@ -59,7 +59,7 @@
           <mat-spinner diameter="24"></mat-spinner>
           <span>Loading default values.</span>
         </div>
-      } @else {
+      } @else if (defaultValueRows().length) {
         <div class="info-list">
           @for (row of defaultValueRows(); track row.label) {
             <div class="info-row">
@@ -68,6 +68,8 @@
             </div>
           }
         </div>
+      } @else {
+        <div class="empty-state">Default values are not available right now.</div>
       }
     </article>
 

@@ -94,16 +94,19 @@
       </div>
 
     <details class="filter-panel">
-        <summary>
-          <div class="filter-panel__title">
-            <mat-icon>filter_list</mat-icon>
+      <summary>
+        <div class="filter-panel__title">
+          <mat-icon>filter_list</mat-icon>
+          <div>
             <span>Filters</span>
+            <p>Search admins quickly.</p>
           </div>
-          <div class="filter-panel__meta">
-            <span>Search admins quickly</span>
-            <span class="filter-panel__chevron">
-              <mat-icon>expand_more</mat-icon>
-            </span>
+        </div>
+        <div class="filter-panel__meta">
+          <span>{{ admins().length }} matching</span>
+          <span class="filter-panel__chevron">
+            <mat-icon>expand_more</mat-icon>
+          </span>
           </div>
         </summary>
 

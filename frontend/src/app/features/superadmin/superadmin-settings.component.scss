@@ -7,6 +7,12 @@
   align-items: center;
 }
 
+.toggle-stack {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 18px;
+}
+
 .actions-row {
   display: flex;
   flex-wrap: wrap;
@@ -46,6 +52,10 @@
 
 @media (max-width: 1080px) {
   .settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .toggle-stack {
     grid-template-columns: 1fr;
   }
 }

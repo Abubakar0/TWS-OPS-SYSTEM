@@ -24,8 +24,11 @@
     <details class="filter-panel">
       <summary>
         <div class="filter-panel__title">
-          <h2>Filters</h2>
-          <p>Find accounts by name, marketplace, or status.</p>
+          <mat-icon>filter_list</mat-icon>
+          <div>
+            <h2>Filters</h2>
+            <p>Find accounts by name, marketplace, or status.</p>
+          </div>
         </div>
         <div class="filter-panel__meta">
           <span>{{ filteredAccounts().length }} accounts</span>
@@ -36,37 +39,35 @@
       </summary>
 
       <div class="filter-panel__content">
-        <div class="grid-toolbar">
-          <mat-form-field appearance="outline" class="grid-toolbar__search">
+        <div class="grid-toolbar__actions--filters accounts-filters">
+          <mat-form-field appearance="outline" class="accounts-filters__search">
             <mat-label>Search account name</mat-label>
             <input matInput [formControl]="searchControl" autocomplete="off" />
             <mat-icon matSuffix>search</mat-icon>
           </mat-form-field>
 
-          <div class="grid-toolbar__actions">
-            <mat-form-field appearance="outline" class="page-size-field">
-              <mat-label>Marketplace</mat-label>
-              <mat-select [formControl]="marketplaceControl">
-                <mat-option value="all">All</mat-option>
-                <mat-option value="ebay">eBay</mat-option>
-                <mat-option value="amazon">Amazon</mat-option>
-              </mat-select>
-            </mat-form-field>
+          <mat-form-field appearance="outline" class="page-size-field">
+            <mat-label>Marketplace</mat-label>
+            <mat-select [formControl]="marketplaceControl">
+              <mat-option value="all">All</mat-option>
+              <mat-option value="ebay">eBay</mat-option>
+              <mat-option value="amazon">Amazon</mat-option>
+            </mat-select>
+          </mat-form-field>
 
-            <mat-form-field appearance="outline" class="page-size-field">
-              <mat-label>Status</mat-label>
-              <mat-select [formControl]="statusControl">
-                <mat-option value="all">All</mat-option>
-                <mat-option value="active">Active</mat-option>
-                <mat-option value="disabled">Disabled</mat-option>
-              </mat-select>
-            </mat-form-field>
+          <mat-form-field appearance="outline" class="page-size-field">
+            <mat-label>Status</mat-label>
+            <mat-select [formControl]="statusControl">
+              <mat-option value="all">All</mat-option>
+              <mat-option value="active">Active</mat-option>
+              <mat-option value="disabled">Disabled</mat-option>
+            </mat-select>
+          </mat-form-field>
 
-            <button mat-stroked-button type="button" (click)="resetFilters()">
-              <mat-icon>restart_alt</mat-icon>
-              <span>Reset</span>
-            </button>
-          </div>
+          <button mat-stroked-button type="button" (click)="resetFilters()">
+            <mat-icon>restart_alt</mat-icon>
+            <span>Reset</span>
+          </button>
         </div>
       </div>
     </details>
@@ -123,7 +124,7 @@
                   </span>
                 </td>
                 <td>{{ account.totalProductsListed || 0 }}</td>
-                <td>{{ account.createdAt ? (account.createdAt | date: 'MMM d, y') : '—' }}</td>
+                <td>{{ account.createdAt ? (account.createdAt | date: 'MMM d, y') : 'Not Available' }}</td>
                 <td class="actions-col">
                   <div class="table-actions">
                     <button mat-icon-button type="button" (click)="openListerModal(account)" matTooltip="Assign listers">
@@ -222,3 +223,4 @@
     </section>
   </div>
 }
+

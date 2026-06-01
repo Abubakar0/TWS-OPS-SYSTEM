@@ -23,6 +23,10 @@
   gap: 6px;
 }
 
+.accounts-filters__search {
+  grid-column: span 2;
+}
+
 .actions-col {
   width: 120px;
 }
@@ -62,6 +66,10 @@
 }
 
 @media (max-width: 760px) {
+  .accounts-filters__search {
+    grid-column: span 1;
+  }
+
   .actions-col {
     width: auto;
   }

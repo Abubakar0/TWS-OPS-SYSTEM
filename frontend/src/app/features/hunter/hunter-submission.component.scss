@@ -138,7 +138,8 @@
 
 .field-shell {
   display: grid;
-  gap: 8px;
+  gap: 6px;
+  align-content: start;
 }
 
 .field-label {
@@ -156,13 +157,18 @@
   align-items: center;
   gap: 6px;
   color: var(--tws-muted);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
+  margin-top: -2px;
 }
 
 .field-helper mat-icon {
   width: 16px;
   height: 16px;
   font-size: 16px;
+}
+
+.field-shell .mat-mdc-form-field-subscript-wrapper {
+  margin-top: 0 !important;
 }
 
 .inline-state__content {

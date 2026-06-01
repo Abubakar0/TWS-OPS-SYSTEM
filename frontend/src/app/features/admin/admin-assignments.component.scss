@@ -9,6 +9,7 @@
 .assignment-list {
   display: grid;
   gap: 12px;
+  margin-bottom: 10px;
 }
 
 .assignment-row {
@@ -46,6 +47,10 @@
 
 .assignment-row .mat-mdc-form-field {
   margin-bottom: -20px;
+}
+
+.grid-pager {
+  margin-top: 8px;
 }
 
 @media (max-width: 760px) {

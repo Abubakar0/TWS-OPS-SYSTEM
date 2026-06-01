@@ -6,3 +6,21 @@
   display: grid;
   gap: 14px;
 }
+
+.team-card .breakdown-row {
+  align-items: flex-start;
+}
+
+.team-card .breakdown-row > div {
+  min-width: 0;
+}
+
+.team-card .breakdown-row strong,
+.team-card .breakdown-row span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.team-card .breakdown-row span {
+  margin-top: 4px;
+}

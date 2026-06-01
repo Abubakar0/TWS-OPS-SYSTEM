@@ -1,6 +1,10 @@
 <section class="page-shell">
   @if (facade.error()) {
-    <app-error-state [message]="facade.error()" actionLabel="Retry" (action)="facade.loadProducts()" />
+    <app-error-state
+      [message]="facade.error()"
+      actionLabel="Retry"
+      (action)="facade.loadProducts()"
+    />
   }
 
   <article class="surface-card">
@@ -196,11 +200,8 @@
             (change)="facade.toggleSelectAll($event.checked)"
           />
           <span>Product</span>
-          <span>Category</span>
           <span>Hunter</span>
           <span>Assigned Lister</span>
-          <span>Quality</span>
-          <span>Status</span>
           <span>Created</span>
           <span>Listed</span>
           <span>Actions</span>
@@ -217,14 +218,20 @@
                 product.title || product.asin || 'Untitled product'
               }}</strong>
               <small>{{ product.asin || 'No ASIN' }}</small>
+              <small>{{ product.category || 'Not Assigned' }}</small>
             </div>
-            <span>{{ product.category || 'Not Assigned' }}</span>
-            <span>{{ product.hunterName }}</span>
-            <span>{{ product.assignedListerName || 'Not Assigned' }}</span>
-            <span class="status-badge">{{ product.qualityLabel || 'Not Assigned' }}</span>
-            <span class="status-badge">{{ product.status }}</span>
+            <div class="product-cell">
+              <span>{{ product.hunterName }}</span>
+              <span class="status-badge">{{ product.qualityLabel || 'Not Assigned' }}</span>
+            </div>
+            <div class="product-cell">
+              <span>{{ product.assignedListerName || 'Not Assigned' }}</span>
+              <span class="status-badge">{{ product.status }}</span>
+            </div>
             <span>{{ product.createdAt | date: 'MMM d, y' }}</span>
-            <span>{{ product.listedAt ? (product.listedAt | date: 'MMM d, y') : 'Not Listed' }}</span>
+            <span>{{
+              product.listedAt ? (product.listedAt | date: 'MMM d, y') : 'Not Listed'
+            }}</span>
             <div class="row-actions">
               <button mat-icon-button type="button" (click)="facade.openDetail(product)">
                 <mat-icon>visibility</mat-icon>
@@ -302,21 +309,37 @@
         </div>
 
         <div class="detail-grid">
-          <div><span>Hunter</span><strong>{{ product.hunterName }}</strong></div>
-          <div><span>Category</span><strong>{{ product.category || 'Not Assigned' }}</strong></div>
+          <div>
+            <span>Hunter</span><strong>{{ product.hunterName }}</strong>
+          </div>
+          <div>
+            <span>Category</span><strong>{{ product.category || 'Not Assigned' }}</strong>
+          </div>
           <div>
             <span>Assigned Lister</span>
             <strong>{{ product.assignedListerName || 'Not Assigned' }}</strong>
           </div>
-          <div><span>Status</span><strong>{{ product.status }}</strong></div>
-          <div><span>Quality</span><strong>{{ product.qualityLabel || 'Not Assigned' }}</strong></div>
-          <div><span>Created</span><strong>{{ product.createdAt | date: 'MMM d, y, h:mm a' }}</strong></div>
+          <div>
+            <span>Status</span><strong>{{ product.status }}</strong>
+          </div>
+          <div>
+            <span>Quality</span><strong>{{ product.qualityLabel || 'Not Assigned' }}</strong>
+          </div>
+          <div>
+            <span>Created</span><strong>{{ product.createdAt | date: 'MMM d, y, h:mm a' }}</strong>
+          </div>
           <div>
             <span>Listed</span>
-            <strong>{{ product.listedAt ? (product.listedAt | date: 'MMM d, y, h:mm a') : 'Not Listed' }}</strong>
+            <strong>{{
+              product.listedAt ? (product.listedAt | date: 'MMM d, y, h:mm a') : 'Not Listed'
+            }}</strong>
           </div>
-          <div><span>Account</span><strong>{{ product.accountName || 'Not Assigned' }}</strong></div>
-          <div><span>Delete reason</span><strong>{{ product.deleteReason || 'None' }}</strong></div>
+          <div>
+            <span>Account</span><strong>{{ product.accountName || 'Not Assigned' }}</strong>
+          </div>
+          <div>
+            <span>Delete reason</span><strong>{{ product.deleteReason || 'None' }}</strong>
+          </div>
         </div>
       </section>
     </div>
@@ -376,12 +399,7 @@
             <button mat-stroked-button type="button" (click)="facade.closeBulkEditModal()">
               Cancel
             </button>
-            <button
-              mat-flat-button
-              color="primary"
-              type="submit"
-              [disabled]="facade.bulkEditing()"
-            >
+            <button mat-flat-button color="primary" type="submit" [disabled]="facade.bulkEditing()">
               <mat-icon>save</mat-icon>
               <span>{{ facade.bulkEditing() ? 'Applying' : 'Apply Changes' }}</span>
             </button>
@@ -418,7 +436,9 @@
           <mat-form-field appearance="outline">
             <mat-label>Reason</mat-label>
             <textarea matInput rows="4" formControlName="reason"></textarea>
-            @if (facade.deleteForm.controls.reason.touched && facade.deleteForm.controls.reason.invalid) {
+            @if (
+              facade.deleteForm.controls.reason.touched && facade.deleteForm.controls.reason.invalid
+            ) {
               <mat-error>Enter at least 3 characters.</mat-error>
             }
           </mat-form-field>
@@ -433,7 +453,9 @@
               type="submit"
               [disabled]="facade.deleting() || facade.deleteForm.invalid"
             >
-              <mat-icon>{{ facade.deleteMode() === 'permanent' ? 'delete_forever' : 'delete_outline' }}</mat-icon>
+              <mat-icon>{{
+                facade.deleteMode() === 'permanent' ? 'delete_forever' : 'delete_outline'
+              }}</mat-icon>
               <span>{{
                 facade.deleting()
                   ? 'Deleting'

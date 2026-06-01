@@ -6,6 +6,22 @@
   flex-wrap: wrap;
 }
 
+.issues-filters-form {
+  display: grid;
+  gap: 14px;
+}
+
+.issues-filters-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.filters-actions--end {
+  justify-content: flex-end;
+}
+
 .issues-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.92fr);
@@ -116,11 +132,25 @@
 }
 
 @media (max-width: 1180px) {
+  .issues-filters-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .issues-table__head {
     display: none;
   }
 
   .issues-row {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .issues-filters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filters-actions--end {
+    justify-content: stretch;
   }
 }
