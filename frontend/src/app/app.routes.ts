@@ -1,7 +1,20 @@
 import { Routes } from '@angular/router';
-import { authGuard, dashboardRedirectGuard, permissionGuard, roleGuard } from './core/guards/auth.guard';
+import {
+  authGuard,
+  dashboardRedirectGuard,
+  permissionGuard,
+  roleGuard,
+} from './core/guards/auth.guard';
 
 export const routes: Routes = [
+  {
+    path: '',
+    pathMatch: 'full',
+    loadComponent: () =>
+      import('./features/marketing/marketing-home.component').then(
+        (m) => m.MarketingHomeComponent,
+      ),
+  },
   {
     path: 'login',
     loadComponent: () =>
@@ -58,7 +71,9 @@ export const routes: Routes = [
           {
             path: 'orders',
             loadComponent: () =>
-              import('./features/orders/hunter-orders.component').then((m) => m.HunterOrdersComponent),
+              import('./features/orders/hunter-orders.component').then(
+                (m) => m.HunterOrdersComponent,
+              ),
           },
           {
             path: 'order-issues',
@@ -117,7 +132,9 @@ export const routes: Routes = [
           {
             path: 'orders',
             loadComponent: () =>
-              import('./features/orders/lister-orders.component').then((m) => m.ListerOrdersComponent),
+              import('./features/orders/lister-orders.component').then(
+                (m) => m.ListerOrdersComponent,
+              ),
           },
           {
             path: 'changes',
@@ -155,9 +172,7 @@ export const routes: Routes = [
           {
             path: 'users',
             loadComponent: () =>
-              import('./features/admin/admin-users.component').then(
-                (m) => m.AdminUsersComponent,
-              ),
+              import('./features/admin/admin-users.component').then((m) => m.AdminUsersComponent),
           },
           {
             path: 'assignments',
@@ -176,7 +191,9 @@ export const routes: Routes = [
           {
             path: 'orders',
             loadComponent: () =>
-              import('./features/orders/admin-orders.component').then((m) => m.AdminOrdersComponent),
+              import('./features/orders/admin-orders.component').then(
+                (m) => m.AdminOrdersComponent,
+              ),
           },
           {
             path: 'order-issues',
@@ -225,16 +242,16 @@ export const routes: Routes = [
       {
         path: 'team',
         loadComponent: () =>
-          import('./features/team/team-directory.component').then(
-            (m) => m.TeamDirectoryComponent,
-          ),
+          import('./features/team/team-directory.component').then((m) => m.TeamDirectoryComponent),
       },
       {
         path: 'orders/processing',
         canActivate: [permissionGuard],
         data: { permissions: ['canProcessOrders'] },
         loadComponent: () =>
-          import('./features/orders/order-processing.component').then((m) => m.OrderProcessingComponent),
+          import('./features/orders/order-processing.component').then(
+            (m) => m.OrderProcessingComponent,
+          ),
       },
       {
         path: 'order-processor',
@@ -354,13 +371,6 @@ export const routes: Routes = [
             loadComponent: () =>
               import('./features/superadmin/superadmin-security.component').then(
                 (m) => m.SuperAdminSecurityComponent,
-              ),
-          },
-          {
-            path: 'permissions',
-            loadComponent: () =>
-              import('./features/superadmin/superadmin-permissions.component').then(
-                (m) => m.SuperAdminPermissionsComponent,
               ),
           },
         ],

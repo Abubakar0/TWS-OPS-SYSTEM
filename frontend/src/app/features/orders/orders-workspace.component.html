@@ -705,18 +705,10 @@
                 </mat-form-field>
 
                 <mat-form-field appearance="outline">
-                  <mat-label>Selling Price</mat-label>
-                  <input matInput formControlName="salePrice" autocomplete="off" />
-                  @if (facade.orderFormErrors().salePrice) {
-                    <mat-error>{{ facade.orderFormErrors().salePrice }}</mat-error>
-                  }
-                </mat-form-field>
-
-                <mat-form-field appearance="outline">
-                  <mat-label>Purchasing Price</mat-label>
-                  <input matInput formControlName="amazonBuyingPrice" autocomplete="off" />
-                  @if (facade.orderFormErrors().amazonBuyingPrice) {
-                    <mat-error>{{ facade.orderFormErrors().amazonBuyingPrice }}</mat-error>
+                  <mat-label>Amazon Order ID</mat-label>
+                  <input matInput formControlName="amazonOrderId" autocomplete="off" />
+                  @if (facade.orderFormErrors().amazonOrderId) {
+                    <mat-error>{{ facade.orderFormErrors().amazonOrderId }}</mat-error>
                   }
                 </mat-form-field>
 
@@ -730,6 +722,22 @@
                   </mat-select>
                   @if (facade.orderFormErrors().accountId) {
                     <mat-error>{{ facade.orderFormErrors().accountId }}</mat-error>
+                  }
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Selling Price</mat-label>
+                  <input matInput formControlName="salePrice" autocomplete="off" />
+                  @if (facade.orderFormErrors().salePrice) {
+                    <mat-error>{{ facade.orderFormErrors().salePrice }}</mat-error>
+                  }
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Purchasing Price</mat-label>
+                  <input matInput formControlName="amazonBuyingPrice" autocomplete="off" />
+                  @if (facade.orderFormErrors().amazonBuyingPrice) {
+                    <mat-error>{{ facade.orderFormErrors().amazonBuyingPrice }}</mat-error>
                   }
                 </mat-form-field>
 
@@ -766,7 +774,13 @@
               <div class="order-form__section-header">
                 <div>
                   <h3>Product Matching</h3>
-                  <p>{{ facade.matchingSummary() }}</p>
+                  <p>
+                    {{
+                      facade.usesMinimalOrderEntry()
+                        ? 'ASIN lookups can fill the matched product, hunter, lister, and account details for you.'
+                        : facade.matchingSummary()
+                    }}
+                  </p>
                 </div>
 
                 <button mat-stroked-button type="button" (click)="facade.findProductMatches()" [disabled]="facade.matchLoading()">
@@ -833,11 +847,6 @@
               </div>
 
               <div class="form-grid">
-                <mat-form-field appearance="outline">
-                  <mat-label>Amazon Order ID</mat-label>
-                  <input matInput formControlName="amazonOrderId" autocomplete="off" />
-                </mat-form-field>
-
                 <mat-form-field appearance="outline">
                   <mat-label>{{ facade.usesMinimalOrderEntry() ? 'Amazon Product Link' : 'Amazon Order Link' }}</mat-label>
                   <input matInput formControlName="amazonOrderLink" autocomplete="off" />
@@ -909,29 +918,31 @@
                   </mat-form-field>
                 }
 
-                <mat-form-field appearance="outline">
-                  <mat-label>Issue Type</mat-label>
-                  <mat-select formControlName="issueType">
-                    @for (type of facade.issueTypeOptions; track type) {
-                      <mat-option [value]="type">{{ type.replaceAll('_', ' ') }}</mat-option>
-                    }
-                  </mat-select>
-                </mat-form-field>
+                @if (!facade.usesMinimalOrderEntry()) {
+                  <mat-form-field appearance="outline">
+                    <mat-label>Issue Type</mat-label>
+                    <mat-select formControlName="issueType">
+                      @for (type of facade.issueTypeOptions; track type) {
+                        <mat-option [value]="type">{{ type.replaceAll('_', ' ') }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
 
-                <mat-form-field appearance="outline">
-                  <mat-label>Order impact</mat-label>
-                  <mat-select formControlName="orderImpact">
-                    <mat-option value="">Select impact</mat-option>
-                    @for (impact of facade.orderImpactOptions; track impact) {
-                      <mat-option [value]="impact">{{ impact }}</mat-option>
-                    }
-                  </mat-select>
-                </mat-form-field>
+                  <mat-form-field appearance="outline">
+                    <mat-label>Order impact</mat-label>
+                    <mat-select formControlName="orderImpact">
+                      <mat-option value="">Select impact</mat-option>
+                      @for (impact of facade.orderImpactOptions; track impact) {
+                        <mat-option [value]="impact">{{ impact }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
 
-                <mat-form-field appearance="outline">
-                  <mat-label>Issue reason</mat-label>
-                  <input matInput formControlName="issueReason" autocomplete="off" />
-                </mat-form-field>
+                  <mat-form-field appearance="outline">
+                    <mat-label>Issue reason</mat-label>
+                    <input matInput formControlName="issueReason" autocomplete="off" />
+                  </mat-form-field>
+                }
 
                 <mat-form-field appearance="outline" class="field-span-2">
                   <mat-label>Notes</mat-label>

@@ -76,7 +76,10 @@ export const createOrderForm = (): OrderForm =>
     asin: new FormControl('', { nonNullable: true, validators: [Validators.required, asinValidator] }),
     productTitle: new FormControl('', { nonNullable: true }),
     customLabel: new FormControl('', { nonNullable: true }),
-    amazonOrderId: new FormControl('', { nonNullable: true }),
+    amazonOrderId: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required],
+    }),
     amazonOrderLink: new FormControl('', {
       nonNullable: true,
       validators: [marketplaceUrlValidator('amazon')],

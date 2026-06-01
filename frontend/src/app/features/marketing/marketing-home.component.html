@@ -1,0 +1,130 @@
+<main class="marketing-page">
+  <section class="marketing-hero">
+    <div class="marketing-hero__media" aria-hidden="true"></div>
+    <div class="marketing-hero__overlay"></div>
+
+    <div class="marketing-hero__content">
+      <p class="marketing-hero__eyebrow">Marketplace Operations Software</p>
+      <h1>{{ branding.productName }}</h1>
+      <p class="marketing-hero__summary">
+        Built for teams managing eBay order placement, product hunting, listing queues, account
+        control, product fixes, and reporting across hunters, listers, admins, and processors.
+      </p>
+
+      <div class="marketing-hero__actions">
+        <a mat-flat-button color="primary" [routerLink]="primaryCta().route">
+          <mat-icon>rocket_launch</mat-icon>
+          <span>{{ primaryCta().label }}</span>
+        </a>
+        <a
+          mat-stroked-button
+          [href]="branding.platforms[2].href"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <mat-icon>language</mat-icon>
+          <span>Visit Trend Wave Solutions</span>
+        </a>
+      </div>
+
+      <div class="marketing-hero__chips">
+        @for (useCase of useCases; track useCase) {
+          <span>{{ useCase }}</span>
+        }
+      </div>
+    </div>
+  </section>
+
+  <section class="marketing-band">
+    <div class="marketing-section-heading">
+      <h2>Why teams search for a workflow like this</h2>
+      <p>
+        Most marketplace teams hit the same pressure points: scattered sourcing notes, unclear
+        listing ownership, order issues that do not reach the right person, and reporting that
+        trails the real work.
+      </p>
+    </div>
+
+    <div class="marketing-pains">
+      <article>
+        <h3>Disconnected product handoff</h3>
+        <p>Hunters find products, but listers and order processors still need context and proof.</p>
+      </article>
+      <article>
+        <h3>Order issues without accountability</h3>
+        <p>Price spikes, unavailable products, and listing fixes need a clear owner and timeline.</p>
+      </article>
+      <article>
+        <h3>Too many tools for one operation</h3>
+        <p>Queues, rules, issues, and reports belong in one operational system, not separate sheets.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="marketing-band marketing-band--muted">
+    <div class="marketing-section-heading">
+      <h2>How the workflow fits together</h2>
+      <p>
+        The platform keeps the chain visible from product submission through listing, order
+        placement, issue handling, and change resolution.
+      </p>
+    </div>
+
+    <div class="marketing-workflows">
+      @for (workflow of workflows; track workflow.title) {
+        <article class="marketing-workflow-card">
+          <span>{{ $index + 1 }}</span>
+          <div>
+            <h3>{{ workflow.title }}</h3>
+            <p>{{ workflow.body }}</p>
+          </div>
+        </article>
+      }
+    </div>
+  </section>
+
+  <section class="marketing-band">
+    <div class="marketing-section-heading">
+      <h2>Questions teams usually ask</h2>
+      <p>
+        These answers are here for buyers, operators, and AI search experiences that need direct
+        language about what this workspace actually does.
+      </p>
+    </div>
+
+    <div class="marketing-faq">
+      @for (faq of faqs; track faq.question) {
+        <article>
+          <h3>{{ faq.question }}</h3>
+          <p>{{ faq.answer }}</p>
+        </article>
+      }
+    </div>
+  </section>
+
+  <section class="marketing-band marketing-band--cta">
+    <div>
+      <h2>Need a workflow like this for your team?</h2>
+      <p>
+        Start with the workspace if you already have access, or reach out through the corporate
+        site if you want to discuss a similar operations setup for your own business.
+      </p>
+    </div>
+
+    <div class="marketing-cta-actions">
+      <a mat-flat-button color="primary" [routerLink]="primaryCta().route">
+        <mat-icon>login</mat-icon>
+        <span>{{ primaryCta().label }}</span>
+      </a>
+      <a
+        mat-stroked-button
+        [href]="branding.platforms[1].href"
+        target="_blank"
+        rel="noreferrer"
+      >
+        <mat-icon>travel_explore</mat-icon>
+        <span>Workspace Portal</span>
+      </a>
+    </div>
+  </section>
+</main>

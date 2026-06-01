@@ -1,6 +1,6 @@
 import { computed, DestroyRef, effect, inject, Injectable, Injector, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { firstValueFrom, forkJoin, debounceTime, distinctUntilChanged } from 'rxjs';
+import { firstValueFrom, forkJoin, debounceTime, distinctUntilChanged, merge } from 'rxjs';
 import { FormControl } from '@angular/forms';
 import { Router } from '@angular/router';
 
@@ -218,6 +218,7 @@ export class OrderManagementFacade {
   readonly statsLoading = signal(false);
   readonly saving = signal(false);
   readonly exporting = signal(false);
+  readonly orderFormVersion = signal(0);
   readonly matchLoading = signal(false);
   readonly error = signal('');
   readonly orders = signal<Order[]>([]);
@@ -397,6 +398,7 @@ export class OrderManagementFacade {
     };
   });
   readonly financialPreview = computed(() => {
+    this.orderFormVersion();
     const salePrice = decimalValue(this.orderForm.controls.salePrice.value) ?? 0;
     const ebayFee = decimalValue(this.orderForm.controls.ebayFee.value) ?? 0;
     const amazonBuyingPrice = decimalValue(this.orderForm.controls.amazonBuyingPrice.value) ?? 0;
@@ -416,15 +418,29 @@ export class OrderManagementFacade {
     };
   });
   readonly canSubmitOrder = computed(() => {
+    this.orderFormVersion();
+    if (
+      !this.canWrite() ||
+      !this.modalState().open ||
+      this.duplicateState() === 'duplicate' ||
+      this.saving()
+    ) {
+      return false;
+    }
+
+    if (this.modalState().mode === 'create') {
+      return this.isCreateOrderReady();
+    }
+
     return (
-      this.canWrite() &&
-      this.modalState().open &&
       this.orderForm.valid &&
-      this.duplicateState() !== 'duplicate' &&
       !this.saving()
     );
   });
-  readonly orderFormErrors = computed(() => ({
+  readonly orderFormErrors = computed(() => {
+    this.orderFormVersion();
+
+    return {
     ebayOrderId: this.messages.orderFieldError(
       this.orderForm.controls.ebayOrderId,
       'ebayOrderId',
@@ -461,6 +477,12 @@ export class OrderManagementFacade {
       'asin',
       this.orderForm.controls.asin.touched || this.orderForm.controls.asin.dirty,
     ),
+    amazonOrderId: this.messages.orderFieldError(
+      this.orderForm.controls.amazonOrderId,
+      'amazonOrderId',
+      this.orderForm.controls.amazonOrderId.touched ||
+        this.orderForm.controls.amazonOrderId.dirty,
+    ),
     amazonOrderLink: this.messages.orderFieldError(
       this.orderForm.controls.amazonOrderLink,
       'amazonOrderLink',
@@ -473,8 +495,10 @@ export class OrderManagementFacade {
       this.orderForm.controls.amazonBuyingPrice.touched ||
         this.orderForm.controls.amazonBuyingPrice.dirty,
     ),
-  }));
+    };
+  });
   readonly matchingSummary = computed(() => {
+    this.orderFormVersion();
     const productId = this.orderForm.controls.productId.value.trim();
     const selectedMatch = this.matchResults().find((match) => match.id === this.selectedMatchId());
 
@@ -497,6 +521,7 @@ export class OrderManagementFacade {
     return 'Use ASIN, custom label, listing URL, or title to match the order to a product.';
   });
   readonly modalSummaryVm = computed(() => {
+    this.orderFormVersion();
     const selectedMatch = this.matchResults().find((match) => match.id === this.selectedMatchId());
     const profit = this.financialPreview().profit;
     const roi = this.financialPreview().roi;
@@ -524,12 +549,12 @@ export class OrderManagementFacade {
     };
   });
   readonly processingActionsVm = computed(() => {
+    this.orderFormVersion();
     const order = this.selectedOrder();
     const issueType = this.orderForm.controls.issueType.value;
     const orderImpact = this.orderForm.controls.orderImpact.value;
     const amazonBuyingPrice = decimalValue(this.orderForm.controls.amazonBuyingPrice.value) ?? 0;
     const amazonOrderId = this.orderForm.controls.amazonOrderId.value.trim();
-    const amazonOrderLink = this.orderForm.controls.amazonOrderLink.value.trim();
     const trackingNumber = this.orderForm.controls.trackingNumber.value.trim();
     const carrier = this.orderForm.controls.carrier.value.trim();
     const issueReason = this.orderForm.controls.issueReason.value.trim();
@@ -545,11 +570,13 @@ export class OrderManagementFacade {
         Boolean(order) &&
         !deleted &&
         !closedStatus &&
+        order?.orderStatus !== 'ISSUE' &&
+        !hasOpenOrderIssue(order) &&
         !alreadyPlaced &&
         !alreadyShipped &&
         !alreadyDelivered &&
         amazonBuyingPrice > 0 &&
-        Boolean(amazonOrderId || amazonOrderLink) &&
+        Boolean(amazonOrderId) &&
         !this.saving(),
       canMarkShipped:
         this.canWrite() &&
@@ -864,7 +891,9 @@ export class OrderManagementFacade {
 
   async submitOrder(): Promise<void> {
     if (!this.canSubmitOrder()) {
+      this.orderForm.controls.amazonOrderId.markAsTouched();
       this.orderForm.markAllAsTouched();
+      this.bumpOrderFormVersion();
       return;
     }
 
@@ -1042,16 +1071,10 @@ export class OrderManagementFacade {
 
     const amazonBuyingPrice = decimalValue(this.orderForm.controls.amazonBuyingPrice.value);
     const amazonOrderId = this.orderForm.controls.amazonOrderId.value.trim();
-    const amazonOrderLink = this.orderForm.controls.amazonOrderLink.value.trim();
-
-    if (
-      (!amazonOrderId && !amazonOrderLink) ||
-      amazonBuyingPrice === null ||
-      amazonBuyingPrice <= 0
-    ) {
+    if (!amazonOrderId || amazonBuyingPrice === null || amazonBuyingPrice <= 0) {
       this.orderForm.controls.amazonBuyingPrice.markAsTouched();
       this.orderForm.controls.amazonOrderId.markAsTouched();
-      this.orderForm.controls.amazonOrderLink.markAsTouched();
+      this.bumpOrderFormVersion();
       return;
     }
 
@@ -1059,7 +1082,6 @@ export class OrderManagementFacade {
     firstValueFrom(
       this.orderApi.markPlaced(order.id, {
         amazonOrderId: amazonOrderId || undefined,
-        amazonOrderLink: amazonOrderLink || undefined,
         amazonBuyingPrice,
         supplierShippingCost:
           decimalValue(this.orderForm.controls.supplierShippingCost.value) ?? undefined,
@@ -1092,6 +1114,7 @@ export class OrderManagementFacade {
     if (!trackingNumber || !carrier) {
       this.orderForm.controls.trackingNumber.markAsTouched();
       this.orderForm.controls.carrier.markAsTouched();
+      this.bumpOrderFormVersion();
       return;
     }
 
@@ -1142,6 +1165,7 @@ export class OrderManagementFacade {
       this.orderForm.controls.issueType.markAsTouched();
       this.orderForm.controls.orderImpact.markAsTouched();
       this.orderForm.controls.issueReason.markAsTouched();
+      this.bumpOrderFormVersion();
       return;
     }
 
@@ -1166,6 +1190,10 @@ export class OrderManagementFacade {
   }
 
   private initialize(): void {
+    merge(this.orderForm.valueChanges, this.orderForm.statusChanges)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.bumpOrderFormVersion());
+
     this.filters.controls.search.valueChanges
       .pipe(debounceTime(350), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
@@ -1180,6 +1208,20 @@ export class OrderManagementFacade {
     this.orderForm.controls.ebayItemId.valueChanges
       .pipe(debounceTime(400), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.checkDuplicateOrder());
+
+    this.orderForm.controls.asin.valueChanges
+      .pipe(debounceTime(350), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
+      .subscribe((asin) => {
+        if (this.modalState().mode !== 'create' || !this.modalState().open) {
+          return;
+        }
+
+        if (!/^[A-Za-z0-9]{10}$/.test(String(asin || '').trim())) {
+          return;
+        }
+
+        void this.findProductMatches();
+      });
 
     effect(
       () => {
@@ -1308,6 +1350,38 @@ export class OrderManagementFacade {
       notes: raw.notes.trim() || null,
       issueReason: raw.issueReason.trim() || null,
     };
+  }
+
+  private isCreateOrderReady(): boolean {
+    const controls = this.orderForm.controls;
+    const ebayOrderId = controls.ebayOrderId.value.trim();
+    const asin = controls.asin.value.trim();
+    const amazonOrderId = controls.amazonOrderId.value.trim();
+    const accountId = controls.accountId.value.trim();
+    const salePrice = decimalValue(controls.salePrice.value);
+    const amazonBuyingPrice = decimalValue(controls.amazonBuyingPrice.value);
+
+    return (
+      Boolean(ebayOrderId) &&
+      controls.ebayOrderId.valid &&
+      Boolean(asin) &&
+      controls.asin.valid &&
+      Boolean(amazonOrderId) &&
+      controls.amazonOrderId.valid &&
+      Boolean(accountId) &&
+      controls.accountId.valid &&
+      salePrice !== null &&
+      salePrice > 0 &&
+      controls.salePrice.valid &&
+      amazonBuyingPrice !== null &&
+      amazonBuyingPrice > 0 &&
+      controls.amazonBuyingPrice.valid &&
+      controls.amazonOrderLink.valid
+    );
+  }
+
+  private bumpOrderFormVersion(): void {
+    this.orderFormVersion.update((value) => value + 1);
   }
 
   private upsertLocalOrder(order: Order, isCreate: boolean): void {

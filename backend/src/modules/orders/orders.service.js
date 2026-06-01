@@ -664,6 +664,7 @@ const validateUrls = (payload) => {
 
 const prepareOrderPayload = async (payload, { existingOrder = null } = {}) => {
   validateUrls(payload);
+  const isCreate = !existingOrder;
 
   const quantity = toInteger(payload.quantity, existingOrder?.quantity ?? 1);
 
@@ -725,6 +726,12 @@ const prepareOrderPayload = async (payload, { existingOrder = null } = {}) => {
     throw new AppError('Purchasing price is required.', 400);
   }
 
+  const amazonOrderId = toText(payload.amazonOrderId) || existingOrder?.amazonOrderId || null;
+
+  if (isCreate && !amazonOrderId) {
+    throw new AppError('Amazon Order ID is required.', 400);
+  }
+
   const ebayFee = toMoney(payload.ebayFee, existingOrder?.ebayFee ?? 0);
   const supplierShippingCost = toMoney(payload.supplierShippingCost, existingOrder?.supplierShippingCost ?? 0);
   const otherCost = toMoney(payload.otherCost, existingOrder?.otherCost ?? 0);
@@ -771,7 +778,7 @@ const prepareOrderPayload = async (payload, { existingOrder = null } = {}) => {
     deliveredDate: payload.deliveredDate || existingOrder?.deliveredDate || null,
     trackingNumber: toText(payload.trackingNumber) || existingOrder?.trackingNumber || null,
     carrier: toText(payload.carrier) || existingOrder?.carrier || null,
-    amazonOrderId: toText(payload.amazonOrderId) || existingOrder?.amazonOrderId || null,
+    amazonOrderId,
     amazonOrderLink: toText(payload.amazonOrderLink) || existingOrder?.amazonOrderLink || null,
     supplierOrderStatus:
       toBooleanText(payload.supplierOrderStatus, [...PLACEMENT_STATUSES, ...ORDER_STATUSES], existingOrder?.supplierOrderStatus || 'NOT_PLACED'),
@@ -1162,6 +1169,10 @@ const markOrderPlaced = async (user, id, payload = {}) => {
     throw new AppError('Only active pre-shipment orders can be marked as placed.', 409);
   }
 
+  if (order.orderStatus === 'ISSUE' || hasOpenIssue(order)) {
+    throw new AppError('Resolve the active issue before marking this order as placed.', 409);
+  }
+
   const amazonBuyingPrice = payload.amazonBuyingPrice !== undefined ? toMoney(payload.amazonBuyingPrice, 0) : order.amazonBuyingPrice;
   const amazonOrderId = toText(payload.amazonOrderId) || order.amazonOrderId || null;
   const amazonOrderLink = toText(payload.amazonOrderLink) || order.amazonOrderLink || null;
@@ -1170,8 +1181,8 @@ const markOrderPlaced = async (user, id, payload = {}) => {
     throw new AppError('Amazon buying price is required before marking the order as placed.', 400);
   }
 
-  if (!amazonOrderId && !amazonOrderLink) {
-    throw new AppError('Add an Amazon order ID or Amazon order link before marking the order as placed.', 400);
+  if (!amazonOrderId) {
+    throw new AppError('Add an Amazon order ID before marking the order as placed.', 400);
   }
 
   const financials = computeFinancials({

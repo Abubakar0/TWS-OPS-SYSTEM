@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /login
+Disallow: /hunter
+Disallow: /lister
+Disallow: /admin
+Disallow: /orders/processing
+Disallow: /order-processor
+Disallow: /superadmin
+
+Sitemap: https://workspace.trendwavesolutions.com/sitemap.xml

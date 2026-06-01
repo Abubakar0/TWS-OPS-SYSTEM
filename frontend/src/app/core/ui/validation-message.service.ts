@@ -198,6 +198,8 @@ export class ValidationMessageService {
           return 'eBay Order ID is required.';
         case 'asin':
           return 'ASIN is required.';
+        case 'amazonOrderId':
+          return 'Amazon Order ID is required.';
         case 'salePrice':
           return 'Selling price is required.';
         case 'amazonBuyingPrice':

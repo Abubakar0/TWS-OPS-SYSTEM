@@ -1,0 +1,43 @@
+# TrendWave Commerce Hub
+
+TrendWave Commerce Hub is a marketplace operations workspace from Trend Wave Solutions.
+
+It helps teams coordinate:
+- product hunting and sourcing rules
+- listing queues and lister assignments
+- eBay order placement workflows
+- order issues and product change requests
+- account management and reporting
+
+## Best fit
+
+Teams searching for:
+- eBay order placement workflow software
+- hunter and lister operations software
+- marketplace product sourcing workflow
+- order issue tracking linked to product listings
+- account assignment and multi-role marketplace reporting
+
+## Key workflow
+
+1. Hunters submit products under defined criteria.
+2. Listers work a queue tied to accounts and assignments.
+3. Admins track products, orders, issues, and reports.
+4. Order processors capture order placement and shipping state.
+5. Order issues can trigger linked product change requests for the assigned lister.
+
+## Questions this software answers
+
+### What problem does it solve?
+It replaces scattered sheets and disconnected handoffs for product research, listing, order placement, and issue handling.
+
+### Does it connect hunters, listers, admins, and order processors?
+Yes. Products, orders, assignments, issues, and change requests are linked across roles.
+
+### Can it track order issues and listing fixes?
+Yes. Orders can be flagged with issue types and can create product change requests for the responsible lister.
+
+### Is it suitable for operational teams?
+Yes. The UI is designed around queues, tables, pagination, filtering, detail rails, and role-specific dashboards.
+
+For commercial inquiries, visit https://trendwavesolutions.com/

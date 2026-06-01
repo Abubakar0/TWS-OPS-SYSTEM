@@ -26,7 +26,7 @@
 
 .row-actions {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, max-content));
+  grid-template-columns: repeat(4, minmax(150px, max-content));
   gap: 10px;
   justify-content: flex-end;
 }

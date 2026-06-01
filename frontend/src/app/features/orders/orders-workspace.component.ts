@@ -79,7 +79,7 @@ export class OrdersWorkspaceComponent {
           subtitle: 'Capture the minimum order details first and update placement or tracking later.',
           showCreate: true,
           showExport: this.facade.canExport(),
-          showProcessingBar: true,
+          showProcessingBar: false,
           emptyTitle: 'No orders yet',
           emptyMessage: 'Create the first order to start the queue.',
         };
@@ -91,7 +91,7 @@ export class OrdersWorkspaceComponent {
           subtitle: 'Review issue orders, add context, and coordinate matched product fixes quickly.',
           showCreate: true,
           showExport: this.facade.canExport(),
-          showProcessingBar: true,
+          showProcessingBar: false,
           emptyTitle: 'No issue orders',
           emptyMessage: 'Issue orders will appear here when follow-up is needed.',
         };
@@ -103,7 +103,7 @@ export class OrdersWorkspaceComponent {
           subtitle: 'Inspect a single order and update placement or issue status from the side panel.',
           showCreate: true,
           showExport: this.facade.canExport(),
-          showProcessingBar: true,
+          showProcessingBar: false,
           emptyTitle: 'No order found',
           emptyMessage: 'Pick another order from the list to continue.',
         };
@@ -114,7 +114,7 @@ export class OrdersWorkspaceComponent {
         subtitle: 'Track orders you created, update statuses, and keep placement moving without extra steps.',
         showCreate: true,
         showExport: this.facade.canExport(),
-        showProcessingBar: true,
+        showProcessingBar: false,
         emptyTitle: 'No orders need action',
         emptyMessage: 'The queue is clear for the current filters.',
       };

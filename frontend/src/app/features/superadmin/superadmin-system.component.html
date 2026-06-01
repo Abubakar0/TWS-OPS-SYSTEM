@@ -3,7 +3,10 @@
     <div>
       <span class="kicker">Super Admin</span>
       <h1>System</h1>
-      <p>Review the health of the current control model, global defaults, and the operational shape of the platform.</p>
+      <p>
+        Review the health of the current control model, global defaults, and the operational shape
+        of the platform.
+      </p>
     </div>
 
     <div class="page-actions">
@@ -71,24 +74,6 @@
       } @else {
         <div class="empty-state">Default values are not available right now.</div>
       }
-    </article>
-
-    <article class="surface-card">
-      <div class="surface-card__header">
-        <div>
-          <h2>Security posture</h2>
-          <p>Current control assumptions already wired into the app.</p>
-        </div>
-      </div>
-
-      <div class="info-list">
-        @for (item of securityItems; track item) {
-          <div class="info-row">
-            <mat-icon>verified_user</mat-icon>
-            <span>{{ item }}</span>
-          </div>
-        }
-      </div>
     </article>
   </section>
 </section>

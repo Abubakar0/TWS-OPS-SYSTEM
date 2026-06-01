@@ -6,6 +6,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { Meta, Title } from '@angular/platform-browser';
 import { AuthService } from '../../../core/auth/auth.service';
 import { BRANDING } from '../../../core/config/branding';
 
@@ -60,9 +61,14 @@ export class LoginComponent implements OnInit {
     private readonly auth: AuthService,
     private readonly router: Router,
     private readonly route: ActivatedRoute,
+    private readonly title: Title,
+    private readonly meta: Meta,
   ) {}
 
   ngOnInit(): void {
+    this.title.setTitle(`Sign In | ${this.branding.productName}`);
+    this.meta.updateTag({ name: 'robots', content: 'noindex, nofollow' });
+
     if (!this.auth.hasActiveSession()) {
       return;
     }

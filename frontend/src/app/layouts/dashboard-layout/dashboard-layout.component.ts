@@ -6,6 +6,7 @@ import { MatBadgeModule } from '@angular/material/badge';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { Meta } from '@angular/platform-browser';
 import { filter, map, startWith } from 'rxjs';
 
 import { AuthService } from '../../core/auth/auth.service';
@@ -62,6 +63,7 @@ export class DashboardLayoutComponent {
   private readonly auth = inject(AuthService);
   private readonly confirm = inject(ConfirmService);
   private readonly router = inject(Router);
+  private readonly meta = inject(Meta);
   readonly currentUrl = toSignal(
     this.router.events.pipe(
       filter((event): event is NavigationEnd => event instanceof NavigationEnd),
@@ -110,7 +112,12 @@ export class DashboardLayoutComponent {
     SHARED_TEAM_ITEM,
   ];
   readonly orderProcessorTabs: NavItem[] = [
-    { label: 'Dashboard', route: '/order-processor/dashboard', exact: true, icon: 'space_dashboard' },
+    {
+      label: 'Dashboard',
+      route: '/order-processor/dashboard',
+      exact: true,
+      icon: 'space_dashboard',
+    },
     { label: 'Orders', route: '/order-processor/orders', exact: true, icon: 'receipt_long' },
     { label: 'Add Order', route: '/order-processor/orders/new', exact: true, icon: 'add_circle' },
     ORDER_PROCESSOR_ISSUES_ITEM,
@@ -122,10 +129,9 @@ export class DashboardLayoutComponent {
     { label: 'Reports', route: '/superadmin/reports', exact: true, icon: 'query_stats' },
     { label: 'Orders', route: '/superadmin/orders', exact: true, icon: 'receipt_long' },
     { label: 'Settings', route: '/superadmin/settings', exact: true, icon: 'settings' },
-    { label: 'Audit', route: '/superadmin/audit', exact: true, icon: 'history' },
     { label: 'System', route: '/superadmin/system', exact: true, icon: 'dns' },
     { label: 'Security', route: '/superadmin/security', exact: true, icon: 'lan' },
-    { label: 'Permissions', route: '/superadmin/permissions', exact: true, icon: 'admin_panel_settings' },
+    { label: 'Audit', route: '/superadmin/audit', exact: true, icon: 'history' },
     SHARED_TEAM_ITEM,
   ];
 
@@ -172,7 +178,7 @@ export class DashboardLayoutComponent {
       ? 'Super Admin'
       : role === 'order_processor'
         ? 'Order Processor'
-      : role.charAt(0).toUpperCase() + role.slice(1);
+        : role.charAt(0).toUpperCase() + role.slice(1);
   });
   readonly userInitials = computed(() => {
     const name = this.user()?.name?.trim();
@@ -207,6 +213,10 @@ export class DashboardLayoutComponent {
       homeRoute: user ? this.homeRouteForRole(user.role) : '/login',
     };
   });
+
+  constructor() {
+    this.meta.updateTag({ name: 'robots', content: 'noindex, nofollow' });
+  }
 
   private homeRouteForRole(role?: string): string {
     switch (role) {

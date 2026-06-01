@@ -101,6 +101,7 @@ async function main() {
 
   const createMinimalOrder = async (token, prefix) => {
     const ebayOrderId = buildOrderId(prefix);
+    const amazonOrderId = `AMZ-${buildOrderId(prefix)}`;
     const result = await request('/orders', {
       method: 'POST',
       token,
@@ -109,6 +110,7 @@ async function main() {
         asin: KNOWN_ASIN,
         salePrice: '138.03',
         amazonBuyingPrice: '58.07',
+        amazonOrderId,
         accountId,
         notes: `${prefix} regression order`,
       },
@@ -124,6 +126,7 @@ async function main() {
 
   const createFallbackOrder = async (token, prefix) => {
     const ebayOrderId = buildOrderId(`${prefix}-FULL`);
+    const amazonOrderId = `AMZ-${buildOrderId(`${prefix}-FULL`)}`;
     const result = await request('/orders', {
       method: 'POST',
       token,
@@ -132,6 +135,7 @@ async function main() {
         asin: KNOWN_ASIN,
         salePrice: '138.03',
         amazonBuyingPrice: '58.07',
+        amazonOrderId,
         accountId,
         orderDate: new Date().toISOString().slice(0, 10),
         quantity: 1,
@@ -170,6 +174,7 @@ async function main() {
         asin: KNOWN_ASIN,
         salePrice: '138.03',
         amazonBuyingPrice: '58.07',
+        amazonOrderId: `AMZ-${buildOrderId('ADMIN-DUP')}`,
         accountId,
       },
       expectedStatuses: [409],
