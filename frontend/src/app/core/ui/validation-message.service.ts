@@ -54,6 +54,14 @@ export class ValidationMessageService {
       }
     }
 
+    if (control.hasError('requiredTrue')) {
+      if (field === 'monthlyGraphUptrend') {
+        return 'Choose Yes only when the one month graph follows an up-price trend.';
+      }
+
+      return 'This field is required.';
+    }
+
     if (control.hasError('url')) {
       return 'Enter a valid http or https URL.';
     }
@@ -101,6 +109,15 @@ export class ValidationMessageService {
         case 'amazonPrice':
         case 'ebayPrice':
           return 'Enter a value greater than zero.';
+        default:
+          return 'Enter a valid value.';
+      }
+    }
+
+    if (control.hasError('max')) {
+      switch (field) {
+        case 'deliveryDays':
+          return `Maximum delivery days is ${criteria.maxDeliveryDays}.`;
         default:
           return 'Enter a valid value.';
       }
