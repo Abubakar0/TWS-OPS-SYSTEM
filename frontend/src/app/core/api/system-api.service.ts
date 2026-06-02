@@ -14,11 +14,18 @@ export class SystemApiService {
     private readonly requestCache: RequestCacheService,
   ) {}
 
-  getSettings(): Observable<SystemSettingsResponse> {
+  getSettings(bypassCache = false): Observable<SystemSettingsResponse> {
+    const request$ = this.http.get<SystemSettingsResponse>(`${environment.apiUrl}/system/settings`);
+
+    if (bypassCache) {
+      this.requestCache.invalidatePrefix(CACHE_NAMESPACE.system);
+      return request$;
+    }
+
     return this.requestCache.getOrCreate(
       makeCacheKey(CACHE_NAMESPACE.system, 'settings'),
       CACHE_TTL.long,
-      () => this.http.get<SystemSettingsResponse>(`${environment.apiUrl}/system/settings`),
+      () => request$,
     );
   }
 

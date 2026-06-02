@@ -4,7 +4,7 @@ import { map, Observable, tap } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { CACHE_NAMESPACE, CACHE_TTL, makeCacheKey } from '../config/cache';
-import { AccountInvoice, AccountInvoicePayload, AccountSummary } from '../models/account.models';
+import { AccountBulkImportResult, AccountInvoice, AccountInvoicePayload, AccountSummary } from '../models/account.models';
 import { Account } from '../models/product.models';
 import { PageResult } from '../state/query-state.models';
 import { RequestCacheService } from '../state/request-cache.service';
@@ -71,13 +71,25 @@ export class AccountApiService {
     );
   }
 
-  createAccount(payload: { name: string; marketplace: string; isActive: boolean }): Observable<Account> {
+  createAccount(payload: {
+    name: string;
+    marketplace: string;
+    isActive: boolean;
+    previousOrderCount?: number;
+    lastMonthProfit?: number;
+  }): Observable<Account> {
     return this.http
       .post<{ account: Account }>(`${environment.apiUrl}/accounts`, payload)
       .pipe(
         map((response) => response.account),
         tap(() => this.requestCache.invalidatePrefix(CACHE_NAMESPACE.accounts)),
       );
+  }
+
+  bulkImportAccounts(rows: Array<Record<string, unknown>>): Observable<AccountBulkImportResult> {
+    return this.http
+      .post<AccountBulkImportResult>(`${environment.apiUrl}/accounts/bulk-import`, { rows })
+      .pipe(tap(() => this.requestCache.invalidatePrefix(CACHE_NAMESPACE.accounts)));
   }
 
   updateAccount(id: string, payload: Partial<Account>): Observable<Account> {

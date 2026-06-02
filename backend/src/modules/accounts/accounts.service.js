@@ -7,6 +7,7 @@ const { ensureOrdersTable } = require('../orders/orders.service');
 const { ensureChangeRequestTable } = require('../change-requests/change-requests.service');
 
 const DEFAULT_INVOICE_CURRENCY = 'USD';
+let ensureAccountColumnsPromise = null;
 let ensureAccountInvoiceTablePromise = null;
 let ensureAccountSummaryDependenciesPromise = null;
 
@@ -15,6 +16,8 @@ const accountSelect = `
   accounts.name,
   accounts.marketplace,
   accounts.is_active AS "isActive",
+  accounts.previous_order_count AS "previousOrderCount",
+  accounts.last_month_profit AS "lastMonthProfit",
   COALESCE(listed_totals."totalProductsListed", 0)::int AS "totalProductsListed",
   COALESCE(assigned_listers."assignedListers", '[]'::json) AS "assignedListers",
   accounts.created_at AS "createdAt",
@@ -50,6 +53,8 @@ const monthFormatter = new Intl.DateTimeFormat('en-US', {
 
 const accountFromRow = (row) => ({
   ...row,
+  previousOrderCount: Number(row.previousOrderCount || 0),
+  lastMonthProfit: Number(row.lastMonthProfit || 0),
   assignedListers: Array.isArray(row.assignedListers) ? row.assignedListers : [],
 });
 
@@ -65,6 +70,84 @@ const toMoney = (value, fallback = 0) => {
 
   const parsed = Number.parseFloat(String(value));
   return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const toInteger = (value, fallback = 0) => {
+  if (value === null || value === undefined || value === '') {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(String(value), 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const normalizeImportKey = (value) =>
+  String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+
+const buildImportLookup = (row = {}) =>
+  new Map(
+    Object.entries(row)
+      .filter(([key]) => key !== undefined && key !== null)
+      .map(([key, value]) => [normalizeImportKey(key), value]),
+  );
+
+const readImportValue = (lookup, ...candidates) => {
+  for (const candidate of candidates) {
+    const value = lookup.get(normalizeImportKey(candidate));
+
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      return value;
+    }
+  }
+
+  return undefined;
+};
+
+const isImportRowEmpty = (row) =>
+  !row ||
+  Object.values(row).every((value) => String(value ?? '').trim() === '');
+
+const normalizeImportBoolean = (value, fallback = false) => {
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  const normalized = String(value).trim().toLowerCase();
+
+  if (['true', '1', 'yes', 'y', 'active', 'enabled'].includes(normalized)) {
+    return true;
+  }
+
+  if (['false', '0', 'no', 'n', 'disabled', 'inactive'].includes(normalized)) {
+    return false;
+  }
+
+  return fallback;
+};
+
+const normalizeMarketplace = (value, fallback = 'ebay') => {
+  const normalized = String(value ?? '').trim().toLowerCase();
+
+  if (!normalized) {
+    return fallback;
+  }
+
+  if (['ebay', 'e-bay'].includes(normalized)) {
+    return 'ebay';
+  }
+
+  if (normalized === 'amazon') {
+    return 'amazon';
+  }
+
+  throw new AppError('Marketplace must be eBay or Amazon.', 400);
 };
 
 const toDateOnly = (value) => {
@@ -193,6 +276,23 @@ const buildInvoiceCode = (invoiceMonthDate) => {
   return `INV-${monthSeed}-${randomSeed}`;
 };
 
+const ensureAccountColumns = async () => {
+  if (!ensureAccountColumnsPromise) {
+    ensureAccountColumnsPromise = (async () => {
+      await pool.query(`
+        ALTER TABLE accounts
+          ADD COLUMN IF NOT EXISTS previous_order_count INTEGER NOT NULL DEFAULT 0,
+          ADD COLUMN IF NOT EXISTS last_month_profit NUMERIC(10, 2) NOT NULL DEFAULT 0
+      `);
+    })().catch((error) => {
+      ensureAccountColumnsPromise = null;
+      throw error;
+    });
+  }
+
+  return ensureAccountColumnsPromise;
+};
+
 const ensureAccountInvoiceTable = async () => {
   if (!ensureAccountInvoiceTablePromise) {
     ensureAccountInvoiceTablePromise = (async () => {
@@ -258,6 +358,7 @@ const ensureAccountInvoiceTable = async () => {
 const ensureAccountSummaryDependencies = async () => {
   if (!ensureAccountSummaryDependenciesPromise) {
     ensureAccountSummaryDependenciesPromise = (async () => {
+      await ensureAccountColumns();
       await ensureOrdersTable();
       await ensureChangeRequestTable();
       await ensureAccountInvoiceTable();
@@ -271,6 +372,8 @@ const ensureAccountSummaryDependencies = async () => {
 };
 
 const listAccounts = async (user, query = {}) => {
+  await ensureAccountColumns();
+
   const { includeInactive, marketplace, status, search } = query;
   const params = [];
   const where = [];
@@ -355,6 +458,8 @@ const listAccounts = async (user, query = {}) => {
 };
 
 const getAccountById = async (id) => {
+  await ensureAccountColumns();
+
   const result = await pool.query(
     `
       SELECT ${accountSelect}
@@ -504,6 +609,8 @@ const getAccountSummary = async (accountId) => {
       totalOrders: orderRow.totalOrders || 0,
       totalRevenue: Number(orderRow.totalRevenue || 0),
       totalProfit: Number(orderRow.totalProfit || 0),
+      previousOrderCount: account.previousOrderCount || 0,
+      lastMonthProfit: account.lastMonthProfit || 0,
       deliveredOrders: orderRow.deliveredOrders || 0,
       issueOrders: orderRow.issueOrders || 0,
       lossOrders: orderRow.lossOrders || 0,
@@ -520,38 +627,84 @@ const getAccountSummary = async (accountId) => {
   };
 };
 
-const createAccount = async (payload) => {
+const createAccountRecord = async (payload) => {
   if (!payload.name) {
     throw new AppError('Account name is required.', 400);
   }
 
+  const normalizedName = String(payload.name).trim();
+
+  if (!normalizedName) {
+    throw new AppError('Account name is required.', 400);
+  }
+
+  const marketplace = normalizeMarketplace(payload.marketplace, 'ebay');
+  const isActive = payload.isActive ?? true;
+  const previousOrderCount =
+    payload.previousOrderCount === undefined
+      ? 0
+      : toInteger(payload.previousOrderCount, Number.NaN);
+  const lastMonthProfit =
+    payload.lastMonthProfit === undefined
+      ? 0
+      : Number(toMoney(payload.lastMonthProfit, Number.NaN).toFixed(2));
+
+  if (!Number.isFinite(previousOrderCount) || previousOrderCount < 0) {
+    throw new AppError('Previous order count must be zero or more.', 400);
+  }
+
+  if (!Number.isFinite(lastMonthProfit)) {
+    throw new AppError('Last month profit must be a valid number.', 400);
+  }
+
   const result = await pool.query(
     `
-      INSERT INTO accounts (name, marketplace, is_active)
-      VALUES ($1, $2, $3)
+      INSERT INTO accounts (name, marketplace, is_active, previous_order_count, last_month_profit)
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING id
     `,
-    [payload.name.trim(), payload.marketplace || 'ebay', payload.isActive ?? true],
+    [normalizedName, marketplace, isActive, previousOrderCount, lastMonthProfit],
   );
 
   return getAccountById(result.rows[0].id);
 };
 
-const updateAccount = async (id, payload) => {
+const updateAccountRecord = async (id, payload) => {
+  const previousOrderCount =
+    payload.previousOrderCount === undefined
+      ? null
+      : toInteger(payload.previousOrderCount, Number.NaN);
+  const lastMonthProfit =
+    payload.lastMonthProfit === undefined
+      ? null
+      : Number(toMoney(payload.lastMonthProfit, Number.NaN).toFixed(2));
+
+  if (previousOrderCount !== null && (!Number.isFinite(previousOrderCount) || previousOrderCount < 0)) {
+    throw new AppError('Previous order count must be zero or more.', 400);
+  }
+
+  if (lastMonthProfit !== null && !Number.isFinite(lastMonthProfit)) {
+    throw new AppError('Last month profit must be a valid number.', 400);
+  }
+
   const result = await pool.query(
     `
       UPDATE accounts
       SET name = COALESCE($1, name),
           marketplace = COALESCE($2, marketplace),
           is_active = COALESCE($3, is_active),
+          previous_order_count = COALESCE($4, previous_order_count),
+          last_month_profit = COALESCE($5, last_month_profit),
           updated_at = NOW()
-      WHERE id = $4
+      WHERE id = $6
       RETURNING id
     `,
     [
       payload.name === undefined ? null : String(payload.name).trim(),
-      payload.marketplace === undefined ? null : payload.marketplace,
+      payload.marketplace === undefined ? null : normalizeMarketplace(payload.marketplace),
       payload.isActive === undefined ? null : Boolean(payload.isActive),
+      previousOrderCount,
+      lastMonthProfit,
       id,
     ],
   );
@@ -561,6 +714,142 @@ const updateAccount = async (id, payload) => {
   }
 
   return getAccountById(id);
+};
+
+const findAccountByName = async (name) => {
+  const result = await pool.query(
+    `
+      SELECT id
+      FROM accounts
+      WHERE LOWER(name) = LOWER($1)
+      ORDER BY created_at
+      LIMIT 1
+    `,
+    [name],
+  );
+
+  return result.rows[0]?.id || null;
+};
+
+const createAccount = async (payload) => {
+  await ensureAccountColumns();
+  return createAccountRecord(payload);
+};
+
+const updateAccount = async (id, payload) => {
+  await ensureAccountColumns();
+  return updateAccountRecord(id, payload);
+};
+
+const bulkImportAccounts = async (actorUserId, rows = []) => {
+  await ensureAccountColumns();
+
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new AppError('Add at least one account row to import.', 400);
+  }
+
+  const importRows = rows.filter((row) => !isImportRowEmpty(row));
+
+  if (!importRows.length) {
+    throw new AppError('Add at least one account row to import.', 400);
+  }
+
+  const importedAccounts = [];
+  const errors = [];
+  let created = 0;
+  let updated = 0;
+
+  for (const [index, row] of importRows.entries()) {
+    const lookup = buildImportLookup(row);
+    const name = String(readImportValue(lookup, 'name', 'account name') ?? '').trim();
+    const marketplace = readImportValue(lookup, 'marketplace');
+    const isActive = normalizeImportBoolean(
+      readImportValue(lookup, 'isActive', 'active', 'enabled', 'status'),
+      true,
+    );
+    const previousOrderValue = readImportValue(
+      lookup,
+      'previousOrderCount',
+      'previous orders',
+      'previous order count',
+      'order count',
+    );
+    const previousOrderCount =
+      previousOrderValue === undefined ? 0 : toInteger(previousOrderValue, Number.NaN);
+    const lastMonthProfitValue = readImportValue(
+      lookup,
+      'lastMonthProfit',
+      'last month profit',
+      'previous profit',
+      'profit',
+    );
+    const lastMonthProfit =
+      lastMonthProfitValue === undefined
+        ? 0
+        : Number(toMoney(lastMonthProfitValue, Number.NaN).toFixed(2));
+
+    try {
+      if (!name) {
+        throw new AppError('Account name is required.', 400);
+      }
+
+      if (!Number.isFinite(previousOrderCount) || previousOrderCount < 0) {
+        throw new AppError('Previous order count must be zero or more.', 400);
+      }
+
+      if (!Number.isFinite(lastMonthProfit)) {
+        throw new AppError('Last month profit must be a valid number.', 400);
+      }
+
+      const existingAccountId = await findAccountByName(name);
+      const payload = {
+        name,
+        marketplace,
+        isActive,
+        previousOrderCount,
+        lastMonthProfit,
+      };
+
+      if (existingAccountId) {
+        importedAccounts.push(await updateAccountRecord(existingAccountId, payload));
+        updated += 1;
+      } else {
+        importedAccounts.push(await createAccountRecord(payload));
+        created += 1;
+      }
+    } catch (error) {
+      errors.push({
+        row: index + 2,
+        name: name || null,
+        message: error?.message || 'Could not import this account row.',
+      });
+    }
+  }
+
+  if (created > 0 || updated > 0) {
+    await writeAuditLog({
+      actorUserId,
+      action: 'account.bulk_import',
+      targetType: 'account',
+      details: {
+        totalRows: importRows.length,
+        created,
+        updated,
+        failed: errors.length,
+      },
+    });
+  }
+
+  return {
+    summary: {
+      total: importRows.length,
+      created,
+      updated,
+      failed: errors.length,
+    },
+    accounts: importedAccounts,
+    errors,
+  };
 };
 
 const assignListersToAccount = async (actorUserId, accountId, listerIds = []) => {
@@ -710,6 +999,7 @@ module.exports = {
   listAccountInvoices,
   createAccount,
   updateAccount,
+  bulkImportAccounts,
   assignListersToAccount,
   createAccountInvoice,
   ensureAccountInvoiceTable,

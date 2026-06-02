@@ -105,7 +105,7 @@ export class HunterRulesComponent implements OnInit {
     }
 
     this.referenceData
-      .getCriteria()
+      .loadCriteriaOnce()
       .pipe(take(1))
       .subscribe({
         next: (criteria) => {

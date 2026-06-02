@@ -15,6 +15,11 @@ router.get(
 );
 router.get('/assignments', requireRoles('admin', 'super_admin'), asyncHandler(usersController.listAssignments));
 router.get('/', requireRoles('admin', 'super_admin'), asyncHandler(usersController.listUsers));
+router.post(
+  '/bulk-import',
+  requireRoles('admin', 'super_admin'),
+  asyncHandler(usersController.bulkImportUsers),
+);
 router.post('/', requireRoles('admin', 'super_admin'), asyncHandler(usersController.createUser));
 router.post('/:id/restore', requireRoles('super_admin'), asyncHandler(usersController.restoreUser));
 router.post('/:id/reset-password', requireRoles('super_admin'), asyncHandler(usersController.resetPassword));

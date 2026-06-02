@@ -212,6 +212,38 @@
     }
   </section>
 
+    <section class="section-grid">
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Products listed per account</h2>
+          <p>Listed count by account.</p>
+        </div>
+      </div>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Refreshing dashboard data.</span>
+        </div>
+      } @else if (accountStats().length) {
+        <div class="account-grid">
+          @for (account of accountStats(); track account.accountId) {
+            <div class="account-row">
+              <div>
+                <strong>{{ account.accountName }}</strong>
+                <span>Listed products</span>
+              </div>
+              <strong class="account-row__count">{{ account.listedCount }}</strong>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="empty-state">No listed products were found for this date range.</div>
+      }
+    </article>
+  </section>
+
   <section class="section-grid section-grid--three">
     <article class="surface-card">
       <div class="surface-card__header">
@@ -243,6 +275,8 @@
       }
     </article>
 
+
+
     <article class="surface-card">
       <div class="surface-card__header">
         <div>
@@ -253,7 +287,7 @@
 
       @if (orderStats()) {
         <div class="breakdown-list">
-          <div class="breakdown-row">
+          <div class="breakdown-row order-row">
             <div>
               <strong>Orders this month</strong>
               <span>Fresh order volume in the current month.</span>

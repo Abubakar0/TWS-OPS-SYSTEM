@@ -54,6 +54,14 @@ export class ValidationMessageService {
       }
     }
 
+    if (control.hasError('requiredTrue')) {
+      if (field === 'monthlyGraphUptrend') {
+        return 'Choose Yes only when the one month graph follows an up-price trend.';
+      }
+
+      return 'This field is required.';
+    }
+
     if (control.hasError('url')) {
       return 'Enter a valid http or https URL.';
     }
@@ -106,6 +114,15 @@ export class ValidationMessageService {
       }
     }
 
+    if (control.hasError('max')) {
+      switch (field) {
+        case 'deliveryDays':
+          return `Maximum delivery days is ${criteria.maxDeliveryDays}.`;
+        default:
+          return 'Enter a valid value.';
+      }
+    }
+
     if (control.hasError('ebayUrl')) {
       return 'Enter a valid eBay URL.';
     }
@@ -116,7 +133,7 @@ export class ValidationMessageService {
   submissionHelper(field: SubmissionControlName, criteria: HuntingCriteria): string {
     switch (field) {
       case 'category':
-        return 'Search and select the closest product category.';
+        return 'Use the last product category from Ebay.';
       case 'customLabel':
         return criteria.customLabelRequired ? 'Required by the current rules.' : 'Defaults to your name.';
       case 'amazonStockCount':
@@ -142,7 +159,7 @@ export class ValidationMessageService {
       case 'monthlyGraphUptrend':
         return criteria.monthlyGraphRequired
           ? 'Required. Use Yes only when the 1-month graph trends up.'
-          : 'Should be using up-price trend.';
+          : 'Should be using up price trend.';
       case 'amazonPrice':
       case 'ebayPrice':
         return 'Keeps your decimals while you type.';

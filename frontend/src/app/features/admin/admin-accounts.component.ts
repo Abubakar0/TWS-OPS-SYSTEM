@@ -19,13 +19,14 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { debounceTime, distinctUntilChanged, finalize } from 'rxjs';
+import { debounceTime, distinctUntilChanged, finalize, firstValueFrom } from 'rxjs';
 
 import { AccountInvoice, AccountInvoicePayload, AccountSummary } from '../../core/models/account.models';
 import { User } from '../../core/models/auth.models';
 import { Account } from '../../core/models/product.models';
 import { AccountApiService } from '../../core/api/account-api.service';
 import { BRANDING } from '../../core/config/branding';
+import { ExportService } from '../../core/services/export.service';
 import { InvoicePdfService } from '../../core/services/invoice-pdf.service';
 import { ReferenceDataService } from '../../core/state/reference-data.service';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
@@ -107,6 +108,7 @@ export class AdminAccountsComponent implements OnInit {
   readonly error = signal('');
   readonly detailLoading = signal(false);
   readonly detailError = signal('');
+  readonly importingAccounts = signal(false);
   readonly accountModalOpen = signal(false);
   readonly listerModalOpen = signal(false);
   readonly invoiceModalOpen = signal(false);
@@ -165,6 +167,7 @@ export class AdminAccountsComponent implements OnInit {
     private readonly workspaceSync: WorkspaceSyncService,
     private readonly confirm: ConfirmService,
     private readonly toast: ToastService,
+    private readonly exportService: ExportService,
     private readonly invoicePdf: InvoicePdfService,
   ) {
     this.searchControl.valueChanges
@@ -336,6 +339,80 @@ export class AdminAccountsComponent implements OnInit {
           this.error.set(error?.error?.message || 'Could not create account.');
         },
       });
+  }
+
+  downloadAccountTemplate(): void {
+    this.exportService.exportAsExcelTable({
+      filename: 'account-import-template.xlsx',
+      sheetName: 'Accounts',
+      rows: [{}],
+      columns: [
+        { header: 'Account Name', value: () => '' },
+        { header: 'Marketplace', value: () => '' },
+        { header: 'Active', value: () => '' },
+        { header: 'Previous Order Count', value: () => '' },
+        { header: 'Last Month Profit', value: () => '' },
+      ],
+    });
+
+    this.toast.success('Account import template downloaded.');
+  }
+
+  async importAccountsFromInput(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0];
+
+    if (!file || this.importingAccounts()) {
+      if (input) {
+        input.value = '';
+      }
+      return;
+    }
+
+    this.importingAccounts.set(true);
+
+    try {
+      const rows = await this.exportService.parseExcelRows(file);
+
+      if (!rows.length) {
+        this.toast.warning('The selected file does not contain any account rows.');
+        return;
+      }
+
+      const result = await firstValueFrom(this.accountApi.bulkImportAccounts(rows));
+
+      this.referenceData.refreshAccounts();
+      this.workspaceSync.notifySettingsChanged();
+
+      if (this.activeAccount()) {
+        this.reloadActiveAccountSummary();
+      }
+
+      if (result.summary.failed > 0) {
+        const preview = result.errors
+          .slice(0, 3)
+          .map((error) => `Row ${error.row}: ${error.message}`)
+          .join(' ');
+        this.toast.warning(
+          `Imported ${result.summary.created} new and updated ${result.summary.updated} account(s). ${result.summary.failed} row(s) need attention. ${preview}`,
+        );
+      } else {
+        this.toast.success(
+          `Imported ${result.summary.created} new and updated ${result.summary.updated} account(s).`,
+        );
+      }
+    } catch (error: unknown) {
+      const message =
+        error && typeof error === 'object' && 'error' in error
+          ? ((error as { error?: { message?: string } }).error?.message ?? 'Could not import accounts.')
+          : 'Could not import accounts.';
+      this.toast.error(message);
+    } finally {
+      this.importingAccounts.set(false);
+      if (input) {
+        input.value = '';
+      }
+    }
   }
 
   saveListerAssignments(): void {

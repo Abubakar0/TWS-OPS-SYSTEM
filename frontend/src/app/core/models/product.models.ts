@@ -80,6 +80,8 @@ export interface Account {
   name: string;
   marketplace: string;
   isActive: boolean;
+  previousOrderCount?: number;
+  lastMonthProfit?: number;
   totalProductsListed?: number;
   assignedListers?: Array<{
     id: string;

@@ -14,11 +14,31 @@
           <mat-icon>add</mat-icon>
           <span>Add Account</span>
         </button>
+        <button mat-stroked-button type="button" (click)="downloadAccountTemplate()">
+          <mat-icon>table_view</mat-icon>
+          <span>Account Template</span>
+        </button>
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="accountImportInput.click()"
+          [disabled]="importingAccounts()"
+        >
+          <mat-icon>upload_file</mat-icon>
+          <span>{{ importingAccounts() ? 'Importing' : 'Import Accounts' }}</span>
+        </button>
         <button mat-stroked-button type="button" (click)="loadAccounts()" [disabled]="loading()">
           <mat-icon>refresh</mat-icon>
           <span>Refresh</span>
         </button>
       </div>
+      <input
+        #accountImportInput
+        class="visually-hidden-input"
+        type="file"
+        accept=".xlsx,.xls"
+        (change)="importAccountsFromInput($event)"
+      />
     </div>
 
     <app-filter-panel
@@ -184,6 +204,14 @@
               <div class="detail-fact">
                 <span>Total Profit</span>
                 <strong>${{ detail.stats.totalProfit | number: '1.2-2' }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Previous Orders</span>
+                <strong>{{ detail.stats.previousOrderCount }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Last Month Profit</span>
+                <strong>${{ detail.stats.lastMonthProfit | number: '1.2-2' }}</strong>
               </div>
               <div class="detail-fact">
                 <span>Open Issues</span>

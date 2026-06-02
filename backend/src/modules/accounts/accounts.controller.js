@@ -21,6 +21,11 @@ const createAccount = async (req, res) => {
   res.status(201).json({ account });
 };
 
+const bulkImportAccounts = async (req, res) => {
+  const result = await accountsService.bulkImportAccounts(req.user.id, req.body.rows);
+  res.status(201).json(result);
+};
+
 const updateAccount = async (req, res) => {
   const account = await accountsService.updateAccount(req.params.id, req.body);
   res.json({ account });
@@ -44,6 +49,7 @@ module.exports = {
   listAccounts,
   getAccountSummary,
   createAccount,
+  bulkImportAccounts,
   updateAccount,
   assignAccountListers,
   createAccountInvoice,

@@ -23,6 +23,7 @@ import { AdminApiService } from '../../core/api/admin-api.service';
 import { ProductCategoryApiService } from '../../core/api/product-category-api.service';
 import { HuntingCriteria, ProductCategory } from '../../core/models/product.models';
 import { ReferenceDataService } from '../../core/state/reference-data.service';
+import { SessionCacheService } from '../../core/state/session-cache.service';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
 import { ConfirmService } from '../../core/ui/confirm.service';
 import { ToastService } from '../../core/ui/toast.service';
@@ -146,6 +147,7 @@ export class AdminSettingsComponent implements OnInit {
     private readonly adminApi: AdminApiService,
     private readonly productCategoryApi: ProductCategoryApiService,
     private readonly referenceData: ReferenceDataService,
+    private readonly sessionCache: SessionCacheService,
     private readonly workspaceSync: WorkspaceSyncService,
     private readonly confirm: ConfirmService,
     private readonly toast: ToastService,
@@ -340,23 +342,33 @@ export class AdminSettingsComponent implements OnInit {
   }
 
   private loadCriteria(): void {
-    this.loading.set(true);
+    const cachedCriteria = this.sessionCache.criteria();
+    const hasCachedCriteria = Boolean(cachedCriteria);
+
+    if (cachedCriteria) {
+      this.criteriaForm.patchValue(cachedCriteria, { emitEvent: false });
+      this.criteriaSnapshot.set(JSON.stringify(cachedCriteria));
+      this.formVersion.update((value) => value + 1);
+    }
+
+    this.loading.set(!hasCachedCriteria);
     this.error.set('');
 
     this.adminApi
       .getCriteria()
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        finalize(() => this.loading.set(false)),
       )
       .subscribe({
         next: (criteria) => {
           this.criteriaForm.patchValue(criteria, { emitEvent: false });
           this.criteriaSnapshot.set(JSON.stringify(criteria));
           this.formVersion.update((value) => value + 1);
+          this.loading.set(false);
         },
         error: (error) => {
           this.error.set(error?.error?.message || 'Could not load settings.');
+          this.loading.set(false);
         },
       });
   }
@@ -366,7 +378,7 @@ export class AdminSettingsComponent implements OnInit {
     this.categoryError.set('');
 
     try {
-      const categories = await firstValueFrom(this.referenceData.getProductCategories(true));
+      const categories = await firstValueFrom(this.referenceData.loadProductCategoriesOnce(true));
       this.categories.set(categories);
     } catch (error) {
       this.categoryError.set('Could not load product categories.');

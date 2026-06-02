@@ -9,6 +9,7 @@ import { authInterceptor } from './core/auth/auth.interceptor';
 import { errorInterceptor } from './core/http/error.interceptor';
 import { loadingInterceptor } from './core/http/loading.interceptor';
 import { retryInterceptor } from './core/http/retry.interceptor';
+import { timeoutInterceptor } from './core/http/timeout.interceptor';
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
@@ -16,7 +17,9 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideAnimationsAsync(),
     importProvidersFrom(MatDialogModule, MatSnackBarModule),
-    provideHttpClient(withInterceptors([loadingInterceptor, retryInterceptor, authInterceptor, errorInterceptor])),
+    provideHttpClient(
+      withInterceptors([loadingInterceptor, retryInterceptor, timeoutInterceptor, authInterceptor, errorInterceptor]),
+    ),
     provideRouter(routes)
   ]
 };

@@ -19,6 +19,7 @@ import {
   WeeklyReviewStatus,
 } from '../models/product.models';
 import { ReferenceDataService } from '../state/reference-data.service';
+import { SessionCacheService } from '../state/session-cache.service';
 import { WorkspaceSyncService } from '../state/workspace-sync.service';
 import { ToastService } from '../ui/toast.service';
 import { ValidationMessageService } from '../ui/validation-message.service';
@@ -104,6 +105,7 @@ export class HunterFacade {
   private readonly destroyRef = inject(DestroyRef);
   private readonly injector = inject(Injector);
   private readonly auth = inject(AuthService);
+  private readonly sessionCache = inject(SessionCacheService);
   private readonly formVersion = signal(0);
   private initialized = false;
 
@@ -188,6 +190,36 @@ export class HunterFacade {
 
   readonly pricingFieldIssues = computed(() =>
     [this.fieldStates().amazonPrice.error, this.fieldStates().ebayPrice.error].filter(Boolean),
+  );
+
+  readonly coreValidationIssues = computed(() =>
+    [
+      this.getBlockingFieldMessage('title'),
+      this.getBlockingFieldMessage('amazonUrl'),
+      this.getBlockingFieldMessage('amazonAltUrl'),
+      this.getBlockingFieldMessage('ebayUrl'),
+      this.criteria().customLabelRequired ? this.getBlockingFieldMessage('customLabel') : '',
+    ].filter(Boolean),
+  );
+
+  readonly stockValidationIssues = computed(() =>
+    [
+      this.getBlockingFieldMessage('amazonStockCount'),
+      this.getBlockingFieldMessage('alternateAmazonStockCount'),
+      this.getBlockingFieldMessage('soldCount'),
+      this.getBlockingFieldMessage('rating'),
+      this.getBlockingFieldMessage('productWatchers'),
+      this.getBlockingFieldMessage('salesLastTwoMonths'),
+      this.getBlockingFieldMessage('basketCount'),
+      this.getBlockingFieldMessage('deliveryDays'),
+      this.getBlockingFieldMessage('monthlyGraphUptrend'),
+    ].filter(Boolean),
+  );
+
+  readonly pricingValidationIssues = computed(() =>
+    [this.getBlockingFieldMessage('amazonPrice'), this.getBlockingFieldMessage('ebayPrice')].filter(
+      Boolean,
+    ),
   );
 
   readonly stockSalesRuleFailures = computed(() => {
@@ -348,6 +380,14 @@ export class HunterFacade {
       };
     }
 
+    if (this.weeklyReviewStatus()?.required) {
+      return {
+        tone: 'warning' as SummaryTone,
+        label: 'Weekly review required',
+        message: 'Complete the weekly product review before submitting new hunting.',
+      };
+    }
+
     if (this.asinDuplicate()) {
       return {
         tone: 'danger' as SummaryTone,
@@ -364,21 +404,21 @@ export class HunterFacade {
       };
     }
 
-    if (this.coreFieldIssues().length) {
+    if (this.coreValidationIssues().length) {
       return {
         tone: 'warning' as SummaryTone,
         label: 'Finish required fields',
-        message: this.coreFieldIssues()[0],
+        message: this.coreValidationIssues()[0],
       };
     }
 
-    if (this.stockFieldIssues().length || this.pricingFieldIssues().length) {
+    if (this.stockValidationIssues().length || this.pricingValidationIssues().length) {
       return {
         tone: 'warning' as SummaryTone,
         label: 'Finish validation inputs',
         message:
-          this.stockFieldIssues()[0] ||
-          this.pricingFieldIssues()[0] ||
+          this.stockValidationIssues()[0] ||
+          this.pricingValidationIssues()[0] ||
           'Complete the remaining required inputs.',
       };
     }
@@ -418,43 +458,34 @@ export class HunterFacade {
     },
     {
       label: 'Required fields',
-      passed: this.coreFieldIssues().length === 0,
-      detail: this.coreFieldIssues()[0] || 'Core product and marketplace fields are ready.',
+      passed: this.coreValidationIssues().length === 0,
+      detail:
+        this.coreValidationIssues()[0] || 'Core product and marketplace fields are ready.',
     },
     {
       label: 'Stock and sales rules',
-      passed: this.stockFieldIssues().length === 0 && this.stockSalesRuleFailures().length === 0,
+      passed:
+        this.stockValidationIssues().length === 0 && this.stockSalesRuleFailures().length === 0,
       detail:
-        this.stockFieldIssues()[0] ||
+        this.stockValidationIssues()[0] ||
         this.stockSalesRuleFailures()[0] ||
         'Within the current admin thresholds.',
     },
     {
       label: 'Basket and delivery',
-      passed:
-        !this.fieldStates().basketCount.error &&
-        !this.fieldStates().deliveryDays.error &&
-        !this.fieldStates().monthlyGraphUptrend.error &&
-        !this.stockSalesRuleFailures().some((reason) =>
-          ['Basket count', 'Delivery days', 'graph'].some((token) => reason.includes(token)),
-        ),
+      passed: !this.getBasketDeliveryBlockingMessage(),
       detail:
-        this.fieldStates().basketCount.error ||
-        this.fieldStates().deliveryDays.error ||
-        this.fieldStates().monthlyGraphUptrend.error ||
-        this.stockSalesRuleFailures().find((reason) =>
-          ['Basket count', 'Delivery days', 'graph'].some((token) => reason.includes(token)),
-        ) ||
+        this.getBasketDeliveryBlockingMessage() ||
         'Additional delivery and graph signals are ready.',
     },
     {
       label: 'Economics check',
       passed:
-        this.pricingFieldIssues().length === 0 &&
+        this.pricingValidationIssues().length === 0 &&
         this.economicsRuleFailures().length === 0 &&
         this.economics().profit !== null,
       detail:
-        this.pricingFieldIssues()[0] ||
+        this.pricingValidationIssues()[0] ||
         this.economicsRuleFailures()[0] ||
         (this.economics().profit === null
           ? 'Enter prices to calculate profit and ROI.'
@@ -478,22 +509,9 @@ export class HunterFacade {
       !this.asinDuplicate() &&
       !this.saving() &&
       !this.criteriaLoading() &&
-      this.form.controls.title.valid &&
-      this.form.controls.amazonUrl.valid &&
-      this.form.controls.amazonAltUrl.valid &&
-      this.form.controls.ebayUrl.valid &&
-      this.form.controls.customLabel.valid &&
-      this.form.controls.amazonStockCount.valid &&
-      this.form.controls.alternateAmazonStockCount.valid &&
-      this.form.controls.soldCount.valid &&
-      this.form.controls.rating.valid &&
-      this.form.controls.productWatchers.valid &&
-      this.form.controls.salesLastTwoMonths.valid &&
-      this.form.controls.basketCount.valid &&
-      this.form.controls.deliveryDays.valid &&
-      this.form.controls.monthlyGraphUptrend.valid &&
-      this.form.controls.amazonPrice.valid &&
-      this.form.controls.ebayPrice.valid
+      this.form.enabled &&
+      this.form.valid &&
+      this.validationReasons().length === 0
     );
   });
 
@@ -637,6 +655,14 @@ export class HunterFacade {
     this.form.disable({ emitEvent: false });
     this.resetFormFields();
 
+    const cachedCriteria = this.sessionCache.criteria();
+
+    if (cachedCriteria) {
+      this.criteria.set(cachedCriteria);
+      this.applyCriteriaValidators(cachedCriteria);
+      this.criteriaLoading.set(false);
+    }
+
     this.form.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.formVersion.update((value) => value + 1));
@@ -653,26 +679,10 @@ export class HunterFacade {
       this.disableFormOnly();
     });
 
-    this.criteriaLoading.set(true);
+    this.criteriaLoading.set(!cachedCriteria);
     this.weeklyReviewLoading.set(true);
-    this.referenceData
-      .getCriteria()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (criteria) => {
-          this.criteria.set(criteria);
-          this.applyCriteriaValidators(criteria);
-          this.criteriaLoading.set(false);
-        },
-        error: () => this.criteriaLoading.set(false),
-      });
-
-    this.referenceData
-      .getProductCategories()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (categories) => this.availableCategories.set(categories),
-      });
+    this.loadCriteria();
+    this.loadCategories();
 
     this.weeklyReviewApi
       .getStatus()
@@ -691,6 +701,9 @@ export class HunterFacade {
 
         if (version > 0) {
           this.referenceData.refreshCriteria();
+          this.referenceData.refreshProductCategories();
+          this.loadCriteria();
+          this.loadCategories();
         }
       },
       { allowSignalWrites: true, injector: this.injector },
@@ -738,6 +751,47 @@ export class HunterFacade {
     );
     this.form.updateValueAndValidity({ emitEvent: false });
     this.formVersion.update((value) => value + 1);
+  }
+
+  private loadCriteria(): void {
+    this.referenceData
+      .loadCriteriaOnce()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (criteria) => {
+          this.criteria.set(criteria);
+          this.applyCriteriaValidators(criteria);
+          this.criteriaLoading.set(false);
+        },
+        error: () => this.criteriaLoading.set(false),
+      });
+  }
+
+  private loadCategories(): void {
+    this.referenceData
+      .loadProductCategoriesOnce()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (categories) => this.availableCategories.set(categories),
+        error: () => this.availableCategories.set([]),
+      });
+  }
+
+  private getBlockingFieldMessage(field: SubmissionControlName): string {
+    this.formVersion();
+    return this.messages.submissionFieldError(this.form.controls[field], field, this.criteria(), true);
+  }
+
+  private getBasketDeliveryBlockingMessage(): string {
+    return (
+      this.getBlockingFieldMessage('basketCount') ||
+      this.getBlockingFieldMessage('deliveryDays') ||
+      this.getBlockingFieldMessage('monthlyGraphUptrend') ||
+      this.stockSalesRuleFailures().find((reason) =>
+        ['Basket count', 'Delivery days', 'graph'].some((token) => reason.includes(token)),
+      ) ||
+      ''
+    );
   }
 
   private enableFormOnly(): void {
