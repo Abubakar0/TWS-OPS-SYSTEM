@@ -103,13 +103,13 @@ export class InvoicePdfService {
     }
 
     doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(22);
+    doc.setFont('times', 'bold');
+    doc.setFontSize(26);
     doc.text(this.companyInfo.brand, 52, 16.5);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(226, 232, 240);
-    doc.setFontSize(8);
-    doc.text(this.companyInfo.tagline, 52, 23.6);
+    doc.setFontSize(10);
+    doc.text(this.companyInfo.tagline, 52, 22.6);
   }
 
   private drawTopMeta(
@@ -139,7 +139,7 @@ export class InvoicePdfService {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9.9);
     doc.text(`Month: ${invoice.invoiceMonthLabel}`, margin + billWidth + 14, topY + 16.8);
-    doc.text(`Date: ${this.formatDate(invoice.invoiceDate)}`, margin + billWidth + 14, topY + 26.1);
+    doc.text(`Date: ${this.formatDate(invoice.invoiceDate)}`, margin + billWidth + 14, topY + 24.1);
   }
 
   private drawInvoiceTable(
@@ -257,7 +257,7 @@ export class InvoicePdfService {
     doc.circle(margin + 7, startY - 0.8, 5.2, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(12.6);
-    doc.text('$', margin + 7, startY + 0.55, { align: 'center', baseline: 'middle' });
+    doc.text('$', margin + 7, startY , { align: 'center', baseline: 'middle' });
 
     const cardWidth = (contentWidth - 10) / 2;
     const primary = this.measurePaymentBlock(doc, invoice.primaryPayment, cardWidth);
