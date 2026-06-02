@@ -1,7 +1,7 @@
 import { computed, DestroyRef, inject, Injectable, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, Validators } from '@angular/forms';
-import { debounceTime, distinctUntilChanged, finalize } from 'rxjs';
+import { debounceTime, distinctUntilChanged, finalize, firstValueFrom } from 'rxjs';
 
 import { AdminApiService } from '../api/admin-api.service';
 import { AuthService } from '../auth/auth.service';
@@ -50,6 +50,7 @@ export class AdminFacade {
   readonly userModalOpen = signal(false);
   readonly editingUser = signal<User | null>(null);
   readonly passwordHidden = signal(true);
+  readonly importingUsers = signal(false);
 
   readonly searchControl = new FormControl('', { nonNullable: true });
   readonly userForm = createUserForm();
@@ -350,6 +351,76 @@ export class AdminFacade {
       ],
     });
     this.toast.success('User list exported.');
+  }
+
+  downloadUserTemplate(): void {
+    this.exportService.exportAsExcelTable({
+      filename: 'user-import-template.xlsx',
+      sheetName: 'Users',
+      rows: [{}],
+      columns: [
+        { header: 'Name', value: () => '' },
+        { header: 'Email', value: () => '' },
+        { header: 'Password', value: () => '' },
+        { header: 'Role', value: () => '' },
+        { header: 'Active', value: () => '' },
+        { header: 'Can Process Orders', value: () => '' },
+        { header: 'Can View All Orders', value: () => '' },
+      ],
+    });
+
+    this.toast.success('User import template downloaded.');
+  }
+
+  async importUsersFromInput(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0];
+
+    if (!file || this.importingUsers()) {
+      if (input) {
+        input.value = '';
+      }
+      return;
+    }
+
+    this.importingUsers.set(true);
+
+    try {
+      const rows = await this.exportService.parseExcelRows(file);
+
+      if (!rows.length) {
+        this.toast.warning('The selected file does not contain any user rows.');
+        return;
+      }
+
+      const result = await firstValueFrom(this.adminApi.bulkImportUsers(rows));
+
+      this.referenceData.refreshUsers();
+      this.workspaceSync.notifyUsersChanged();
+
+      if (result.summary.failed > 0) {
+        const preview = result.errors
+          .slice(0, 3)
+          .map((error) => `Row ${error.row}: ${error.message}`)
+          .join(' ');
+        this.toast.warning(
+          `Imported ${result.summary.created} user(s). ${result.summary.failed} row(s) need attention. ${preview}`,
+        );
+      } else {
+        this.toast.success(`Imported ${result.summary.created} user(s).`);
+      }
+    } catch (error: unknown) {
+      const message =
+        error && typeof error === 'object' && 'error' in error
+          ? ((error as { error?: { message?: string } }).error?.message ?? 'Could not import users.')
+          : 'Could not import users.';
+      this.toast.error(message);
+    } finally {
+      this.importingUsers.set(false);
+      if (input) {
+        input.value = '';
+      }
+    }
   }
 
   resetFilters(): void {

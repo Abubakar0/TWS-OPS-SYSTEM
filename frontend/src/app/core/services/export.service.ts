@@ -8,6 +8,17 @@ export interface ExportColumn<T> {
 
 @Injectable({ providedIn: 'root' })
 export class ExportService {
+  downloadWorkbook(options: {
+    filename: string;
+    sheetName: string;
+    rows: Array<Record<string, string | number | boolean | null | undefined>>;
+  }): void {
+    const worksheet = XLSX.utils.json_to_sheet(options.rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, options.sheetName.slice(0, 31) || 'Sheet1');
+    this.saveWorkbook(workbook, options.filename);
+  }
+
   exportAsExcelTable<T>(options: {
     filename: string;
     sheetName: string;
@@ -28,22 +39,7 @@ export class ExportService {
     });
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, options.sheetName.slice(0, 31) || 'Sheet1');
-
-    const fileBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([fileBuffer], {
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-
-    anchor.href = url;
-    anchor.download = this.normalizeExcelFilename(options.filename);
-    anchor.style.display = 'none';
-
-    document.body.append(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
+    this.saveWorkbook(workbook, options.filename);
   }
 
   exportAsCsv<T>(options: {
@@ -71,6 +67,43 @@ export class ExportService {
 
     anchor.href = url;
     anchor.download = options.filename.endsWith('.csv') ? options.filename : `${options.filename}.csv`;
+    anchor.style.display = 'none';
+
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async parseExcelRows(file: File): Promise<Record<string, unknown>[]> {
+    const workbook = XLSX.read(await file.arrayBuffer(), {
+      type: 'array',
+      cellDates: true,
+    });
+    const firstSheetName = workbook.SheetNames[0];
+
+    if (!firstSheetName) {
+      return [];
+    }
+
+    const worksheet = workbook.Sheets[firstSheetName];
+
+    return XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
+      defval: '',
+      raw: false,
+    });
+  }
+
+  private saveWorkbook(workbook: XLSX.WorkBook, filename: string): void {
+    const fileBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([fileBuffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+
+    anchor.href = url;
+    anchor.download = this.normalizeExcelFilename(filename);
     anchor.style.display = 'none';
 
     document.body.append(anchor);

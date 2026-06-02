@@ -58,6 +58,80 @@ const normalizeUser = (row) => ({
   permissions: resolvePermissions(row.role, normalizePermissions(row.permissions)),
 });
 
+const normalizeImportKey = (value) =>
+  String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+
+const buildImportLookup = (row = {}) =>
+  new Map(
+    Object.entries(row)
+      .filter(([key]) => key !== undefined && key !== null)
+      .map(([key, value]) => [normalizeImportKey(key), value]),
+  );
+
+const readImportValue = (lookup, ...candidates) => {
+  for (const candidate of candidates) {
+    const value = lookup.get(normalizeImportKey(candidate));
+
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      return value;
+    }
+  }
+
+  return undefined;
+};
+
+const isImportRowEmpty = (row) =>
+  !row ||
+  Object.values(row).every((value) => String(value ?? '').trim() === '');
+
+const normalizeImportBoolean = (value, fallback = false) => {
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  const normalized = String(value).trim().toLowerCase();
+
+  if (['true', '1', 'yes', 'y', 'active', 'enabled'].includes(normalized)) {
+    return true;
+  }
+
+  if (['false', '0', 'no', 'n', 'disabled', 'inactive'].includes(normalized)) {
+    return false;
+  }
+
+  return fallback;
+};
+
+const normalizeImportedRole = (value) => {
+  const normalized = String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+
+  return normalized || 'hunter';
+};
+
+const deriveNameFromEmail = (email) => {
+  const localPart = String(email ?? '').split('@')[0] || '';
+  const normalized = localPart.replace(/[._-]+/g, ' ').trim();
+
+  if (!normalized) {
+    return 'Workspace User';
+  }
+
+  return normalized
+    .split(/\s+/)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
+};
+
 const assertValidRole = (role) => {
   if (!VALID_ROLES.includes(role)) {
     throw new AppError('Invalid user role.', 400);
@@ -299,6 +373,100 @@ const createUser = async (actor, payload) => {
   });
 
   return createdUser;
+};
+
+const bulkImportUsers = async (actor, rows = []) => {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new AppError('Add at least one user row to import.', 400);
+  }
+
+  const importRows = rows.filter((row) => !isImportRowEmpty(row));
+
+  if (!importRows.length) {
+    throw new AppError('Add at least one user row to import.', 400);
+  }
+
+  const createdUsers = [];
+  const errors = [];
+
+  for (const [index, row] of importRows.entries()) {
+    const lookup = buildImportLookup(row);
+    const email = String(readImportValue(lookup, 'email', 'user email') ?? '')
+      .trim()
+      .toLowerCase();
+    const password = String(readImportValue(lookup, 'password', 'temporary password') ?? '').trim();
+    const role = normalizeImportedRole(readImportValue(lookup, 'role', 'user role'));
+    const name =
+      String(readImportValue(lookup, 'name', 'full name', 'user name') ?? '').trim() ||
+      deriveNameFromEmail(email);
+    const isActive = normalizeImportBoolean(
+      readImportValue(lookup, 'isActive', 'active', 'enabled', 'status'),
+      true,
+    );
+    const permissions = {
+      canProcessOrders: normalizeImportBoolean(
+        readImportValue(
+          lookup,
+          'canProcessOrders',
+          'process orders',
+          'can process orders',
+          'allow order processing',
+        ),
+        false,
+      ),
+      canViewAllOrders: normalizeImportBoolean(
+        readImportValue(
+          lookup,
+          'canViewAllOrders',
+          'view all orders',
+          'can view all orders',
+          'allow viewing all orders',
+        ),
+        false,
+      ),
+    };
+
+    try {
+      const createdUser = await createUser(actor, {
+        name,
+        email,
+        password,
+        role,
+        isActive,
+        permissions,
+      });
+      createdUsers.push(createdUser);
+    } catch (error) {
+      errors.push({
+        row: index + 2,
+        email: email || null,
+        message: error?.message || 'Could not import this user row.',
+      });
+    }
+  }
+
+  if (createdUsers.length > 0) {
+    await writeAuditLog({
+      actorUserId: actor.id,
+      action: 'user.bulk_import',
+      targetType: 'user',
+      details: {
+        totalRows: importRows.length,
+        created: createdUsers.length,
+        failed: errors.length,
+      },
+    });
+  }
+
+  return {
+    summary: {
+      total: importRows.length,
+      created: createdUsers.length,
+      failed: errors.length,
+    },
+    users: createdUsers,
+    errors,
+  };
 };
 
 const updateUser = async (actor, id, payload) => {
@@ -703,6 +871,7 @@ const getPermissionsMatrix = async () => listPermissionMatrix();
 module.exports = {
   listUsers,
   createUser,
+  bulkImportUsers,
   updateUser,
   softDeleteUser,
   restoreUser,

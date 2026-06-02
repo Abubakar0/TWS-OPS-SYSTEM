@@ -18,6 +18,11 @@ router.post(
   requireRoles('admin', 'super_admin'),
   asyncHandler(accountsController.createAccountInvoice),
 );
+router.post(
+  '/bulk-import',
+  requireRoles('admin', 'super_admin'),
+  asyncHandler(accountsController.bulkImportAccounts),
+);
 router.post('/', requireRoles('admin', 'super_admin'), asyncHandler(accountsController.createAccount));
 router.patch('/:id', requireRoles('admin', 'super_admin'), asyncHandler(accountsController.updateAccount));
 router.put(

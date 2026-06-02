@@ -49,3 +49,20 @@ export interface HunterAssignment {
   listerEmail: string | null;
   listerActive: boolean | null;
 }
+
+export interface BulkImportError {
+  row: number;
+  message: string;
+  email?: string | null;
+  name?: string | null;
+}
+
+export interface UserBulkImportResult {
+  summary: {
+    total: number;
+    created: number;
+    failed: number;
+  };
+  users: User[];
+  errors: BulkImportError[];
+}

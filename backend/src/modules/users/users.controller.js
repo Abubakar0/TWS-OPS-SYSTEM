@@ -16,6 +16,11 @@ const createUser = async (req, res) => {
   res.status(201).json({ user });
 };
 
+const bulkImportUsers = async (req, res) => {
+  const result = await usersService.bulkImportUsers(req.user, req.body.rows);
+  res.status(201).json(result);
+};
+
 const updateUser = async (req, res) => {
   const user = await usersService.updateUser(req.user, req.params.id, req.body);
   res.json({ user });
@@ -85,6 +90,7 @@ const getPermissionsMatrix = async (req, res) => {
 module.exports = {
   listUsers,
   createUser,
+  bulkImportUsers,
   updateUser,
   deleteUser,
   restoreUser,

@@ -4,7 +4,7 @@ import { map, Observable, tap } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { CACHE_NAMESPACE, CACHE_TTL, makeCacheKey } from '../config/cache';
-import { LoginResponse, User, UserPermissions, UserRole } from '../models/auth.models';
+import { LoginResponse, User, UserBulkImportResult, UserPermissions, UserRole } from '../models/auth.models';
 import { HuntingCriteria } from '../models/product.models';
 import { RequestCacheService } from '../state/request-cache.service';
 import { PageResult } from '../state/query-state.models';
@@ -82,6 +82,12 @@ export class AdminApiService {
         map((response) => response.user),
         tap(() => this.invalidateUserCaches()),
       );
+  }
+
+  bulkImportUsers(rows: Array<Record<string, unknown>>): Observable<UserBulkImportResult> {
+    return this.http
+      .post<UserBulkImportResult>(`${environment.apiUrl}/users/bulk-import`, { rows })
+      .pipe(tap(() => this.invalidateUserCaches()));
   }
 
   updateUser(id: string, payload: Partial<User> & { password?: string }): Observable<User> {

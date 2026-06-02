@@ -49,6 +49,8 @@ export interface AccountSummary {
     totalOrders: number;
     totalRevenue: number;
     totalProfit: number;
+    previousOrderCount: number;
+    lastMonthProfit: number;
     deliveredOrders: number;
     issueOrders: number;
     lossOrders: number;
@@ -78,4 +80,19 @@ export interface AccountInvoicePayload {
   primaryPayment: AccountInvoicePaymentBlock | null;
   alternatePayment: AccountInvoicePaymentBlock | null;
   notes?: string | null;
+}
+
+export interface AccountBulkImportResult {
+  summary: {
+    total: number;
+    created: number;
+    updated: number;
+    failed: number;
+  };
+  accounts: Account[];
+  errors: Array<{
+    row: number;
+    name?: string | null;
+    message: string;
+  }>;
 }
