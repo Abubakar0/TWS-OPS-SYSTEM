@@ -7,7 +7,7 @@
     <div class="surface-card__header">
       <div>
         <h1>Accounts</h1>
-        <p>Manage listing accounts and decide which listers can use them.</p>
+        <p>Review account performance, assigned listers, account health, and invoice history.</p>
       </div>
       <div class="page-actions">
         <button mat-flat-button color="primary" type="button" (click)="openAccountModal()">
@@ -21,58 +21,46 @@
       </div>
     </div>
 
-    <details class="filter-panel">
-      <summary>
-        <div class="filter-panel__title">
-          <mat-icon>filter_list</mat-icon>
-          <div>
-            <h2>Filters</h2>
-            <p>Find accounts by name, marketplace, or status.</p>
-          </div>
-        </div>
-        <div class="filter-panel__meta">
-          <span>{{ filteredAccounts().length }} accounts</span>
-          <span class="filter-panel__chevron">
-            <mat-icon>expand_more</mat-icon>
-          </span>
-        </div>
-      </summary>
+    <app-filter-panel
+      title="Filters"
+      summary="Find accounts by name, marketplace, or status."
+      icon="filter_list"
+      [badge]="filteredAccounts().length + ' accounts'"
+      storageKey="tws_accounts_filters"
+    >
+      <div class="accounts-filters">
+        <mat-form-field appearance="outline" class="accounts-filters__search">
+          <mat-label>Search account name</mat-label>
+          <input matInput [formControl]="searchControl" autocomplete="off" />
+          <mat-icon matSuffix>search</mat-icon>
+        </mat-form-field>
 
-      <div class="filter-panel__content">
-        <div class="grid-toolbar__actions--filters accounts-filters">
-          <mat-form-field appearance="outline" class="accounts-filters__search">
-            <mat-label>Search account name</mat-label>
-            <input matInput [formControl]="searchControl" autocomplete="off" />
-            <mat-icon matSuffix>search</mat-icon>
-          </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Marketplace</mat-label>
+          <mat-select [formControl]="marketplaceControl">
+            <mat-option value="all">All marketplaces</mat-option>
+            <mat-option value="ebay">eBay</mat-option>
+            <mat-option value="amazon">Amazon</mat-option>
+          </mat-select>
+        </mat-form-field>
 
-          <mat-form-field appearance="outline" class="page-size-field">
-            <mat-label>Marketplace</mat-label>
-            <mat-select [formControl]="marketplaceControl">
-              <mat-option value="all">All</mat-option>
-              <mat-option value="ebay">eBay</mat-option>
-              <mat-option value="amazon">Amazon</mat-option>
-            </mat-select>
-          </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Status</mat-label>
+          <mat-select [formControl]="statusControl">
+            <mat-option value="all">All statuses</mat-option>
+            <mat-option value="active">Active</mat-option>
+            <mat-option value="disabled">Disabled</mat-option>
+          </mat-select>
+        </mat-form-field>
 
-          <mat-form-field appearance="outline" class="page-size-field">
-            <mat-label>Status</mat-label>
-            <mat-select [formControl]="statusControl">
-              <mat-option value="all">All</mat-option>
-              <mat-option value="active">Active</mat-option>
-              <mat-option value="disabled">Disabled</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <button mat-stroked-button type="button" (click)="resetFilters()">
-            <mat-icon>restart_alt</mat-icon>
-            <span>Reset</span>
-          </button>
-        </div>
+        <button mat-stroked-button type="button" (click)="resetFilters()">
+          <mat-icon>restart_alt</mat-icon>
+          <span>Reset</span>
+        </button>
       </div>
-    </details>
+    </app-filter-panel>
 
-    @if (loading()) {
+    @if (loading() && !accounts().length) {
       <div class="loading-state">
         <mat-spinner diameter="24"></mat-spinner>
         <span>Loading accounts.</span>
@@ -84,30 +72,37 @@
         icon="storefront"
       />
     } @else {
-      <div class="table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Account</th>
-              <th>Marketplace</th>
-              <th>Assigned Listers</th>
-              <th>Status</th>
-              <th>Total Listed</th>
-              <th>Created</th>
-              <th class="actions-col">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (account of filteredAccounts(); track account.id) {
-              <tr>
-                <td>
-                  <div class="table-primary">
-                    <strong>{{ account.name }}</strong>
-                    <span>Listing account</span>
-                  </div>
-                </td>
-                <td>{{ account.marketplace | titlecase }}</td>
-                <td>
+      <div class="accounts-layout">
+        <section class="accounts-main">
+          <div class="accounts-table">
+            <div class="accounts-table__head">
+              <span>Account</span>
+              <span>Marketplace</span>
+              <span>Assigned Listers</span>
+              <span>Listed</span>
+              <span>Status</span>
+            </div>
+
+            @for (account of filteredAccounts(); track trackByAccountId($index, account)) {
+              <button
+                type="button"
+                class="account-row"
+                [class.is-active]="activeAccount()?.id === account.id"
+                (click)="selectAccount(account)"
+              >
+                <div class="account-row__cell">
+                  <strong>{{ account.name }}</strong>
+                  <span>{{
+                    account.createdAt ? ('Created ' + (account.createdAt | date: 'MMM d, y')) : 'Listing account'
+                  }}</span>
+                </div>
+
+                <div class="account-row__cell">
+                  <strong>{{ account.marketplace | titlecase }}</strong>
+                  <span>{{ account.isActive ? 'Open for listing' : 'Temporarily disabled' }}</span>
+                </div>
+
+                <div class="account-row__cell">
                   @if (account.assignedListers?.length) {
                     <div class="lister-chip-row">
                       @for (lister of account.assignedListers || []; track lister.id) {
@@ -117,28 +112,143 @@
                   } @else {
                     <span class="table-muted">No listers assigned</span>
                   }
-                </td>
-                <td>
-                  <span class="status-badge" [class.status-badge--success]="account.isActive" [class.status-badge--danger]="!account.isActive">
+                </div>
+
+                <div class="account-row__cell">
+                  <strong>{{ account.totalProductsListed || 0 }}</strong>
+                  <span>Total listed products</span>
+                </div>
+
+                <div class="account-row__cell account-row__status">
+                  <span
+                    class="status-badge"
+                    [class.status-badge--success]="account.isActive"
+                    [class.status-badge--danger]="!account.isActive"
+                  >
                     {{ account.isActive ? 'Active' : 'Disabled' }}
                   </span>
-                </td>
-                <td>{{ account.totalProductsListed || 0 }}</td>
-                <td>{{ account.createdAt ? (account.createdAt | date: 'MMM d, y') : 'Not Available' }}</td>
-                <td class="actions-col">
-                  <div class="table-actions">
-                    <button mat-icon-button type="button" (click)="openListerModal(account)" matTooltip="Assign listers">
-                      <mat-icon>group_add</mat-icon>
-                    </button>
-                    <button mat-icon-button type="button" (click)="toggleAccount(account)" matTooltip="{{ account.isActive ? 'Disable account' : 'Enable account' }}">
-                      <mat-icon>{{ account.isActive ? 'block' : 'check_circle' }}</mat-icon>
-                    </button>
-                  </div>
-                </td>
-              </tr>
+                </div>
+              </button>
             }
-          </tbody>
-        </table>
+          </div>
+        </section>
+
+        <aside class="surface-card accounts-sidebar">
+          @if (detailLoading()) {
+            <div class="loading-state">
+              <mat-spinner diameter="24"></mat-spinner>
+              <span>Loading account details.</span>
+            </div>
+          } @else if (detailError()) {
+            <app-error-state [message]="detailError()" actionLabel="Retry" (action)="reloadActiveAccountSummary()" />
+          } @else if (detailVm(); as detail) {
+            <div class="accounts-sidebar__top">
+              <div class="accounts-sidebar__headline">
+                <h2>{{ detail.account.name }}</h2>
+                <p>{{ detail.account.marketplace | titlecase }} listing account</p>
+              </div>
+
+              <div class="accounts-sidebar__actions">
+                <button mat-stroked-button type="button" (click)="openListerModal(detail.account)">
+                  <mat-icon>group_add</mat-icon>
+                  <span>Assign Listers</span>
+                </button>
+                <button mat-stroked-button type="button" (click)="openInvoiceModal()">
+                  <mat-icon>receipt_long</mat-icon>
+                  <span>Generate Invoice</span>
+                </button>
+                <button mat-stroked-button type="button" (click)="toggleAccount(detail.account)">
+                  <mat-icon>{{ detail.account.isActive ? 'block' : 'check_circle' }}</mat-icon>
+                  <span>{{ detail.account.isActive ? 'Disable' : 'Enable' }}</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="detail-facts">
+              <div class="detail-fact">
+                <span>Status</span>
+                <strong>{{ detail.account.isActive ? 'Active' : 'Disabled' }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Assigned Listers</span>
+                <strong>{{ detail.stats.assignedListerCount }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Total Listed</span>
+                <strong>{{ detail.stats.totalListed }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Total Orders</span>
+                <strong>{{ detail.stats.totalOrders }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Total Profit</span>
+                <strong>${{ detail.stats.totalProfit | number: '1.2-2' }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Open Issues</span>
+                <strong>{{ detail.stats.issueOrders }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Pending Listings</span>
+                <strong>{{ detail.stats.pendingListings }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Open Change Requests</span>
+                <strong>{{ detail.stats.openChangeRequests }}</strong>
+              </div>
+            </div>
+
+            <section class="detail-section">
+              <h3>Assigned listers</h3>
+              @if (detail.account.assignedListers?.length) {
+                <div class="lister-chip-row">
+                  @for (lister of detail.account.assignedListers || []; track lister.id) {
+                    <span class="status-badge status-badge--neutral">{{ lister.name }}</span>
+                  }
+                </div>
+              } @else {
+                <div class="empty-inline">No listers are assigned to this account yet.</div>
+              }
+            </section>
+
+            <section class="detail-section">
+              <div class="detail-section__header">
+                <h3>Invoice history</h3>
+                <span>{{ recentInvoices().length }} saved</span>
+              </div>
+
+              @if (recentInvoices().length) {
+                <div class="detail-stack">
+                  @for (invoice of recentInvoices(); track trackByInvoiceId($index, invoice)) {
+                    <div class="detail-row detail-row--stacked">
+                      <div>
+                        <span>{{ invoice.invoiceCode }}</span>
+                        <strong>{{ invoice.invoiceMonthLabel }}</strong>
+                      </div>
+                      <div class="detail-row__meta">
+                        <strong>${{ invoice.totalNetPayable | number: '1.2-2' }}</strong>
+                        <small>{{ invoice.invoiceDate | date: 'MMM d, y' }}</small>
+                      </div>
+                      <button mat-stroked-button type="button" (click)="downloadInvoice(invoice)">
+                        <mat-icon>download</mat-icon>
+                        <span>PDF</span>
+                      </button>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <div class="empty-inline">No invoices have been generated for this account yet.</div>
+              }
+            </section>
+          } @else {
+            <app-empty-state
+              title="Select an account"
+              message="Choose an account to review performance, issues, and invoices."
+              icon="storefront"
+            />
+          }
+        </aside>
       </div>
     }
   </article>
@@ -203,7 +313,10 @@
       <div class="assignment-list">
         @for (lister of listers(); track lister.id) {
           <label class="assignment-list__item">
-            <mat-checkbox [checked]="selectedListerIdSet().has(lister.id)" (change)="toggleListerSelection(lister.id, $event.checked)">
+            <mat-checkbox
+              [checked]="selectedListerIdSet().has(lister.id)"
+              (change)="toggleListerSelection(lister.id, $event.checked)"
+            >
               {{ lister.name }}
             </mat-checkbox>
             <small>{{ lister.email }}</small>
@@ -224,3 +337,284 @@
   </div>
 }
 
+@if (invoiceModalOpen()) {
+  <div class="app-modal-backdrop" (click)="closeInvoiceModal()">
+    <section class="app-modal invoice-modal" (click)="$event.stopPropagation()">
+      <div class="app-modal__header">
+        <div>
+          <h2>Generate invoice</h2>
+          <p>Create a branded invoice for {{ activeAccount()?.name }} and download it as a PDF.</p>
+        </div>
+        <button mat-icon-button type="button" (click)="closeInvoiceModal()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <div class="app-modal__body invoice-modal__body">
+        <form class="invoice-modal__layout" [formGroup]="invoiceForm">
+          <div class="invoice-modal__form">
+            <section class="invoice-form-section">
+              <h3>Invoice Details</h3>
+              <div class="form-grid">
+                <mat-form-field appearance="outline">
+                  <mat-label>Bill to</mat-label>
+                  <input matInput formControlName="billToName" autocomplete="off" />
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Invoice month</mat-label>
+                  <input matInput type="month" formControlName="invoiceMonth" />
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Invoice date</mat-label>
+                  <input matInput type="date" formControlName="invoiceDate" />
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Currency</mat-label>
+                  <input matInput formControlName="currency" autocomplete="off" />
+                </mat-form-field>
+              </div>
+            </section>
+
+            <section class="invoice-form-section" formArrayName="lineItems">
+              <div class="invoice-form-section__header">
+                <h3>Invoice Rows</h3>
+                <span>Only rows marked "Include in total" affect the final payable amount.</span>
+              </div>
+
+              <div class="line-item-stack">
+                @for (lineItem of invoiceLineItems; track $index) {
+                  <div class="line-item-card" [formGroupName]="$index">
+                    <div class="form-grid">
+                      <mat-form-field appearance="outline">
+                        <mat-label>Title</mat-label>
+                        <input matInput formControlName="title" autocomplete="off" />
+                      </mat-form-field>
+
+                      <mat-form-field appearance="outline">
+                        <mat-label>Amount</mat-label>
+                        <input matInput type="number" formControlName="amount" />
+                      </mat-form-field>
+
+                      <mat-form-field appearance="outline" class="field-span-2">
+                        <mat-label>Description</mat-label>
+                        <input matInput formControlName="description" autocomplete="off" />
+                      </mat-form-field>
+                    </div>
+
+                    <label class="toggle-row">
+                      <mat-checkbox formControlName="includeInTotal">Include in total payable</mat-checkbox>
+                    </label>
+                  </div>
+                }
+              </div>
+            </section>
+
+            <section class="invoice-form-section">
+              <h3>Payment Instructions</h3>
+              <div class="payment-grid">
+                <div class="payment-card" formGroupName="primaryPayment">
+                  <div class="form-grid">
+                    <mat-form-field appearance="outline" class="field-span-2">
+                      <mat-label>Section title</mat-label>
+                      <input matInput formControlName="title" autocomplete="off" />
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="field-span-2">
+                      <mat-label>Bank / Holder</mat-label>
+                      <input matInput formControlName="bankName" autocomplete="off" />
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline">
+                      <mat-label>Account Number</mat-label>
+                      <input matInput formControlName="accountNumber" autocomplete="off" />
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline">
+                      <mat-label>Branch</mat-label>
+                      <input matInput formControlName="branch" autocomplete="off" />
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="field-span-2">
+                      <mat-label>IBAN</mat-label>
+                      <input matInput formControlName="iban" autocomplete="off" />
+                    </mat-form-field>
+                  </div>
+                </div>
+
+                <div class="payment-card payment-card--accent" formGroupName="alternatePayment">
+                  <div class="form-grid">
+                    <mat-form-field appearance="outline" class="field-span-2">
+                      <mat-label>Section title</mat-label>
+                      <input matInput formControlName="title" autocomplete="off" />
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="field-span-2">
+                      <mat-label>Bank / Holder</mat-label>
+                      <input matInput formControlName="bankName" autocomplete="off" />
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline">
+                      <mat-label>Account Number</mat-label>
+                      <input matInput formControlName="accountNumber" autocomplete="off" />
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline">
+                      <mat-label>Branch</mat-label>
+                      <input matInput formControlName="branch" autocomplete="off" />
+                    </mat-form-field>
+
+                    <mat-form-field appearance="outline" class="field-span-2">
+                      <mat-label>IBAN</mat-label>
+                      <input matInput formControlName="iban" autocomplete="off" />
+                    </mat-form-field>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="invoice-form-section">
+              <h3>Notes</h3>
+              <mat-form-field appearance="outline">
+                <mat-label>Optional internal note</mat-label>
+                <textarea matInput formControlName="notes" rows="3"></textarea>
+              </mat-form-field>
+            </section>
+          </div>
+
+          <aside class="invoice-modal__preview">
+            @if (invoicePreview(); as preview) {
+              <div class="invoice-preview">
+                <div class="invoice-preview__hero">
+                  <div class="invoice-preview__brand">
+                    <div class="invoice-preview__brand-mark">
+                      <img [src]="branding.invoiceLogoAssetPath" alt="Trend Wave Solutions logo" />
+                    </div>
+                    <div class="invoice-preview__brand-copy">
+                      <strong>{{ branding.companyName }}</strong>
+                      <span>{{ branding.companyTagline }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="invoice-preview__body">
+                  <div class="invoice-preview__meta-grid">
+                    <section class="invoice-preview__box">
+                      <span class="invoice-preview__eyebrow">Bill To</span>
+                      <strong>{{ preview.billToName }}</strong>
+                      <small>{{ preview.accountName }}</small>
+                    </section>
+
+                    <section class="invoice-preview__box">
+                      <span class="invoice-preview__eyebrow">Invoice Details</span>
+                      <dl class="invoice-preview__meta-list">
+                        <div>
+                          <dt>Month</dt>
+                          <dd>{{ preview.invoiceMonthLabel }}</dd>
+                        </div>
+                        <div>
+                          <dt>Date</dt>
+                          <dd>{{ preview.invoiceDateLabel }}</dd>
+                        </div>
+                      </dl>
+                    </section>
+                  </div>
+
+                  <section class="invoice-preview__table">
+                    <div class="invoice-preview__table-head">
+                      <span>Description</span>
+                      <span>Amount ({{ preview.currency }})</span>
+                    </div>
+
+                    <div class="invoice-preview__rows">
+                      @for (item of preview.lineItems; track $index) {
+                        <div class="invoice-preview__row">
+                          <div>
+                            <strong>{{ item.title || 'Line item' }}</strong>
+                            @if (item.description) {
+                              <small>{{ item.description }}</small>
+                            }
+                            @if (!item.includeInTotal) {
+                              <span class="invoice-preview__row-flag">Reference only</span>
+                            }
+                          </div>
+                          <strong>{{ item.amount | currency: preview.currency : 'symbol' : '1.2-2' }}</strong>
+                        </div>
+                      }
+                    </div>
+
+                    <div class="invoice-preview__total">
+                      <span>Total Net Payable</span>
+                      <strong>{{ preview.totalNetPayable | currency: preview.currency : 'symbol' : '1.2-2' }}</strong>
+                    </div>
+                  </section>
+
+                  <section class="invoice-preview__payments">
+                    <div class="invoice-preview__payments-title">
+                      <mat-icon>payments</mat-icon>
+                      <span>Payment Instructions</span>
+                    </div>
+
+                    <div class="invoice-preview__payments-grid">
+                      <article class="invoice-preview__payment-card">
+                        <span class="invoice-preview__eyebrow">{{ preview.primaryPayment.title }}</span>
+                        <strong>{{ preview.primaryPayment.bankName }}</strong>
+                        <ul>
+                          <li><b>Account No:</b> {{ preview.primaryPayment.accountNumber || '-' }}</li>
+                          <li><b>IBAN:</b> {{ preview.primaryPayment.iban || '-' }}</li>
+                          <li><b>Branch:</b> {{ preview.primaryPayment.branch || '-' }}</li>
+                        </ul>
+                      </article>
+
+                      <article class="invoice-preview__payment-card invoice-preview__payment-card--accent">
+                        <span class="invoice-preview__eyebrow">{{ preview.alternatePayment.title }}</span>
+                        <strong>{{ preview.alternatePayment.bankName }}</strong>
+                        <ul>
+                          <li><b>Account No:</b> {{ preview.alternatePayment.accountNumber || '-' }}</li>
+                          <li><b>IBAN:</b> {{ preview.alternatePayment.iban || '-' }}</li>
+                          <li><b>Branch:</b> {{ preview.alternatePayment.branch || '-' }}</li>
+                        </ul>
+                      </article>
+                    </div>
+                  </section>
+
+                  @if (preview.notes) {
+                    <section class="invoice-preview__notes">
+                      <span class="invoice-preview__eyebrow">Notes</span>
+                      <p>{{ preview.notes }}</p>
+                    </section>
+                  }
+
+                  <footer class="invoice-preview__footer">
+                    <span>www.trendwavesolutions.com</span>
+                    <span>info@trendwavesolutions.com</span>
+                    <span>+92 315 5156702</span>
+                    <span>Pakistan</span>
+                  </footer>
+                </div>
+              </div>
+            }
+          </aside>
+        </form>
+      </div>
+
+      <div class="app-modal__footer">
+        <button mat-stroked-button type="button" (click)="closeInvoiceModal()" [disabled]="invoiceSaving()">
+          Cancel
+        </button>
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          (click)="submitInvoice()"
+          [disabled]="invoiceForm.invalid || invoiceSaving()"
+        >
+          <mat-icon>{{ invoiceSaving() ? 'hourglass_top' : 'download' }}</mat-icon>
+          <span>{{ invoiceSaving() ? 'Generating' : 'Save & Download PDF' }}</span>
+        </button>
+      </div>
+    </section>
+  </div>
+}

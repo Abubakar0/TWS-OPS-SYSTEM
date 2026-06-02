@@ -126,6 +126,24 @@ CREATE TABLE IF NOT EXISTS lister_account_assignments (
   PRIMARY KEY (account_id, lister_id)
 );
 
+CREATE TABLE IF NOT EXISTS account_invoices (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  invoice_code TEXT NOT NULL UNIQUE,
+  account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  bill_to_name TEXT NOT NULL,
+  invoice_month DATE NOT NULL,
+  invoice_date DATE NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'USD',
+  line_items JSONB NOT NULL DEFAULT '[]'::jsonb,
+  primary_payment JSONB NOT NULL DEFAULT '{}'::jsonb,
+  alternate_payment JSONB,
+  notes TEXT,
+  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS products (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   hunter_id UUID NOT NULL REFERENCES users(id),
@@ -313,6 +331,20 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS monthly_graph_uptrend BOOLEAN;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS deleted_by UUID REFERENCES users(id);
 ALTER TABLE products ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS delete_reason TEXT;
+ALTER TABLE account_invoices ADD COLUMN IF NOT EXISTS invoice_code TEXT;
+ALTER TABLE account_invoices ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id) ON DELETE CASCADE;
+ALTER TABLE account_invoices ADD COLUMN IF NOT EXISTS bill_to_name TEXT;
+ALTER TABLE account_invoices ADD COLUMN IF NOT EXISTS invoice_month DATE;
+ALTER TABLE account_invoices ADD COLUMN IF NOT EXISTS invoice_date DATE;
+ALTER TABLE account_invoices ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'USD';
+ALTER TABLE account_invoices ADD COLUMN IF NOT EXISTS line_items JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE account_invoices ADD COLUMN IF NOT EXISTS primary_payment JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE account_invoices ADD COLUMN IF NOT EXISTS alternate_payment JSONB;
+ALTER TABLE account_invoices ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE account_invoices ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE account_invoices ADD COLUMN IF NOT EXISTS updated_by UUID REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE account_invoices ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE account_invoices ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE listings ALTER COLUMN listing_url DROP NOT NULL;
 ALTER TABLE listings ALTER COLUMN item_id DROP NOT NULL;
 
@@ -340,6 +372,9 @@ CREATE INDEX IF NOT EXISTS idx_orders_deleted_at ON orders(deleted_at);
 CREATE INDEX IF NOT EXISTS idx_orders_order_date ON orders(order_date DESC);
 CREATE INDEX IF NOT EXISTS idx_orders_asin ON orders(asin);
 CREATE INDEX IF NOT EXISTS idx_orders_amazon_order_id ON orders(amazon_order_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_account_invoices_invoice_code ON account_invoices(invoice_code);
+CREATE INDEX IF NOT EXISTS idx_account_invoices_account_id ON account_invoices(account_id);
+CREATE INDEX IF NOT EXISTS idx_account_invoices_invoice_date ON account_invoices(invoice_date DESC);
 CREATE INDEX IF NOT EXISTS idx_products_asin
   ON products(asin)
   WHERE asin IS NOT NULL AND asin <> '';

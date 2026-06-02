@@ -4,6 +4,7 @@ import { map, Observable, tap } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { CACHE_NAMESPACE, CACHE_TTL, makeCacheKey } from '../config/cache';
+import { AccountInvoice, AccountInvoicePayload, AccountSummary } from '../models/account.models';
 import { Account } from '../models/product.models';
 import { PageResult } from '../state/query-state.models';
 import { RequestCacheService } from '../state/request-cache.service';
@@ -94,6 +95,23 @@ export class AccountApiService {
       .pipe(
         map((response) => response.account),
         tap(() => this.requestCache.invalidatePrefix(CACHE_NAMESPACE.accounts)),
+      );
+  }
+
+  getAccountSummary(id: string): Observable<AccountSummary> {
+    return this.requestCache.getOrCreate(
+      makeCacheKey(CACHE_NAMESPACE.accounts, { summary: id }),
+      CACHE_TTL.short,
+      () => this.http.get<AccountSummary>(`${environment.apiUrl}/accounts/${id}/summary`),
+    );
+  }
+
+  createAccountInvoice(id: string, payload: AccountInvoicePayload): Observable<AccountInvoice> {
+    return this.http
+      .post<{ invoice: AccountInvoice }>(`${environment.apiUrl}/accounts/${id}/invoices`, payload)
+      .pipe(
+        map((response) => response.invoice),
+        tap(() => this.requestCache.invalidatePrefix(makeCacheKey(CACHE_NAMESPACE.accounts, { summary: id }))),
       );
   }
 }
