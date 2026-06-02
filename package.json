@@ -7,9 +7,15 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "regression:ui": "playwright test",
+    "regression:backend": "npm --prefix backend run regression:all",
+    "regression:release": "node scripts/release-regression.js",
+    "test": "npm run regression:release"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.60.0"
+  }
 }

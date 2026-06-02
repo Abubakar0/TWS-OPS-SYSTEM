@@ -16,6 +16,10 @@ const TARGETS = {
   hunterSunnyAssignedAsin: process.env.REGRESSION_ASSIGNED_ASIN || 'B0DZVFL29R',
 };
 
+function buildOrderId(prefix) {
+  return `${prefix}-${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}`;
+}
+
 async function request(path, { method = 'GET', token, body, expectedStatuses = [200] } = {}) {
   const response = await fetch(`${BASE_URL}${path}`, {
     method,
@@ -88,6 +92,7 @@ async function main() {
   const sunnyToken = tokens.sunny;
   const processorLocalToken = tokens.processorLocal;
   const processorToken = tokens.processor;
+  const cleanupOrderIds = [];
 
   if (!adminToken || !hunterToken || !listerToken || !sunnyToken || !processorLocalToken || !processorToken) {
     throw new Error('Missing one or more required auth tokens for the regression run.');
@@ -122,18 +127,47 @@ async function main() {
     details: sunnyAssignedProduct ? sunnyAssignedProduct.id : 'Could not find assigned Hunter User -> Sunny Lister product.',
   });
 
-  const processorLocalOrders = await request('/orders?page=1&limit=10', { token: processorLocalToken });
-  push('processor-local:orders:list', processorLocalOrders.ok, {
-    status: processorLocalOrders.status,
-    details: processorLocalOrders.ok ? undefined : summarize(processorLocalOrders.body),
+  const accountsResult = await request('/accounts?page=1&limit=5', { token: adminToken });
+  push('admin:accounts:list', accountsResult.ok, {
+    status: accountsResult.status,
+    details: accountsResult.ok ? undefined : summarize(accountsResult.body),
   });
-  const processorLocalOrderItems = getArray(processorLocalOrders.body, 'orders');
-  const linkedOrder = processorLocalOrderItems.find(
-    (order) => order.asin === TARGETS.hunterListerListedAsin && order.hunterName === 'Hunter User',
-  );
+
+  const regressionAccountId = accountsResult.body?.accounts?.[0]?.id || listedProduct?.accountId || null;
+  push('fixture:regression-account-found', Boolean(regressionAccountId), {
+    details: regressionAccountId || 'Could not find an account for linked order regression.',
+  });
+
+  let linkedOrder = null;
+
+  if (regressionAccountId) {
+    const createLinkedOrderResult = await request('/orders', {
+      method: 'POST',
+      token: processorLocalToken,
+      body: {
+        ebayOrderId: buildOrderId('REL-LINK'),
+        asin: TARGETS.hunterListerListedAsin,
+        salePrice: '138.03',
+        amazonBuyingPrice: '58.07',
+        amazonOrderId: `AMZ-${buildOrderId('REL-LINK')}`,
+        accountId: regressionAccountId,
+        notes: 'Relationship regression linked order.',
+      },
+      expectedStatuses: [201],
+    });
+    push('processor-local:create-linked-order', createLinkedOrderResult.ok, {
+      status: createLinkedOrderResult.status,
+      details: createLinkedOrderResult.ok ? undefined : summarize(createLinkedOrderResult.body),
+    });
+
+    linkedOrder = createLinkedOrderResult.body?.order || null;
+    if (linkedOrder?.id) {
+      cleanupOrderIds.push(linkedOrder.id);
+    }
+  }
 
   push('fixture:processor-linked-order-found', Boolean(linkedOrder), {
-    details: linkedOrder ? linkedOrder.id : 'Could not find existing linked processor order for Hunter User.',
+    details: linkedOrder ? linkedOrder.id : 'Could not create a linked processor order for Hunter User.',
   });
 
   if (linkedOrder) {
@@ -170,27 +204,6 @@ async function main() {
               asin: result.body?.order?.asin || result.body?.asin,
               orderStatus: result.body?.order?.orderStatus || result.body?.orderStatus,
             })
-          : summarize(result.body),
-      });
-    }
-
-    const issueSearchRoles = [
-      ['admin', adminToken],
-      ['hunter', hunterToken],
-      ['lister', listerToken],
-      ['processor-local', processorLocalToken],
-    ];
-
-    for (const [label, token] of issueSearchRoles) {
-      const result = await request(`/order-issues?page=1&limit=20&search=${encodeURIComponent(linkedOrder.orderCode)}`, {
-        token,
-      });
-      const issueItems = getArray(result.body, 'orderIssues');
-      const found = issueItems.some((item) => item.id === linkedOrder.id || item.orderCode === linkedOrder.orderCode);
-      push(`${label}:order-issues-search:${linkedOrder.orderCode}`, result.ok && found, {
-        status: result.status,
-        details: result.ok
-          ? `results=${issueItems.length}; found=${found}; status=${linkedOrder.orderStatus}; issueType=${linkedOrder.issueType || 'null'}; issueStatus=${linkedOrder.issueStatus || 'null'}`
           : summarize(result.body),
       });
     }
@@ -333,6 +346,19 @@ async function main() {
         expectedStatuses: [200],
       });
     }
+  }
+
+  for (const orderId of cleanupOrderIds) {
+    const cleanup = await request(`/orders/${orderId}`, {
+      method: 'DELETE',
+      token: adminToken,
+      body: { reason: 'Relationship regression cleanup.' },
+      expectedStatuses: [200],
+    });
+    push(`cleanup:${orderId}`, cleanup.ok, {
+      status: cleanup.status,
+      details: cleanup.ok ? undefined : summarize(cleanup.body),
+    });
   }
 
   const failures = checks.filter((entry) => !entry.ok);

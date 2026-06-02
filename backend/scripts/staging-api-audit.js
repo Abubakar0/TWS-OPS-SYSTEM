@@ -288,6 +288,8 @@ async function main() {
         body: {
           ebayOrderId: tempOrderId,
           accountId: sampleAccountId,
+          asin: KNOWN_ASIN,
+          amazonOrderId: `AMZ-AUDIT-${runId}`,
           productTitle: `API Audit Order ${runId}`,
           orderDate: RANGE.to,
           quantity: 1,

@@ -7,3 +7,5 @@ frontend/browser/
 .DS_Store
 npm-debug.log*
 *.log
+test-results/
+playwright-report/
