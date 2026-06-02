@@ -159,7 +159,7 @@ export class ValidationMessageService {
       case 'monthlyGraphUptrend':
         return criteria.monthlyGraphRequired
           ? 'Required. Use Yes only when the 1-month graph trends up.'
-          : 'Should be using up-price trend.';
+          : 'Should be using up price trend.';
       case 'amazonPrice':
       case 'ebayPrice':
         return 'Keeps your decimals while you type.';

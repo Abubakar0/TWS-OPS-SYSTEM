@@ -239,7 +239,7 @@
             </div>
 
             <div class="field-shell">
-              <label class="field-label">Product watchers</label>
+              <label class="field-label">Product watchers <span>*</span></label>
               <mat-form-field appearance="outline">
                 <input matInput type="number" formControlName="productWatchers" />
                 @if (facade.fieldStates().productWatchers.error) {
@@ -253,7 +253,7 @@
             </div>
 
             <div class="field-shell">
-              <label class="field-label">Sales in past 2 months <span>*</span></label>
+              <label class="field-label">Sales in past 1 months <span>*</span></label>
               <mat-form-field appearance="outline">
                 <input matInput type="number" formControlName="salesLastTwoMonths" />
                 @if (facade.fieldStates().salesLastTwoMonths.error) {
@@ -267,7 +267,7 @@
             </div>
 
             <div class="field-shell">
-              <label class="field-label">Added to basket</label>
+              <label class="field-label">Product Added in Carts</label>
               <mat-form-field appearance="outline">
                 <input matInput type="number" formControlName="basketCount" />
                 @if (facade.fieldStates().basketCount.error) {

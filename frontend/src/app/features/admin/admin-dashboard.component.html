@@ -212,7 +212,67 @@
       </article>
     </section>
 
-    <section class="overview-grid">
+
+
+    <section class="section-grid section-grid--three">
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Lister performance</h2>
+            <p>Listed and rejected volume by lister.</p>
+          </div>
+        </div>
+
+        @if (topListers().length) {
+          <div class="simple-table">
+            <div class="simple-table__header">
+              <span>Lister</span>
+              <span>Listed</span>
+              <span>Rejected</span>
+            </div>
+            @for (row of topListers(); track row.id) {
+              <div class="simple-table__row">
+                <strong>{{ row.name }}</strong>
+                <span>{{ row.listed }}</span>
+                <span>{{ row.rejected }}</span>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">No lister stats matched this range.</div>
+        }
+      </article>
+
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Hunter listings by account</h2>
+            <p>See where each hunter's products are getting listed.</p>
+          </div>
+        </div>
+
+        @if (stats()?.byHunterAccount?.length) {
+          <div class="simple-table">
+            <div class="simple-table__header">
+              <span>Hunter / Account</span>
+              <span>Listed</span>
+              <span>Scope</span>
+            </div>
+            @for (row of (stats()?.byHunterAccount || []).slice(0, 6); track row.hunterId + row.accountId) {
+              <div class="simple-table__row">
+                <strong>{{ row.hunterName }}</strong>
+                <span>{{ row.listedCount }}</span>
+                <span>{{ row.accountName }}</span>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">No hunter-account listing data is available.</div>
+        }
+      </article>
+    </section>
+
+        <section class="overview-grid">
       <article class="surface-card">
         <div class="surface-card__header">
           <div>
@@ -275,64 +335,6 @@
           </div>
         } @else {
           <div class="empty-state">No activity logs matched this date range.</div>
-        }
-      </article>
-    </section>
-
-    <section class="section-grid section-grid--three">
-      <article class="surface-card">
-        <div class="surface-card__header">
-          <div>
-            <h2>Lister performance</h2>
-            <p>Listed and rejected volume by lister.</p>
-          </div>
-        </div>
-
-        @if (topListers().length) {
-          <div class="simple-table">
-            <div class="simple-table__header">
-              <span>Lister</span>
-              <span>Listed</span>
-              <span>Rejected</span>
-            </div>
-            @for (row of topListers(); track row.id) {
-              <div class="simple-table__row">
-                <strong>{{ row.name }}</strong>
-                <span>{{ row.listed }}</span>
-                <span>{{ row.rejected }}</span>
-              </div>
-            }
-          </div>
-        } @else {
-          <div class="empty-state">No lister stats matched this range.</div>
-        }
-      </article>
-
-      <article class="surface-card">
-        <div class="surface-card__header">
-          <div>
-            <h2>Hunter listings by account</h2>
-            <p>See where each hunter's products are getting listed.</p>
-          </div>
-        </div>
-
-        @if (stats()?.byHunterAccount?.length) {
-          <div class="simple-table">
-            <div class="simple-table__header">
-              <span>Hunter / Account</span>
-              <span>Listed</span>
-              <span>Scope</span>
-            </div>
-            @for (row of (stats()?.byHunterAccount || []).slice(0, 6); track row.hunterId + row.accountId) {
-              <div class="simple-table__row">
-                <strong>{{ row.hunterName }}</strong>
-                <span>{{ row.listedCount }}</span>
-                <span>{{ row.accountName }}</span>
-              </div>
-            }
-          </div>
-        } @else {
-          <div class="empty-state">No hunter-account listing data is available.</div>
         }
       </article>
     </section>
