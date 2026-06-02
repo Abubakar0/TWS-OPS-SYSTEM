@@ -1,0 +1,246 @@
+<section class="page-shell">
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h1>Change Requests</h1>
+        <p>Track product fixes created from order issues and reassign them when needed.</p>
+      </div>
+      <div class="page-actions">
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          (click)="exportRequests()"
+          [disabled]="exporting() || loading()"
+        >
+          <mat-icon>download</mat-icon>
+          <span>{{ exporting() ? 'Exporting' : 'Export' }}</span>
+        </button>
+      </div>
+    </div>
+  </article>
+
+  @if (error()) {
+    <div class="inline-state inline-state--error">{{ error() }}</div>
+  }
+
+  <article class="surface-card">
+    <app-filter-panel
+      title="Filters"
+      summary="Filter change requests by status, issue type, ownership, account, or date."
+      icon="filter_list"
+      [badge]="total() + ' requests'"
+      storageKey="tws_admin_change_request_filters"
+    >
+      <form class="grid-toolbar" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
+        <mat-form-field appearance="outline" class="grid-toolbar__search">
+          <mat-label>Search requests</mat-label>
+          <input matInput formControlName="search" autocomplete="off" />
+        </mat-form-field>
+
+        <div class="grid-toolbar__actions grid-toolbar__actions--filters">
+          <mat-form-field appearance="outline">
+            <mat-label>Status</mat-label>
+            <mat-select formControlName="status">
+              @for (option of statusOptions; track option.value) {
+                <mat-option [value]="option.value">{{ option.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Issue Type</mat-label>
+            <mat-select formControlName="issueType">
+              @for (option of issueTypeOptions; track option.value) {
+                <mat-option [value]="option.value">{{ option.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Hunter</mat-label>
+            <mat-select formControlName="hunterId">
+              <mat-option value="">All hunters</mat-option>
+              @for (hunter of hunters(); track hunter.id) {
+                <mat-option [value]="hunter.id">{{ hunter.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Lister</mat-label>
+            <mat-select formControlName="listerId">
+              <mat-option value="">All listers</mat-option>
+              @for (lister of listers(); track lister.id) {
+                <mat-option [value]="lister.id">{{ lister.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Account</mat-label>
+            <mat-select formControlName="accountId">
+              <mat-option value="">All accounts</mat-option>
+              @for (account of accounts(); track account.id) {
+                <mat-option [value]="account.id">{{ account.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>From date</mat-label>
+            <input matInput type="date" formControlName="dateFrom" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>To date</mat-label>
+            <input matInput type="date" formControlName="dateTo" />
+          </mat-form-field>
+
+          <button mat-flat-button color="primary" type="submit">Apply</button>
+          <button mat-stroked-button type="button" (click)="resetFilters()">Reset</button>
+        </div>
+      </form>
+    </app-filter-panel>
+  </article>
+
+  @if (loading()) {
+    <article class="surface-card">
+      <div class="loading-state">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>Loading change requests.</span>
+      </div>
+    </article>
+  } @else if (!requests().length) {
+    <article class="surface-card">
+      <div class="empty-state">No change requests matched the current filters.</div>
+    </article>
+  } @else {
+    <section class="requests-layout">
+      <article class="surface-card requests-list">
+        <div class="requests-table">
+          <div class="requests-table__head">
+            <span>Product</span>
+            <span>Hunter / Lister</span>
+            <span>Issue</span>
+            <span>Created</span>
+            <span>Status</span>
+          </div>
+
+          @for (request of requests(); track request.id) {
+            <button
+              type="button"
+              class="requests-row"
+              [class.is-active]="selectedRequest()?.id === request.id"
+              (click)="selectRequest(request.id)"
+            >
+              <div>
+                <strong [attr.title]="request.productTitle || request.asin">{{
+                  request.productTitle || request.asin
+                }}</strong>
+                <span>ASIN: {{ request.asin || 'No ASIN' }}</span>
+                <small>{{ request.accountName || 'Not Assigned' }}</small>
+              </div>
+              <div>
+                <strong>{{ request.hunterName || 'No hunter' }}</strong>
+                <span>{{ request.listerName || 'Unassigned lister' }}</span>
+              </div>
+              <div>
+                <strong>{{ (request.issueType || 'OTHER').replaceAll('_', ' ') }}</strong>
+                <span>{{ request.issueReason || request.requestedChanges }}</span>
+              </div>
+              <div>
+                <strong>{{ request.createdAt | date: 'MMM d, y' }}</strong>
+                <span>{{ request.createdAt | date: 'h:mm a' }}</span>
+              </div>
+              <div>
+                <span class="status-badge status-badge--warning">{{ request.status.replaceAll('_', ' ') }}</span>
+              </div>
+            </button>
+          }
+        </div>
+
+        <div class="grid-pager">
+          <span class="grid-pager__status">{{ pageLabel() }}</span>
+          <div class="grid-toolbar__actions">
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="previousPage()"
+              [disabled]="pageIndex() === 0"
+            >
+              Previous
+            </button>
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="nextPage()"
+              [disabled]="(pageIndex() + 1) * pageSize >= total()"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </article>
+
+      <aside class="surface-card request-sidebar">
+        @if (selectedRequest(); as request) {
+          <div class="surface-card__header">
+            <div>
+              <h2>Request Details</h2>
+              <p>Manage the assigned lister and close requests when the product is corrected.</p>
+            </div>
+            <span class="status-badge status-badge--warning">{{ request.status.replaceAll('_', ' ') }}</span>
+          </div>
+
+          <div class="detail-stack">
+            <div class="detail-row"><span>Product</span><strong>{{ request.productTitle || request.asin }}</strong></div>
+            <div class="detail-row"><span>Hunter</span><strong>{{ request.hunterName || 'No hunter' }}</strong></div>
+            <div class="detail-row"><span>Current Lister</span><strong>{{ request.listerName || 'Not assigned' }}</strong></div>
+            <div class="detail-row"><span>Issue Type</span><strong>{{ (request.issueType || 'OTHER').replaceAll('_', ' ') }}</strong></div>
+            <div class="detail-row"><span>Issue Reason</span><strong>{{ request.issueReason || request.requestedChanges }}</strong></div>
+            <div class="detail-row detail-row--link"><span>Current Amazon Link</span><strong>{{ request.currentAmazonLink || 'Not Available' }}</strong></div>
+            <div class="detail-row detail-row--link"><span>Current eBay Link</span><strong>{{ request.currentEbayLink || request.listingUrl || 'Not Available' }}</strong></div>
+          </div>
+
+          <div class="detail-form">
+            <mat-form-field appearance="outline">
+              <mat-label>Reassign lister</mat-label>
+              <mat-select [formControl]="reassignControl">
+                <mat-option value="">Select lister</mat-option>
+                @for (lister of listers(); track lister.id) {
+                  <mat-option [value]="lister.id">{{ lister.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Close notes</mat-label>
+              <textarea matInput [formControl]="closeNotesControl" rows="4"></textarea>
+            </mat-form-field>
+          </div>
+
+          <div class="action-row">
+            <button
+              mat-flat-button
+              color="primary"
+              type="button"
+              (click)="reassignSelected()"
+              [disabled]="!canReassign()"
+            >
+              Reassign
+            </button>
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="closeSelected()"
+              [disabled]="!canClose()"
+            >
+              Close Request
+            </button>
+          </div>
+        }
+      </aside>
+    </section>
+  }
+</section>

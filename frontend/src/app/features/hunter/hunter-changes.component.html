@@ -1,0 +1,165 @@
+<section class="page-shell">
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h1>Product Change Requests</h1>
+        <p>Track listing corrections requested after order or live product issues.</p>
+      </div>
+      <div class="page-actions">
+        <a mat-stroked-button routerLink="/hunter/order-issues">
+          <mat-icon>priority_high</mat-icon>
+          <span>Order Issues</span>
+        </a>
+        <a mat-stroked-button routerLink="/hunter/review">
+          <mat-icon>assignment_turned_in</mat-icon>
+          <span>Weekly Review</span>
+        </a>
+      </div>
+    </div>
+  </article>
+
+  @if (error()) {
+    <div class="inline-state inline-state--error">{{ error() }}</div>
+  }
+
+  <section class="stats-grid stats-grid--three">
+    <article class="stat-card">
+      <span>Open Requests</span>
+      <strong>{{ openCount() }}</strong>
+    </article>
+    <article class="stat-card">
+      <span>In Progress</span>
+      <strong>{{ inProgressCount() }}</strong>
+    </article>
+    <article class="stat-card">
+      <span>Fixed</span>
+      <strong>{{ fixedCount() }}</strong>
+    </article>
+  </section>
+
+  <section class="section-grid">
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Request a change</h2>
+          <p>Use the ASIN from a hunted or listed product that needs a listing fix.</p>
+        </div>
+      </div>
+
+      <form class="form-grid" [formGroup]="createForm" (ngSubmit)="createRequest()">
+        <mat-form-field appearance="outline">
+          <mat-label>ASIN</mat-label>
+          <input matInput formControlName="asin" autocomplete="off" />
+        </mat-form-field>
+
+        <div class="field-span-2">
+          <mat-form-field appearance="outline">
+            <mat-label>Requested changes</mat-label>
+            <textarea matInput rows="5" formControlName="requestedChanges"></textarea>
+          </mat-form-field>
+        </div>
+
+        <div class="field-span-2 page-actions">
+          <button mat-flat-button color="primary" type="submit" [disabled]="saving()">
+            <mat-icon>send</mat-icon>
+            <span>{{ saving() ? 'Sending' : 'Send Change Request' }}</span>
+          </button>
+        </div>
+      </form>
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Your requests</h2>
+          <p>Follow the assigned lister until the product issue is fixed.</p>
+        </div>
+      </div>
+
+    <details class="filter-panel">
+        <summary>
+          <div class="filter-panel__title">
+            <h2>Filters</h2>
+            <p>Search and narrow your change requests by status or issue type.</p>
+          </div>
+          <div class="filter-panel__meta">
+            <span>{{ total() }} requests</span>
+            <span class="filter-panel__chevron">
+              <mat-icon>expand_more</mat-icon>
+            </span>
+          </div>
+        </summary>
+
+        <div class="filter-panel__content">
+          <form class="grid-toolbar" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
+            <mat-form-field appearance="outline" class="grid-toolbar__search">
+              <mat-label>Search ASIN, title, or request</mat-label>
+              <input matInput formControlName="search" autocomplete="off" />
+            </mat-form-field>
+
+            <div class="grid-toolbar__actions grid-toolbar__actions--filters">
+              <mat-form-field appearance="outline">
+                <mat-label>Status</mat-label>
+                <mat-select formControlName="status">
+                  @for (option of statusOptions; track option.value) {
+                    <mat-option [value]="option.value">{{ option.label }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Issue Type</mat-label>
+                <input matInput formControlName="issueType" autocomplete="off" placeholder="LOW_STOCK" />
+              </mat-form-field>
+
+              <button mat-flat-button color="primary" type="submit">Apply</button>
+            </div>
+          </form>
+        </div>
+      </details>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading requests.</span>
+        </div>
+      } @else if (!requests().length) {
+        <div class="empty-state">No change requests found yet.</div>
+      } @else {
+        <div class="breakdown-list">
+          @for (request of requests(); track request.id) {
+            <div class="soft-card request-card">
+              <div class="request-card__header">
+                <div>
+                  <strong>{{ request.productTitle || request.asin }}</strong>
+                  <span>ASIN: {{ request.asin }}</span>
+                </div>
+                <span class="status-badge" [class]="statusTone(request.status)">
+                  {{ request.status.replaceAll('_', ' ') }}
+                </span>
+              </div>
+
+              <p>{{ request.issueReason || request.requestedChanges }}</p>
+              <small>Assigned lister: {{ request.listerName || 'Not assigned yet' }}</small>
+              <small>Issue type: {{ (request.issueType || 'OTHER').replaceAll('_', ' ') }}</small>
+
+              @if (request.resolvedAt || request.completedAt) {
+                <small>Updated {{ (request.resolvedAt || request.completedAt) | date: 'MMM d, y, h:mm a' }}</small>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="grid-pager">
+          <span class="grid-pager__status">
+            Showing {{ pageIndex() * pageSize + 1 }}-{{ pageIndex() * pageSize + requests().length }} of {{ total() }}
+          </span>
+          <div class="grid-toolbar__actions">
+            <button mat-stroked-button type="button" (click)="previousPage()" [disabled]="pageIndex() === 0">Previous</button>
+            <button mat-stroked-button type="button" (click)="nextPage()" [disabled]="(pageIndex() + 1) * pageSize >= total()">Next</button>
+          </div>
+        </div>
+      }
+    </article>
+  </section>
+</section>

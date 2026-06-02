@@ -6,13 +6,24 @@ const createProduct = async (req, res) => {
 };
 
 const listProducts = async (req, res) => {
-  const products = await productsService.listProducts(req.user, req.query);
-  res.json({ products });
+  const result = await productsService.listProducts(req.user, req.query);
+  res.json({
+    products: result.items,
+    page: result.page,
+    limit: result.limit,
+    total: result.total,
+    hasMore: result.hasMore,
+  });
 };
 
 const getProductById = async (req, res) => {
   const product = await productsService.getProductById(req.user, req.params.id);
   res.json({ product });
+};
+
+const checkAsinAvailability = async (req, res) => {
+  const result = await productsService.checkAsinAvailability(req.query.asin);
+  res.json(result);
 };
 
 const listAssignedHunters = async (req, res) => {
@@ -25,10 +36,41 @@ const markProductsListed = async (req, res) => {
   res.json({ products });
 };
 
+const rejectProduct = async (req, res) => {
+  const product = await productsService.rejectProduct(req.user, req.params.id, req.body);
+  res.json({ product });
+};
+
+const softDeleteProducts = async (req, res) => {
+  const deletedIds = await productsService.softDeleteProducts(req.user, req.body);
+  res.json({ deletedIds });
+};
+
+const bulkUpdateProducts = async (req, res) => {
+  const products = await productsService.bulkUpdateProducts(req.user, req.body);
+  res.json({ products });
+};
+
+const permanentlyDeleteProducts = async (req, res) => {
+  const deletedIds = await productsService.permanentlyDeleteProducts(req.user, req.body);
+  res.json({ deletedIds });
+};
+
+const restoreProduct = async (req, res) => {
+  const product = await productsService.restoreProduct(req.user, req.params.id);
+  res.json({ product });
+};
+
 module.exports = {
   createProduct,
   listProducts,
   getProductById,
+  checkAsinAvailability,
   listAssignedHunters,
   markProductsListed,
+  rejectProduct,
+  softDeleteProducts,
+  bulkUpdateProducts,
+  permanentlyDeleteProducts,
+  restoreProduct,
 };

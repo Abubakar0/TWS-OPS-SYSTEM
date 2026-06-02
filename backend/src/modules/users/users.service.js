@@ -1,6 +1,20 @@
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const { pool } = require('../../db/pool');
+const { env } = require('../../config/env');
 const { AppError } = require('../../middleware/error');
+const { normalizePageRequest, buildPageMeta } = require('../../utils/pagination');
+const {
+  PERMISSION_KEYS,
+  VALID_ROLES,
+  canManageRole,
+  listPermissionMatrix,
+  resolvePermissions,
+} = require('./permissions');
+const { listAuditLogs, writeAuditLog } = require('./audit.service');
+const { getConfiguredLimit } = require('../system/system.service');
+
+const VALID_USER_STATUSES = ['active', 'disabled', 'locked', 'deleted'];
 
 const userSelect = `
   id,
@@ -8,70 +22,295 @@ const userSelect = `
   email,
   role,
   is_active AS "isActive",
+  COALESCE(status, CASE WHEN is_active THEN 'active' ELSE 'disabled' END) AS status,
+  COALESCE(permissions, '{}'::jsonb) AS permissions,
+  created_by AS "createdBy",
+  updated_by AS "updatedBy",
+  disabled_by AS "disabledBy",
+  last_login AS "lastLogin",
+  deleted_at AS "deletedAt",
+  parent_user_id AS "parentUserId",
+  tenant_id AS "tenantId",
   created_at AS "createdAt",
   updated_at AS "updatedAt"
 `;
 
+const signImpersonationToken = (user) =>
+  jwt.sign(
+    {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      name: user.name,
+      permissions: user.permissions,
+    },
+    env.jwtSecret,
+    { expiresIn: env.jwtExpiresIn },
+  );
+
+const normalizePermissions = (permissions) =>
+  permissions && typeof permissions === 'object' && !Array.isArray(permissions) ? permissions : {};
+
 const normalizeUser = (row) => ({
   ...row,
   isActive: Boolean(row.isActive),
+  status: row.status || (row.isActive ? 'active' : 'disabled'),
+  permissions: resolvePermissions(row.role, normalizePermissions(row.permissions)),
 });
 
-const listUsers = async ({ role } = {}) => {
-  const params = [];
-  let where = '';
+const assertValidRole = (role) => {
+  if (!VALID_ROLES.includes(role)) {
+    throw new AppError('Invalid user role.', 400);
+  }
+};
 
-  if (role) {
-    params.push(role);
-    where = 'WHERE role = $1';
+const assertValidStatus = (status) => {
+  if (!VALID_USER_STATUSES.includes(status)) {
+    throw new AppError('Invalid user status.', 400);
+  }
+};
+
+const assertValidPermissionOverrides = (permissions) => {
+  if (permissions === undefined) {
+    return;
   }
 
+  if (!permissions || typeof permissions !== 'object' || Array.isArray(permissions)) {
+    throw new AppError('Permissions must be an object.', 400);
+  }
+
+  const invalidKeys = Object.keys(permissions).filter((key) => !PERMISSION_KEYS.includes(key));
+
+  if (invalidKeys.length > 0) {
+    throw new AppError(`Invalid permission keys: ${invalidKeys.join(', ')}.`, 400);
+  }
+};
+
+const assertActorCanManageRole = (actor, role, actionLabel = 'manage') => {
+  if (!actor || !canManageRole(actor.role, role)) {
+    throw new AppError(`You do not have permission to ${actionLabel} ${role.replace('_', ' ')} users.`, 403);
+  }
+};
+
+const ensureEmailAvailable = async (email, currentUserId = null) => {
+  const params = [email];
+  let sql = 'SELECT id FROM users WHERE email = $1';
+
+  if (currentUserId) {
+    params.push(currentUserId);
+    sql += ' AND id <> $2';
+  }
+
+  const existing = await pool.query(sql, params);
+
+  if (existing.rowCount > 0) {
+    throw new AppError('A user with this email already exists.', 409);
+  }
+};
+
+const mapUserPersistenceError = (error) => {
+  if (error?.code === '23505') {
+    throw new AppError('A user with this email already exists.', 409);
+  }
+
+  throw error;
+};
+
+const getUserById = async (id, { includeDeleted = false } = {}) => {
   const result = await pool.query(
     `
       SELECT ${userSelect}
       FROM users
-      ${where}
-      ORDER BY role, name
+      WHERE id = $1
+        ${includeDeleted ? '' : 'AND deleted_at IS NULL'}
+      LIMIT 1
     `,
-    params,
+    [id],
   );
 
-  return result.rows.map(normalizeUser);
+  const user = result.rows[0];
+
+  if (!user) {
+    throw new AppError('User not found.', 404);
+  }
+
+  return normalizeUser(user);
 };
 
-const createUser = async (payload) => {
+const ensureActorCanTouchUser = (actor, target, actionLabel = 'manage') => {
+  assertActorCanManageRole(actor, target.role, actionLabel);
+
+  if (actor.role === 'admin' && ['admin', 'super_admin'].includes(target.role)) {
+    throw new AppError('Admins can only manage hunter and lister users.', 403);
+  }
+};
+
+const buildVisibilityFilters = (actor, query) => {
+  const clauses = [];
+  const params = [];
+
+  if (actor.role === 'admin') {
+    clauses.push(`role IN ('hunter', 'lister', 'order_processor')`);
+  }
+
+  if (!query.includeDeleted) {
+    clauses.push('deleted_at IS NULL');
+  }
+
+  if (query.role) {
+    assertValidRole(query.role);
+
+    if (actor.role === 'admin' && !['hunter', 'lister', 'order_processor'].includes(query.role)) {
+      throw new AppError('Admins can only access hunter, lister, and order processor records.', 403);
+    }
+
+    params.push(query.role);
+    clauses.push(`role = $${params.length}`);
+  }
+
+  if (query.search) {
+    params.push(`%${String(query.search).trim()}%`);
+    clauses.push(`(
+      name ILIKE $${params.length}
+      OR email ILIKE $${params.length}
+      OR role::text ILIKE $${params.length}
+      OR status ILIKE $${params.length}
+    )`);
+  }
+
+  if (query.status) {
+    assertValidStatus(query.status);
+    params.push(query.status);
+    clauses.push(`status = $${params.length}`);
+  }
+
+  return {
+    whereSql: clauses.length ? `WHERE ${clauses.join(' AND ')}` : '',
+    params,
+  };
+};
+
+const listUsers = async (actor, query = {}) => {
+  const filters = buildVisibilityFilters(actor, query);
+  const defaultLimit = await getConfiguredLimit('users', query.limit);
+  const pageRequest = normalizePageRequest(query, defaultLimit);
+  const result = await pool.query(
+    `
+      SELECT COUNT(*) OVER()::int AS "totalCount", ${userSelect}
+      FROM users
+      ${filters.whereSql}
+      ORDER BY
+        CASE role
+          WHEN 'super_admin' THEN 1
+          WHEN 'admin' THEN 2
+          WHEN 'order_processor' THEN 3
+          WHEN 'lister' THEN 4
+          ELSE 5
+        END,
+        name
+      LIMIT $${filters.params.length + 1}
+      OFFSET $${filters.params.length + 2}
+    `,
+    [...filters.params, pageRequest.limit, pageRequest.offset],
+  );
+
+  const items = result.rows.map(normalizeUser);
+  const total = result.rows[0]?.totalCount || 0;
+
+  return {
+    items,
+    ...buildPageMeta(pageRequest.page, pageRequest.limit, total),
+  };
+};
+
+const createUser = async (actor, payload) => {
   const { name, email, password, role } = payload;
 
-  if (!name || !email || !password || !['admin', 'hunter', 'lister'].includes(role)) {
+  if (!name || !email || !password || !role) {
     throw new AppError('Name, email, password, and valid role are required.', 400);
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
-  const result = await pool.query(
-    `
-      INSERT INTO users (name, email, password_hash, role, is_active)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING ${userSelect}
-    `,
-    [name.trim(), email.trim().toLowerCase(), passwordHash, role, payload.isActive ?? true],
-  );
+  assertValidRole(role);
+  assertActorCanManageRole(actor, role, 'create');
+  assertValidPermissionOverrides(payload.permissions);
 
-  return normalizeUser(result.rows[0]);
+  const normalizedName = String(name).trim();
+  const normalizedEmail = String(email).trim().toLowerCase();
+
+  if (!normalizedName || !normalizedEmail) {
+    throw new AppError('Name and email are required.', 400);
+  }
+
+  await ensureEmailAvailable(normalizedEmail);
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  const isActive = payload.isActive ?? true;
+  const status = isActive ? 'active' : 'disabled';
+  const permissions = resolvePermissions(role, payload.permissions);
+
+  let result;
+
+  try {
+    result = await pool.query(
+      `
+        INSERT INTO users (
+          name,
+          email,
+          password_hash,
+          role,
+          is_active,
+          status,
+          permissions,
+          created_by,
+          updated_by,
+          disabled_by
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $8, $9)
+        RETURNING ${userSelect}
+      `,
+      [
+        normalizedName,
+        normalizedEmail,
+        passwordHash,
+        role,
+        isActive,
+        status,
+        JSON.stringify(permissions),
+        actor.id,
+        isActive ? null : actor.id,
+      ],
+    );
+  } catch (error) {
+    mapUserPersistenceError(error);
+  }
+
+  const createdUser = normalizeUser(result.rows[0]);
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'user.create',
+    targetType: 'user',
+    targetId: createdUser.id,
+    details: {
+      role: createdUser.role,
+      status: createdUser.status,
+      email: createdUser.email,
+    },
+  });
+
+  return createdUser;
 };
 
-const updateUser = async (id, payload) => {
-  const existing = await pool.query('SELECT id FROM users WHERE id = $1', [id]);
-
-  if (existing.rowCount === 0) {
-    throw new AppError('User not found.', 404);
-  }
+const updateUser = async (actor, id, payload) => {
+  const existing = await getUserById(id, { includeDeleted: true });
+  ensureActorCanTouchUser(actor, existing, 'update');
 
   const updates = [];
   const params = [];
 
-  const addUpdate = (column, value) => {
+  const addUpdate = (column, value, cast = '') => {
     params.push(value);
-    updates.push(`${column} = $${params.length}`);
+    updates.push(`${column} = $${params.length}${cast}`);
   };
 
   if (payload.name !== undefined) {
@@ -79,50 +318,283 @@ const updateUser = async (id, payload) => {
   }
 
   if (payload.email !== undefined) {
-    addUpdate('email', String(payload.email).trim().toLowerCase());
+    const normalizedEmail = String(payload.email).trim().toLowerCase();
+    await ensureEmailAvailable(normalizedEmail, id);
+    addUpdate('email', normalizedEmail);
   }
 
   if (payload.role !== undefined) {
-    if (!['admin', 'hunter', 'lister'].includes(payload.role)) {
-      throw new AppError('Invalid user role.', 400);
-    }
-
+    assertValidRole(payload.role);
+    assertActorCanManageRole(actor, payload.role, 'assign');
     addUpdate('role', payload.role);
   }
 
-  if (payload.isActive !== undefined) {
-    addUpdate('is_active', Boolean(payload.isActive));
+  if (payload.permissions !== undefined) {
+    const targetRole = payload.role || existing.role;
+    assertValidPermissionOverrides(payload.permissions);
+    addUpdate('permissions', JSON.stringify(resolvePermissions(targetRole, payload.permissions)), '::jsonb');
   }
 
   if (payload.password) {
     addUpdate('password_hash', await bcrypt.hash(payload.password, 10));
   }
 
-  if (updates.length === 0) {
-    const result = await pool.query(`SELECT ${userSelect} FROM users WHERE id = $1`, [id]);
-    return normalizeUser(result.rows[0]);
+  if (payload.status !== undefined) {
+    assertValidStatus(payload.status);
+
+    if (payload.status === 'deleted') {
+      throw new AppError('Use the delete action for soft deletion.', 400);
+    }
+
+    addUpdate('status', payload.status);
+    addUpdate('is_active', payload.status === 'active');
+    addUpdate('disabled_by', payload.status === 'active' ? null : actor.id);
+  } else if (payload.isActive !== undefined) {
+    const isActive = Boolean(payload.isActive);
+    addUpdate('is_active', isActive);
+    addUpdate('status', isActive ? 'active' : 'disabled');
+    addUpdate('disabled_by', isActive ? null : actor.id);
+  }
+
+  addUpdate('updated_by', actor.id);
+
+  if (updates.length === 1) {
+    return existing;
   }
 
   params.push(id);
 
+  let result;
+
+  try {
+    result = await pool.query(
+      `
+        UPDATE users
+        SET ${updates.join(', ')},
+            updated_at = NOW()
+        WHERE id = $${params.length}
+        RETURNING ${userSelect}
+      `,
+      params,
+    );
+  } catch (error) {
+    mapUserPersistenceError(error);
+  }
+
+  const updatedUser = normalizeUser(result.rows[0]);
+  const action =
+    payload.role !== undefined
+      ? 'user.role.change'
+      : payload.isActive !== undefined || payload.status !== undefined
+        ? updatedUser.isActive
+          ? 'user.enable'
+          : 'user.disable'
+        : 'user.update';
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action,
+    targetType: 'user',
+    targetId: updatedUser.id,
+    details: {
+      role: updatedUser.role,
+      status: updatedUser.status,
+      permissions: updatedUser.permissions,
+    },
+  });
+
+  return updatedUser;
+};
+
+const softDeleteUser = async (actor, id) => {
+  const existing = await getUserById(id, { includeDeleted: true });
+  ensureActorCanTouchUser(actor, existing, 'delete');
+
   const result = await pool.query(
     `
       UPDATE users
-      SET ${updates.join(', ')},
+      SET is_active = FALSE,
+          status = 'deleted',
+          deleted_at = NOW(),
+          disabled_by = $2,
+          updated_by = $2,
           updated_at = NOW()
-      WHERE id = $${params.length}
+      WHERE id = $1
       RETURNING ${userSelect}
     `,
-    params,
+    [id, actor.id],
   );
 
-  return normalizeUser(result.rows[0]);
+  const deletedUser = normalizeUser(result.rows[0]);
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'user.delete',
+    targetType: 'user',
+    targetId: deletedUser.id,
+    details: { role: deletedUser.role, email: deletedUser.email },
+  });
+
+  return deletedUser;
 };
 
-const listAssignments = async () => {
+const restoreUser = async (actor, id) => {
+  const existing = await getUserById(id, { includeDeleted: true });
+  ensureActorCanTouchUser(actor, existing, 'restore');
+
+  const result = await pool.query(
+    `
+      UPDATE users
+      SET is_active = TRUE,
+          status = 'active',
+          deleted_at = NULL,
+          disabled_by = NULL,
+          updated_by = $2,
+          updated_at = NOW()
+      WHERE id = $1
+      RETURNING ${userSelect}
+    `,
+    [id, actor.id],
+  );
+
+  const restoredUser = normalizeUser(result.rows[0]);
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'user.restore',
+    targetType: 'user',
+    targetId: restoredUser.id,
+    details: { role: restoredUser.role, email: restoredUser.email },
+  });
+
+  return restoredUser;
+};
+
+const resetUserPassword = async (actor, id, password = 'Password123!') => {
+  const target = await getUserById(id, { includeDeleted: true });
+  ensureActorCanTouchUser(actor, target, 'reset password for');
+
+  const result = await pool.query(
+    `
+      UPDATE users
+      SET password_hash = $2,
+          updated_by = $3,
+          updated_at = NOW()
+      WHERE id = $1
+      RETURNING ${userSelect}
+    `,
+    [id, await bcrypt.hash(password, 10), actor.id],
+  );
+
+  const updatedUser = normalizeUser(result.rows[0]);
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'user.password.reset',
+    targetType: 'user',
+    targetId: updatedUser.id,
+    details: { email: updatedUser.email },
+  });
+
+  return updatedUser;
+};
+
+const unlockUser = async (actor, id) => {
+  const target = await getUserById(id, { includeDeleted: true });
+  ensureActorCanTouchUser(actor, target, 'unlock');
+
+  const result = await pool.query(
+    `
+      UPDATE users
+      SET is_active = TRUE,
+          status = 'active',
+          disabled_by = NULL,
+          deleted_at = NULL,
+          updated_by = $2,
+          updated_at = NOW()
+      WHERE id = $1
+      RETURNING ${userSelect}
+    `,
+    [id, actor.id],
+  );
+
+  const updatedUser = normalizeUser(result.rows[0]);
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'user.unlock',
+    targetType: 'user',
+    targetId: updatedUser.id,
+    details: { email: updatedUser.email },
+  });
+
+  return updatedUser;
+};
+
+const impersonateUser = async (actor, id) => {
+  const target = await getUserById(id, { includeDeleted: false });
+
+  if (actor.role !== 'super_admin') {
+    throw new AppError('Only Super Admin users can impersonate another user.', 403);
+  }
+
+  if (target.role !== 'admin') {
+    throw new AppError('Super Admin impersonation is limited to admin accounts.', 400);
+  }
+
+  if (!target.isActive) {
+    throw new AppError('Disabled users cannot be impersonated.', 400);
+  }
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'auth.impersonate',
+    targetType: 'user',
+    targetId: target.id,
+    details: {
+      targetRole: target.role,
+      targetEmail: target.email,
+    },
+  });
+
+  return {
+    token: signImpersonationToken(target),
+    user: target,
+  };
+};
+
+const listAssignments = async (query = {}) => {
+  const params = [];
+  const where = ["hunter.role = 'hunter'", 'hunter.deleted_at IS NULL'];
+
+  if (query.search) {
+    params.push(`%${String(query.search).trim()}%`);
+    const index = params.length;
+    where.push(`(
+      hunter.name ILIKE $${index}
+      OR hunter.email ILIKE $${index}
+      OR COALESCE(lister.name, '') ILIKE $${index}
+      OR COALESCE(lister.email, '') ILIKE $${index}
+    )`);
+  }
+
+  if (query.status === 'assigned') {
+    where.push('lister.id IS NOT NULL');
+  } else if (query.status === 'unassigned') {
+    where.push('lister.id IS NULL');
+  }
+
+  if (query.listerId) {
+    params.push(query.listerId);
+    where.push(`lister.id = $${params.length}`);
+  }
+
+  const defaultLimit = await getConfiguredLimit('assignments', query.limit);
+  const pageRequest = normalizePageRequest(query, defaultLimit);
   const result = await pool.query(
     `
       SELECT
+        COUNT(*) OVER()::int AS "totalCount",
         hunter.id AS "hunterId",
         hunter.name AS "hunterName",
         hunter.email AS "hunterEmail",
@@ -134,16 +606,27 @@ const listAssignments = async () => {
       FROM users hunter
       LEFT JOIN hunter_lister_assignments hla ON hla.hunter_id = hunter.id
       LEFT JOIN users lister ON lister.id = hla.lister_id
-      WHERE hunter.role = 'hunter'
+      WHERE ${where.join(' AND ')}
       ORDER BY hunter.name
+      LIMIT $${params.length + 1}
+      OFFSET $${params.length + 2}
     `,
+    [...params, pageRequest.limit, pageRequest.offset],
   );
 
-  return result.rows;
+  const total = result.rows[0]?.totalCount || 0;
+
+  return {
+    items: result.rows,
+    ...buildPageMeta(pageRequest.page, pageRequest.limit, total),
+  };
 };
 
-const setHunterLister = async (hunterId, listerId) => {
-  const hunter = await pool.query("SELECT id FROM users WHERE id = $1 AND role = 'hunter'", [hunterId]);
+const setHunterLister = async (actor, hunterId, listerId) => {
+  const hunter = await pool.query(
+    "SELECT id, role, email FROM users WHERE id = $1 AND role = 'hunter' AND deleted_at IS NULL",
+    [hunterId],
+  );
 
   if (hunter.rowCount === 0) {
     throw new AppError('Hunter not found.', 404);
@@ -161,10 +644,22 @@ const setHunterLister = async (hunterId, listerId) => {
       `,
       [hunterId],
     );
+
+    await writeAuditLog({
+      actorUserId: actor.id,
+      action: 'assignment.clear',
+      targetType: 'user',
+      targetId: hunterId,
+      details: { hunterId, listerId: null },
+    });
+
     return { hunterId, listerId: null };
   }
 
-  const lister = await pool.query("SELECT id FROM users WHERE id = $1 AND role = 'lister'", [listerId]);
+  const lister = await pool.query(
+    "SELECT id FROM users WHERE id = $1 AND role = 'lister' AND deleted_at IS NULL",
+    [listerId],
+  );
 
   if (lister.rowCount === 0) {
     throw new AppError('Lister not found.', 404);
@@ -192,13 +687,30 @@ const setHunterLister = async (hunterId, listerId) => {
     [hunterId, listerId],
   );
 
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'assignment.update',
+    targetType: 'user',
+    targetId: hunterId,
+    details: { hunterId, listerId },
+  });
+
   return { hunterId, listerId };
 };
+
+const getPermissionsMatrix = async () => listPermissionMatrix();
 
 module.exports = {
   listUsers,
   createUser,
   updateUser,
+  softDeleteUser,
+  restoreUser,
+  resetUserPassword,
+  unlockUser,
+  impersonateUser,
+  listUsersAudit: listAuditLogs,
+  getPermissionsMatrix,
   listAssignments,
   setHunterLister,
 };

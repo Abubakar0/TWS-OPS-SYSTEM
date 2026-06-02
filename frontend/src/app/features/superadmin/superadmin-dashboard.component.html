@@ -1,0 +1,237 @@
+<section class="page-shell">
+  <div class="hero-banner">
+    <div>
+      <span class="hero-banner__eyebrow">Super Admin</span>
+      <h1 class="hero-banner__title">Global control panel</h1>
+      <p class="hero-banner__subtitle">
+        Track the full platform across users, workflow, and system activity.
+      </p>
+    </div>
+
+    <div class="hero-banner__meta">
+      <a mat-stroked-button routerLink="/superadmin/reports">
+        <mat-icon>analytics</mat-icon>
+        <span>Open Reports</span>
+      </a>
+      <button
+        mat-stroked-button
+        type="button"
+        (click)="applyPreset(selectedRange())"
+        [disabled]="loading()"
+      >
+        <mat-icon>refresh</mat-icon>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </div>
+
+  @if (error()) {
+    <div class="inline-state inline-state--error">{{ error() }}</div>
+  }
+
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h2>Dashboard range</h2>
+        <p>Choose the reporting window.</p>
+      </div>
+    </div>
+
+    <div class="range-toolbar">
+      @for (option of rangeButtons; track option.key) {
+        <button
+          type="button"
+          mat-stroked-button
+          class="range-chip"
+          [class.range-chip--active]="selectedRange() === option.key"
+          (click)="applyPreset(option.key)"
+        >
+          {{ option.label }}
+        </button>
+      }
+    </div>
+
+    @if (selectedRange() === 'custom') {
+      <form class="custom-range-form" [formGroup]="customRangeForm" (ngSubmit)="applyCustomRange()">
+        <mat-form-field appearance="outline">
+          <mat-label>From date</mat-label>
+          <input matInput type="date" formControlName="from" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>To date</mat-label>
+          <input matInput type="date" formControlName="to" />
+        </mat-form-field>
+
+        <button
+          mat-flat-button
+          color="primary"
+          type="submit"
+          [disabled]="loading() || customRangeForm.invalid"
+        >
+          <mat-icon>date_range</mat-icon>
+          <span>Apply Range</span>
+        </button>
+      </form>
+
+      @if (customRangeError()) {
+        <div class="inline-state inline-state--error">{{ customRangeError() }}</div>
+      }
+    }
+  </article>
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <span>Total admins</span>
+      <strong>{{ stats()?.totalAdmins || 0 }}</strong>
+      <small>Workspace admin operators available in the system.</small>
+    </article>
+    <article class="stat-card">
+      <span>Total listers</span>
+      <strong>{{ stats()?.totalListers || 0 }}</strong>
+      <small>Listing operators currently on the platform.</small>
+    </article>
+    <article class="stat-card">
+      <span>Total hunters</span>
+      <strong>{{ stats()?.totalHunters || 0 }}</strong>
+      <small>Research operators currently on the platform.</small>
+    </article>
+    <article class="stat-card">
+      <span>Active users</span>
+      <strong>{{ stats()?.activeUsers || 0 }}</strong>
+      <small>Users who can sign in right now.</small>
+    </article>
+    <article class="stat-card">
+      <span>Disabled users</span>
+      <strong>{{ stats()?.disabledUsers || 0 }}</strong>
+      <small>Accounts currently blocked from access.</small>
+    </article>
+    <article class="stat-card">
+      <span>Total hunting</span>
+      <strong>{{ stats()?.totalHunting || 0 }}</strong>
+      <small>Products created in the selected range.</small>
+    </article>
+    <article class="stat-card">
+      <span>Total listings</span>
+      <strong>{{ stats()?.totalListings || 0 }}</strong>
+      <small>Products moved to listed status in the range.</small>
+    </article>
+    <article class="stat-card">
+      <span>Rejected products</span>
+      <strong>{{ stats()?.rejectedProducts || 0 }}</strong>
+      <small>Products rejected in the selected view.</small>
+    </article>
+    <article class="stat-card">
+      <span>System activity</span>
+      <strong>{{ stats()?.systemActivity || 0 }}</strong>
+      <small>Tracked audit events in the current date window.</small>
+    </article>
+  </section>
+
+  <section class="stats-grid stats-grid--four">
+    @for (card of orderHighlights(); track card.label) {
+      <article class="stat-card">
+        <div class="stat-card__header">
+          <div class="stat-card__icon" [class.stat-card__icon--success]="card.tone === 'stat-card__icon--success'" [class.stat-card__icon--warning]="card.tone === 'stat-card__icon--warning'" [class.stat-card__icon--danger]="card.tone === 'stat-card__icon--danger'">
+            <mat-icon>{{ card.icon }}</mat-icon>
+          </div>
+        </div>
+        <span>{{ card.label }}</span>
+        <strong>{{ card.value }}</strong>
+        <small>{{ card.detail }}</small>
+      </article>
+    }
+  </section>
+
+  <section class="section-grid section-grid--three">
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>By hunter</h2>
+          <p>Hunted and listed totals.</p>
+        </div>
+      </div>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading hunter performance.</span>
+        </div>
+      } @else if (topHunters().length) {
+        <div class="breakdown-list">
+          @for (row of topHunters(); track row.id) {
+            <div class="breakdown-row">
+              <div>
+                <strong>{{ row.name }}</strong>
+                <span>Hunted {{ row.hunted }} <b>|</b> Listed {{ row.listed }}</span>
+              </div>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="empty-state">No hunter activity matched this range.</div>
+      }
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>By lister</h2>
+          <p>Listing totals and scope.</p>
+        </div>
+      </div>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading lister performance.</span>
+        </div>
+      } @else if (topListers().length) {
+        <div class="breakdown-list">
+          @for (row of topListers(); track row.id) {
+            <div class="breakdown-row">
+              <div>
+                <strong>{{ row.name }}</strong>
+                <span
+                  >Listed {{ row.listed }} <b>|</b> Assigned hunters {{ row.assignedHunters }}</span
+                >
+              </div>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="empty-state">No lister activity matched this range.</div>
+      }
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>By account</h2>
+          <p>Listed totals by account.</p>
+        </div>
+      </div>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading account performance.</span>
+        </div>
+      } @else if (topAccounts().length) {
+        <div class="breakdown-list">
+          @for (row of topAccounts(); track row.id) {
+            <div class="breakdown-row">
+              <div>
+                <strong>{{ row.name }}</strong>
+                <span>Listed products</span>
+              </div>
+              <strong class="breakdown-row__count">{{ row.listed }}</strong>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="empty-state">No account activity matched this range.</div>
+      }
+    </article>
+  </section>
+</section>

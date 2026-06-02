@@ -1,0 +1,88 @@
+<section class="page-shell">
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h1>Hunting Rules</h1>
+        <p>Everything a hunter should check before sending a product into the listing workflow.</p>
+      </div>
+      <div class="page-actions">
+        <a mat-stroked-button routerLink="/hunter/review">
+          <mat-icon>assignment_turned_in</mat-icon>
+          <span>Weekly Review</span>
+        </a>
+        <a mat-flat-button color="primary" routerLink="/hunter/changes">
+          <mat-icon>swap_horiz</mat-icon>
+          <span>Changed Product Requests</span>
+        </a>
+      </div>
+    </div>
+  </article>
+
+  @if (error()) {
+    <div class="inline-state inline-state--error">{{ error() }}</div>
+  } @else if (loading()) {
+    <article class="surface-card">
+      <div class="loading-state">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>Loading live hunting criteria.</span>
+      </div>
+    </article>
+  } @else {
+    <section class="section-grid">
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>How to hunt cleanly</h2>
+            <p>Use this as the short version before every submission.</p>
+          </div>
+        </div>
+
+        <div class="breakdown-list">
+          @for (item of basics; track item) {
+            <div class="breakdown-row">
+              <div>
+                <strong>{{ item }}</strong>
+              </div>
+            </div>
+          }
+        </div>
+      </article>
+
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Live criteria</h2>
+            <p>These values come from the current admin settings.</p>
+          </div>
+        </div>
+
+        <div class="simple-table">
+          @for (rule of ruleRows(); track rule[0]) {
+            <div class="simple-table__row simple-table__row--two">
+              <strong>{{ rule[0] }}</strong>
+              <span>{{ rule[1] }}</span>
+            </div>
+          }
+        </div>
+      </article>
+
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Quality guide</h2>
+            <p>How hunting labels are assigned once a product passes validation.</p>
+          </div>
+        </div>
+
+        <div class="quality-guide">
+          @for (rule of qualityGuide(); track rule.label) {
+            <div class="quality-guide__row">
+              <strong>{{ rule.label }}</strong>
+              <span>{{ rule.detail }}</span>
+            </div>
+          }
+        </div>
+      </article>
+    </section>
+  }
+</section>

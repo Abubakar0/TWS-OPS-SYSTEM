@@ -1,256 +1,340 @@
-<section class="page-header">
-  <div>
-    <span class="eyebrow">Operations control</span>
-    <h1>Admin Console</h1>
-    <p>Manage users, assignments, hunting criteria, accounts, and performance reporting.</p>
-  </div>
-  <button mat-stroked-button type="button" (click)="loadAll()" [disabled]="loading()">
-    <mat-icon>refresh</mat-icon>
-    <span>Refresh</span>
-  </button>
-</section>
+<section class="page-shell">
+  @if (error()) {
+    <div class="inline-state inline-state--error">{{ error() }}</div>
+  }
 
-@if (error()) {
-  <div class="error-message">{{ error() }}</div>
-}
-
-<section class="summary-grid">
-  <div class="summary-tile">
-    <span>Hunted</span>
-    <strong>{{ stats()?.hunted || 0 }}</strong>
-  </div>
-  <div class="summary-tile">
-    <span>Ready</span>
-    <strong>{{ stats()?.ready || 0 }}</strong>
-  </div>
-  <div class="summary-tile">
-    <span>Listed</span>
-    <strong>{{ stats()?.listed || 0 }}</strong>
-  </div>
-  <div class="summary-tile">
-    <span>Avg ROI</span>
-    <strong>{{ stats()?.averageRoi || 0 }}%</strong>
-  </div>
-</section>
-
-<mat-tab-group>
-  <mat-tab label="Users">
-    <section class="tab-grid">
-      <div class="panel">
-        <h2>Add User</h2>
-        <form [formGroup]="userForm" (ngSubmit)="createUser()" class="stack-form">
-          <mat-form-field appearance="outline">
-            <mat-label>Name</mat-label>
-            <input matInput formControlName="name" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Email</mat-label>
-            <input matInput type="email" formControlName="email" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Password</mat-label>
-            <input matInput formControlName="password" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Role</mat-label>
-            <mat-select formControlName="role">
-              <mat-option value="hunter">Hunter</mat-option>
-              <mat-option value="lister">Lister</mat-option>
-              <mat-option value="admin">Admin</mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-checkbox formControlName="isActive">Can log in</mat-checkbox>
-
-          <button mat-flat-button color="primary" type="submit" [disabled]="saving()">
-            <mat-icon>person_add</mat-icon>
-            <span>Add User</span>
-          </button>
-        </form>
+  <article class="surface-card dashboard-header-card">
+    <div class="surface-card__header">
+      <div>
+        <span class="kicker">Admin Dashboard</span>
+        <h1>Operations overview</h1>
+        <p>{{ selectedRangeLabel() }}</p>
       </div>
 
-      <div class="panel">
-        <h2>Users</h2>
-        <div class="list">
-          @for (user of users(); track user.id) {
-            <div class="list-row">
-              <div>
-                <strong>{{ user.name }}</strong>
-                <span>{{ user.email }} · {{ user.role }}</span>
-              </div>
-              <button mat-stroked-button type="button" (click)="toggleUser(user)">
-                <mat-icon>{{ user.isActive ? 'block' : 'check_circle' }}</mat-icon>
-                <span>{{ user.isActive ? 'Disable' : 'Enable' }}</span>
-              </button>
-            </div>
-          }
-        </div>
+      <div class="page-actions">
+        <a mat-stroked-button routerLink="/admin/order-issues">
+          <mat-icon>error_outline</mat-icon>
+          <span>Order Issues</span>
+        </a>
+        <a mat-stroked-button routerLink="/admin/change-requests">
+          <mat-icon>fact_check</mat-icon>
+          <span>Change Requests</span>
+        </a>
+        <a mat-stroked-button routerLink="/admin/activity">
+          <mat-icon>history</mat-icon>
+          <span>Activity Feed</span>
+        </a>
+        <button mat-stroked-button type="button" (click)="loadDashboard()" [disabled]="loading()">
+          <mat-icon>refresh</mat-icon>
+          <span>Refresh</span>
+        </button>
       </div>
-    </section>
-  </mat-tab>
+    </div>
 
-  <mat-tab label="Assignments">
-    <section class="panel">
-      <h2>Hunter to Lister Assignments</h2>
-      <div class="list">
-        @for (assignment of assignments(); track assignment.hunterId) {
-          <div class="list-row assignment-row">
-            <div>
-              <strong>{{ assignment.hunterName }}</strong>
-              <span>{{ assignment.hunterEmail }}</span>
-            </div>
-            <mat-form-field appearance="outline">
-              <mat-label>Lister</mat-label>
-              <mat-select [value]="assignment.listerId || ''" (selectionChange)="setAssignment(assignment.hunterId, $event.value)">
-                <mat-option value="">Unassigned</mat-option>
-                @for (lister of listers(); track lister.id) {
-                  <mat-option [value]="lister.id">{{ lister.name }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-          </div>
-        }
-      </div>
-    </section>
-  </mat-tab>
+    <form class="dashboard-filters" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
+      <mat-form-field appearance="outline">
+        <mat-label>From</mat-label>
+        <input matInput type="date" formControlName="from" />
+      </mat-form-field>
 
-  <mat-tab label="Criteria">
-    <section class="tab-grid">
-      <div class="panel">
-        <h2>Hunting Criteria</h2>
-        <form [formGroup]="criteriaForm" (ngSubmit)="saveCriteria()" class="stack-form">
-          <mat-form-field appearance="outline">
-            <mat-label>Minimum ROI %</mat-label>
-            <input matInput type="number" formControlName="minRoi" />
-          </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>To</mat-label>
+        <input matInput type="date" formControlName="to" />
+      </mat-form-field>
 
-          <mat-form-field appearance="outline">
-            <mat-label>Minimum profit</mat-label>
-            <input matInput type="number" formControlName="minProfit" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Minimum sold count</mat-label>
-            <input matInput type="number" formControlName="minSoldCount" />
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Fee percentage</mat-label>
-            <input matInput type="number" formControlName="feePercent" />
-          </mat-form-field>
-
-          <mat-checkbox formControlName="asinRequired">ASIN is mandatory</mat-checkbox>
-
-          <button mat-flat-button color="primary" type="submit">
-            <mat-icon>save</mat-icon>
-            <span>Save Criteria</span>
-          </button>
-        </form>
-      </div>
-
-      <div class="panel">
-        <h2>Accounts</h2>
-        <form [formGroup]="accountForm" (ngSubmit)="createAccount()" class="inline-form">
-          <mat-form-field appearance="outline">
-            <mat-label>Account name</mat-label>
-            <input matInput formControlName="name" />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Marketplace</mat-label>
-            <input matInput formControlName="marketplace" />
-          </mat-form-field>
-          <button mat-flat-button color="primary" type="submit">
-            <mat-icon>add</mat-icon>
-            <span>Add</span>
-          </button>
-        </form>
-
-        <div class="list compact-list">
-          @for (account of accounts(); track account.id) {
-            <div class="list-row">
-              <div>
-                <strong>{{ account.name }}</strong>
-                <span>{{ account.marketplace }} · {{ account.isActive ? 'Active' : 'Disabled' }}</span>
-              </div>
-              <button mat-stroked-button type="button" (click)="toggleAccount(account)">
-                <mat-icon>{{ account.isActive ? 'block' : 'check_circle' }}</mat-icon>
-                <span>{{ account.isActive ? 'Disable' : 'Enable' }}</span>
-              </button>
-            </div>
-          }
-        </div>
-      </div>
-    </section>
-  </mat-tab>
-
-  <mat-tab label="Reports">
-    <section class="panel">
-      <h2>Stats Filters</h2>
-      <form [formGroup]="reportFilters" (ngSubmit)="loadStats()" class="report-form">
-        <mat-form-field appearance="outline">
-          <mat-label>From</mat-label>
-          <input matInput type="date" formControlName="from" />
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>To</mat-label>
-          <input matInput type="date" formControlName="to" />
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Hunter</mat-label>
-          <mat-select formControlName="hunterId">
-            <mat-option value="">All hunters</mat-option>
-            @for (hunter of hunters(); track hunter.id) {
-              <mat-option [value]="hunter.id">{{ hunter.name }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Lister</mat-label>
-          <mat-select formControlName="listerId">
-            <mat-option value="">All listers</mat-option>
-            @for (lister of listers(); track lister.id) {
-              <mat-option [value]="lister.id">{{ lister.name }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
-        <button mat-flat-button color="primary" type="submit">
-          <mat-icon>analytics</mat-icon>
+      <div class="grid-toolbar__actions">
+        <button mat-stroked-button type="button" (click)="resetToday()" [disabled]="loading()">
+          Today
+        </button>
+        <button mat-flat-button color="primary" type="submit" [disabled]="loading()">
+          <mat-icon>filter_alt</mat-icon>
           <span>Apply</span>
         </button>
-      </form>
+      </div>
+    </form>
+  </article>
+
+  @if (loading()) {
+    <article class="surface-card">
+      <div class="loading-state">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>Loading dashboard data.</span>
+      </div>
+    </article>
+  } @else {
+    <section class="stats-grid stats-grid--five">
+      <article class="stat-card">
+        <div class="stat-card__header">
+          <div class="stat-card__icon"><mat-icon>travel_explore</mat-icon></div>
+        </div>
+        <span>Hunted</span>
+        <strong>{{ stats()?.hunted || 0 }}</strong>
+        <small class="stat-card__trend">Products researched</small>
+      </article>
+
+      <article class="stat-card">
+        <div class="stat-card__header">
+          <div class="stat-card__icon stat-card__icon--success">
+            <mat-icon>check_circle</mat-icon>
+          </div>
+        </div>
+        <span>Listed</span>
+        <strong>{{ stats()?.listed || 0 }}</strong>
+        <small class="stat-card__trend">Completed listings</small>
+      </article>
+
+      <article class="stat-card">
+        <div class="stat-card__header">
+          <div class="stat-card__icon stat-card__icon--danger"><mat-icon>cancel</mat-icon></div>
+        </div>
+        <span>Rejected</span>
+        <strong>{{ stats()?.rejected || 0 }}</strong>
+        <small class="stat-card__trend">Failed checks</small>
+      </article>
+
+      <article class="stat-card">
+        <div class="stat-card__header">
+          <div class="stat-card__icon"><mat-icon>group</mat-icon></div>
+        </div>
+        <span>Hunters</span>
+        <strong>{{ stats()?.byHunter?.length || 0 }}</strong>
+        <small class="stat-card__trend">Active hunters in range</small>
+      </article>
+
+      <article class="stat-card">
+        <div class="stat-card__header">
+          <div class="stat-card__icon stat-card__icon--warning"><mat-icon>storefront</mat-icon></div>
+        </div>
+        <span>Accounts used</span>
+        <strong>{{ stats()?.byAccount?.length || 0 }}</strong>
+        <small class="stat-card__trend">Listing accounts with activity</small>
+      </article>
     </section>
 
-    <section class="tab-grid">
-      <div class="panel">
-        <h2>Hunter Progress</h2>
-        <div class="list compact-list">
-          @for (row of stats()?.byHunter || []; track row.id) {
-            <div class="list-row">
-              <div>
-                <strong>{{ row.name }}</strong>
-                <span>Hunted {{ row.hunted }} · Listed {{ row.listed }}</span>
-              </div>
+    <section class="stats-grid stats-grid--four">
+      @for (card of orderHighlights(); track card.label) {
+        <article class="stat-card">
+          <div class="stat-card__header">
+            <div class="stat-card__icon" [class.stat-card__icon--success]="card.tone === 'stat-card__icon--success'" [class.stat-card__icon--warning]="card.tone === 'stat-card__icon--warning'" [class.stat-card__icon--danger]="card.tone === 'stat-card__icon--danger'">
+              <mat-icon>{{ card.icon }}</mat-icon>
             </div>
-          }
-        </div>
-      </div>
-
-      <div class="panel">
-        <h2>Lister Progress</h2>
-        <div class="list compact-list">
-          @for (row of stats()?.byLister || []; track row.id) {
-            <div class="list-row">
-              <div>
-                <strong>{{ row.name }}</strong>
-                <span>Listed {{ row.listed }} · Hunters {{ row.assignedHunters }}</span>
-              </div>
-            </div>
-          }
-        </div>
-      </div>
+          </div>
+          <span>{{ card.label }}</span>
+          <strong>{{ card.value }}</strong>
+          <small class="stat-card__trend">{{ card.detail }}</small>
+        </article>
+      }
     </section>
-  </mat-tab>
-</mat-tab-group>
+
+    <section class="section-grid section-grid--three">
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Users</h2>
+            <p>Users count by role.</p>
+          </div>
+          <span class="count-badge">{{ totalUsers() }} active users</span>
+        </div>
+
+        <div class="soft-card role-stack">
+          <div class="role-row">
+            <span class="role-dot role-dot--admin"></span>
+            <strong>Admins</strong>
+            <span>1</span>
+          </div>
+          <div class="role-row">
+            <span class="role-dot role-dot--hunter"></span>
+            <strong>Hunters</strong>
+            <span>{{ stats()?.byHunter?.length || 0 }}</span>
+          </div>
+          <div class="role-row">
+            <span class="role-dot role-dot--lister"></span>
+            <strong>Listers</strong>
+            <span>{{ stats()?.byLister?.length || 0 }}</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Top hunters</h2>
+            <p>Research output in the selected range.</p>
+          </div>
+        </div>
+
+        @if (topHunters().length) {
+          <div class="simple-table">
+            <div class="simple-table__header">
+              <span>Hunter</span>
+              <span>Hunted</span>
+              <span>Listed</span>
+            </div>
+            @for (row of topHunters(); track row.id) {
+              <div class="simple-table__row">
+                <strong>{{ row.name }}</strong>
+                <span>{{ row.hunted }}</span>
+                <span>{{ row.listed }}</span>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">No hunter data available.</div>
+        }
+      </article>
+
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Top accounts</h2>
+            <p>Listing output by account.</p>
+          </div>
+        </div>
+
+        @if (topAccountRows().length) {
+          <div class="simple-table">
+            <div class="simple-table__header">
+              <span>Account</span>
+              <span>Listed</span>
+              <span>Share</span>
+            </div>
+            @for (row of topAccountRows(); track row.id) {
+              <div class="simple-table__row">
+                <strong>{{ row.name }}</strong>
+                <span>{{ row.listed }}</span>
+                <span>{{ row.share }}%</span>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">No account data available.</div>
+        }
+      </article>
+    </section>
+
+    <section class="overview-grid">
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Overview by date</h2>
+            <p>Readable daily output for the selected range.</p>
+          </div>
+          <span class="count-badge">{{ recentDays().length }} rows</span>
+        </div>
+
+        @if (recentDays().length) {
+          <div class="table-wrap">
+            <table class="data-table data-table--compact">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Hunted</th>
+                  <th>Listed</th>
+                  <th>Rejected</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of recentDays(); track row.date) {
+                  <tr>
+                    <td>{{ row.date | date: 'MMM d, y' }}</td>
+                    <td>{{ row.hunted }}</td>
+                    <td>{{ row.listed }}</td>
+                    <td>{{ row.rejected }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <div class="empty-state">No daily activity is available for this range.</div>
+        }
+      </article>
+
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Recent activity</h2>
+            <p>Latest admin-side actions.</p>
+          </div>
+          <a class="text-link" routerLink="/admin/activity">View all</a>
+        </div>
+
+        @if (activityPreviewRows().length) {
+          <div class="activity-list">
+            @for (log of activityPreviewRows(); track log.id) {
+              <div class="activity-item">
+                <span class="activity-item__icon"><mat-icon>history</mat-icon></span>
+                <div class="activity-item__content">
+                  <strong>{{ log.actionLabel }}</strong>
+                  <span>{{ log.actorSummary }}</span>
+                  <small>{{ log.targetSummary }}</small>
+                </div>
+                <time>{{ log.createdAt | date: 'MMM d, h:mm a' }}</time>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">No activity logs matched this date range.</div>
+        }
+      </article>
+    </section>
+
+    <section class="section-grid section-grid--three">
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Lister performance</h2>
+            <p>Listed and rejected volume by lister.</p>
+          </div>
+        </div>
+
+        @if (topListers().length) {
+          <div class="simple-table">
+            <div class="simple-table__header">
+              <span>Lister</span>
+              <span>Listed</span>
+              <span>Rejected</span>
+            </div>
+            @for (row of topListers(); track row.id) {
+              <div class="simple-table__row">
+                <strong>{{ row.name }}</strong>
+                <span>{{ row.listed }}</span>
+                <span>{{ row.rejected }}</span>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">No lister stats matched this range.</div>
+        }
+      </article>
+
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Hunter listings by account</h2>
+            <p>See where each hunter's products are getting listed.</p>
+          </div>
+        </div>
+
+        @if (stats()?.byHunterAccount?.length) {
+          <div class="simple-table">
+            <div class="simple-table__header">
+              <span>Hunter / Account</span>
+              <span>Listed</span>
+              <span>Scope</span>
+            </div>
+            @for (row of (stats()?.byHunterAccount || []).slice(0, 6); track row.hunterId + row.accountId) {
+              <div class="simple-table__row">
+                <strong>{{ row.hunterName }}</strong>
+                <span>{{ row.listedCount }}</span>
+                <span>{{ row.accountName }}</span>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">No hunter-account listing data is available.</div>
+        }
+      </article>
+    </section>
+  }
+</section>

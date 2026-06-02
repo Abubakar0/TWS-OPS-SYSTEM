@@ -1,0 +1,91 @@
+<section class="page-shell">
+  @if (error()) {
+    <app-error-state [message]="error()" actionLabel="Retry" (action)="loadSettings()" />
+  }
+
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h2>IP Restriction</h2>
+        <p>Limit Admin, Hunter, and Lister sign-ins to approved networks.</p>
+      </div>
+      <div class="page-actions">
+        <button mat-stroked-button type="button" (click)="loadSettings()" [disabled]="loading()">
+          <mat-icon>refresh</mat-icon>
+          <span>Refresh</span>
+        </button>
+      </div>
+    </div>
+
+    @if (warning()) {
+      <div class="inline-state inline-state--warning">{{ warning() }}</div>
+    }
+
+    <div class="security-toggle">
+      <mat-checkbox [checked]="ipRestriction().enabled" (change)="toggleEnabled($event.checked)">
+        Enable IP Restriction
+      </mat-checkbox>
+      <span>Current IP: {{ currentIp() || 'Unavailable' }}</span>
+    </div>
+
+    <form class="ip-form" [formGroup]="ipForm" (ngSubmit)="addIp()">
+      <mat-form-field appearance="outline">
+        <mat-label>Label</mat-label>
+        <input matInput formControlName="label" autocomplete="off" />
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>IP address</mat-label>
+        <input matInput formControlName="ip" autocomplete="off" />
+      </mat-form-field>
+
+      <div class="page-actions">
+        <button mat-stroked-button type="button" (click)="addCurrentIp()">
+          <mat-icon>my_location</mat-icon>
+          <span>Add Current IP</span>
+        </button>
+        <button mat-flat-button color="primary" type="submit">
+          <mat-icon>add</mat-icon>
+          <span>Add IP</span>
+        </button>
+      </div>
+    </form>
+  </article>
+
+  @if (!ipRestriction().allowedIps.length) {
+    <app-empty-state
+      title="No allowed IPs configured"
+      message="The system will stay open until at least one active IP is added."
+      icon="lan"
+    />
+  } @else {
+    <article class="surface-card">
+      <div class="ip-list">
+        @for (entry of ipRestriction().allowedIps; track entry.id) {
+          <div class="ip-row">
+            <div>
+              <strong>{{ entry.label }}</strong>
+              <span>{{ entry.ip }}</span>
+            </div>
+            <div class="row-actions">
+              <button mat-stroked-button type="button" (click)="toggleIpActive(entry.id)">
+                <mat-icon>{{ entry.active ? 'toggle_on' : 'toggle_off' }}</mat-icon>
+                <span>{{ entry.active ? 'Disable' : 'Enable' }}</span>
+              </button>
+              <button mat-stroked-button type="button" (click)="removeIp(entry.id)">
+                <mat-icon>delete_outline</mat-icon>
+                <span>Delete</span>
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    </article>
+  }
+
+  <div class="page-actions">
+    <button mat-flat-button color="primary" type="button" (click)="save()" [disabled]="saving() || loading()">
+      <mat-icon>save</mat-icon>
+      <span>{{ saving() ? 'Saving' : 'Save Security Settings' }}</span>
+    </button>
+  </div>
+</section>

@@ -1,0 +1,25 @@
+:host {
+  display: block;
+}
+
+.grid-toolbar__actions--filters {
+  flex-wrap: wrap;
+}
+
+.request-card {
+  display: grid;
+  gap: 10px;
+}
+
+.request-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.request-card small,
+.request-card p,
+.request-card span {
+  color: var(--tws-muted);
+}

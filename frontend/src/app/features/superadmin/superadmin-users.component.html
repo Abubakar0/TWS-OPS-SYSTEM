@@ -1,0 +1,134 @@
+<section class="page-shell">
+  <header class="page-hero">
+    <div>
+      <span class="kicker">Super Admin</span>
+      <h1>Users</h1>
+      <p>Manage operator lifecycle and recovery actions.</p>
+    </div>
+
+    <div class="page-actions">
+      <button mat-stroked-button type="button" (click)="toggleDeletedVisibility()">
+        <mat-icon>{{ includeDeleted() ? 'visibility_off' : 'visibility' }}</mat-icon>
+        <span>{{ includeDeleted() ? 'Hide Deleted' : 'Show Deleted' }}</span>
+      </button>
+      <button mat-stroked-button type="button" (click)="loadUsers()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <app-error-state [message]="error()" actionLabel="Retry" (action)="loadUsers()" />
+  }
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <span>Hunters</span>
+      <strong>{{ hunterCount() }}</strong>
+      <small>Hunter accounts in the current result set.</small>
+    </article>
+    <article class="stat-card">
+      <span>Listers</span>
+      <strong>{{ listerCount() }}</strong>
+      <small>Lister accounts in the current result set.</small>
+    </article>
+    <article class="stat-card">
+      <span>Deleted users</span>
+      <strong>{{ deletedCount() }}</strong>
+      <small>Soft-deleted users currently included in view.</small>
+    </article>
+  </section>
+
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h2>Operator accounts</h2>
+        <p>Search and act on accounts in place.</p>
+      </div>
+      <span class="count-badge">{{ visibleUsers().length }} matching</span>
+    </div>
+
+    <details class="filter-panel">
+      <summary>
+        <div class="filter-panel__title">
+          <mat-icon>filter_list</mat-icon>
+          <div>
+            <span>Filters</span>
+            <p>Search and narrow operator records.</p>
+          </div>
+        </div>
+        <div class="filter-panel__meta">
+          <span>{{ visibleUsers().length }} matching</span>
+          <span class="filter-panel__chevron">
+            <mat-icon>expand_more</mat-icon>
+          </span>
+        </div>
+      </summary>
+
+      <div class="filter-panel__content">
+        <div class="grid-toolbar">
+          <mat-form-field appearance="outline" class="grid-toolbar__search">
+            <mat-label>Search name, email, role, or status</mat-label>
+            <input matInput [formControl]="searchControl" autocomplete="off" />
+            <mat-icon matSuffix>search</mat-icon>
+          </mat-form-field>
+        </div>
+      </div>
+    </details>
+
+    @if (loading()) {
+      <div class="loading-state">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>Loading operator accounts.</span>
+      </div>
+    } @else if (visibleUsers().length) {
+      <div class="list">
+        @for (user of visibleUsers(); track user.id) {
+          <div class="list-row">
+            <div class="list-row__content">
+              <strong>{{ user.name }}</strong>
+              <span>{{ user.email }}</span>
+              <small>
+                {{ user.role | titlecase }} |
+                {{ user.deletedAt ? 'Archived' : user.isActive ? 'Enabled' : 'Disabled' }}
+              </small>
+            </div>
+
+            <div class="row-actions">
+              @if (!user.deletedAt) {
+                <button mat-stroked-button type="button" (click)="toggleUser(user)">
+                  <mat-icon>{{ user.isActive ? 'block' : 'check_circle' }}</mat-icon>
+                  <span>{{ user.isActive ? 'Disable' : 'Enable' }}</span>
+                </button>
+                <button mat-stroked-button type="button" (click)="unlock(user)">
+                  <mat-icon>lock_open</mat-icon>
+                  <span>Unlock</span>
+                </button>
+                <button mat-stroked-button type="button" (click)="resetPassword(user)">
+                  <mat-icon>lock_reset</mat-icon>
+                  <span>Reset Password</span>
+                </button>
+                <button mat-stroked-button color="warn" type="button" (click)="softDelete(user)">
+                  <mat-icon>delete</mat-icon>
+                  <span>Archive</span>
+                </button>
+              } @else {
+                <button mat-flat-button color="primary" type="button" (click)="restore(user)">
+                  <mat-icon>restore</mat-icon>
+                  <span>Restore</span>
+                </button>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    } @else {
+      <app-empty-state
+        title="No users found"
+        message="No hunter or lister account matched the current search."
+        icon="manage_accounts"
+      />
+    }
+  </article>
+</section>

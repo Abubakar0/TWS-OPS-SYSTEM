@@ -1,0 +1,114 @@
+<section class="page-shell">
+  <header class="page-hero">
+    <div>
+      <span class="kicker">Super Admin</span>
+      <h1>Audit</h1>
+      <p>Track sign-ins, impersonation, role changes, password resets, user lifecycle events, and assignment changes from one timeline.</p>
+    </div>
+
+    <div class="page-actions">
+      <button mat-stroked-button type="button" (click)="loadLogs()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <app-error-state [message]="error()" actionLabel="Retry" (action)="loadLogs()" />
+  }
+
+  <article class="surface-card">
+    <details class="filter-panel">
+      <summary>
+        <div class="filter-panel__title">
+          <h2>Filters</h2>
+          <p>Search the timeline by actor, target, action, or date range.</p>
+        </div>
+        <div class="filter-panel__meta">
+          <span>{{ auditRows().length }} events</span>
+          <span class="filter-panel__chevron">
+            <mat-icon>expand_more</mat-icon>
+          </span>
+        </div>
+      </summary>
+
+      <div class="filter-panel__content">
+        <div class="grid-toolbar">
+          <mat-form-field appearance="outline" class="grid-toolbar__search">
+            <mat-label>Search actor, target, or action</mat-label>
+            <input matInput [formControl]="searchControl" autocomplete="off" />
+            <mat-icon matSuffix>search</mat-icon>
+          </mat-form-field>
+        </div>
+
+        <form class="filter-row" [formGroup]="filtersForm" (ngSubmit)="loadLogs()">
+          <mat-form-field appearance="outline">
+            <mat-label>Action</mat-label>
+            <mat-select formControlName="action">
+              <mat-option value="">All actions</mat-option>
+              @for (action of actions; track action) {
+                <mat-option [value]="action">{{ action }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>From date</mat-label>
+            <input matInput type="date" formControlName="from" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>To date</mat-label>
+            <input matInput type="date" formControlName="to" />
+          </mat-form-field>
+
+          <button mat-flat-button color="primary" type="submit" [disabled]="loading()">
+            <mat-icon>filter_list</mat-icon>
+            <span>Apply Filters</span>
+          </button>
+        </form>
+      </div>
+    </details>
+  </article>
+
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h2>Audit timeline</h2>
+        <p>Newest events appear first.</p>
+      </div>
+      <span class="count-badge">{{ auditRows().length }} events</span>
+    </div>
+
+    @if (loading()) {
+      <div class="loading-state">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>Loading audit logs.</span>
+      </div>
+    } @else if (auditRows().length) {
+      <div class="audit-list">
+        @for (log of auditRows(); track log.id) {
+          <div class="audit-row">
+            <div class="audit-row__meta">
+              <strong>{{ log.action }}</strong>
+              <span>{{ log.createdAt | date: 'MMM d, y, h:mm a' }}</span>
+            </div>
+
+            <div class="audit-row__details">
+              <span>Actor: {{ log.actorName || 'System' }}{{ log.actorEmail ? ' (' + log.actorEmail + ')' : '' }}</span>
+              <span>Target: {{ log.targetName || log.targetType }}{{ log.targetEmail ? ' (' + log.targetEmail + ')' : '' }}</span>
+              <small>{{ log.detailsSummary }}</small>
+            </div>
+          </div>
+        }
+      </div>
+    } @else {
+      <app-empty-state
+        title="No audit events found"
+        message="The current filters did not return any audit entries."
+        icon="history_toggle_off"
+      />
+    }
+  </article>
+</section>

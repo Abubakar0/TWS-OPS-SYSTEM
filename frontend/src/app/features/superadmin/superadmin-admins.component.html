@@ -1,0 +1,165 @@
+<section class="page-shell">
+  <header class="page-hero">
+    <div>
+      <span class="kicker">Super Admin</span>
+      <h1>Admins</h1>
+      <p>Create, disable, reset, and impersonate admin operators without leaving the control panel.</p>
+    </div>
+
+    <div class="page-actions">
+      <button mat-stroked-button type="button" (click)="loadAdmins()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <app-error-state [message]="error()" actionLabel="Retry" (action)="loadAdmins()" />
+  }
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <span>Total admins</span>
+      <strong>{{ admins().length }}</strong>
+      <small>Admin operators currently visible to Super Admin.</small>
+    </article>
+    <article class="stat-card">
+      <span>Active admins</span>
+      <strong>{{ activeAdmins() }}</strong>
+      <small>Admins with active sign-in access.</small>
+    </article>
+    <article class="stat-card">
+      <span>Disabled admins</span>
+      <strong>{{ disabledAdmins() }}</strong>
+      <small>Admins blocked from sign-in.</small>
+    </article>
+  </section>
+
+  <section class="section-grid users-grid">
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Add admin</h2>
+          <p>Super Admin can create and activate admin accounts directly from this workspace.</p>
+        </div>
+      </div>
+
+      <form class="form-grid" [formGroup]="adminForm" (ngSubmit)="createAdmin()">
+        <mat-form-field appearance="outline">
+          <mat-label>Name</mat-label>
+          <input matInput formControlName="name" autocomplete="off" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Email</mat-label>
+          <input matInput type="email" formControlName="email" autocomplete="off" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Temporary password</mat-label>
+          <input matInput [type]="passwordHidden() ? 'password' : 'text'" formControlName="password" autocomplete="new-password" />
+          <button
+            mat-icon-button
+            matSuffix
+            type="button"
+            (click)="togglePasswordVisibility()"
+            [attr.aria-label]="passwordHidden() ? 'Show password' : 'Hide password'"
+          >
+            <mat-icon>{{ passwordHidden() ? 'visibility' : 'visibility_off' }}</mat-icon>
+          </button>
+          <mat-hint>Minimum 8 characters.</mat-hint>
+        </mat-form-field>
+
+        <label class="toggle-row field-span-2">
+          <mat-checkbox formControlName="isActive">Allow this admin to log in immediately</mat-checkbox>
+        </label>
+
+        <div class="field-span-2 actions-row">
+          <button mat-flat-button color="primary" type="submit" [disabled]="adminForm.invalid || saving()">
+            <mat-icon>admin_panel_settings</mat-icon>
+            <span>{{ saving() ? 'Creating' : 'Create Admin' }}</span>
+          </button>
+        </div>
+      </form>
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Admin accounts</h2>
+          <p>Search while typing, then enable, reset, or impersonate the selected operator.</p>
+        </div>
+        <span class="count-badge">{{ admins().length }} matching</span>
+      </div>
+
+    <details class="filter-panel">
+      <summary>
+        <div class="filter-panel__title">
+          <mat-icon>filter_list</mat-icon>
+          <div>
+            <span>Filters</span>
+            <p>Search admins quickly.</p>
+          </div>
+        </div>
+        <div class="filter-panel__meta">
+          <span>{{ admins().length }} matching</span>
+          <span class="filter-panel__chevron">
+            <mat-icon>expand_more</mat-icon>
+          </span>
+          </div>
+        </summary>
+
+        <div class="filter-panel__content">
+          <div class="grid-toolbar">
+            <mat-form-field appearance="outline" class="grid-toolbar__search">
+              <mat-label>Search admins by name or email</mat-label>
+              <input matInput [formControl]="searchControl" autocomplete="off" />
+              <mat-icon matSuffix>search</mat-icon>
+            </mat-form-field>
+          </div>
+        </div>
+      </details>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading admin accounts.</span>
+        </div>
+      } @else if (admins().length) {
+        <div class="list">
+          @for (user of admins(); track user.id) {
+            <div class="list-row">
+              <div class="list-row__content">
+                <strong>{{ user.name }}</strong>
+                <span>{{ user.email }}</span>
+                <small>{{ user.isActive ? 'Enabled' : 'Disabled' }}</small>
+              </div>
+
+              <div class="row-actions">
+                <button mat-stroked-button type="button" (click)="toggleAdmin(user)">
+                  <mat-icon>{{ user.isActive ? 'block' : 'check_circle' }}</mat-icon>
+                  <span>{{ user.isActive ? 'Disable' : 'Enable' }}</span>
+                </button>
+                <button mat-stroked-button type="button" (click)="resetPassword(user)">
+                  <mat-icon>lock_reset</mat-icon>
+                  <span>Reset Password</span>
+                </button>
+                <button mat-flat-button color="primary" type="button" (click)="impersonate(user)" [disabled]="!user.isActive">
+                  <mat-icon>switch_account</mat-icon>
+                  <span>Impersonate</span>
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      } @else {
+        <app-empty-state
+          title="No admins found"
+          message="No admin account matched the current search."
+          icon="admin_panel_settings"
+        />
+      }
+    </article>
+  </section>
+</section>

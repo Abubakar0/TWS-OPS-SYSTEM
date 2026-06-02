@@ -1,0 +1,23 @@
+.info-list {
+  display: grid;
+  gap: 12px;
+}
+
+.info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border: 1px solid var(--tws-border);
+  border-radius: 16px;
+  background: rgba(249, 251, 255, 0.92);
+  padding: 14px 16px;
+}
+
+.info-row mat-icon {
+  color: var(--tws-accent);
+}
+
+.info-row span {
+  color: var(--tws-muted);
+  line-height: 1.5;
+}

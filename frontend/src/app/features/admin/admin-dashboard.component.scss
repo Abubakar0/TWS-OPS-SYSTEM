@@ -1,163 +1,121 @@
-.page-header {
+.dashboard-header-card {
+  overflow: hidden;
+}
+
+.dashboard-filters {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 18px;
-}
-
-h1,
-h2,
-p {
-  margin: 0;
-}
-
-.eyebrow {
-  display: inline-block;
-  margin-bottom: 8px;
-  color: var(--tws-blue);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 1.6px;
-  text-transform: uppercase;
-}
-
-h1 {
-  font-size: 1.9rem;
-}
-
-h2 {
-  margin-bottom: 16px;
-  font-size: 1.1rem;
-}
-
-p,
-span {
-  color: var(--tws-muted);
-}
-
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  flex-wrap: wrap;
+  align-items: flex-end;
   gap: 12px;
-  margin-bottom: 18px;
+  align-items: baseline;
 }
 
-.summary-tile,
-.panel {
-  border: 1px solid var(--tws-border);
-  border-radius: 8px;
-  background: #ffffff;
+.dashboard-filters .mat-mdc-form-field {
+  max-width: 190px;
 }
 
-.summary-tile {
-  padding: 16px;
+.stats-grid--five {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
-.summary-tile span {
-  display: block;
+.data-table--compact {
+  min-width: 0;
 }
 
-.summary-tile strong {
-  display: block;
-  margin-top: 8px;
-  font-size: 1.8rem;
+.data-table--compact td,
+.data-table--compact th {
+  white-space: nowrap;
 }
 
-.tab-grid {
-  display: grid;
-  grid-template-columns: minmax(320px, 0.8fr) minmax(0, 1.2fr);
-  gap: 18px;
-  padding-top: 18px;
-}
-
-.panel {
-  padding: 18px;
-}
-
-.stack-form,
-.inline-form,
-.report-form {
-  display: grid;
-  gap: 14px;
-}
-
-.inline-form {
-  grid-template-columns: 1fr 150px auto;
+.activity-item {
   align-items: center;
 }
 
-.report-form {
-  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
-  align-items: center;
-}
-
-.inline-form mat-form-field,
-.report-form mat-form-field {
-  margin-bottom: -20px;
-}
-
-.list {
+.activity-item__content {
   display: grid;
-  gap: 10px;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
 }
 
-.list-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  border: 1px solid var(--tws-border);
-  border-radius: 8px;
-  padding: 12px;
+.activity-item__content small,
+.activity-item time {
+  color: var(--tws-muted);
+  font-size: 0.78rem;
 }
 
-.list-row strong,
-.list-row span {
-  display: block;
+.text-link {
+  color: var(--tws-primary-strong);
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
-.assignment-row {
+.section-grid--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.role-stack {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+  gap: 12px;
 }
 
-.assignment-row mat-form-field {
-  margin-bottom: -20px;
+.role-row {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
 }
 
-.compact-list {
-  margin-top: 14px;
+.role-row strong,
+.role-row span:last-child {
+  color: var(--tws-text);
 }
 
-.error-message {
-  margin-bottom: 14px;
-  border-radius: 6px;
-  background: #fdecec;
-  color: #a11919;
-  padding: 10px 12px;
+.role-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
 }
 
-@media (max-width: 980px) {
-  .summary-grid,
-  .tab-grid,
-  .report-form {
+.role-dot--admin {
+  background: #2563eb;
+}
+
+.role-dot--hunter {
+  background: #10b981;
+}
+
+.role-dot--lister {
+  background: #f59e0b;
+}
+
+@media (max-width: 1260px) {
+  .stats-grid--five {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1180px) {
+  .section-grid--three {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 760px) {
-  .page-header,
-  .list-row {
-    align-items: flex-start;
-    flex-direction: column;
+  .dashboard-filters .mat-mdc-form-field {
+    max-width: none;
   }
 
-  .summary-grid,
-  .tab-grid,
-  .inline-form,
-  .report-form,
-  .assignment-row {
+  .stats-grid--five,
+  .section-grid--three {
     grid-template-columns: 1fr;
+  }
+
+  .dashboard-filters {
+    align-items: stretch;
+  }
+
+  .activity-item {
+    align-items: flex-start;
   }
 }

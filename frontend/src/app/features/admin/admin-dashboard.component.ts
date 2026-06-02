@@ -1,163 +1,199 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, computed, signal } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ChangeDetectionStrategy, Component, OnInit, computed, signal } from '@angular/core';
+import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSelectModule } from '@angular/material/select';
-import { MatTabsModule } from '@angular/material/tabs';
+import { forkJoin } from 'rxjs';
 
-import { HunterAssignment, User, UserRole } from '../../core/models/auth.models';
-import { Account, HuntingCriteria } from '../../core/models/product.models';
-import { AdminService, AdminStats } from '../../core/services/admin.service';
+import { ChangeRequestApiService } from '../../core/api/change-request-api.service';
+import { AdminService, AdminStats, AuditLogEntry } from '../../core/services/admin.service';
+import { ChangeRequestSummary } from '../../core/models/product.models';
 
 @Component({
   selector: 'app-admin-dashboard',
   imports: [
     CommonModule,
     ReactiveFormsModule,
+    RouterLink,
     MatButtonModule,
-    MatCheckboxModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
     MatProgressSpinnerModule,
-    MatSelectModule,
-    MatTabsModule,
   ],
   templateUrl: './admin-dashboard.component.html',
   styleUrl: './admin-dashboard.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AdminDashboardComponent implements OnInit {
-  readonly users = signal<User[]>([]);
-  readonly assignments = signal<HunterAssignment[]>([]);
-  readonly accounts = signal<Account[]>([]);
   readonly stats = signal<AdminStats | null>(null);
+  readonly activityLogs = signal<AuditLogEntry[]>([]);
+  readonly changeRequestSummary = signal<ChangeRequestSummary>({
+    total: 0,
+    pending: 0,
+    completed: 0,
+    open: 0,
+    inProgress: 0,
+    fixed: 0,
+    rejected: 0,
+    closed: 0,
+    fixedToday: 0,
+  });
   readonly loading = signal(false);
-  readonly saving = signal(false);
   readonly error = signal('');
 
-  readonly hunters = computed(() => this.users().filter((user) => user.role === 'hunter'));
-  readonly listers = computed(() => this.users().filter((user) => user.role === 'lister'));
-
-  readonly userForm = new FormGroup({
-    name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-    email: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.email] }),
-    password: new FormControl('Password123!', { nonNullable: true, validators: [Validators.required] }),
-    role: new FormControl<UserRole>('hunter', { nonNullable: true, validators: [Validators.required] }),
-    isActive: new FormControl(true, { nonNullable: true }),
-  });
-
-  readonly criteriaForm = new FormGroup({
-    minRoi: new FormControl(30, { nonNullable: true, validators: [Validators.required, Validators.min(0)] }),
-    minProfit: new FormControl(0, { nonNullable: true, validators: [Validators.required, Validators.min(0)] }),
-    minSoldCount: new FormControl(1, { nonNullable: true, validators: [Validators.required, Validators.min(0)] }),
-    feePercent: new FormControl(21, { nonNullable: true, validators: [Validators.required, Validators.min(0)] }),
-    asinRequired: new FormControl(true, { nonNullable: true }),
-  });
-
-  readonly accountForm = new FormGroup({
-    name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-    marketplace: new FormControl('ebay', { nonNullable: true, validators: [Validators.required] }),
-    isActive: new FormControl(true, { nonNullable: true }),
-  });
-
-  readonly reportFilters = new FormGroup({
+  readonly filtersForm = new FormGroup({
     from: new FormControl('', { nonNullable: true }),
     to: new FormControl('', { nonNullable: true }),
-    hunterId: new FormControl('', { nonNullable: true }),
-    listerId: new FormControl('', { nonNullable: true }),
   });
 
-  constructor(private readonly adminApi: AdminService) {}
+  readonly totalUsers = computed(
+    () => (this.stats()?.byHunter.length || 0) + (this.stats()?.byLister.length || 0) + 1,
+  );
+  readonly topHunters = computed(() => this.stats()?.byHunter.slice(0, 5) ?? []);
+  readonly topListers = computed(() => this.stats()?.byLister.slice(0, 5) ?? []);
+  readonly topAccounts = computed(() => this.stats()?.byAccount.slice(0, 5) ?? []);
+  readonly recentDays = computed(() => this.stats()?.daily.slice(0, 10) ?? []);
+  readonly previewLogs = computed(() => this.activityLogs().slice(0, 6));
+  readonly orderStats = computed(() => this.stats()?.orderStats ?? null);
+  readonly orderHighlights = computed(() => [
+    {
+      label: 'Open Order Issues',
+      value: this.orderStats()?.issueOrders ?? 0,
+      detail: 'Orders that still need intervention.',
+      icon: 'error_outline',
+      tone: 'stat-card__icon--danger',
+    },
+    {
+      label: 'Loss Orders',
+      value: this.orderStats()?.lossOrders ?? 0,
+      detail: 'Orders currently running at a loss.',
+      icon: 'trending_down',
+      tone: 'stat-card__icon--danger',
+    },
+    {
+      label: 'Unavailable Products',
+      value: this.orderStats()?.unavailableIssues ?? 0,
+      detail: 'Orders blocked by unavailable products.',
+      icon: 'inventory_2',
+      tone: 'stat-card__icon--warning',
+    },
+    {
+      label: 'Pending Product Fixes',
+      value: this.changeRequestSummary().pending ?? 0,
+      detail: 'Change requests still waiting on listers.',
+      icon: 'fact_check',
+      tone: 'stat-card__icon--warning',
+    },
+    {
+      label: 'Orders Today',
+      value: this.orderStats()?.ordersToday ?? 0,
+      detail: 'Fresh orders received today.',
+      icon: 'today',
+      tone: '',
+    },
+    {
+      label: 'Pending Placement',
+      value: this.orderStats()?.pendingPlacement ?? 0,
+      detail: 'Orders still waiting to be placed.',
+      icon: 'schedule',
+      tone: 'stat-card__icon--warning',
+    },
+    {
+      label: 'Delivered Orders',
+      value: this.orderStats()?.deliveredOrders ?? 0,
+      detail: 'Orders already delivered.',
+      icon: 'inventory',
+      tone: 'stat-card__icon--success',
+    },
+  ]);
+  readonly activityPreviewRows = computed(() =>
+    this.previewLogs().map((log) => ({
+      ...log,
+      actionLabel: log.action
+        .split('.')
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' '),
+      actorSummary: `${log.actorName || log.actorEmail || 'System'}${
+        log.actorRole ? ` | ${log.actorRole.replace('_', ' ')}` : ''
+      }`,
+      targetSummary:
+        log.productTitle || log.productAsin || log.accountName || log.targetName || log.targetEmail || 'System item',
+    })),
+  );
+  readonly topAccountRows = computed(() => {
+    const listedTotal = this.stats()?.listed || 0;
+
+    return this.topAccounts().map((row) => ({
+      ...row,
+      share: listedTotal ? Math.round((row.listed / listedTotal) * 100) : 0,
+    }));
+  });
+  readonly selectedRangeLabel = computed(() => {
+    const { from, to } = this.filtersForm.getRawValue();
+
+    if (!from || !to) {
+      return 'All dates';
+    }
+
+    return from === to ? from : `${from} to ${to}`;
+  });
+
+  constructor(
+    private readonly adminApi: AdminService,
+    private readonly changeRequestApi: ChangeRequestApiService,
+  ) {}
 
   ngOnInit(): void {
-    this.loadAll();
+    this.resetToday();
   }
 
-  loadAll(): void {
+  applyFilters(): void {
+    this.loadDashboard();
+  }
+
+  resetToday(): void {
+    const today = this.toDateInput(new Date());
+    this.filtersForm.patchValue({ from: today, to: today }, { emitEvent: false });
+    this.loadDashboard();
+  }
+
+  loadDashboard(): void {
     this.loading.set(true);
     this.error.set('');
 
-    this.adminApi.listUsers().subscribe({
-      next: (users) => this.users.set(users),
-      error: (error) => this.error.set(error?.error?.message || 'Could not load users.'),
-      complete: () => this.loading.set(false),
-    });
+    const { from, to } = this.filtersForm.getRawValue();
+    const filters = {
+      from: from || undefined,
+      to: to || undefined,
+    };
 
-    this.adminApi.listAssignments().subscribe((assignments) => this.assignments.set(assignments));
-    this.adminApi.listAccounts(true).subscribe((accounts) => this.accounts.set(accounts));
-    this.adminApi.getCriteria().subscribe((criteria) => this.criteriaForm.patchValue(criteria));
-    this.loadStats();
-  }
-
-  loadStats(): void {
-    this.adminApi.getAdminStats(this.reportFilters.getRawValue()).subscribe({
-      next: (stats) => this.stats.set(stats),
-      error: (error) => this.error.set(error?.error?.message || 'Could not load stats.'),
-    });
-  }
-
-  createUser(): void {
-    if (this.userForm.invalid || this.saving()) {
-      this.userForm.markAllAsTouched();
-      return;
-    }
-
-    this.saving.set(true);
-    this.adminApi.createUser(this.userForm.getRawValue()).subscribe({
-      next: () => {
-        this.userForm.reset({
-          name: '',
-          email: '',
-          password: 'Password123!',
-          role: 'hunter',
-          isActive: true,
-        });
-        this.loadAll();
+    forkJoin({
+      stats: this.adminApi.getAdminStats(filters),
+      logs: this.adminApi.listAuditLogs(filters),
+      changeRequests: this.changeRequestApi.getSummary(),
+    }).subscribe({
+      next: ({ stats, logs, changeRequests }) => {
+        this.stats.set(stats);
+        this.activityLogs.set(logs);
+        this.changeRequestSummary.set(changeRequests);
+        this.loading.set(false);
       },
-      error: (error) => this.error.set(error?.error?.message || 'Could not create user.'),
-      complete: () => this.saving.set(false),
+      error: (error) => {
+        this.error.set(error?.error?.message || 'Could not load dashboard overview.');
+        this.loading.set(false);
+      },
     });
   }
 
-  toggleUser(user: User): void {
-    this.adminApi.updateUser(user.id, { isActive: !user.isActive }).subscribe(() => this.loadAll());
-  }
-
-  setAssignment(hunterId: string, listerId: string): void {
-    this.adminApi.setHunterLister(hunterId, listerId || null).subscribe(() => this.loadAll());
-  }
-
-  saveCriteria(): void {
-    if (this.criteriaForm.invalid) {
-      this.criteriaForm.markAllAsTouched();
-      return;
-    }
-
-    this.adminApi
-      .updateCriteria(this.criteriaForm.getRawValue() as HuntingCriteria)
-      .subscribe((criteria) => this.criteriaForm.patchValue(criteria));
-  }
-
-  createAccount(): void {
-    if (this.accountForm.invalid) {
-      this.accountForm.markAllAsTouched();
-      return;
-    }
-
-    this.adminApi.createAccount(this.accountForm.getRawValue()).subscribe(() => {
-      this.accountForm.reset({ name: '', marketplace: 'ebay', isActive: true });
-      this.adminApi.listAccounts(true).subscribe((accounts) => this.accounts.set(accounts));
-    });
-  }
-
-  toggleAccount(account: Account): void {
-    this.adminApi
-      .updateAccount(account.id, { isActive: !account.isActive })
-      .subscribe(() => this.adminApi.listAccounts(true).subscribe((accounts) => this.accounts.set(accounts)));
+  private toDateInput(value: Date): string {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 }

@@ -1,0 +1,114 @@
+<section class="page-shell">
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h2>Product list</h2>
+        <p>Search updates while you type.</p>
+      </div>
+      <div class="page-actions">
+        <span class="count-badge">{{ resultLabel() }}</span>
+        <a mat-stroked-button routerLink="/hunter/submission">
+          <mat-icon>add_circle</mat-icon>
+          <span>New Submission</span>
+        </a>
+        <button mat-flat-button color="primary" type="button" (click)="exportProducts()" [disabled]="loading() || !products().length">
+          <mat-icon>download</mat-icon>
+          <span>{{ exporting() ? 'Exporting' : 'Export Excel' }}</span>
+        </button>
+      </div>
+    </div>
+
+    <app-filter-panel
+      title="Filters"
+      summary="Search by title, ASIN, category, lister, account, or submission date."
+      icon="filter_list"
+      [badge]="resultLabel()"
+      storageKey="tws_hunter_products_filters"
+    >
+      <form class="filters-form" [formGroup]="filters" (ngSubmit)="applyFilters()">
+        <div class="filters-grid">
+          <mat-form-field appearance="outline" class="filters-grid__search">
+            <mat-label>Search title, ASIN, or link</mat-label>
+            <input matInput formControlName="search" autocomplete="off" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Status</mat-label>
+            <mat-select formControlName="status">
+              <mat-option value="">All</mat-option>
+              <mat-option value="approved">Approved</mat-option>
+              <mat-option value="assigned">Assigned</mat-option>
+              <mat-option value="listed">Listed</mat-option>
+              <mat-option value="rejected">Rejected</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Category</mat-label>
+            <mat-select formControlName="category">
+              <mat-option value="">All categories</mat-option>
+              @for (category of categories(); track category.id) {
+                <mat-option [value]="category.name">{{ category.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>From date</mat-label>
+            <input matInput type="date" formControlName="from" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>To date</mat-label>
+            <input matInput type="date" formControlName="to" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Lister name</mat-label>
+            <input matInput formControlName="listerName" autocomplete="off" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Account name</mat-label>
+            <input matInput formControlName="accountName" autocomplete="off" />
+          </mat-form-field>
+        </div>
+
+        <div class="filters-actions">
+          <button mat-flat-button color="primary" type="submit" [disabled]="loading()">
+            <mat-icon>filter_list</mat-icon>
+            <span>Apply</span>
+          </button>
+          <button mat-stroked-button type="button" (click)="resetFilters()" [disabled]="loading()">
+            <mat-icon>restart_alt</mat-icon>
+            <span>Reset</span>
+          </button>
+          <button mat-stroked-button type="button" (click)="loadProducts()" [disabled]="loading()">
+            <mat-icon>refresh</mat-icon>
+            <span>Refresh</span>
+          </button>
+        </div>
+      </form>
+    </app-filter-panel>
+
+    @if (loading()) {
+      <div class="loading-state">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>Loading product list.</span>
+      </div>
+    } @else if (error()) {
+      <app-error-state [message]="error()" actionLabel="Retry" (action)="loadProducts()" />
+    } @else {
+      <app-products-table
+        [products]="products()"
+        [total]="total()"
+        [pageIndex]="pageIndex()"
+        [pageSize]="pageSize()"
+        [pageSizeOptions]="pageSizeOptions"
+        [pageLabel]="pageLabel()"
+        emptyText="No product submissions found."
+        (pageChange)="onPageChange($event)"
+      />
+    }
+  </article>
+</section>

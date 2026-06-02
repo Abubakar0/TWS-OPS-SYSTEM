@@ -1,0 +1,217 @@
+:host {
+  display: block;
+}
+
+.marketing-page {
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgba(247, 250, 255, 0.96), rgba(240, 245, 255, 0.92)),
+    #f5f7fb;
+  color: #163153;
+}
+
+.marketing-hero {
+  position: relative;
+  min-height: 82vh;
+  display: flex;
+  align-items: flex-end;
+  padding: clamp(3rem, 5vw, 5rem);
+  overflow: hidden;
+}
+
+.marketing-hero__media,
+.marketing-hero__overlay {
+  position: absolute;
+  inset: 0;
+}
+
+.marketing-hero__media {
+  background:
+    linear-gradient(120deg, rgba(13, 46, 106, 0.14), rgba(36, 93, 191, 0.16)),
+    url('/marketing/workspace-preview.png') center top / cover no-repeat;
+  transform: scale(1.02);
+}
+
+.marketing-hero__overlay {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(245, 248, 255, 0.92) 66%),
+    linear-gradient(90deg, rgba(247, 250, 255, 0.96), rgba(247, 250, 255, 0.62));
+}
+
+.marketing-hero__content {
+  position: relative;
+  z-index: 1;
+  max-width: 46rem;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.marketing-hero__eyebrow {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #255dbf;
+}
+
+.marketing-hero h1 {
+  margin: 0;
+  font-size: clamp(2.8rem, 5vw, 4.7rem);
+  line-height: 0.96;
+  color: #0f2546;
+}
+
+.marketing-hero__summary {
+  margin: 0;
+  max-width: 39rem;
+  font-size: 1.06rem;
+  line-height: 1.7;
+  color: rgba(18, 43, 79, 0.82);
+}
+
+.marketing-hero__actions,
+.marketing-cta-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+
+.marketing-hero__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.marketing-hero__chips span {
+  padding: 0.7rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(37, 93, 191, 0.18);
+  background: rgba(255, 255, 255, 0.78);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #23477d;
+  backdrop-filter: blur(10px);
+}
+
+.marketing-band {
+  padding: clamp(2.5rem, 4vw, 4rem) clamp(1.25rem, 4vw, 4rem);
+}
+
+.marketing-band--muted {
+  background: rgba(255, 255, 255, 0.52);
+}
+
+.marketing-band--cta {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(18rem, 0.9fr);
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.marketing-section-heading {
+  max-width: 46rem;
+  margin-bottom: 1.5rem;
+}
+
+.marketing-section-heading h2,
+.marketing-band--cta h2 {
+  margin: 0 0 0.7rem;
+  font-size: clamp(1.75rem, 3vw, 2.4rem);
+  line-height: 1.05;
+  color: #102949;
+}
+
+.marketing-section-heading p,
+.marketing-band--cta p {
+  margin: 0;
+  color: rgba(23, 51, 92, 0.78);
+  line-height: 1.7;
+}
+
+.marketing-pains,
+.marketing-faq {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.marketing-pains article,
+.marketing-faq article,
+.marketing-workflow-card {
+  border: 1px solid rgba(30, 83, 170, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.82);
+  padding: 1.25rem;
+  box-shadow: 0 16px 32px rgba(23, 49, 92, 0.06);
+}
+
+.marketing-pains h3,
+.marketing-faq h3,
+.marketing-workflow-card h3 {
+  margin: 0 0 0.65rem;
+  font-size: 1.05rem;
+  color: #14325c;
+}
+
+.marketing-pains p,
+.marketing-faq p,
+.marketing-workflow-card p {
+  margin: 0;
+  line-height: 1.65;
+  color: rgba(21, 49, 91, 0.76);
+}
+
+.marketing-workflows {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.marketing-workflow-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.marketing-workflow-card span {
+  width: 2.3rem;
+  height: 2.3rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(37, 93, 191, 0.12);
+  color: #255dbf;
+  font-weight: 700;
+}
+
+@media (max-width: 1100px) {
+  .marketing-band--cta,
+  .marketing-pains,
+  .marketing-faq,
+  .marketing-workflows {
+    grid-template-columns: 1fr;
+  }
+
+  .marketing-hero {
+    min-height: 72vh;
+    align-items: center;
+  }
+}
+
+@media (max-width: 720px) {
+  .marketing-hero {
+    padding: 5rem 1rem 2.5rem;
+    min-height: 70vh;
+  }
+
+  .marketing-band {
+    padding: 2rem 1rem;
+  }
+
+  .marketing-hero__summary {
+    font-size: 0.98rem;
+  }
+}

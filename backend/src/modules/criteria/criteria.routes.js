@@ -8,6 +8,6 @@ const router = express.Router();
 router.use(authenticate);
 
 router.get('/', asyncHandler(criteriaController.getCriteria));
-router.put('/', requireRoles('admin'), asyncHandler(criteriaController.updateCriteria));
+router.put('/', requireRoles('admin', 'super_admin'), asyncHandler(criteriaController.updateCriteria));
 
 module.exports = router;

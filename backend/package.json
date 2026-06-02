@@ -6,7 +6,12 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "db:seed": "node scripts/seed.js"
+    "db:seed": "node scripts/seed.js",
+    "regression:api": "node scripts/staging-api-audit.js",
+    "regression:relationships": "node scripts/staging-relationship-regression.js",
+    "regression:orders": "node scripts/order-workflow-regression.js",
+    "regression:accounts": "node scripts/account-invoice-regression.js",
+    "regression:all": "node scripts/run-regressions.js"
   },
   "keywords": [],
   "author": "",

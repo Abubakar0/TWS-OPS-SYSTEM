@@ -1,0 +1,444 @@
+<section class="page-shell">
+  @if (error()) {
+    <div class="inline-state inline-state--error">{{ error() }}</div>
+  }
+
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h1>Reports</h1>
+        <p>Analytics and export for the selected range.</p>
+      </div>
+      <div class="page-actions">
+        <button mat-flat-button color="primary" type="button" (click)="exportReport()" [disabled]="loading() || !stats()">
+          <mat-icon>download</mat-icon>
+          <span>Export Excel</span>
+        </button>
+        <button mat-stroked-button type="button" (click)="applyUserFilter()" [disabled]="loading()">
+          <mat-icon>refresh</mat-icon>
+          <span>Refresh</span>
+        </button>
+      </div>
+    </div>
+
+    <app-filter-panel
+      title="Filters"
+      summary="Choose a date range, team member, and category without crowding the reporting view."
+      icon="filter_list"
+      [badge]="selectedRange() | titlecase"
+      storageKey="tws_admin_reports_filters"
+    >
+        <div class="range-toolbar">
+          @for (option of rangeButtons; track option.key) {
+            <button
+              type="button"
+              mat-stroked-button
+              class="range-chip"
+              [class.range-chip--active]="selectedRange() === option.key"
+              (click)="applyPreset(option.key)"
+            >
+              {{ option.label }}
+            </button>
+          }
+        </div>
+
+        <form class="reports-toolbar" [formGroup]="filtersForm" (ngSubmit)="applyUserFilter()">
+          <mat-form-field appearance="outline">
+            <mat-label>User</mat-label>
+            <mat-select formControlName="userId">
+              <mat-option value="">All hunters and listers</mat-option>
+              @for (user of reportUsers(); track user.id) {
+                <mat-option [value]="user.id">{{ user.name }} ({{ user.role }})</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Category</mat-label>
+            <mat-select formControlName="category">
+              <mat-option value="">All categories</mat-option>
+              @for (category of categories(); track category.id) {
+                <mat-option [value]="category.name">{{ category.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <div class="grid-toolbar__actions">
+            <button mat-flat-button color="primary" type="submit" [disabled]="loading()">
+              <mat-icon>filter_list</mat-icon>
+              <span>Apply</span>
+            </button>
+            <button mat-stroked-button type="button" (click)="resetFilters()" [disabled]="loading()">
+              <mat-icon>restart_alt</mat-icon>
+              <span>Reset</span>
+            </button>
+          </div>
+        </form>
+
+        @if (selectedRange() === 'custom') {
+          <form class="custom-range-form" [formGroup]="customRangeForm" (ngSubmit)="applyCustomRange()">
+            <mat-form-field appearance="outline">
+              <mat-label>From</mat-label>
+              <input matInput type="date" formControlName="from" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>To</mat-label>
+              <input matInput type="date" formControlName="to" />
+            </mat-form-field>
+
+            <button mat-flat-button color="primary" type="submit" [disabled]="loading() || customRangeForm.invalid">
+              <mat-icon>calendar_month</mat-icon>
+              <span>Apply Range</span>
+            </button>
+          </form>
+
+          @if (customRangeError()) {
+            <div class="inline-state inline-state--error">{{ customRangeError() }}</div>
+          }
+        }
+    </app-filter-panel>
+  </article>
+
+  <section class="stats-grid stats-grid--six">
+    <article class="stat-card">
+      <span>Hunted</span>
+      <strong>{{ stats()?.hunted || 0 }}</strong>
+      <small class="stat-card__trend">Research volume</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Ready</span>
+      <strong>{{ stats()?.ready || 0 }}</strong>
+      <small class="stat-card__trend">Approved or assigned</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Listed</span>
+      <strong>{{ stats()?.listed || 0 }}</strong>
+      <small class="stat-card__trend">Completed listings</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Rejected</span>
+      <strong>{{ stats()?.rejected || 0 }}</strong>
+      <small class="stat-card__trend">Rejected products</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Hunters</span>
+      <strong>{{ stats()?.byHunter?.length || 0 }}</strong>
+      <small class="stat-card__trend">Hunters in this view</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Accounts Used</span>
+      <strong>{{ stats()?.byAccount?.length || 0 }}</strong>
+      <small class="stat-card__trend">Accounts with listed volume</small>
+    </article>
+  </section>
+
+  <section class="stats-grid stats-grid--four">
+    <article class="stat-card">
+      <span>Total Orders</span>
+      <strong>{{ orderReports()?.totalOrders || 0 }}</strong>
+      <small class="stat-card__trend">All orders in the current filters</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Revenue</span>
+      <strong>${{ (orderReports()?.totalRevenue || 0) | number: '1.2-2' }}</strong>
+      <small class="stat-card__trend">Gross order revenue</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Profit</span>
+      <strong>${{ (orderReports()?.totalProfit || 0) | number: '1.2-2' }}</strong>
+      <small class="stat-card__trend">Profit captured from linked orders</small>
+    </article>
+
+    <article class="stat-card">
+      <span>Average ROI</span>
+      <strong>{{ (orderReports()?.averageRoi || 0) | number: '1.2-2' }}%</strong>
+      <small class="stat-card__trend">Average order ROI</small>
+    </article>
+  </section>
+
+  <section class="section-grid">
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Daily summary</h2>
+          <p>Readable output by date.</p>
+        </div>
+      </div>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading reports.</span>
+        </div>
+      } @else if (stats()?.daily?.length) {
+        <div class="table-wrap">
+          <table class="data-table data-table--compact">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Hunted</th>
+                <th>Listed</th>
+                <th>Rejected</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of stats()?.daily || []; track row.date) {
+                <tr>
+                  <td>{{ row.date | date: 'MMM d, y' }}</td>
+                  <td>{{ row.hunted }}</td>
+                  <td>{{ row.listed }}</td>
+                  <td>{{ row.rejected }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <div class="empty-state">No daily report rows matched this filter.</div>
+      }
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Products by account</h2>
+          <p>Listing distribution by account.</p>
+        </div>
+      </div>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading account data.</span>
+        </div>
+      } @else if (stats()?.byAccount?.length) {
+        <div class="simple-table">
+          <div class="simple-table__header">
+            <span>Account</span>
+            <span>Listed</span>
+            <span>Share</span>
+          </div>
+          @for (row of stats()?.byAccount || []; track row.id) {
+            <div class="simple-table__row">
+              <strong>{{ row.name }}</strong>
+              <span>{{ row.listed }}</span>
+              <span>{{ stats()?.listed ? ((row.listed / (stats()?.listed || 1)) * 100 | number: '1.0-0') : 0 }}%</span>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="empty-state">No account report rows matched this filter.</div>
+      }
+      </article>
+    </section>
+
+    <section class="section-grid section-grid--three">
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>By hunter</h2>
+          <p>Hunted and listed volume.</p>
+        </div>
+      </div>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading hunter rows.</span>
+        </div>
+      } @else if (stats()?.byHunter?.length) {
+        <div class="simple-table">
+          <div class="simple-table__header">
+            <span>Hunter</span>
+            <span>Hunted</span>
+            <span>Listed</span>
+          </div>
+          @for (row of stats()?.byHunter || []; track row.id) {
+            <div class="simple-table__row">
+              <strong>{{ row.name }}</strong>
+              <span>{{ row.hunted }}</span>
+              <span>{{ row.listed }}</span>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="empty-state">No hunter report rows matched this filter.</div>
+      }
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>By lister</h2>
+          <p>Listed volume and coverage.</p>
+        </div>
+      </div>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading lister rows.</span>
+        </div>
+      } @else if (stats()?.byLister?.length) {
+          <div class="simple-table">
+            <div class="simple-table__header">
+              <span>Lister</span>
+              <span>Listed</span>
+              <span>Coverage</span>
+            </div>
+          @for (row of stats()?.byLister || []; track row.id) {
+            <div class="simple-table__row">
+              <strong>{{ row.name }}</strong>
+              <span>{{ row.listed }}</span>
+              <span>{{ row.assignedHunters }} hunters | {{ row.rejected }} rejected</span>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="empty-state">No lister report rows matched this filter.</div>
+      }
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Current selection</h2>
+          <p>Quick summary of the report scope.</p>
+        </div>
+      </div>
+
+      <div class="soft-card report-summary-card">
+        <div class="report-summary-row">
+          <span>Range</span>
+          <strong>{{ selectedRange() | titlecase }}</strong>
+        </div>
+        <div class="report-summary-row">
+          <span>User filter</span>
+          <strong>{{ filtersForm.controls.userId.value ? 'Single user' : 'All users' }}</strong>
+        </div>
+        <div class="report-summary-row">
+          <span>Rows</span>
+          <strong>{{ stats()?.daily?.length || 0 }}</strong>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <section class="section-grid">
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Orders by hunter</h2>
+          <p>Which hunters are driving order volume.</p>
+        </div>
+      </div>
+
+      @if (orderReports()?.byHunter?.length) {
+        <div class="table-wrap">
+          <table class="data-table data-table--compact">
+            <thead>
+              <tr>
+                <th>Hunter</th>
+                <th>Orders</th>
+                <th>Revenue</th>
+                <th>Profit</th>
+                <th>ROI</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of orderReports()?.byHunter || []; track row.hunterId) {
+                <tr>
+                  <td>{{ row.hunterName }}</td>
+                  <td>{{ row.orderCount }}</td>
+                  <td>${{ row.revenue | number: '1.2-2' }}</td>
+                  <td>${{ row.profit | number: '1.2-2' }}</td>
+                  <td>{{ row.roi | number: '1.2-2' }}%</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <div class="empty-state">No order rows matched the current hunter filter.</div>
+      }
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Hunter listings by account</h2>
+          <p>Which hunter products are landing on which accounts.</p>
+        </div>
+      </div>
+
+      @if (stats()?.byHunterAccount?.length) {
+        <div class="table-wrap">
+          <table class="data-table data-table--compact">
+            <thead>
+              <tr>
+                <th>Hunter</th>
+                <th>Account</th>
+                <th>Listed</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of stats()?.byHunterAccount || []; track row.hunterId + row.accountId) {
+                <tr>
+                  <td>{{ row.hunterName }}</td>
+                  <td>{{ row.accountName }}</td>
+                  <td>{{ row.listedCount }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <div class="empty-state">No hunter-account listing data matched this filter.</div>
+      }
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Orders by account</h2>
+          <p>Revenue and profit split across listing accounts.</p>
+        </div>
+      </div>
+
+      @if (orderReports()?.byAccount?.length) {
+        <div class="table-wrap">
+          <table class="data-table data-table--compact">
+            <thead>
+              <tr>
+                <th>Account</th>
+                <th>Orders</th>
+                <th>Revenue</th>
+                <th>Profit</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of orderReports()?.byAccount || []; track row.accountId) {
+                <tr>
+                  <td>{{ row.accountName }}</td>
+                  <td>{{ row.orderCount }}</td>
+                  <td>${{ row.revenue | number: '1.2-2' }}</td>
+                  <td>${{ row.profit | number: '1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <div class="empty-state">No order-account data matched this filter.</div>
+      }
+    </article>
+  </section>
+</section>

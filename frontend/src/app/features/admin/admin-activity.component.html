@@ -1,0 +1,153 @@
+<section class="page-shell">
+  @if (facade.error()) {
+    <app-error-state [message]="facade.error()" actionLabel="Retry" (action)="facade.loadLogs()" />
+  }
+
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h1>Activity Feed</h1>
+        <p>{{ facade.total() }} activity rows in view</p>
+      </div>
+      <div class="page-actions">
+        <button mat-stroked-button type="button" (click)="facade.loadLogs()" [disabled]="facade.loading()">
+          <mat-icon>refresh</mat-icon>
+          <span>Refresh</span>
+        </button>
+      </div>
+    </div>
+
+    <details class="filter-panel">
+      <summary>
+        <div class="filter-panel__title">
+          <mat-icon>filter_list</mat-icon>
+          <div>
+            <h2>Filters</h2>
+            <p>Search by actor, role, action, or date range.</p>
+          </div>
+        </div>
+        <div class="filter-panel__meta">
+          <span>{{ facade.total() }} events</span>
+          <span class="filter-panel__chevron">
+            <mat-icon>expand_more</mat-icon>
+          </span>
+        </div>
+      </summary>
+
+      <div class="filter-panel__content">
+        <form class="activity-toolbar" [formGroup]="facade.filters" (ngSubmit)="facade.loadLogs()">
+          <mat-form-field appearance="outline" class="grid-toolbar__search">
+            <mat-label>Search activity</mat-label>
+            <input matInput formControlName="search" autocomplete="off" />
+            <mat-icon matSuffix>search</mat-icon>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="toolbar-select">
+            <mat-label>User</mat-label>
+            <mat-select formControlName="actorUserId">
+              <mat-option value="">All users</mat-option>
+              @for (user of facade.filterUsers(); track user.id) {
+                <mat-option [value]="user.id">{{ user.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="toolbar-select">
+            <mat-label>Role</mat-label>
+            <mat-select formControlName="actorRole">
+              <mat-option value="">All roles</mat-option>
+              <mat-option value="admin">Admin</mat-option>
+              <mat-option value="hunter">Hunter</mat-option>
+              <mat-option value="lister">Lister</mat-option>
+              <mat-option value="super_admin">Super Admin</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="toolbar-select">
+            <mat-label>Action</mat-label>
+            <mat-select formControlName="action">
+              @for (option of facade.actionOptions; track option.value) {
+                <mat-option [value]="option.value">{{ option.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="date-field">
+            <mat-label>From</mat-label>
+            <input matInput type="date" formControlName="from" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="date-field">
+            <mat-label>To</mat-label>
+            <input matInput type="date" formControlName="to" />
+          </mat-form-field>
+
+          <div class="grid-toolbar__actions">
+            <button mat-stroked-button type="button" (click)="facade.resetFilters()">
+              <mat-icon>restart_alt</mat-icon>
+              <span>Reset</span>
+            </button>
+            <button mat-flat-button color="primary" type="submit" [disabled]="facade.loading()">
+              <mat-icon>filter_alt</mat-icon>
+              <span>Apply</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </details>
+
+    @if (facade.loading()) {
+      <div class="loading-state">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>Loading activity feed.</span>
+      </div>
+    } @else if (!facade.logs().length) {
+      <app-empty-state
+        title="No activity found"
+        message="Try a different date range or filter combination."
+        icon="history"
+      />
+    } @else {
+      <div class="table-wrap activity-table-wrap">
+        <table class="data-table activity-table">
+          <thead>
+            <tr>
+              <th>Action</th>
+              <th>User</th>
+              <th>Role</th>
+              <th>Target</th>
+              <th>Timestamp</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of facade.logs(); track row.id) {
+              <tr>
+                <td class="activity-cell activity-cell--action"><span class="status-badge status-badge--neutral">{{ row.actionLabel }}</span></td>
+                <td class="activity-cell">{{ row.actorLabel }}</td>
+                <td class="activity-cell">{{ row.roleLabel | titlecase }}</td>
+                <td class="activity-cell">{{ row.targetLabel }}</td>
+                <td class="activity-cell activity-cell--timestamp">{{ row.createdAtLabel | date: 'MMM d, y, h:mm a' }}</td>
+                <td class="activity-details">{{ row.detailsLabel }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid-pager">
+        <span class="grid-pager__status">{{ facade.pageLabel() }}</span>
+        <div class="grid-toolbar__actions">
+          <button mat-stroked-button type="button" (click)="facade.previousPage()" [disabled]="facade.pageIndex() === 0">
+            <mat-icon>chevron_left</mat-icon>
+            <span>Previous</span>
+          </button>
+          <button mat-stroked-button type="button" (click)="facade.nextPage()" [disabled]="facade.pageIndex() >= facade.pageCount() - 1">
+            <span>Next</span>
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+        </div>
+      </div>
+    }
+  </article>
+</section>

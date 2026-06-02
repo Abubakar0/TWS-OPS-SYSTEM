@@ -1,0 +1,487 @@
+<section class="page-shell page-shell--flush">
+  @if (facade.error()) {
+    <div class="inline-state inline-state--error">{{ facade.error() }}</div>
+  }
+
+  @if (facade.weeklyReviewStatus()?.required) {
+    <div class="inline-state inline-state--warning">
+      <mat-icon>assignment_turned_in</mat-icon>
+      <div class="inline-state__content">
+        <strong>Saturday product review is required</strong>
+        <span>Review your current products before new hunting is unlocked for this week.</span>
+      </div>
+      <a mat-stroked-button routerLink="/hunter/review">Open Review Page</a>
+    </div>
+  }
+
+  <article class="surface-card asin-gate-card">
+    <div class="surface-card__header">
+      <div>
+        <h2>ASIN verification</h2>
+        <p>Check for duplicates before unlocking the full submission form.</p>
+      </div>
+      @if (facade.asinVerified()) {
+        <span class="status-badge status-badge--success">Verified</span>
+      } @else if (facade.asinDuplicate()) {
+        <span class="status-badge status-badge--danger">Duplicate</span>
+      } @else {
+        <span class="status-badge status-badge--warning">Pending</span>
+      }
+    </div>
+
+    <div class="asin-gate">
+      <div class="field-shell">
+        <label class="field-label" for="asin-check">ASIN <span>*</span></label>
+        <mat-form-field appearance="outline">
+          <input id="asin-check" matInput [formControl]="facade.asinControl" autocomplete="off" />
+          @if (facade.asinMessage()) {
+            <mat-error>{{ facade.asinMessage() }}</mat-error>
+          }
+        </mat-form-field>
+      </div>
+
+      <button mat-flat-button color="primary" type="button" (click)="facade.checkAsin()" [disabled]="facade.asinChecking()">
+        @if (facade.asinChecking()) {
+          <mat-spinner diameter="18"></mat-spinner>
+        } @else {
+          <mat-icon>manage_search</mat-icon>
+        }
+        <span>{{ facade.asinChecking() ? 'Checking' : 'Check ASIN' }}</span>
+      </button>
+    </div>
+
+    @if (facade.asinDuplicate(); as duplicate) {
+      <div class="inline-state inline-state--error">
+        <mat-icon>error</mat-icon>
+        <div class="inline-state__content">
+          <strong>{{ duplicate.title || duplicate.asin }}</strong>
+          <span>Already exists with status {{ duplicate.status | titlecase }}.</span>
+        </div>
+      </div>
+    }
+  </article>
+
+  <section class="submission-workspace">
+    <section class="submission-form-wrap" [class.is-locked]="!facade.asinVerified()">
+      <form class="submission-form" [formGroup]="facade.form" (ngSubmit)="facade.submit()">
+        @if (!facade.asinVerified()) {
+          <div class="inline-state inline-state--warning">
+            <mat-icon>manage_search</mat-icon>
+            <div class="inline-state__content">
+              <strong>ASIN verification comes first</strong>
+              <span>Run the duplicate check to unlock the full submission form.</span>
+            </div>
+          </div>
+        }
+
+        <article class="surface-card form-section">
+          <div class="surface-card__header">
+            <div>
+              <h2>Product details</h2>
+              <p>Core product identifiers for the submission.</p>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="field-shell field-span-2">
+              <label class="field-label">Product title <span>*</span></label>
+              <mat-form-field appearance="outline">
+                <input matInput formControlName="title" autocomplete="off" />
+                @if (facade.fieldStates().title.error) {
+                  <mat-error>{{ facade.fieldStates().title.error }}</mat-error>
+                }
+              </mat-form-field>
+            </div>
+
+            <div class="field-shell">
+              <label class="field-label">Category</label>
+              <mat-form-field appearance="outline">
+                <input
+                  matInput
+                  formControlName="category"
+                  autocomplete="off"
+                  [matAutocomplete]="categoryAuto"
+                />
+                <mat-autocomplete #categoryAuto="matAutocomplete" autoActiveFirstOption>
+                  @for (category of facade.filteredCategories(); track category.id) {
+                    <mat-option [value]="category.name">{{ category.name }}</mat-option>
+                  }
+                </mat-autocomplete>
+                @if (facade.fieldStates().category.error) {
+                  <mat-error>{{ facade.fieldStates().category.error }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ facade.fieldStates().category.helper }}</span>
+              </div>
+            </div>
+
+            <div class="field-shell">
+              <label class="field-label">Custom label</label>
+              <mat-form-field appearance="outline">
+                <input matInput formControlName="customLabel" autocomplete="off" />
+                @if (facade.fieldStates().customLabel.error) {
+                  <mat-error>{{ facade.fieldStates().customLabel.error }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ facade.fieldStates().customLabel.helper }}</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="surface-card form-section">
+          <div class="surface-card__header">
+            <div>
+              <h2>Marketplace links</h2>
+              <p>Validated before the request is sent.</p>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="field-shell field-span-2">
+              <label class="field-label">Amazon link <span>*</span></label>
+              <mat-form-field appearance="outline">
+                <input matInput formControlName="amazonUrl" autocomplete="off" />
+                @if (facade.fieldStates().amazonUrl.error) {
+                  <mat-error>{{ facade.fieldStates().amazonUrl.error }}</mat-error>
+                }
+              </mat-form-field>
+            </div>
+
+            <div class="field-shell field-span-2">
+              <label class="field-label">Alternate Amazon link</label>
+              <mat-form-field appearance="outline">
+                <input matInput formControlName="amazonAltUrl" autocomplete="off" />
+                @if (facade.fieldStates().amazonAltUrl.error) {
+                  <mat-error>{{ facade.fieldStates().amazonAltUrl.error }}</mat-error>
+                }
+              </mat-form-field>
+            </div>
+
+            <div class="field-shell field-span-2">
+              <label class="field-label">eBay link <span>*</span></label>
+              <mat-form-field appearance="outline">
+                <input matInput formControlName="ebayUrl" autocomplete="off" />
+                @if (facade.fieldStates().ebayUrl.error) {
+                  <mat-error>{{ facade.fieldStates().ebayUrl.error }}</mat-error>
+                }
+              </mat-form-field>
+            </div>
+          </div>
+        </article>
+
+        <article class="surface-card form-section">
+          <div class="surface-card__header">
+            <div>
+              <h2>Stock and sales</h2>
+              <p>Thresholds use the current admin rules.</p>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="field-shell">
+              <label class="field-label">Amazon stock count <span>*</span></label>
+              <mat-form-field appearance="outline">
+                <input matInput type="number" formControlName="amazonStockCount" />
+                @if (facade.fieldStates().amazonStockCount.error) {
+                  <mat-error>{{ facade.fieldStates().amazonStockCount.error }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ facade.fieldStates().amazonStockCount.helper }}</span>
+              </div>
+            </div>
+
+            <div class="field-shell">
+              <label class="field-label">Alternate Amazon stock</label>
+              <mat-form-field appearance="outline">
+                <input matInput type="number" formControlName="alternateAmazonStockCount" />
+                @if (facade.fieldStates().alternateAmazonStockCount.error) {
+                  <mat-error>{{ facade.fieldStates().alternateAmazonStockCount.error }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ facade.fieldStates().alternateAmazonStockCount.helper }}</span>
+              </div>
+            </div>
+
+            <div class="field-shell">
+              <label class="field-label">Sold count <span>*</span></label>
+              <mat-form-field appearance="outline">
+                <input matInput type="number" formControlName="soldCount" />
+                @if (facade.fieldStates().soldCount.error) {
+                  <mat-error>{{ facade.fieldStates().soldCount.error }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ facade.fieldStates().soldCount.helper }}</span>
+              </div>
+            </div>
+
+            <div class="field-shell">
+              <label class="field-label">Rating <span>*</span></label>
+              <mat-form-field appearance="outline">
+                <input matInput type="number" formControlName="rating" step="0.1" />
+                @if (facade.fieldStates().rating.error) {
+                  <mat-error>{{ facade.fieldStates().rating.error }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ facade.fieldStates().rating.helper }}</span>
+              </div>
+            </div>
+
+            <div class="field-shell">
+              <label class="field-label">Product watchers</label>
+              <mat-form-field appearance="outline">
+                <input matInput type="number" formControlName="productWatchers" />
+                @if (facade.fieldStates().productWatchers.error) {
+                  <mat-error>{{ facade.fieldStates().productWatchers.error }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ facade.fieldStates().productWatchers.helper }}</span>
+              </div>
+            </div>
+
+            <div class="field-shell">
+              <label class="field-label">Sales in past 2 months <span>*</span></label>
+              <mat-form-field appearance="outline">
+                <input matInput type="number" formControlName="salesLastTwoMonths" />
+                @if (facade.fieldStates().salesLastTwoMonths.error) {
+                  <mat-error>{{ facade.fieldStates().salesLastTwoMonths.error }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ facade.fieldStates().salesLastTwoMonths.helper }}</span>
+              </div>
+            </div>
+
+            <div class="field-shell">
+              <label class="field-label">Added to basket</label>
+              <mat-form-field appearance="outline">
+                <input matInput type="number" formControlName="basketCount" />
+                @if (facade.fieldStates().basketCount.error) {
+                  <mat-error>{{ facade.fieldStates().basketCount.error }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ facade.fieldStates().basketCount.helper }}</span>
+              </div>
+            </div>
+
+            <div class="field-shell">
+              <label class="field-label">Delivery days</label>
+              <mat-form-field appearance="outline">
+                <input matInput type="number" formControlName="deliveryDays" />
+                @if (facade.fieldStates().deliveryDays.error) {
+                  <mat-error>{{ facade.fieldStates().deliveryDays.error }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ facade.fieldStates().deliveryDays.helper }}</span>
+              </div>
+            </div>
+
+            <div class="field-shell field-span-2">
+              <label class="field-label">One month graph trending up</label>
+              <mat-form-field appearance="outline">
+                <mat-select formControlName="monthlyGraphUptrend">
+                  <mat-option [value]="true">Yes</mat-option>
+                  <mat-option [value]="false">No</mat-option>
+                </mat-select>
+                @if (facade.fieldStates().monthlyGraphUptrend.error) {
+                  <mat-error>{{ facade.fieldStates().monthlyGraphUptrend.error }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ facade.fieldStates().monthlyGraphUptrend.helper }}</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="surface-card form-section">
+          <div class="surface-card__header">
+            <div>
+              <h2>Pricing</h2>
+              <p>Decimals stay intact while you type.</p>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="field-shell">
+              <label class="field-label">Amazon price <span>*</span></label>
+              <mat-form-field appearance="outline">
+                <input matInput formControlName="amazonPrice" inputmode="decimal" autocomplete="off" />
+                @if (facade.fieldStates().amazonPrice.error) {
+                  <mat-error>{{ facade.fieldStates().amazonPrice.error }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ facade.fieldStates().amazonPrice.helper }}</span>
+              </div>
+            </div>
+
+            <div class="field-shell">
+              <label class="field-label">eBay price <span>*</span></label>
+              <mat-form-field appearance="outline">
+                <input matInput formControlName="ebayPrice" inputmode="decimal" autocomplete="off" />
+                @if (facade.fieldStates().ebayPrice.error) {
+                  <mat-error>{{ facade.fieldStates().ebayPrice.error }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ facade.fieldStates().ebayPrice.helper }}</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <div class="submission-stickybar">
+          <div class="submission-stickybar__meta">
+            <strong>{{ facade.approvalSummary().label }}</strong>
+            <span>{{ facade.approvalSummary().message }}</span>
+          </div>
+
+          <div class="submission-stickybar__actions">
+            <button mat-stroked-button type="button" (click)="facade.clearForm()" [disabled]="facade.saving()">Clear form</button>
+            <button mat-flat-button color="primary" type="submit" [disabled]="!facade.canSubmit()">
+              @if (facade.saving()) {
+                <mat-spinner diameter="18"></mat-spinner>
+              } @else {
+                <mat-icon>send</mat-icon>
+              }
+              <span>{{ facade.saving() ? 'Submitting' : 'Submit Product' }}</span>
+            </button>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <aside class="submission-sidebar">
+      <article class="surface-card summary-card summary-card--sticky">
+        <div class="summary-card__header">
+          <div>
+            <h2>Economics Preview</h2>
+            <p>Updates live as prices change.</p>
+          </div>
+          <span class="status-badge status-badge--neutral">{{ facade.qualityPreview() || 'Pending quality' }}</span>
+        </div>
+
+        <div class="mini-stats mini-stats--three">
+          <div>
+            <span>Fees</span>
+            <strong>{{ facade.economics().fees === null ? '--' : (facade.economics().fees | currency: 'USD') }}</strong>
+          </div>
+          <div>
+            <span>Profit</span>
+            <strong>{{ facade.economics().profit === null ? '--' : (facade.economics().profit | currency: 'USD') }}</strong>
+          </div>
+          <div>
+            <span>ROI</span>
+            <strong>{{ facade.economics().roi === null ? '--' : ((facade.economics().roi | number: '1.0-2') + '%') }}</strong>
+          </div>
+        </div>
+      </article>
+
+      <article class="surface-card summary-card summary-card--sticky">
+        <div class="summary-card__header">
+          <div>
+            <h2>Validation Summary</h2>
+            <p>Current system readiness.</p>
+          </div>
+          <span
+            class="status-badge"
+            [class.status-badge--success]="facade.approvalSummary().tone === 'success'"
+            [class.status-badge--warning]="facade.approvalSummary().tone === 'warning'"
+            [class.status-badge--danger]="facade.approvalSummary().tone === 'danger'"
+            [class.status-badge--neutral]="facade.approvalSummary().tone === 'neutral'"
+          >
+            {{ facade.approvalSummary().label }}
+          </span>
+        </div>
+
+        @if (facade.validationReasons().length) {
+          <div class="inline-state inline-state--error">
+            <mat-icon>report_problem</mat-icon>
+            <div class="inline-state__content">
+              <strong>Why this is currently rejected</strong>
+              <span>{{ facade.validationReasons()[0] }}</span>
+            </div>
+          </div>
+        }
+
+        <div class="checklist">
+          @for (item of facade.validationItems(); track item.label) {
+            <div class="checklist__item" [class.is-done]="item.passed">
+              <mat-icon>{{ item.passed ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+              <div>
+                <strong>{{ item.label }}</strong>
+                <span>{{ item.detail }}</span>
+              </div>
+            </div>
+          }
+        </div>
+      </article>
+    </aside>
+  </section>
+</section>
+
+@if (facade.submissionModal(); as modal) {
+  <div class="app-modal-backdrop" (click)="facade.closeSubmissionModal()">
+    <section class="app-modal submission-result-modal" (click)="$event.stopPropagation()">
+      <div class="app-modal__header">
+        <div>
+          <h2>{{ modal.product.status === 'rejected' ? 'System Rejected' : 'System Approved' }}</h2>
+          <p>{{ modal.shortReason }}</p>
+        </div>
+        <button mat-icon-button type="button" (click)="facade.closeSubmissionModal()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <div class="submission-result">
+        <span
+          class="status-badge"
+          [class.status-badge--success]="modal.product.status !== 'rejected'"
+          [class.status-badge--danger]="modal.product.status === 'rejected'"
+        >
+          {{ modal.qualityLabel }}
+        </span>
+
+        <div class="result-meta">
+          <span>Submitted time</span>
+          <strong>{{ modal.product.createdAt | date: 'MMM d, y, h:mm a' }}</strong>
+        </div>
+
+        <div class="result-meta">
+          <span>Next action</span>
+          <strong>{{ modal.nextAction }}</strong>
+        </div>
+      </div>
+
+      <div class="app-modal__footer">
+        <button mat-stroked-button type="button" (click)="facade.closeSubmissionModal()">Close</button>
+        <a mat-flat-button color="primary" routerLink="/hunter/products" (click)="facade.closeSubmissionModal()">
+          <span>Open Product List</span>
+        </a>
+      </div>
+    </section>
+  </div>
+}

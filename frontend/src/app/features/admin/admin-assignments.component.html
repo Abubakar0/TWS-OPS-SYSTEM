@@ -1,0 +1,152 @@
+<section class="page-shell">
+  @if (error()) {
+    <app-error-state [message]="error()" actionLabel="Retry" (action)="loadData()" />
+  }
+
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h1>Assignments</h1>
+        <p>{{ total() }} hunter rows in view</p>
+      </div>
+      <div class="page-actions">
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          (click)="exportAssignments()"
+          [disabled]="!total() || exporting()"
+        >
+          <mat-icon>download</mat-icon>
+          <span>{{ exporting() ? 'Exporting' : 'Export Excel' }}</span>
+        </button>
+        <button mat-stroked-button type="button" (click)="loadData()" [disabled]="loading()">
+          <mat-icon>refresh</mat-icon>
+          <span>Refresh</span>
+        </button>
+      </div>
+    </div>
+
+    <details class="filter-panel">
+      <summary>
+        <div class="filter-panel__title">
+          <mat-icon>filter_list</mat-icon>
+          <div>
+            <h2>Filters</h2>
+            <p>Find hunters quickly by name, assignment state, or lister.</p>
+          </div>
+        </div>
+        <div class="filter-panel__meta">
+          <span>{{ total() }} rows</span>
+          <span class="filter-panel__chevron">
+            <mat-icon>expand_more</mat-icon>
+          </span>
+        </div>
+      </summary>
+
+      <div class="filter-panel__content">
+        <div class="assignments-toolbar">
+          <mat-form-field appearance="outline" class="grid-toolbar__search">
+            <mat-label>Search hunter, lister, or email</mat-label>
+            <input matInput [formControl]="searchControl" autocomplete="off" />
+            <mat-icon matSuffix>search</mat-icon>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="toolbar-select">
+            <mat-label>Status</mat-label>
+            <mat-select [formControl]="statusFilter">
+              <mat-option value="all">All statuses</mat-option>
+              <mat-option value="assigned">Assigned</mat-option>
+              <mat-option value="unassigned">Unassigned</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="toolbar-select">
+            <mat-label>Lister</mat-label>
+            <mat-select [formControl]="listerFilter">
+              <mat-option value="">All listers</mat-option>
+              @for (lister of listers(); track lister.id) {
+                <mat-option [value]="lister.id">{{ lister.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <div class="grid-toolbar__actions">
+            <button mat-stroked-button type="button" (click)="resetFilters()">
+              <mat-icon>restart_alt</mat-icon>
+              <span>Reset</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    @if (loading()) {
+      <div class="loading-state">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>Loading assignments.</span>
+      </div>
+    } @else {
+      <div class="assignment-list">
+        @for (assignment of sortedAssignments(); track assignment.hunterId) {
+          <div class="assignment-row">
+            <div class="assignment-row__content">
+              <div class="assignment-row__title">
+                <strong>{{ assignment.hunterName }}</strong>
+                <span class="status-badge" [class.status-badge--assigned]="assignment.listerId" [class.status-badge--unassigned]="!assignment.listerId">
+                  {{ assignment.listerId ? 'Assigned' : 'Unassigned' }}
+                </span>
+              </div>
+              <span>{{ assignment.hunterEmail }}</span>
+              <small>{{ assignment.hunterActive ? 'Hunter enabled' : 'Hunter disabled' }} - {{ assignment.listerName ? assignment.listerName : 'No lister selected' }}</small>
+            </div>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Assign lister</mat-label>
+              <mat-select [value]="assignment.listerId || ''" (selectionChange)="setAssignment(assignment.hunterId, $event.value)">
+                <mat-option value="">Unassigned</mat-option>
+                @for (lister of listers(); track lister.id) {
+                  <mat-option [value]="lister.id">{{ lister.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          </div>
+        } @empty {
+          <app-empty-state
+            title="No assignments found"
+            message="No hunter assignments match the current filters."
+            icon="hub_off"
+          />
+        }
+      </div>
+
+      <div class="grid-pager">
+        <span class="grid-pager__status">{{ pageLabel() }}</span>
+
+        <div class="grid-toolbar__actions">
+          <button mat-stroked-button type="button" (click)="previousPage()" [disabled]="pageIndex() === 0">
+            <mat-icon>chevron_left</mat-icon>
+            <span>Previous</span>
+          </button>
+          <mat-form-field appearance="outline" class="grid-pager__size">
+            <mat-label>Rows</mat-label>
+            <mat-select [value]="pageSize()" (selectionChange)="setPageSize($event.value)">
+              @for (size of pageSizeOptions; track size) {
+                <mat-option [value]="size">{{ size }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <button
+            mat-stroked-button
+            type="button"
+            (click)="nextPage()"
+            [disabled]="pageIndex() >= pageCount() - 1"
+          >
+            <span>Next</span>
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+        </div>
+      </div>
+    }
+  </article>
+</section>

@@ -1,0 +1,143 @@
+:host {
+  display: block;
+}
+
+.grid-toolbar__actions--filters {
+  flex-wrap: wrap;
+}
+
+.requests-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.92fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.requests-list,
+.request-sidebar {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.request-sidebar {
+  position: sticky;
+  top: 12px;
+}
+
+.requests-table {
+  display: grid;
+  gap: 10px;
+}
+
+.requests-table__head,
+.requests-row {
+  display: grid;
+  grid-template-columns:
+    minmax(166px, 1.08fr)
+    minmax(138px, 0.78fr)
+    minmax(164px, 0.96fr)
+    minmax(118px, 0.6fr)
+    minmax(88px, 0.4fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.requests-table__head {
+  padding: 0 10px 8px;
+  color: var(--tws-muted);
+  font-size: 0.71rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.requests-row {
+  padding: 10px 11px;
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  text-align: left;
+  cursor: pointer;
+}
+
+.requests-row.is-active {
+  border-color: rgba(81, 146, 229, 0.34);
+  box-shadow: 0 14px 30px rgba(81, 146, 229, 0.1);
+  background: rgba(81, 146, 229, 0.05);
+}
+
+.requests-row > div {
+  min-width: 0;
+}
+
+.requests-row strong,
+.detail-row strong {
+  display: block;
+  color: var(--tws-text);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.28;
+  overflow-wrap: anywhere;
+}
+
+.requests-row span,
+.requests-row small,
+.detail-row span {
+  display: block;
+  color: var(--tws-muted);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.detail-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.detail-row {
+  padding: 10px 12px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 14px;
+  background: rgba(248, 250, 252, 0.85);
+}
+
+.detail-row--link strong {
+  max-height: 9rem;
+  overflow: auto;
+  padding-right: 2px;
+  word-break: break-all;
+  line-height: 1.38;
+}
+
+.detail-form {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+@media (max-width: 1320px) {
+  .requests-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .request-sidebar {
+    position: static;
+  }
+}
+
+@media (max-width: 1180px) {
+  .requests-table__head {
+    display: none;
+  }
+
+  .requests-row {
+    grid-template-columns: 1fr;
+  }
+}

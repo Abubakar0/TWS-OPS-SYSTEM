@@ -1,0 +1,78 @@
+<section class="page-shell">
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h1>Hunter Account Usage</h1>
+        <p>See which accounts you already used for a specific hunter before placing the next listing.</p>
+      </div>
+    </div>
+
+    <details class="filter-panel">
+      <summary>
+        <div class="filter-panel__title">
+          <h2>Filters</h2>
+          <p>Select a hunter to review which accounts already carry their listings.</p>
+        </div>
+        <div class="filter-panel__meta">
+          <span>{{ rows().length }} accounts</span>
+          <span class="filter-panel__chevron">
+            <mat-icon>expand_more</mat-icon>
+          </span>
+        </div>
+      </summary>
+
+      <div class="filter-panel__content">
+        <form class="grid-toolbar" [formGroup]="filtersForm" (ngSubmit)="load()">
+          <mat-form-field appearance="outline">
+            <mat-label>Hunter</mat-label>
+            <mat-select formControlName="hunterId">
+              @for (hunter of hunters(); track hunter.id) {
+                <mat-option [value]="hunter.id">{{ hunter.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <div class="grid-toolbar__actions">
+            <button mat-flat-button color="primary" type="submit">
+              <mat-icon>filter_list</mat-icon>
+              <span>Show Account Usage</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </details>
+
+    @if (error()) {
+      <div class="inline-state inline-state--error">{{ error() }}</div>
+    } @else if (loading()) {
+      <div class="loading-state">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>Loading account usage.</span>
+      </div>
+    } @else if (!rows().length) {
+      <div class="empty-state">No listed products were found for this hunter yet.</div>
+    } @else {
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Account</th>
+              <th>Hunter</th>
+              <th>Listed</th>
+              <th>Last Listed</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of rows(); track row.accountId) {
+              <tr>
+                <td>{{ row.accountName }}</td>
+                <td>{{ row.hunterName }}</td>
+                <td>{{ row.listedCount }}</td>
+                <td>{{ row.lastListedAt ? (row.lastListedAt | date: 'MMM d, y, h:mm a') : '—' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </article>
+</section>

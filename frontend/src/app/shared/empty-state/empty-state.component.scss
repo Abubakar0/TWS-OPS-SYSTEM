@@ -1,0 +1,33 @@
+.empty-shell {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+  border: 1px dashed var(--tws-border);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(248, 250, 252, 0.88));
+  color: var(--tws-muted);
+  padding: 36px 24px;
+}
+
+.empty-shell mat-icon {
+  width: 36px;
+  height: 36px;
+  font-size: 36px;
+  color: var(--tws-accent);
+  opacity: 0.7;
+}
+
+.empty-shell strong {
+  display: block;
+  color: var(--tws-text);
+  margin-bottom: 2px;
+  font-size: 0.95rem;
+}
+
+.empty-shell p {
+  color: var(--tws-muted);
+  max-width: 40ch;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}

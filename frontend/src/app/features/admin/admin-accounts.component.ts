@@ -1,0 +1,579 @@
+import { CommonModule } from '@angular/common';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnInit,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSelectModule } from '@angular/material/select';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { debounceTime, distinctUntilChanged, finalize } from 'rxjs';
+
+import { AccountInvoice, AccountInvoicePayload, AccountSummary } from '../../core/models/account.models';
+import { User } from '../../core/models/auth.models';
+import { Account } from '../../core/models/product.models';
+import { AccountApiService } from '../../core/api/account-api.service';
+import { BRANDING } from '../../core/config/branding';
+import { InvoicePdfService } from '../../core/services/invoice-pdf.service';
+import { ReferenceDataService } from '../../core/state/reference-data.service';
+import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
+import { ConfirmService } from '../../core/ui/confirm.service';
+import { ToastService } from '../../core/ui/toast.service';
+import {
+  AccountInvoiceForm,
+  DEFAULT_ALTERNATE_PAYMENT,
+  DEFAULT_INVOICE_LINE_ITEMS,
+  DEFAULT_PRIMARY_PAYMENT,
+  buildInvoiceDateValue,
+  buildInvoiceMonthValue,
+  createAccountInvoiceForm,
+} from '../../shared/forms/account-invoice.form';
+import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
+import { ErrorStateComponent } from '../../shared/error-state/error-state.component';
+import { FilterPanelComponent } from '../../shared/ui/filter-panel.component';
+
+type AccountStatusFilter = 'all' | 'active' | 'disabled';
+type MarketplaceFilter = 'all' | 'amazon' | 'ebay';
+
+interface InvoicePreviewVm {
+  accountName: string;
+  billToName: string;
+  invoiceMonthLabel: string;
+  invoiceDateLabel: string;
+  currency: string;
+  lineItems: Array<{
+    title: string;
+    description: string;
+    amount: number;
+    includeInTotal: boolean;
+  }>;
+  totalNetPayable: number;
+  primaryPayment: {
+    title: string;
+    bankName: string;
+    accountNumber: string;
+    iban: string;
+    branch: string;
+  };
+  alternatePayment: {
+    title: string;
+    bankName: string;
+    accountNumber: string;
+    iban: string;
+    branch: string;
+  };
+  notes: string;
+}
+
+@Component({
+  selector: 'app-admin-accounts',
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    MatButtonModule,
+    MatCheckboxModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
+    MatProgressSpinnerModule,
+    MatSelectModule,
+    MatTooltipModule,
+    EmptyStateComponent,
+    ErrorStateComponent,
+    FilterPanelComponent,
+  ],
+  templateUrl: './admin-accounts.component.html',
+  styleUrl: './admin-accounts.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class AdminAccountsComponent implements OnInit {
+  readonly branding = BRANDING;
+  readonly accounts = signal<Account[]>([]);
+  readonly listers = signal<User[]>([]);
+  readonly loading = signal(false);
+  readonly saving = signal(false);
+  readonly error = signal('');
+  readonly detailLoading = signal(false);
+  readonly detailError = signal('');
+  readonly accountModalOpen = signal(false);
+  readonly listerModalOpen = signal(false);
+  readonly invoiceModalOpen = signal(false);
+  readonly invoiceSaving = signal(false);
+  readonly activeAccount = signal<Account | null>(null);
+  readonly activeAccountSummary = signal<AccountSummary | null>(null);
+  readonly selectedListerIds = signal<string[]>([]);
+  readonly invoicePreview = signal<InvoicePreviewVm | null>(null);
+  readonly selectedListerIdSet = computed(() => new Set(this.selectedListerIds()));
+  readonly searchControl = new FormControl('', { nonNullable: true });
+  readonly marketplaceControl = new FormControl<MarketplaceFilter>('all', { nonNullable: true });
+  readonly statusControl = new FormControl<AccountStatusFilter>('all', { nonNullable: true });
+  readonly searchTerm = signal('');
+  readonly pageError = computed(() => !this.loading() && this.error());
+  readonly detailVm = computed(() => this.activeAccountSummary());
+  readonly recentInvoices = computed(() => this.activeAccountSummary()?.invoices || []);
+  readonly invoiceForm: AccountInvoiceForm = createAccountInvoiceForm();
+
+  readonly filteredAccounts = computed(() => {
+    const term = this.searchTerm();
+    const marketplace = this.marketplaceControl.value;
+    const status = this.statusControl.value;
+
+    return this.accounts().filter((account) => {
+      const matchesMarketplace = marketplace === 'all' ? true : account.marketplace === marketplace;
+      const matchesStatus =
+        status === 'all' ? true : status === 'active' ? account.isActive : !account.isActive;
+      const matchesSearch = !term
+        ? true
+        : [account.name, account.marketplace]
+            .filter(Boolean)
+            .some((value) => value.toLowerCase().includes(term));
+
+      return matchesMarketplace && matchesStatus && matchesSearch;
+    });
+  });
+
+  readonly accountForm = new FormGroup({
+    name: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required],
+    }),
+    marketplace: new FormControl<'ebay' | 'amazon'>('ebay', {
+      nonNullable: true,
+      validators: [Validators.required],
+    }),
+    isActive: new FormControl(true, { nonNullable: true }),
+  });
+
+  private readonly destroyRef = inject(DestroyRef);
+  private accountsSubscribed = false;
+
+  constructor(
+    private readonly accountApi: AccountApiService,
+    private readonly referenceData: ReferenceDataService,
+    private readonly workspaceSync: WorkspaceSyncService,
+    private readonly confirm: ConfirmService,
+    private readonly toast: ToastService,
+    private readonly invoicePdf: InvoicePdfService,
+  ) {
+    this.searchControl.valueChanges
+      .pipe(debounceTime(250), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
+      .subscribe((value) => this.searchTerm.set(value.trim().toLowerCase()));
+
+    this.invoiceForm.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.syncInvoicePreview());
+
+    effect(() => {
+      const filtered = this.filteredAccounts();
+      const active = this.activeAccount();
+
+      if (!filtered.length) {
+        if (active) {
+          this.activeAccount.set(null);
+          this.activeAccountSummary.set(null);
+        }
+        return;
+      }
+
+      if (!active || !filtered.some((account) => account.id === active.id)) {
+        this.selectAccount(filtered[0]);
+      }
+    });
+  }
+
+  ngOnInit(): void {
+    this.loadAccounts();
+
+    this.referenceData
+      .getUsers('lister')
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (listers) => this.listers.set(listers),
+        error: (error) => this.error.set(error?.error?.message || 'Could not load listers.'),
+      });
+  }
+
+  get invoiceLineItems() {
+    return this.invoiceForm.controls.lineItems.controls;
+  }
+
+  loadAccounts(): void {
+    this.loading.set(true);
+    this.error.set('');
+
+    if (!this.accountsSubscribed) {
+      this.accountsSubscribed = true;
+
+      this.referenceData
+        .getAccounts(true)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (accounts) => {
+            this.accounts.set(accounts);
+            this.loading.set(false);
+          },
+          error: (error) => {
+            this.error.set(error?.error?.message || 'Could not load accounts.');
+            this.loading.set(false);
+          },
+        });
+      return;
+    }
+
+    this.referenceData.refreshAccounts();
+    this.loading.set(false);
+  }
+
+  selectAccount(account: Account, force = false): void {
+    if (!force && this.activeAccount()?.id === account.id && this.activeAccountSummary()) {
+      return;
+    }
+
+    this.activeAccount.set(account);
+    this.detailLoading.set(true);
+    this.detailError.set('');
+
+    this.accountApi
+      .getAccountSummary(account.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (summary) => {
+          this.activeAccountSummary.set(summary);
+          this.detailLoading.set(false);
+          this.syncInvoicePreview();
+        },
+        error: (error) => {
+          this.detailError.set(error?.error?.message || 'Could not load account details.');
+          this.detailLoading.set(false);
+        },
+      });
+  }
+
+  resetFilters(): void {
+    this.searchControl.setValue('', { emitEvent: true });
+    this.marketplaceControl.setValue('all');
+    this.statusControl.setValue('all');
+  }
+
+  openAccountModal(): void {
+    this.accountForm.reset({ name: '', marketplace: 'ebay', isActive: true });
+    this.accountModalOpen.set(true);
+  }
+
+  closeAccountModal(force = false): void {
+    if (this.saving() && !force) {
+      return;
+    }
+
+    this.accountModalOpen.set(false);
+  }
+
+  openListerModal(account?: Account): void {
+    const targetAccount = account || this.activeAccount();
+
+    if (!targetAccount) {
+      return;
+    }
+
+    this.activeAccount.set(targetAccount);
+    this.selectedListerIds.set(targetAccount.assignedListers?.map((lister) => lister.id) || []);
+    this.listerModalOpen.set(true);
+  }
+
+  closeListerModal(force = false): void {
+    if (this.saving() && !force) {
+      return;
+    }
+
+    this.listerModalOpen.set(false);
+    this.selectedListerIds.set([]);
+  }
+
+  toggleListerSelection(listerId: string, checked: boolean): void {
+    const next = new Set(this.selectedListerIds());
+
+    if (checked) {
+      next.add(listerId);
+    } else {
+      next.delete(listerId);
+    }
+
+    this.selectedListerIds.set([...next]);
+  }
+
+  createAccount(): void {
+    if (this.accountForm.invalid || this.saving()) {
+      this.accountForm.markAllAsTouched();
+      return;
+    }
+
+    this.saving.set(true);
+    this.error.set('');
+
+    this.accountApi
+      .createAccount(this.accountForm.getRawValue())
+      .pipe(finalize(() => this.saving.set(false)))
+      .subscribe({
+        next: () => {
+          this.referenceData.refreshAccounts();
+          this.workspaceSync.notifySettingsChanged();
+          this.toast.success('Account created.');
+          this.closeAccountModal(true);
+        },
+        error: (error) => {
+          this.error.set(error?.error?.message || 'Could not create account.');
+        },
+      });
+  }
+
+  saveListerAssignments(): void {
+    const account = this.activeAccount();
+
+    if (!account || this.saving()) {
+      return;
+    }
+
+    this.saving.set(true);
+    this.error.set('');
+
+    this.accountApi
+      .setAccountListers(account.id, this.selectedListerIds())
+      .pipe(finalize(() => this.saving.set(false)))
+      .subscribe({
+        next: (updatedAccount) => {
+          this.referenceData.refreshAccounts();
+          this.workspaceSync.notifySettingsChanged();
+          this.toast.success('Assigned listers updated.');
+          this.closeListerModal(true);
+          this.selectAccount(updatedAccount, true);
+        },
+        error: (error) => {
+          this.error.set(error?.error?.message || 'Could not update assigned listers.');
+        },
+      });
+  }
+
+  async toggleAccount(account: Account): Promise<void> {
+    if (account.isActive) {
+      const confirmed = await this.confirm.ask({
+        title: 'Disable account?',
+        message: `${account.name} will no longer be available for listing actions.`,
+        confirmText: 'Disable',
+        tone: 'danger',
+      });
+
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    this.accountApi.updateAccount(account.id, { isActive: !account.isActive }).subscribe({
+      next: (updatedAccount) => {
+        this.referenceData.refreshAccounts();
+        this.workspaceSync.notifySettingsChanged();
+        this.toast.success(account.isActive ? 'Account disabled.' : 'Account enabled.');
+        this.selectAccount(updatedAccount, true);
+      },
+      error: (error) => this.error.set(error?.error?.message || 'Could not update account.'),
+    });
+  }
+
+  openInvoiceModal(): void {
+    const activeAccount = this.activeAccount();
+    const summary = this.activeAccountSummary();
+
+    if (!activeAccount) {
+      return;
+    }
+
+    const totalProfit = Number(summary?.stats.totalProfit || 0);
+
+    this.invoiceForm.reset({
+      billToName: activeAccount.name,
+      invoiceMonth: buildInvoiceMonthValue(),
+      invoiceDate: buildInvoiceDateValue(),
+      currency: 'USD',
+      primaryPayment: DEFAULT_PRIMARY_PAYMENT,
+      alternatePayment: DEFAULT_ALTERNATE_PAYMENT,
+      notes: '',
+    });
+
+    const defaults = [
+      { ...DEFAULT_INVOICE_LINE_ITEMS[0], amount: totalProfit },
+      { ...DEFAULT_INVOICE_LINE_ITEMS[1], amount: 0 },
+      { ...DEFAULT_INVOICE_LINE_ITEMS[2], amount: 0 },
+    ];
+
+    defaults.forEach((item, index) => {
+      this.invoiceLineItems[index].reset(item);
+    });
+
+    this.syncInvoicePreview();
+    this.invoiceModalOpen.set(true);
+  }
+
+  closeInvoiceModal(force = false): void {
+    if (this.invoiceSaving() && !force) {
+      return;
+    }
+
+    this.invoiceModalOpen.set(false);
+  }
+
+  submitInvoice(): void {
+    const account = this.activeAccount();
+
+    if (!account || this.invoiceForm.invalid || this.invoiceSaving()) {
+      this.invoiceForm.markAllAsTouched();
+      return;
+    }
+
+    this.invoiceSaving.set(true);
+
+    const payload: AccountInvoicePayload = {
+      billToName: this.invoiceForm.controls.billToName.getRawValue(),
+      invoiceMonth: this.invoiceForm.controls.invoiceMonth.getRawValue(),
+      invoiceDate: this.invoiceForm.controls.invoiceDate.getRawValue(),
+      currency: this.invoiceForm.controls.currency.getRawValue(),
+      lineItems: this.invoiceLineItems.map((item) => ({
+        title: item.controls.title.getRawValue(),
+        description: item.controls.description.getRawValue() || null,
+        amount: Number(item.controls.amount.getRawValue() || 0),
+        includeInTotal: item.controls.includeInTotal.getRawValue(),
+      })),
+      primaryPayment: {
+        title: this.invoiceForm.controls.primaryPayment.controls.title.getRawValue(),
+        bankName: this.invoiceForm.controls.primaryPayment.controls.bankName.getRawValue(),
+        accountNumber: this.invoiceForm.controls.primaryPayment.controls.accountNumber.getRawValue(),
+        iban: this.invoiceForm.controls.primaryPayment.controls.iban.getRawValue(),
+        branch: this.invoiceForm.controls.primaryPayment.controls.branch.getRawValue(),
+      },
+      alternatePayment: {
+        title: this.invoiceForm.controls.alternatePayment.controls.title.getRawValue(),
+        bankName: this.invoiceForm.controls.alternatePayment.controls.bankName.getRawValue(),
+        accountNumber: this.invoiceForm.controls.alternatePayment.controls.accountNumber.getRawValue(),
+        iban: this.invoiceForm.controls.alternatePayment.controls.iban.getRawValue(),
+        branch: this.invoiceForm.controls.alternatePayment.controls.branch.getRawValue(),
+      },
+      notes: this.invoiceForm.controls.notes.getRawValue() || null,
+    };
+
+    this.accountApi
+      .createAccountInvoice(account.id, payload)
+      .pipe(finalize(() => this.invoiceSaving.set(false)))
+      .subscribe({
+        next: async (invoice) => {
+          this.toast.success('Invoice created.');
+          await this.invoicePdf.downloadInvoice(invoice);
+          this.closeInvoiceModal(true);
+          this.selectAccount(account, true);
+        },
+        error: (error) => {
+          this.toast.error(error?.error?.message || 'Could not create invoice.');
+        },
+      });
+  }
+
+  async downloadInvoice(invoice: AccountInvoice): Promise<void> {
+    await this.invoicePdf.downloadInvoice(invoice);
+  }
+
+  trackByAccountId(_: number, account: Account): string {
+    return account.id;
+  }
+
+  trackByInvoiceId(_: number, invoice: AccountInvoice): string {
+    return invoice.id;
+  }
+
+  reloadActiveAccountSummary(): void {
+    const account = this.activeAccount();
+
+    if (!account) {
+      return;
+    }
+
+    this.selectAccount(account, true);
+  }
+
+  private syncInvoicePreview(): void {
+    const activeAccount = this.activeAccount();
+    const raw = this.invoiceForm.getRawValue();
+
+    this.invoicePreview.set({
+      accountName: activeAccount?.name || 'Account',
+      billToName: raw.billToName || activeAccount?.name || 'Account',
+      invoiceMonthLabel: this.formatInvoiceMonth(raw.invoiceMonth),
+      invoiceDateLabel: this.formatInvoiceDate(raw.invoiceDate),
+      currency: raw.currency || 'USD',
+      lineItems: raw.lineItems.map((item) => ({
+        title: item.title || '',
+        description: item.description || '',
+        amount: Number(item.amount || 0),
+        includeInTotal: item.includeInTotal,
+      })),
+      totalNetPayable: Number(
+        raw.lineItems
+          .reduce(
+            (total, item) => total + (item.includeInTotal === false ? 0 : Number(item.amount || 0)),
+            0,
+          )
+          .toFixed(2),
+      ),
+      primaryPayment: {
+        title: raw.primaryPayment.title || DEFAULT_PRIMARY_PAYMENT.title,
+        bankName: raw.primaryPayment.bankName || '',
+        accountNumber: raw.primaryPayment.accountNumber || '',
+        iban: raw.primaryPayment.iban || '',
+        branch: raw.primaryPayment.branch || '',
+      },
+      alternatePayment: {
+        title: raw.alternatePayment.title || DEFAULT_ALTERNATE_PAYMENT.title,
+        bankName: raw.alternatePayment.bankName || '',
+        accountNumber: raw.alternatePayment.accountNumber || '',
+        iban: raw.alternatePayment.iban || '',
+        branch: raw.alternatePayment.branch || '',
+      },
+      notes: raw.notes || '',
+    });
+  }
+
+  private formatInvoiceMonth(value: string): string {
+    if (!value) {
+      return '';
+    }
+
+    const monthDate = new Date(`${value}-01T00:00:00`);
+
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'long',
+      year: 'numeric',
+    }).format(monthDate);
+  }
+
+  private formatInvoiceDate(value: string): string {
+    if (!value) {
+      return '';
+    }
+
+    const invoiceDate = new Date(`${value}T00:00:00`);
+
+    return new Intl.DateTimeFormat('en-GB', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    }).format(invoiceDate);
+  }
+}

@@ -1,0 +1,911 @@
+import { computed, DestroyRef, effect, inject, Injectable, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { FormControl, FormGroup, FormRecord, Validators } from '@angular/forms';
+import { catchError, debounceTime, distinctUntilChanged, finalize, firstValueFrom, of, Subject, switchMap } from 'rxjs';
+
+import { ChangeRequestApiService } from '../api/change-request-api.service';
+import { ListerApiService } from '../api/lister-api.service';
+import { SEARCH_DEBOUNCE_MS } from '../config/validation';
+import {
+  Account,
+  AssignedHunter,
+  ListerChangeRequestBlockStatus,
+  Product,
+  ProductCategory,
+  ProductFilters,
+  ProductStatus,
+} from '../models/product.models';
+import { ExportService } from '../services/export.service';
+import { ReferenceDataService } from '../state/reference-data.service';
+import { SessionCacheService } from '../state/session-cache.service';
+import { WorkspaceSyncService } from '../state/workspace-sync.service';
+import { ConfirmService } from '../ui/confirm.service';
+import { ToastService } from '../ui/toast.service';
+import { listingLinkValidator } from '../../shared/validators/listing-link.validator';
+import { GridSortState, sortRecords } from '../../shared/grid/grid.utils';
+
+const LISTER_FILTERS_COLLAPSED_KEY = 'tws_lister_filters_collapsed';
+
+@Injectable()
+export class ListerFacade {
+  readonly pageSizeOptions = [10, 25, 50];
+  readonly hunters = signal<AssignedHunter[]>([]);
+  readonly accounts = signal<Account[]>([]);
+  readonly availableCategories = signal<ProductCategory[]>([]);
+  readonly products = signal<Product[]>([]);
+  readonly totalCount = signal(0);
+  readonly selectedHunterId = signal('');
+  readonly currentProductId = signal('');
+  readonly sortState = signal<GridSortState>({ active: 'createdAt', direction: 'desc' });
+  readonly pageIndex = signal(0);
+  readonly pageSize = signal(this.pageSizeOptions[0]);
+  readonly filtersCollapsed = signal(this.readCollapsedFilters());
+  readonly loading = signal(false);
+  readonly saving = signal(false);
+  readonly copied = signal('');
+  readonly error = signal('');
+  readonly rejectingId = signal('');
+  readonly actionFormVersion = signal(0);
+  readonly attemptedCurrentAction = signal(false);
+  readonly changeRequestBlockStatus = signal<ListerChangeRequestBlockStatus>({
+    blocked: false,
+    openRequests: 0,
+  });
+
+  readonly filters = new FormGroup({
+    search: new FormControl('', { nonNullable: true }),
+    status: new FormControl<ProductStatus | ''>('assigned', { nonNullable: true }),
+    category: new FormControl('', { nonNullable: true }),
+    accountId: new FormControl('', { nonNullable: true }),
+    from: new FormControl('', { nonNullable: true }),
+    to: new FormControl('', { nonNullable: true }),
+  });
+
+  readonly actionForm = new FormGroup({
+    accountId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+  });
+
+  readonly listingLinkControls = new FormRecord<FormControl<string>>({});
+  readonly rejectionReasonControls = new FormRecord<FormControl<string>>({});
+
+  readonly hasAssignedAccounts = computed(() => this.accounts().length > 0);
+  readonly isListingBlocked = computed(() => this.changeRequestBlockStatus().blocked);
+  readonly listingBlockMessage = computed(() => {
+    const block = this.changeRequestBlockStatus();
+
+    if (!block.blocked) {
+      return '';
+    }
+
+    return `You have ${block.openRequests} product change request${block.openRequests === 1 ? '' : 's'} pending. Please fix them before listing new products.`;
+  });
+  readonly selectedAccountId = computed(() => {
+    this.actionFormVersion();
+    return this.actionForm.controls.accountId.value.trim();
+  });
+  readonly hasValidSelectedAccount = computed(() => {
+    const accountId = this.selectedAccountId();
+    return Boolean(accountId && this.accounts().some((account) => account.id === accountId));
+  });
+  readonly sortedProducts = computed(() =>
+    sortRecords(this.products(), this.sortState(), (product, key) => {
+      switch (key) {
+        case 'title':
+          return `${product.title || ''} ${product.asin || ''}`.trim().toLowerCase();
+        case 'hunterName':
+          return product.hunterName.toLowerCase();
+        case 'profit':
+          return product.profit;
+        case 'status':
+          return product.status;
+        case 'listedAt':
+          return product.listedAt ? new Date(product.listedAt).getTime() : 0;
+        case 'createdAt':
+        default:
+          return new Date(product.createdAt).getTime();
+      }
+    }),
+  );
+  readonly selectedProduct = computed(
+    () => this.sortedProducts().find((product) => product.id === this.currentProductId()) || null,
+  );
+  readonly selectedQueueIndex = computed(() =>
+    this.sortedProducts().findIndex((product) => product.id === this.currentProductId()),
+  );
+  readonly pagedProducts = computed(() => this.sortedProducts());
+  readonly pageCount = computed(() => Math.max(1, Math.ceil(this.totalCount() / this.pageSize())));
+  readonly pageLabel = computed(() => {
+    const total = this.totalCount();
+
+    if (!total) {
+      return 'No products to show';
+    }
+
+    const start = this.pageIndex() * this.pageSize() + 1;
+    const end = Math.min(total, start + this.sortedProducts().length - 1);
+    return `Showing ${start}-${end} of ${total}`;
+  });
+  readonly selectedHunter = computed(
+    () => this.hunters().find((hunter) => hunter.id === this.selectedHunterId()) || null,
+  );
+  readonly productivityVm = computed(() => {
+    const hunter = this.selectedHunter();
+    const listed = hunter?.listedCount || 0;
+    const pending = hunter?.pendingCount ?? hunter?.readyCount ?? 0;
+    const rejected = hunter?.rejectedCount || 0;
+    const totalTracked = Math.max(listed + pending, 1);
+
+    return {
+      hunterName: hunter?.name || 'Select a hunter',
+      listed,
+      pending,
+      rejected,
+      progressLabel: `${listed} / ${listed + pending}`,
+      completionPercent: Math.round((listed / totalTracked) * 100),
+    };
+  });
+  readonly currentListingLinkControl = computed(() => {
+    const product = this.selectedProduct();
+    return product ? ((this.listingLinkControls.get(product.id) as FormControl<string> | null) ?? null) : null;
+  });
+  readonly currentRejectionReasonControl = computed(() => {
+    const product = this.selectedProduct();
+    return product
+      ? ((this.rejectionReasonControls.get(product.id) as FormControl<string> | null) ?? null)
+      : null;
+  });
+  readonly canMarkCurrentListed = computed(() => {
+    this.actionFormVersion();
+    const product = this.selectedProduct();
+    const listingControl = this.currentListingLinkControl();
+
+    if (!product || !listingControl) {
+      return false;
+    }
+
+    return (
+      !this.isListingBlocked() &&
+      this.canMarkListed(product) &&
+      this.hasValidSelectedAccount() &&
+      Boolean(listingControl.value.trim()) &&
+      listingControl.valid &&
+      !this.saving()
+    );
+  });
+  readonly canRejectCurrent = computed(() => {
+    const product = this.selectedProduct();
+    return product ? this.canReject(product) : false;
+  });
+  readonly currentListingLinkError = computed(() => {
+    this.actionFormVersion();
+    const control = this.currentListingLinkControl();
+
+    if (!control || !(control.touched || this.attemptedCurrentAction())) {
+      return '';
+    }
+
+    if (!control.value.trim()) {
+      return 'Listed eBay link is required.';
+    }
+
+    if (control.hasError('ebayUrl')) {
+      return 'Enter a valid eBay URL.';
+    }
+
+    return '';
+  });
+  readonly currentRejectionError = computed(() => {
+    const control = this.currentRejectionReasonControl();
+
+    if (!control || !control.touched) {
+      return '';
+    }
+
+    if (control.hasError('required')) {
+      return 'Rejection reason is required.';
+    }
+
+    if (control.hasError('minlength')) {
+      return 'Rejection reason should be at least 3 characters.';
+    }
+
+    return '';
+  });
+  readonly currentListingBlockingMessage = computed(() => {
+    this.actionFormVersion();
+    const product = this.selectedProduct();
+    const control = this.currentListingLinkControl();
+
+    if (!product) {
+      return 'Select a product to start listing.';
+    }
+
+    if (this.isListingBlocked()) {
+      return this.listingBlockMessage();
+    }
+
+    if (!this.hasAssignedAccounts()) {
+      return 'No listing accounts are assigned to you yet.';
+    }
+
+    if (!this.canMarkListed(product)) {
+      return product.status === 'listed' ? 'This product is already listed.' : 'This product cannot be listed from this queue.';
+    }
+
+    if (!this.selectedAccountId()) {
+      return 'Choose a listing account to continue.';
+    }
+
+    if (!this.hasValidSelectedAccount()) {
+      return 'Select an assigned listing account to continue.';
+    }
+
+    if (!control || !control.value.trim()) {
+      return 'Enter the listed eBay link to enable Mark as Listed.';
+    }
+
+    if (control.hasError('ebayUrl')) {
+      return 'Enter a valid eBay URL for the listed product.';
+    }
+
+    return '';
+  });
+
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly reloadProducts$ = new Subject<void>();
+  private accountsSubscribed = false;
+  private suppressNextWorkspaceProductsRefresh = false;
+
+  constructor(
+    private readonly listerApi: ListerApiService,
+    private readonly changeRequestApi: ChangeRequestApiService,
+    private readonly referenceData: ReferenceDataService,
+    private readonly sessionCache: SessionCacheService,
+    private readonly exportService: ExportService,
+    private readonly workspaceSync: WorkspaceSyncService,
+    private readonly confirm: ConfirmService,
+    private readonly toast: ToastService,
+  ) {
+    this.initialize();
+  }
+
+  loadInitial(): void {
+    this.error.set('');
+    this.refreshChangeRequestBlockStatus();
+
+    const cachedHunters = this.sessionCache.assignedHunters();
+
+    if (cachedHunters.length) {
+      this.hunters.set(cachedHunters);
+
+      if (!this.selectedHunterId() && cachedHunters[0]) {
+        this.selectHunter(cachedHunters[0].id);
+      }
+    }
+
+    this.listerApi.listAssignedHunters().subscribe({
+      next: (hunters) => {
+        this.hunters.set(hunters);
+
+        if (!this.selectedHunterId() && hunters[0]) {
+          this.selectHunter(hunters[0].id);
+        }
+      },
+      error: (error) => this.error.set(error?.error?.message || 'Could not load assigned hunters.'),
+    });
+
+    if (!this.accountsSubscribed) {
+      this.accountsSubscribed = true;
+
+      const cachedAccounts = this.sessionCache.assignedAccounts();
+
+      if (cachedAccounts.length) {
+        this.accounts.set(cachedAccounts);
+        this.syncAccountControls(cachedAccounts);
+      }
+
+      this.referenceData
+        .getAccounts()
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (accounts) => {
+            this.accounts.set(accounts);
+            this.syncAccountControls(accounts);
+          },
+          error: (error) => this.error.set(error?.error?.message || 'Could not load accounts.'),
+        });
+
+      this.referenceData
+        .getProductCategories()
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe((categories) => this.availableCategories.set(categories));
+    }
+  }
+
+  selectHunter(hunterId: string): void {
+    this.selectedHunterId.set(hunterId);
+    this.currentProductId.set('');
+    this.attemptedCurrentAction.set(false);
+    this.pageIndex.set(0);
+    this.loadProducts();
+  }
+
+  applyFilters(): void {
+    this.pageIndex.set(0);
+    this.loadProducts();
+  }
+
+  resetFilters(): void {
+    this.filters.reset(
+      {
+        search: '',
+        status: 'assigned',
+        category: '',
+        accountId: '',
+        from: '',
+        to: '',
+      },
+      { emitEvent: false },
+    );
+
+    this.pageIndex.set(0);
+    this.attemptedCurrentAction.set(false);
+    this.loadProducts();
+  }
+
+  toggleFiltersCollapsed(): void {
+    this.filtersCollapsed.update((value) => {
+      const next = !value;
+      localStorage.setItem(LISTER_FILTERS_COLLAPSED_KEY, JSON.stringify(next));
+      return next;
+    });
+  }
+
+  exportProducts(): void {
+    void this.exportAllProducts();
+  }
+
+  loadProducts(): void {
+    this.reloadProducts$.next();
+  }
+
+  selectProduct(productId: string): void {
+    this.currentProductId.set(productId);
+    this.attemptedCurrentAction.set(false);
+  }
+
+  goToPreviousProduct(): void {
+    const currentIndex = this.selectedQueueIndex();
+
+    if (currentIndex <= 0) {
+      return;
+    }
+
+    this.currentProductId.set(this.sortedProducts()[currentIndex - 1]?.id || '');
+  }
+
+  goToNextProduct(): void {
+    const currentIndex = this.selectedQueueIndex();
+
+    if (currentIndex < 0 || currentIndex >= this.sortedProducts().length - 1) {
+      return;
+    }
+
+    this.currentProductId.set(this.sortedProducts()[currentIndex + 1]?.id || '');
+  }
+
+  canMarkListed(product: Product): boolean {
+    return product.status === 'approved' || product.status === 'assigned';
+  }
+
+  canReject(product: Product): boolean {
+    return product.status === 'approved' || product.status === 'assigned';
+  }
+
+  copy(value: string | null | undefined, label: string): void {
+    if (!value) {
+      return;
+    }
+
+    navigator.clipboard?.writeText(value);
+    this.copied.set(label);
+    window.setTimeout(() => this.copied.set(''), 1400);
+  }
+
+  openLink(url: string | null | undefined): void {
+    if (!url) {
+      return;
+    }
+
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  markCurrentListed(): void {
+    this.attemptedCurrentAction.set(true);
+    const product = this.selectedProduct();
+    const control = this.currentListingLinkControl();
+    const accountId = this.actionForm.controls.accountId.value;
+
+    if (!product || !control || !this.canMarkCurrentListed()) {
+      this.actionForm.markAllAsTouched();
+      control?.markAsTouched();
+      return;
+    }
+
+    this.saving.set(true);
+    this.error.set('');
+
+    this.listerApi
+      .markBulkListed({
+        accountId,
+        items: [
+          {
+            id: product.id,
+            listingUrl: control.value.trim(),
+          },
+        ],
+      })
+      .pipe(finalize(() => this.saving.set(false)))
+      .subscribe({
+        next: () => {
+          this.applyListedUpdates(product.id, control.value.trim(), accountId);
+          this.attemptedCurrentAction.set(false);
+          this.suppressNextWorkspaceProductsRefresh = true;
+          this.workspaceSync.notifyProductsChanged();
+          this.toast.success('Product listed.');
+        },
+        error: (error) => this.error.set(error?.error?.message || 'Could not mark product as listed.'),
+      });
+  }
+
+  async rejectCurrentProduct(): Promise<void> {
+    const product = this.selectedProduct();
+    const control = this.currentRejectionReasonControl();
+
+    if (!product || !control || control.invalid || !this.canReject(product) || this.saving()) {
+      control?.markAsTouched();
+      return;
+    }
+
+    if (this.isListingBlocked()) {
+      this.toast.warning(this.listingBlockMessage());
+      return;
+    }
+
+    const confirmed = await this.confirm.ask({
+      title: 'Reject product?',
+      message: 'This will send the product back to the hunter with the entered rejection reason.',
+      confirmText: 'Reject',
+      tone: 'danger',
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    this.rejectingId.set(product.id);
+    this.error.set('');
+
+    this.listerApi.rejectProduct(product.id, control.value.trim()).subscribe({
+      next: (rejectedProduct) => {
+        this.applyRejectedUpdate(rejectedProduct);
+        control.reset('', { emitEvent: false });
+        this.workspaceSync.notifyProductsChanged();
+        this.toast.success('Product rejected.');
+      },
+      error: (error) => {
+        this.error.set(error?.error?.message || 'Could not reject product.');
+        this.rejectingId.set('');
+      },
+      complete: () => this.rejectingId.set(''),
+    });
+  }
+
+  previousPage(): void {
+    this.pageIndex.update((pageIndex) => Math.max(pageIndex - 1, 0));
+    this.loadProducts();
+  }
+
+  nextPage(): void {
+    this.pageIndex.update((pageIndex) => Math.min(pageIndex + 1, this.pageCount() - 1));
+    this.loadProducts();
+  }
+
+  private initialize(): void {
+    this.actionForm.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.actionFormVersion.update((value) => value + 1);
+    });
+
+    this.actionForm.statusChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.actionFormVersion.update((value) => value + 1);
+    });
+
+    this.filters.controls.search.valueChanges
+      .pipe(debounceTime(SEARCH_DEBOUNCE_MS), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.pageIndex.set(0);
+        this.loadProducts();
+      });
+
+    this.reloadProducts$
+      .pipe(
+        switchMap(() => {
+          if (!this.selectedHunterId()) {
+            this.products.set([]);
+            this.totalCount.set(0);
+            return of({
+              items: [] as Product[],
+              page: 1,
+              limit: this.pageSize(),
+              total: 0,
+              hasMore: false,
+            });
+          }
+
+          this.loading.set(true);
+          this.error.set('');
+
+          return this.listerApi
+            .listQueueProducts({
+              ...this.buildFilters(),
+              hunterId: this.selectedHunterId(),
+            })
+            .pipe(
+              catchError((error) => {
+                this.error.set(error?.error?.message || 'Could not load products.');
+                return of({
+                  items: [] as Product[],
+                  page: this.pageIndex() + 1,
+                  limit: this.pageSize(),
+                  total: 0,
+                  hasMore: false,
+                });
+              }),
+              finalize(() => this.loading.set(false)),
+            );
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((products) => {
+        this.products.set(products.items);
+        this.totalCount.set(products.total);
+        this.syncRowControls(products.items);
+        this.syncCurrentProduct(products.items);
+      });
+
+    this.loadInitial();
+
+    effect(() => {
+      const version = this.workspaceSync.productsVersion();
+
+      if (version > 0 && this.selectedHunterId()) {
+        if (this.suppressNextWorkspaceProductsRefresh) {
+          this.suppressNextWorkspaceProductsRefresh = false;
+          return;
+        }
+
+        this.loadProducts();
+      }
+    });
+
+    effect(() => {
+      const version = this.workspaceSync.changeRequestsVersion();
+
+      if (version > 0) {
+        this.refreshChangeRequestBlockStatus();
+      }
+    });
+  }
+
+  private buildFilters(): ProductFilters {
+    const raw = this.filters.getRawValue();
+
+    return {
+      search: raw.search.trim() || undefined,
+      status: raw.status || undefined,
+      category: raw.category || undefined,
+      accountId: raw.accountId || undefined,
+      from: raw.from || undefined,
+      to: raw.to || undefined,
+      page: this.pageIndex() + 1,
+      limit: this.pageSize(),
+    };
+  }
+
+  private ensureListingLinkControl(productId: string): FormControl<string> {
+    const existing = this.listingLinkControls.get(productId) as FormControl<string> | null;
+
+    if (existing) {
+      return existing;
+    }
+
+    const created = new FormControl('', {
+      nonNullable: true,
+      validators: [listingLinkValidator],
+    });
+
+    created.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.actionFormVersion.update((value) => value + 1);
+    });
+
+    created.statusChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.actionFormVersion.update((value) => value + 1);
+    });
+
+    this.listingLinkControls.addControl(productId, created);
+    return created;
+  }
+
+  private ensureRejectionReasonControl(productId: string): FormControl<string> {
+    const existing = this.rejectionReasonControls.get(productId) as FormControl<string> | null;
+
+    if (existing) {
+      return existing;
+    }
+
+    const created = new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, Validators.minLength(3)],
+    });
+
+    created.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.actionFormVersion.update((value) => value + 1);
+    });
+
+    created.statusChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.actionFormVersion.update((value) => value + 1);
+    });
+
+    this.rejectionReasonControls.addControl(productId, created);
+    return created;
+  }
+
+  private syncRowControls(products: Product[]): void {
+    const productIds = new Set(products.map((product) => product.id));
+
+    for (const product of products) {
+      const listingControl = this.ensureListingLinkControl(product.id);
+
+      if (!listingControl.dirty && product.listingUrl && !listingControl.value) {
+        listingControl.setValue(product.listingUrl, { emitEvent: false });
+      }
+
+      const rejectionControl = this.ensureRejectionReasonControl(product.id);
+
+      if (!rejectionControl.dirty && product.status === 'rejected') {
+        rejectionControl.setValue(product.rejectionReason || '', { emitEvent: false });
+      }
+    }
+
+    for (const controlKey of Object.keys(this.listingLinkControls.controls)) {
+      if (!productIds.has(controlKey)) {
+        this.listingLinkControls.removeControl(controlKey);
+      }
+    }
+
+    for (const controlKey of Object.keys(this.rejectionReasonControls.controls)) {
+      if (!productIds.has(controlKey)) {
+        this.rejectionReasonControls.removeControl(controlKey);
+      }
+    }
+  }
+
+  private syncCurrentProduct(products: Product[]): void {
+    if (!products.length) {
+      this.currentProductId.set('');
+      return;
+    }
+
+    const existing = products.some((product) => product.id === this.currentProductId());
+
+    if (existing) {
+      return;
+    }
+
+    this.currentProductId.set(products[0]?.id || '');
+  }
+
+  private syncAccountControls(accounts: Account[]): void {
+    const allowedIds = new Set(accounts.map((account) => account.id));
+
+    if (this.filters.controls.accountId.value && !allowedIds.has(this.filters.controls.accountId.value)) {
+      this.filters.controls.accountId.setValue('', { emitEvent: false });
+    }
+
+    if (this.actionForm.controls.accountId.value && !allowedIds.has(this.actionForm.controls.accountId.value)) {
+      this.actionForm.controls.accountId.setValue('', { emitEvent: false });
+    }
+
+    if (!this.actionForm.controls.accountId.value && accounts.length === 1) {
+      this.actionForm.controls.accountId.setValue(accounts[0].id, { emitEvent: false });
+    }
+
+    this.actionFormVersion.update((value) => value + 1);
+  }
+
+  private applyListedUpdates(productId: string, listingUrl: string, accountId: string): void {
+    const account = this.accounts().find((entry) => entry.id === accountId) || null;
+    const listedAt = new Date().toISOString();
+    const activeFilters = this.buildFilters();
+
+    const updatedProducts = this.products()
+      .map((product) => {
+        if (product.id !== productId) {
+          return product;
+        }
+
+        return {
+          ...product,
+          status: 'listed' as const,
+          listingUrl,
+          accountUsed: accountId,
+          accountName: account?.name || product.accountName,
+          listedAt,
+        };
+      })
+      .filter((product) => product.id !== productId || this.shouldKeepListedProduct(product, activeFilters, accountId));
+
+    const removedFromPage = !updatedProducts.some((product) => product.id === productId);
+    this.products.set(updatedProducts);
+    this.totalCount.update((value) => Math.max(0, value - (removedFromPage ? 1 : 0)));
+    this.syncCurrentProduct(updatedProducts);
+    this.bumpHunterMetrics('listed');
+
+    if (removedFromPage && !updatedProducts.length && this.pageIndex() > 0) {
+      this.pageIndex.update((pageIndex) => Math.max(pageIndex - 1, 0));
+      this.loadProducts();
+    }
+  }
+
+  private applyRejectedUpdate(rejectedProduct: Product): void {
+    const activeFilters = this.buildFilters();
+
+    const updatedProducts = this.products()
+      .map((product) => (product.id === rejectedProduct.id ? { ...product, ...rejectedProduct } : product))
+      .filter((product) => product.id !== rejectedProduct.id || this.shouldKeepRejectedProduct(activeFilters));
+
+    const removedFromPage = !updatedProducts.some((product) => product.id === rejectedProduct.id);
+    this.products.set(updatedProducts);
+    this.totalCount.update((value) => Math.max(0, value - (removedFromPage ? 1 : 0)));
+    this.syncCurrentProduct(updatedProducts);
+    this.bumpHunterMetrics('rejected');
+
+    if (removedFromPage && !updatedProducts.length && this.pageIndex() > 0) {
+      this.pageIndex.update((pageIndex) => Math.max(pageIndex - 1, 0));
+      this.loadProducts();
+    }
+  }
+
+  private shouldKeepListedProduct(product: Product, filters: ProductFilters, accountId: string): boolean {
+    if (filters.status === 'assigned' || filters.status === 'approved' || filters.status === 'rejected') {
+      return false;
+    }
+
+    if (filters.accountId && filters.accountId !== accountId) {
+      return false;
+    }
+
+    return true;
+  }
+
+  private shouldKeepRejectedProduct(filters: ProductFilters): boolean {
+    return filters.status !== 'assigned' && filters.status !== 'approved' && filters.status !== 'listed';
+  }
+
+  private bumpHunterMetrics(action: 'listed' | 'rejected'): void {
+    const hunterId = this.selectedHunterId();
+
+    this.hunters.update((hunters) =>
+      hunters.map((hunter) => {
+        if (hunter.id !== hunterId) {
+          return hunter;
+        }
+
+        const listedCount = hunter.listedCount || 0;
+        const pendingCount = hunter.pendingCount ?? hunter.readyCount ?? 0;
+        const rejectedCount = hunter.rejectedCount || 0;
+
+        if (action === 'listed') {
+          return {
+            ...hunter,
+            listedCount: listedCount + 1,
+            readyCount: Math.max(0, pendingCount - 1),
+            pendingCount: Math.max(0, pendingCount - 1),
+          };
+        }
+
+        return {
+          ...hunter,
+          rejectedCount: rejectedCount + 1,
+          readyCount: Math.max(0, pendingCount - 1),
+          pendingCount: Math.max(0, pendingCount - 1),
+        };
+      }),
+    );
+  }
+
+  private readCollapsedFilters(): boolean {
+    try {
+      return JSON.parse(localStorage.getItem(LISTER_FILTERS_COLLAPSED_KEY) || 'true') !== false;
+    } catch (error) {
+      return true;
+    }
+  }
+
+  private refreshChangeRequestBlockStatus(): void {
+    this.changeRequestApi
+      .getListerBlockStatus()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (status) => this.changeRequestBlockStatus.set(status),
+        error: () =>
+          this.changeRequestBlockStatus.set({
+            blocked: false,
+            openRequests: 0,
+          }),
+      });
+  }
+
+  private async exportAllProducts(): Promise<void> {
+    const hunterName = this.hunters().find((hunter) => hunter.id === this.selectedHunterId())?.name || 'hunter';
+    const dateStamp = new Date().toISOString().slice(0, 10);
+
+    try {
+      const filters = {
+        ...this.buildFilters(),
+        page: 1,
+        limit: 100,
+      };
+      const firstPage = await firstValueFrom(
+        this.listerApi.listQueueProducts({
+          ...filters,
+          hunterId: this.selectedHunterId(),
+        }),
+      );
+      const rows = [...firstPage.items];
+      const totalPages = Math.max(1, Math.ceil(firstPage.total / firstPage.limit));
+
+      for (let page = 2; page <= totalPages; page += 1) {
+        const nextPage = await firstValueFrom(
+          this.listerApi.listQueueProducts({
+            ...filters,
+            hunterId: this.selectedHunterId(),
+            page,
+          }),
+        );
+        rows.push(...nextPage.items);
+      }
+
+      this.exportService.exportAsExcelTable({
+        filename: `lister-products-${hunterName.replaceAll(/\s+/g, '-').toLowerCase()}-${dateStamp}.xlsx`,
+        sheetName: 'Lister Products',
+        rows,
+        columns: [
+          { header: 'Hunter', value: (product) => product.hunterName },
+          { header: 'Title', value: (product) => product.title || '' },
+          { header: 'ASIN', value: (product) => product.asin || '' },
+          { header: 'Category', value: (product) => product.category || '' },
+          { header: 'Custom Label', value: (product) => product.customLabel || '' },
+          { header: 'Status', value: (product) => product.status },
+          { header: 'Amazon Link', value: (product) => product.amazonUrl },
+          { header: 'Amazon Alternate Link', value: (product) => product.amazonAltUrl || '' },
+          { header: 'eBay Source Link', value: (product) => product.ebayUrl },
+          { header: 'Listed eBay Link', value: (product) => product.listingUrl || '' },
+          { header: 'Amazon Price', value: (product) => product.amazonPrice ?? '' },
+          { header: 'eBay Price', value: (product) => product.ebayPrice ?? '' },
+          { header: 'Profit', value: (product) => product.profit },
+          { header: 'ROI', value: (product) => product.roi },
+          { header: 'Sold Count', value: (product) => product.soldCount },
+          { header: 'Stock Count', value: (product) => product.amazonStockCount ?? '' },
+          { header: 'Account', value: (product) => product.accountName || '' },
+          { header: 'Rejection Reason', value: (product) => product.rejectionReason || '' },
+          { header: 'Submitted At', value: (product) => product.createdAt },
+          { header: 'Listed At', value: (product) => product.listedAt || '' },
+        ],
+      });
+      this.toast.success('Products exported.');
+    } catch (error) {
+      this.error.set('Could not export products.');
+    }
+  }
+}

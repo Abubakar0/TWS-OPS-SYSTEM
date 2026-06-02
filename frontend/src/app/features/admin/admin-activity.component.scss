@@ -1,0 +1,119 @@
+.activity-toolbar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 10px;
+}
+
+.activity-toolbar .grid-toolbar__search {
+  grid-column: span 2;
+}
+
+.activity-toolbar .grid-toolbar__actions {
+  grid-column: span 2;
+  justify-content: flex-end;
+}
+
+.toolbar-select,
+.date-field {
+  width: 100%;
+}
+
+.activity-table-wrap {
+  overflow-x: visible;
+}
+
+.activity-table {
+  min-width: 0;
+  table-layout: fixed;
+}
+
+.activity-table th,
+.activity-table td {
+  white-space: normal;
+  word-break: break-word;
+}
+
+.activity-table th:nth-child(1),
+.activity-table td:nth-child(1) {
+  width: 13%;
+}
+
+.activity-table th:nth-child(2),
+.activity-table td:nth-child(2) {
+  width: 14%;
+}
+
+.activity-table th:nth-child(3),
+.activity-table td:nth-child(3) {
+  width: 10%;
+}
+
+.activity-table th:nth-child(4),
+.activity-table td:nth-child(4) {
+  width: 16%;
+}
+
+.activity-table th:nth-child(5),
+.activity-table td:nth-child(5) {
+  width: 15%;
+}
+
+.activity-cell--action .status-badge {
+  white-space: normal;
+  line-height: 1.35;
+}
+
+.activity-cell--timestamp {
+  line-height: 1.45;
+}
+
+.activity-details {
+  min-width: 0;
+  color: var(--tws-muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+@media (max-width: 1180px) {
+  .activity-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .activity-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .activity-toolbar .grid-toolbar__search,
+  .activity-toolbar .grid-toolbar__actions {
+    grid-column: span 1;
+  }
+
+  .activity-table,
+  .activity-table thead,
+  .activity-table tbody,
+  .activity-table tr,
+  .activity-table th,
+  .activity-table td {
+    display: block;
+    width: 100% !important;
+  }
+
+  .activity-table thead {
+    display: none;
+  }
+
+  .activity-table tr {
+    padding: 12px 14px;
+    border-bottom: 1px solid #edf2f7;
+  }
+
+  .activity-table td {
+    padding: 6px 0;
+    border-bottom: 0;
+  }
+}

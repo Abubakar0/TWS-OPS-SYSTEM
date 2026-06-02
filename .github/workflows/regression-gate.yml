@@ -1,0 +1,94 @@
+name: Release Regression Gate
+
+on:
+  pull_request:
+    branches:
+      - master
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: Backend API base URL for regression runs
+        required: false
+        default: https://tws-ops-system-backend-staging.up.railway.app/api
+      e2e_base_url:
+        description: Frontend base URL for Playwright smoke runs
+        required: false
+        default: https://tws-ops-system-frontend-staging.up.railway.app
+      regression_suites:
+        description: Optional backend suites override (for example: api,orders)
+        required: false
+        default: ""
+      account_invoice_create:
+        description: Set true to include invoice creation in regression
+        required: false
+        default: "false"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: regression-gate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-regression:
+    name: Release Regression Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      API_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.api_base_url || vars.REGRESSION_API_URL || 'https://tws-ops-system-backend-staging.up.railway.app/api' }}
+      E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.e2e_base_url || vars.REGRESSION_UI_URL || 'https://tws-ops-system-frontend-staging.up.railway.app' }}
+      REGRESSION_SUITES: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.regression_suites || '' }}
+      ACCOUNT_INVOICE_REGRESSION_CREATE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.account_invoice_create || 'false' }}
+      API_AUDIT_PASSWORD: ${{ secrets.API_AUDIT_PASSWORD }}
+      E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+            backend/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies
+        run: npm --prefix frontend ci
+
+      - name: Install backend dependencies
+        run: npm --prefix backend ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Echo regression targets
+        run: |
+          echo "API_BASE_URL=$API_BASE_URL"
+          echo "E2E_BASE_URL=$E2E_BASE_URL"
+          echo "REGRESSION_SUITES=${REGRESSION_SUITES:-all}"
+          echo "ACCOUNT_INVOICE_REGRESSION_CREATE=$ACCOUNT_INVOICE_REGRESSION_CREATE"
+
+      - name: Run release regression gate
+        run: npm run regression:release
+
+      - name: Upload Playwright test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            test-results
+            playwright-report
+          if-no-files-found: ignore

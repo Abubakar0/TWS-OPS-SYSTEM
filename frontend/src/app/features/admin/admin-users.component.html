@@ -1,0 +1,240 @@
+<section class="page-shell">
+  @if (facade.error()) {
+    <app-error-state [message]="facade.error()" actionLabel="Retry" (action)="facade.loadUsers()" />
+  }
+
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h1>Users</h1>
+        <p>{{ facade.userRows().length }} users in view</p>
+      </div>
+      <div class="page-actions">
+        <button mat-flat-button color="primary" type="button" (click)="facade.openCreateModal()">
+          <mat-icon>person_add</mat-icon>
+          <span>Add User</span>
+        </button>
+        <button mat-stroked-button type="button" (click)="facade.exportUsers()" [disabled]="!facade.userRows().length">
+          <mat-icon>download</mat-icon>
+          <span>Export</span>
+        </button>
+        <button mat-stroked-button type="button" (click)="facade.loadUsers()" [disabled]="facade.loading()">
+          <mat-icon>refresh</mat-icon>
+          <span>Refresh</span>
+        </button>
+      </div>
+    </div>
+
+    <details class="filter-panel">
+      <summary>
+        <div class="filter-panel__title">
+          <h2>Filters</h2>
+          <p>Search by name or email, then narrow by role and status.</p>
+        </div>
+        <div class="filter-panel__meta">
+          <span>{{ facade.userRows().length }} users</span>
+          <span class="filter-panel__chevron">
+            <mat-icon>expand_more</mat-icon>
+          </span>
+        </div>
+      </summary>
+
+      <div class="filter-panel__content">
+        <div class="users-toolbar">
+          <mat-form-field appearance="outline" class="grid-toolbar__search">
+            <mat-label>Search users</mat-label>
+            <input matInput [formControl]="facade.searchControl" autocomplete="off" />
+            <mat-icon matSuffix>search</mat-icon>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="toolbar-select">
+              <mat-label>Role</mat-label>
+              <mat-select [formControl]="facade.roleFilterControl">
+                <mat-option value="all">All roles</mat-option>
+                @for (role of facade.availableRoles(); track role) {
+                  <mat-option [value]="role">{{ roleLabels[role] }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+          <mat-form-field appearance="outline" class="toolbar-select">
+            <mat-label>Status</mat-label>
+            <mat-select [formControl]="facade.statusFilterControl">
+              <mat-option value="all">All statuses</mat-option>
+              <mat-option value="active">Active</mat-option>
+              <mat-option value="disabled">Disabled</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <div class="grid-toolbar__actions">
+            <button mat-stroked-button type="button" (click)="facade.resetFilters()">
+              <mat-icon>restart_alt</mat-icon>
+              <span>Reset</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    @if (facade.loading()) {
+      <div class="loading-state">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>Loading users.</span>
+      </div>
+    } @else if (!facade.userRows().length) {
+      <app-empty-state
+        title="No users found"
+        message="Try a different search or filter combination."
+        icon="group_off"
+      />
+    } @else {
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Last login</th>
+              <th class="actions-col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of facade.pagedUserRows(); track row.id) {
+              <tr>
+                <td>
+                  <div class="table-primary">
+                    <strong>{{ row.user.name }}</strong>
+                    <span>{{ row.user.createdAt ? ('Created ' + (row.user.createdAt | date: 'MMM d, y')) : 'Workspace user' }}</span>
+                  </div>
+                </td>
+                <td>{{ row.user.email }}</td>
+                <td><span class="status-badge status-badge--neutral">{{ roleLabels[row.user.role] }}</span></td>
+                <td>
+                  <span class="status-badge" [class.status-badge--success]="row.statusLabel === 'active'" [class.status-badge--danger]="row.statusLabel === 'disabled'">
+                    {{ row.statusLabel | titlecase }}
+                  </span>
+                </td>
+                <td>{{ row.user.lastLogin ? (row.user.lastLogin | date: 'MMM d, y, h:mm a') : 'No login yet' }}</td>
+                <td class="actions-col">
+                  <div class="table-actions">
+                    <button mat-icon-button type="button" (click)="facade.openEditModal(row.user)" [disabled]="!row.canEdit" matTooltip="Edit user">
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                    <button mat-icon-button type="button" (click)="facade.toggleUser(row)" matTooltip="{{ row.user.isActive ? 'Disable user' : 'Enable user' }}">
+                      <mat-icon>{{ row.user.isActive ? 'block' : 'check_circle' }}</mat-icon>
+                    </button>
+                    <button mat-icon-button type="button" (click)="facade.resetPassword(row)" matTooltip="Reset password">
+                      <mat-icon>password</mat-icon>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid-pager">
+        <span class="grid-pager__status">{{ facade.pageLabel() }}</span>
+
+        <div class="grid-toolbar__actions">
+          <button mat-stroked-button type="button" (click)="facade.previousPage()" [disabled]="facade.pageIndex() === 0">
+            <mat-icon>chevron_left</mat-icon>
+            <span>Previous</span>
+          </button>
+          <button mat-stroked-button type="button" (click)="facade.nextPage()" [disabled]="facade.pageIndex() >= facade.pageCount() - 1">
+            <span>Next</span>
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+        </div>
+      </div>
+    }
+  </article>
+</section>
+
+@if (facade.userModalOpen()) {
+  <div class="app-modal-backdrop" (click)="facade.closeUserModal()">
+    <section class="app-modal user-modal" (click)="$event.stopPropagation()">
+      <div class="surface-card__header">
+        <div>
+          <h2>{{ facade.isEditing() ? 'Edit user' : 'Add user' }}</h2>
+          <p>{{ facade.isEditing() ? 'Update account details and access.' : 'Create a new workspace user.' }}</p>
+        </div>
+        <button mat-icon-button type="button" (click)="facade.closeUserModal()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <form class="form-grid" [formGroup]="facade.userForm" (ngSubmit)="facade.submitUserForm()">
+        <mat-form-field appearance="outline">
+          <mat-label>Name</mat-label>
+          <input matInput formControlName="name" autocomplete="off" />
+          @if (facade.formErrors().name) {
+            <mat-error>{{ facade.formErrors().name }}</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Email</mat-label>
+          <input matInput type="email" formControlName="email" autocomplete="off" />
+          @if (facade.formErrors().email) {
+            <mat-error>{{ facade.formErrors().email }}</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>{{ facade.isEditing() ? 'New password' : 'Password' }}</mat-label>
+          <input matInput [type]="facade.passwordHidden() ? 'password' : 'text'" formControlName="password" autocomplete="new-password" />
+          <button
+            mat-icon-button
+            matSuffix
+            type="button"
+            (click)="facade.togglePasswordVisibility()"
+            [attr.aria-label]="facade.passwordHidden() ? 'Show password' : 'Hide password'"
+          >
+            <mat-icon>{{ facade.passwordHidden() ? 'visibility' : 'visibility_off' }}</mat-icon>
+          </button>
+          <mat-hint>{{ facade.isEditing() ? 'Leave blank to keep the current password.' : 'Minimum 8 characters.' }}</mat-hint>
+          @if (facade.formErrors().password) {
+            <mat-error>{{ facade.formErrors().password }}</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Role</mat-label>
+          <mat-select formControlName="role">
+            @for (role of facade.availableRoles(); track role) {
+              <mat-option [value]="role">{{ roleLabels[role] }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <label class="toggle-row field-span-2">
+          <mat-checkbox formControlName="isActive">Allow sign-in</mat-checkbox>
+        </label>
+
+        <label class="toggle-row field-span-2">
+          <mat-checkbox formControlName="canProcessOrders">
+            Allow order processing access
+          </mat-checkbox>
+        </label>
+
+        <label class="toggle-row field-span-2">
+          <mat-checkbox formControlName="canViewAllOrders">
+            Allow viewing all orders
+          </mat-checkbox>
+        </label>
+
+        <div class="field-span-2 modal-actions">
+          <button mat-stroked-button type="button" (click)="facade.closeUserModal()">Cancel</button>
+          <button mat-flat-button color="primary" type="submit" [disabled]="facade.saving() || facade.userForm.invalid">
+            <mat-icon>{{ facade.isEditing() ? 'save' : 'person_add' }}</mat-icon>
+            <span>{{ facade.saving() ? 'Saving' : (facade.isEditing() ? 'Save Changes' : 'Create User') }}</span>
+          </button>
+        </div>
+      </form>
+    </section>
+  </div>
+}

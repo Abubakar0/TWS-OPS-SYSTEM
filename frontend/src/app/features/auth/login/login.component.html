@@ -1,35 +1,126 @@
-<main class="login-page">
-  <mat-card class="login-card">
-    <mat-card-header>
-      <mat-card-title>Trend<span>Wave</span><sub>Solutions</sub> Ops</mat-card-title>
-      <mat-card-subtitle>Internal ecommerce operations</mat-card-subtitle>
-    </mat-card-header>
+<main class="login-shell">
+  @if (loginVm(); as vm) {
+    <section class="login-layout">
+      <aside class="login-brand-panel">
+        <div class="login-brand-panel__inner">
+          <div class="login-brand-lockup">
+            <span class="login-brand-lockup__mark" aria-hidden="true"></span>
+            <div>
+              <strong>{{ branding.logoLabel }}</strong>
+              <span>{{ branding.shortProductName }}</span>
+            </div>
+          </div>
 
-    <mat-card-content>
-      <form [formGroup]="form" (ngSubmit)="submit()">
-        <mat-form-field appearance="outline">
-          <mat-label>Email</mat-label>
-          <input matInput type="email" formControlName="email" autocomplete="email" />
-        </mat-form-field>
+          <div class="login-copy">
+            <span class="login-copy__eyebrow">{{ branding.loginEyebrow }}</span>
+            <h1>Back the hustle. Stack the wins.</h1>
+            <p class="brand-desc">{{ branding.loginDescription }}</p>
+          </div>
 
-        <mat-form-field appearance="outline">
-          <mat-label>Password</mat-label>
-          <input matInput type="password" formControlName="password" autocomplete="current-password" />
-        </mat-form-field>
+          <div class="platform-showcase">
+            <div class="platform-showcase__grid">
+              @for (platform of vm.ecosystemCards; track platform.key) {
+                <a
+                  class="platform-link-card"
+                  [href]="platform.href"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <mat-icon>{{ platform.icon }}</mat-icon>
+                  <div>
+                    <strong>{{ platform.label }}</strong>
+                    <span>{{ platform.description }}</span>
+                  </div>
+                </a>
+              }
+            </div>
+          </div>
+        </div>
+      </aside>
 
-        @if (error()) {
-          <div class="error-message">{{ error() }}</div>
-        }
+      <section class="login-form-panel">
+        <div class="login-card">
+          <div class="login-card__brand">
+            <span class="login-card__mark" aria-hidden="true"></span>
+            <strong>{{ branding.productName }}</strong>
+          </div>
 
-        <button mat-flat-button color="primary" type="submit" [disabled]="loading()">
-          @if (loading()) {
-            <mat-spinner diameter="18"></mat-spinner>
-          } @else {
-            <mat-icon>login</mat-icon>
+          <div class="login-card__header">
+            <h2>{{ branding.loginTitle }}</h2>
+            <p>Sign in with your assigned workspace credentials.</p>
+          </div>
+
+          @if (vm.redirecting) {
+            <div class="status-banner">
+              <mat-spinner diameter="18"></mat-spinner>
+              <span>Opening your workspace.</span>
+            </div>
           }
-          <span>Sign in</span>
-        </button>
-      </form>
-    </mat-card-content>
-  </mat-card>
+
+          <form [formGroup]="form" (ngSubmit)="submit()">
+            <div class="login-field">
+              <label for="email">Email</label>
+              <mat-form-field appearance="outline">
+                <input
+                  id="email"
+                  matInput
+                  type="email"
+                  formControlName="email"
+                  autocomplete="email"
+                />
+                <mat-icon matSuffix>mail</mat-icon>
+                @if (vm.fieldErrors.email) {
+                  <mat-error>{{ vm.fieldErrors.email }}</mat-error>
+                }
+              </mat-form-field>
+            </div>
+
+            <div class="login-field">
+              <label for="password">Password</label>
+              <mat-form-field appearance="outline">
+                <input
+                  id="password"
+                  matInput
+                  [type]="vm.passwordHidden ? 'password' : 'text'"
+                  formControlName="password"
+                  autocomplete="current-password"
+                />
+                <button
+                  mat-icon-button
+                  matSuffix
+                  type="button"
+                  (click)="togglePasswordVisibility()"
+                  [attr.aria-label]="vm.passwordHidden ? 'Show password' : 'Hide password'"
+                >
+                  <mat-icon>{{ vm.passwordHidden ? 'visibility' : 'visibility_off' }}</mat-icon>
+                </button>
+                @if (vm.fieldErrors.password) {
+                  <mat-error>{{ vm.fieldErrors.password }}</mat-error>
+                }
+              </mat-form-field>
+            </div>
+
+            @if (vm.error) {
+              <div class="error-message">{{ vm.error }}</div>
+            }
+
+            <button
+              mat-flat-button
+              color="primary"
+              class="login-submit"
+              type="submit"
+              [disabled]="form.invalid || vm.loading || vm.redirecting"
+            >
+              @if (vm.loading || vm.redirecting) {
+                <mat-spinner diameter="18"></mat-spinner>
+              } @else {
+                <mat-icon>arrow_forward</mat-icon>
+              }
+              <span>{{ vm.submitLabel }}</span>
+            </button>
+          </form>
+        </div>
+      </section>
+    </section>
+  }
 </main>

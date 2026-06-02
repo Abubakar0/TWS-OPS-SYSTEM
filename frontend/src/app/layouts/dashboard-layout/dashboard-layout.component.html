@@ -1,35 +1,107 @@
-<mat-toolbar class="topbar">
-  <div class="brand">
-    <span class="brand-logo">Trend<span>Wave</span><sub>Solutions</sub></span>
-    <span class="brand-product">Ops</span>
-  </div>
+@if (shellVm(); as vm) {
+  <div class="app-shell" [class.app-shell--collapsed]="vm.sidebarCollapsed">
+    <div
+      class="app-shell__backdrop"
+      [class.is-open]="vm.sidebarOpen"
+      (click)="closeSidebar()"
+    ></div>
 
-  <span class="spacer"></span>
-
-  <div class="user-block">
-    <span>{{ user()?.name }}</span>
-    <small>{{ user()?.role }}</small>
-  </div>
-
-  <button mat-button type="button" (click)="logout()">
-    <mat-icon>logout</mat-icon>
-    <span>Logout</span>
-  </button>
-</mat-toolbar>
-
-<div class="dashboard-shell">
-  <aside class="sidebar">
-    <nav>
-      @for (item of navItems(); track item.route) {
-        <a mat-button [routerLink]="item.route" routerLinkActive="active-link">
-          <mat-icon>{{ item.icon }}</mat-icon>
-          <span>{{ item.label }}</span>
+    <aside
+      class="app-sidebar"
+      [class.is-open]="vm.sidebarOpen"
+      [class.is-collapsed]="vm.sidebarCollapsed"
+    >
+      <div class="app-sidebar__brand">
+        <a class="brand-lockup" [routerLink]="vm.homeRoute">
+          <span class="brand-lockup__mark" aria-hidden="true"></span>
+          <span class="brand-lockup__text" [class.is-hidden]="vm.sidebarCollapsed">
+            <strong>{{ branding.logoLabel }}</strong>
+            <small>{{ branding.shortProductName }}</small>
+          </span>
         </a>
-      }
-    </nav>
-  </aside>
 
-  <main class="content">
-    <router-outlet />
-  </main>
-</div>
+        <button
+          mat-icon-button
+          type="button"
+          class="app-sidebar__collapse desktop-only"
+          (click)="toggleSidebarCollapsed()"
+          [matTooltip]="vm.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+        >
+          <mat-icon>{{
+            vm.sidebarCollapsed ? 'keyboard_double_arrow_right' : 'keyboard_double_arrow_left'
+          }}</mat-icon>
+        </button>
+
+        <button
+          mat-icon-button
+          type="button"
+          class="app-sidebar__close"
+          (click)="closeSidebar()"
+          matTooltip="Close menu"
+        >
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <div class="app-sidebar__body">
+        <nav class="sidebar-nav" aria-label="Sidebar navigation">
+          @for (item of vm.navItems; track item.route) {
+            <a
+              class="sidebar-nav__item"
+              [routerLink]="item.route"
+              routerLinkActive="is-active"
+              [routerLinkActiveOptions]="{ exact: item.exact }"
+              (click)="closeSidebar()"
+              [matTooltip]="vm.sidebarCollapsed ? item.label : ''"
+            >
+              <mat-icon>{{ item.icon }}</mat-icon>
+              <span [class.is-hidden]="vm.sidebarCollapsed">{{ item.label }}</span>
+            </a>
+          }
+        </nav>
+      </div>
+
+      <div class="app-sidebar__footer">
+        <button
+          mat-button
+          type="button"
+          class="sidebar-user"
+          [class.is-collapsed]="vm.sidebarCollapsed"
+          [matMenuTriggerFor]="userMenu"
+          [matTooltip]="vm.sidebarCollapsed ? vm.userName : ''"
+        >
+          <span class="user-avatar">{{ vm.userInitials }}</span>
+          <span class="sidebar-user__meta" [class.is-hidden]="vm.sidebarCollapsed">
+            <strong>{{ vm.userName }}</strong>
+            <small>{{ vm.userEmail }}</small>
+          </span>
+          <mat-icon [class.is-hidden]="vm.sidebarCollapsed">expand_more</mat-icon>
+        </button>
+      </div>
+    </aside>
+
+    <div class="app-frame">
+      <button
+        mat-icon-button
+        type="button"
+        class="app-mobile-toggle mobile-only"
+        (click)="toggleSidebar()"
+        matTooltip="Open menu"
+      >
+        <mat-icon>menu</mat-icon>
+      </button>
+      <main class="app-main">
+        <router-outlet />
+      </main>
+    </div>
+  </div>
+
+  <mat-menu #userMenu="matMenu" xPosition="before" class="tw-menu">
+    <div class="menu-panel">
+      <button mat-menu-item type="button" (click)="logout()">
+        <mat-icon>logout</mat-icon>
+        <p>Log out</p>
+      </button>
+    </div>
+  </mat-menu>
+}

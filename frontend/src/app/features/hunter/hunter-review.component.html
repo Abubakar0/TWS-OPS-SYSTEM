@@ -1,0 +1,80 @@
+<section class="page-shell">
+  <article class="surface-card">
+    <div class="surface-card__header">
+      <div>
+        <h1>Weekly Product Review</h1>
+        <p>Hunters pause on Saturday until current products are reviewed and any needed changes are logged.</p>
+      </div>
+      <div class="page-actions">
+        <a mat-stroked-button routerLink="/hunter/products">
+          <mat-icon>inventory_2</mat-icon>
+          <span>Open Product List</span>
+        </a>
+        <a mat-flat-button color="primary" routerLink="/hunter/changes">
+          <mat-icon>swap_horiz</mat-icon>
+          <span>Request Product Changes</span>
+        </a>
+      </div>
+    </div>
+  </article>
+
+  @if (error()) {
+    <div class="inline-state inline-state--error">{{ error() }}</div>
+  } @else if (loading()) {
+    <article class="surface-card">
+      <div class="loading-state">
+        <mat-spinner diameter="24"></mat-spinner>
+        <span>Checking weekly review status.</span>
+      </div>
+    </article>
+  } @else if (status(); as statusVm) {
+    <section class="stats-grid stats-grid--four">
+      <article class="stat-card">
+        <span>Review day</span>
+        <strong>{{ statusVm.reviewDate }}</strong>
+        <small>{{ statusVm.isReviewDay ? 'Saturday review window is active.' : 'Review opens on Saturday only.' }}</small>
+      </article>
+      <article class="stat-card">
+        <span>Active products</span>
+        <strong>{{ activeProducts() }}</strong>
+        <small>Current products you should inspect.</small>
+      </article>
+      <article class="stat-card">
+        <span>Status</span>
+        <strong>{{ statusVm.completed ? 'Completed' : statusVm.required ? 'Pending' : 'Open' }}</strong>
+        <small>{{ summaryText() }}</small>
+      </article>
+    </section>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>Review checkpoint</h2>
+          <p>Check live products, then confirm the review below.</p>
+        </div>
+      </div>
+
+      <div class="inline-state" [class.inline-state--warning]="statusVm.required" [class.inline-state--success]="statusVm.completed">
+        <mat-icon>{{ statusVm.completed ? 'check_circle' : 'schedule' }}</mat-icon>
+        <div class="inline-state__content">
+          <strong>{{ statusVm.completed ? 'Review completed' : 'Review still pending' }}</strong>
+          <span>{{ summaryText() }}</span>
+        </div>
+      </div>
+
+      @if (statusVm.required) {
+        <div class="review-actions">
+          <mat-form-field appearance="outline">
+            <mat-label>Optional notes</mat-label>
+            <textarea matInput rows="4" [formControl]="notesControl"></textarea>
+          </mat-form-field>
+
+          <button mat-flat-button color="primary" type="button" (click)="markReviewed()" [disabled]="saving()">
+            <mat-icon>done_all</mat-icon>
+            <span>{{ saving() ? 'Saving' : 'I checked all current products' }}</span>
+          </button>
+        </div>
+      }
+    </article>
+  }
+</section>
