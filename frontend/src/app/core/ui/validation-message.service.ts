@@ -116,7 +116,7 @@ export class ValidationMessageService {
   submissionHelper(field: SubmissionControlName, criteria: HuntingCriteria): string {
     switch (field) {
       case 'category':
-        return 'Search and select the closest product category.';
+        return 'Use the last product category from Ebay.';
       case 'customLabel':
         return criteria.customLabelRequired ? 'Required by the current rules.' : 'Defaults to your name.';
       case 'amazonStockCount':

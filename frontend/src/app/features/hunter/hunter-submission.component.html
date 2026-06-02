@@ -84,7 +84,7 @@
 
           <div class="form-grid">
             <div class="field-shell field-span-2">
-              <label class="field-label">Product title <span>*</span></label>
+              <label class="field-label">Ebay Product title <span>*</span></label>
               <mat-form-field appearance="outline">
                 <input matInput formControlName="title" autocomplete="off" />
                 @if (facade.fieldStates().title.error) {
@@ -94,7 +94,7 @@
             </div>
 
             <div class="field-shell">
-              <label class="field-label">Category</label>
+              <label class="field-label">Category (Ebay)</label>
               <mat-form-field appearance="outline">
                 <input
                   matInput
@@ -178,7 +178,6 @@
           <div class="surface-card__header">
             <div>
               <h2>Stock and sales</h2>
-              <p>Thresholds use the current admin rules.</p>
             </div>
           </div>
 
@@ -296,7 +295,7 @@
             </div>
 
             <div class="field-shell field-span-2">
-              <label class="field-label">One month graph trending up</label>
+              <label class="field-label">One month Keepa graph checked</label>
               <mat-form-field appearance="outline">
                 <mat-select formControlName="monthlyGraphUptrend">
                   <mat-option [value]="true">Yes</mat-option>
@@ -318,7 +317,6 @@
           <div class="surface-card__header">
             <div>
               <h2>Pricing</h2>
-              <p>Decimals stay intact while you type.</p>
             </div>
           </div>
 
@@ -331,10 +329,6 @@
                   <mat-error>{{ facade.fieldStates().amazonPrice.error }}</mat-error>
                 }
               </mat-form-field>
-              <div class="field-helper">
-                <mat-icon>info</mat-icon>
-                <span>{{ facade.fieldStates().amazonPrice.helper }}</span>
-              </div>
             </div>
 
             <div class="field-shell">
@@ -345,10 +339,6 @@
                   <mat-error>{{ facade.fieldStates().ebayPrice.error }}</mat-error>
                 }
               </mat-form-field>
-              <div class="field-helper">
-                <mat-icon>info</mat-icon>
-                <span>{{ facade.fieldStates().ebayPrice.helper }}</span>
-              </div>
             </div>
           </div>
         </article>
