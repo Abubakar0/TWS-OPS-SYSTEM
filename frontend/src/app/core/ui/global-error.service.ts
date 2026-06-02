@@ -10,12 +10,12 @@ export class GlobalErrorService {
   mapHttpError(error: HttpErrorResponse): string {
     const backendMessage = String(error.error?.message || '').trim();
 
-    if (error.status === 0) {
-      return 'Network connection was lost. Please check the server connection and try again.';
-    }
-
     if (backendMessage) {
       return backendMessage;
+    }
+
+    if (error.status === 0) {
+      return 'Network connection was lost. Please check the server connection and try again.';
     }
 
     switch (error.status) {

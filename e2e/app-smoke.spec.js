@@ -2,6 +2,7 @@ const { test, expect } = require('@playwright/test');
 
 const PASSWORD = process.env.E2E_PASSWORD || 'Password123!';
 const USERS = {
+  superadmin: 'superadmin@example.com',
   admin: 'admin@example.com',
   hunter: 'hunter@example.com',
   lister: 'lister@example.com',
@@ -86,6 +87,7 @@ test('admin smoke covers core pages', async ({ page }) => {
 
   await page.goto('/admin/dashboard');
   await expectHeading(page, 'Operations overview');
+  await expect(page.getByText(/Could not load dashboard overview/i)).toHaveCount(0);
 
   await page.goto('/admin/users');
   await expectHeading(page, 'Users');
@@ -104,6 +106,17 @@ test('admin smoke covers core pages', async ({ page }) => {
 
   await page.goto('/admin/activity');
   await expectHeading(page, 'Activity Feed');
+});
+
+test('admin settings load shared rules and product categories', async ({ page }) => {
+  await login(page, USERS.admin);
+  await page.goto('/admin/settings');
+
+  await expectHeading(page, 'Settings');
+  await expect(page.getByText(/Loading settings\./i)).toHaveCount(0);
+  await expect(page.getByText(/Loading product categories\./i)).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: /Approval rules/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Product categories/i })).toBeVisible();
 });
 
 test('admin orders modal enables save when required fields are filled', async ({ page }) => {
@@ -144,9 +157,13 @@ test('hunter smoke covers core pages', async ({ page }) => {
 
   await page.goto('/hunter/dashboard');
   await expect(page.getByRole('heading').first()).toBeVisible();
+  await expect(page.getByText(/Could not load dashboard data/i)).toHaveCount(0);
 
   await page.goto('/hunter/submission');
   await expect(page.getByText(/Product Submission|Submit/i).first()).toBeVisible();
+  await expect(page.getByText(/Loading rules/i)).toHaveCount(0);
+  await expect(page.getByText(/Fetching the latest approval settings\./i)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Check ASIN/i })).toBeVisible();
 
   await page.goto('/hunter/products');
   await expectHeading(page, 'Product list');
@@ -172,6 +189,7 @@ test('lister smoke covers core pages', async ({ page }) => {
 
   await page.goto('/lister/dashboard');
   await expect(page.getByRole('heading').first()).toBeVisible();
+  await expect(page.getByText(/Could not load dashboard data/i)).toHaveCount(0);
 
   await page.goto('/lister/products');
   await expect(page.getByText(/Listing Queue|Pending Listings/i).first()).toBeVisible();
@@ -184,6 +202,24 @@ test('lister smoke covers core pages', async ({ page }) => {
 
   await page.goto('/lister/account-usage');
   await expect(page.getByText(/Account Usage/i).first()).toBeVisible();
+});
+
+test('super admin smoke covers core pages', async ({ page }) => {
+  await login(page, USERS.superadmin);
+
+  await page.goto('/superadmin/dashboard');
+  await expect(page.getByRole('heading').first()).toBeVisible();
+  await expect(page.getByText(/Could not load Super Admin dashboard stats/i)).toHaveCount(0);
+
+  await page.goto('/superadmin/settings');
+  await expectHeading(page, 'Settings');
+  await expect(page.getByText(/Could not load system settings/i)).toHaveCount(0);
+
+  await page.goto('/superadmin/system');
+  await expect(page.getByText(/Security posture|Default values/i).first()).toBeVisible();
+
+  await page.goto('/superadmin/security');
+  await expect(page.getByText(/IP restriction|Security/i).first()).toBeVisible();
 });
 
 test('order processor smoke covers core pages', async ({ page }) => {

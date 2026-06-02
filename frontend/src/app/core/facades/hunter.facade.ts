@@ -19,6 +19,7 @@ import {
   WeeklyReviewStatus,
 } from '../models/product.models';
 import { ReferenceDataService } from '../state/reference-data.service';
+import { SessionCacheService } from '../state/session-cache.service';
 import { WorkspaceSyncService } from '../state/workspace-sync.service';
 import { ToastService } from '../ui/toast.service';
 import { ValidationMessageService } from '../ui/validation-message.service';
@@ -104,6 +105,7 @@ export class HunterFacade {
   private readonly destroyRef = inject(DestroyRef);
   private readonly injector = inject(Injector);
   private readonly auth = inject(AuthService);
+  private readonly sessionCache = inject(SessionCacheService);
   private readonly formVersion = signal(0);
   private initialized = false;
 
@@ -637,6 +639,14 @@ export class HunterFacade {
     this.form.disable({ emitEvent: false });
     this.resetFormFields();
 
+    const cachedCriteria = this.sessionCache.criteria();
+
+    if (cachedCriteria) {
+      this.criteria.set(cachedCriteria);
+      this.applyCriteriaValidators(cachedCriteria);
+      this.criteriaLoading.set(false);
+    }
+
     this.form.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.formVersion.update((value) => value + 1));
@@ -653,26 +663,10 @@ export class HunterFacade {
       this.disableFormOnly();
     });
 
-    this.criteriaLoading.set(true);
+    this.criteriaLoading.set(!cachedCriteria);
     this.weeklyReviewLoading.set(true);
-    this.referenceData
-      .getCriteria()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (criteria) => {
-          this.criteria.set(criteria);
-          this.applyCriteriaValidators(criteria);
-          this.criteriaLoading.set(false);
-        },
-        error: () => this.criteriaLoading.set(false),
-      });
-
-    this.referenceData
-      .getProductCategories()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (categories) => this.availableCategories.set(categories),
-      });
+    this.loadCriteria();
+    this.loadCategories();
 
     this.weeklyReviewApi
       .getStatus()
@@ -691,6 +685,9 @@ export class HunterFacade {
 
         if (version > 0) {
           this.referenceData.refreshCriteria();
+          this.referenceData.refreshProductCategories();
+          this.loadCriteria();
+          this.loadCategories();
         }
       },
       { allowSignalWrites: true, injector: this.injector },
@@ -738,6 +735,30 @@ export class HunterFacade {
     );
     this.form.updateValueAndValidity({ emitEvent: false });
     this.formVersion.update((value) => value + 1);
+  }
+
+  private loadCriteria(): void {
+    this.referenceData
+      .loadCriteriaOnce()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (criteria) => {
+          this.criteria.set(criteria);
+          this.applyCriteriaValidators(criteria);
+          this.criteriaLoading.set(false);
+        },
+        error: () => this.criteriaLoading.set(false),
+      });
+  }
+
+  private loadCategories(): void {
+    this.referenceData
+      .loadProductCategoriesOnce()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (categories) => this.availableCategories.set(categories),
+        error: () => this.availableCategories.set([]),
+      });
   }
 
   private enableFormOnly(): void {

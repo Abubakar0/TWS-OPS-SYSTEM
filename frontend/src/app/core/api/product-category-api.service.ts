@@ -14,22 +14,28 @@ export class ProductCategoryApiService {
     private readonly requestCache: RequestCacheService,
   ) {}
 
-  listCategories(includeInactive = false): Observable<ProductCategory[]> {
+  listCategories(includeInactive = false, bypassCache = false): Observable<ProductCategory[]> {
     let params = new HttpParams();
 
     if (includeInactive) {
       params = params.set('includeInactive', 'true');
     }
 
+    const request$ = this.http
+      .get<{ categories: ProductCategory[] }>(`${environment.apiUrl}/product-categories`, {
+        params,
+      })
+      .pipe(map((response) => response.categories));
+
+    if (bypassCache) {
+      this.requestCache.invalidate(makeCacheKey(CACHE_NAMESPACE.categories, { includeInactive }));
+      return request$;
+    }
+
     return this.requestCache.getOrCreate(
       makeCacheKey(CACHE_NAMESPACE.categories, { includeInactive }),
       CACHE_TTL.long,
-      () =>
-        this.http
-          .get<{ categories: ProductCategory[] }>(`${environment.apiUrl}/product-categories`, {
-            params,
-          })
-          .pipe(map((response) => response.categories)),
+      () => request$,
     );
   }
 

@@ -15,6 +15,7 @@ import { AccountApiService } from '../../core/api/account-api.service';
 import { AdminApiService } from '../../core/api/admin-api.service';
 import { SystemApiService } from '../../core/api/system-api.service';
 import { ReferenceDataService } from '../../core/state/reference-data.service';
+import { SessionCacheService } from '../../core/state/session-cache.service';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
 import { ConfirmService } from '../../core/ui/confirm.service';
 import { ToastService } from '../../core/ui/toast.service';
@@ -92,6 +93,7 @@ export class SuperAdminSettingsComponent implements OnInit {
     private readonly accountApi: AccountApiService,
     private readonly systemApi: SystemApiService,
     private readonly referenceData: ReferenceDataService,
+    private readonly sessionCache: SessionCacheService,
     private readonly workspaceSync: WorkspaceSyncService,
     private readonly confirm: ConfirmService,
     private readonly toast: ToastService,
@@ -102,16 +104,26 @@ export class SuperAdminSettingsComponent implements OnInit {
   }
 
   loadData(): void {
-    this.loading.set(true);
+    const cachedCriteria = this.sessionCache.criteria();
+
+    if (cachedCriteria) {
+      this.criteriaForm.patchValue(cachedCriteria, { emitEvent: false });
+      this.loading.set(false);
+    } else {
+      this.loading.set(true);
+    }
+
     this.error.set('');
 
-    this.referenceData.getCriteria().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (criteria) => this.criteriaForm.patchValue(criteria),
+    this.referenceData.loadCriteriaOnce().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (criteria) => {
+        this.criteriaForm.patchValue(criteria);
+        this.loading.set(false);
+      },
       error: (error) => {
         this.error.set(error?.error?.message || 'Could not load system settings.');
         this.loading.set(false);
       },
-      complete: () => this.loading.set(false),
     });
 
     this.referenceData.getAccounts(true).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
@@ -119,7 +131,7 @@ export class SuperAdminSettingsComponent implements OnInit {
       error: (error) => this.error.set(error?.error?.message || 'Could not load listing accounts.'),
     });
 
-    this.systemApi.getSettings().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+    this.systemApi.getSettings(true).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (settings) => this.apiLimitsForm.patchValue(settings.apiLimits),
       error: (error) => this.error.set(error?.error?.message || 'Could not load system limits.'),
     });

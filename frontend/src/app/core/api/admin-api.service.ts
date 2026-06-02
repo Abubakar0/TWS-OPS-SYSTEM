@@ -153,14 +153,20 @@ export class AdminApiService {
     );
   }
 
-  getCriteria(): Observable<HuntingCriteria> {
+  getCriteria(bypassCache = false): Observable<HuntingCriteria> {
+    const request$ = this.http
+      .get<{ criteria: HuntingCriteria }>(`${environment.apiUrl}/criteria`)
+      .pipe(map((response) => response.criteria));
+
+    if (bypassCache) {
+      this.requestCache.invalidatePrefix(CACHE_NAMESPACE.criteria);
+      return request$;
+    }
+
     return this.requestCache.getOrCreate(
       makeCacheKey(CACHE_NAMESPACE.criteria),
       CACHE_TTL.long,
-      () =>
-        this.http
-          .get<{ criteria: HuntingCriteria }>(`${environment.apiUrl}/criteria`)
-          .pipe(map((response) => response.criteria)),
+      () => request$,
     );
   }
 

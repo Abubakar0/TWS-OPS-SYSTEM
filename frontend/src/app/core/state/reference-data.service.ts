@@ -41,6 +41,10 @@ export class ReferenceDataService {
     return this.criteria$;
   }
 
+  loadCriteriaOnce(): Observable<HuntingCriteria> {
+    return this.adminApi.getCriteria(true);
+  }
+
   refreshCriteria(): void {
     this.requestCache.invalidatePrefix(CACHE_NAMESPACE.criteria);
     this.criteriaRefresh$.next();
@@ -136,6 +140,10 @@ export class ReferenceDataService {
 
     this.categoriesStreams.set(key, stream$);
     return stream$;
+  }
+
+  loadProductCategoriesOnce(includeInactive = false): Observable<ProductCategory[]> {
+    return this.productCategoryApi.listCategories(includeInactive, true);
   }
 
   refreshProductCategories(): void {

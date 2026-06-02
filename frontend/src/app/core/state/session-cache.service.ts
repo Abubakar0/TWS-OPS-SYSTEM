@@ -91,7 +91,7 @@ export class SessionCacheService {
       ? this.systemApi.getSettings().pipe(catchError(() => of(null)))
       : of(null);
     const criteria$ = shouldLoadCriteria
-      ? this.referenceData.getCriteria().pipe(take(1), catchError(() => of(null)))
+      ? this.referenceData.loadCriteriaOnce().pipe(take(1), catchError(() => of(null)))
       : of(null);
     const accounts$ = shouldLoadAccounts
       ? this.referenceData

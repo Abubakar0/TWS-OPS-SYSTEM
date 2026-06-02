@@ -71,7 +71,7 @@ export class SuperAdminSystemComponent implements OnInit {
     });
 
     this.referenceData
-      .getCriteria()
+      .loadCriteriaOnce()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (criteria) => this.criteria.set(criteria),
