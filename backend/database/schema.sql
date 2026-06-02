@@ -191,40 +191,6 @@ CREATE TABLE IF NOT EXISTS hunter_weekly_reviews (
   UNIQUE (hunter_id, review_date)
 );
 
-CREATE TABLE IF NOT EXISTS product_change_requests (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-  order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
-  hunter_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  lister_id UUID REFERENCES users(id) ON DELETE SET NULL,
-  account_id UUID REFERENCES accounts(id) ON DELETE SET NULL,
-  asin TEXT NOT NULL,
-  product_title TEXT,
-  requested_changes TEXT NOT NULL,
-  issue_type TEXT,
-  issue_reason TEXT,
-  current_amazon_link TEXT,
-  current_ebay_link TEXT,
-  current_price NUMERIC(10, 2),
-  new_amazon_link TEXT,
-  new_ebay_link TEXT,
-  new_price NUMERIC(10, 2),
-  new_stock_count INTEGER,
-  notes TEXT,
-  rejected_reason TEXT,
-  status TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'IN_PROGRESS', 'FIXED', 'REJECTED', 'CLOSED')),
-  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
-  started_at TIMESTAMPTZ,
-  started_by UUID REFERENCES users(id) ON DELETE SET NULL,
-  resolved_at TIMESTAMPTZ,
-  resolved_by UUID REFERENCES users(id) ON DELETE SET NULL,
-  completion_notes TEXT,
-  completed_by UUID REFERENCES users(id),
-  completed_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
 CREATE TABLE IF NOT EXISTS orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_code TEXT NOT NULL DEFAULT ('ORD-' || UPPER(SUBSTRING(gen_random_uuid()::text, 1, 8))),
@@ -282,6 +248,40 @@ CREATE TABLE IF NOT EXISTS orders (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (ebay_order_id)
+);
+
+CREATE TABLE IF NOT EXISTS product_change_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  order_id UUID REFERENCES orders(id) ON DELETE SET NULL,
+  hunter_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  lister_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  account_id UUID REFERENCES accounts(id) ON DELETE SET NULL,
+  asin TEXT NOT NULL,
+  product_title TEXT,
+  requested_changes TEXT NOT NULL,
+  issue_type TEXT,
+  issue_reason TEXT,
+  current_amazon_link TEXT,
+  current_ebay_link TEXT,
+  current_price NUMERIC(10, 2),
+  new_amazon_link TEXT,
+  new_ebay_link TEXT,
+  new_price NUMERIC(10, 2),
+  new_stock_count INTEGER,
+  notes TEXT,
+  rejected_reason TEXT,
+  status TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'IN_PROGRESS', 'FIXED', 'REJECTED', 'CLOSED')),
+  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  started_at TIMESTAMPTZ,
+  started_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  resolved_at TIMESTAMPTZ,
+  resolved_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  completion_notes TEXT,
+  completed_by UUID REFERENCES users(id),
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS listings (
