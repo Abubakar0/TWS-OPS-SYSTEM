@@ -583,9 +583,6 @@
                             @if (item.description) {
                               <small>{{ item.description }}</small>
                             }
-                            @if (!item.includeInTotal) {
-                              <span class="invoice-preview__row-flag">Reference only</span>
-                            }
                           </div>
                           <strong>{{ item.amount | currency: preview.currency : 'symbol' : '1.2-2' }}</strong>
                         </div>

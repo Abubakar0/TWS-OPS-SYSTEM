@@ -783,10 +783,10 @@ const resolveBulkInvoiceText = (lookup, label) =>
   toText(
     readImportValue(
       lookup,
-      label,
       `${label} description`,
       `${label} note`,
       `${label} details`,
+      `${label} text`,
     ),
   );
 

@@ -66,15 +66,15 @@ export class InvoicePdfService {
     await this.drawHeader(doc, pageWidth);
     this.drawTopMeta(doc, invoice, margin, contentWidth);
 
-    let cursorY = 95;
+    let cursorY = 88;
     cursorY = this.drawInvoiceTable(doc, invoice, margin, cursorY, contentWidth);
-    cursorY = this.drawPaymentSection(doc, invoice, margin, cursorY + 14, contentWidth);
+    cursorY = this.drawPaymentSection(doc, invoice, margin, cursorY + 10, contentWidth);
 
     if (invoice.notes) {
       cursorY = this.drawNotes(doc, invoice.notes, margin, cursorY + 8, contentWidth);
     }
 
-    const footerY = Math.min(286, Math.max(cursorY + 11, 245));
+    const footerY = Math.min(289, Math.max(cursorY + 10, 282));
     this.drawFooter(doc, margin, footerY, contentWidth);
     return doc;
   }
@@ -104,12 +104,12 @@ export class InvoicePdfService {
 
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(23);
+    doc.setFontSize(22);
     doc.text(this.companyInfo.brand, 52, 16.5);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(226, 232, 240);
-    doc.setFontSize(8.2);
-    doc.text(this.companyInfo.tagline, 52, 26.5);
+    doc.setFontSize(8);
+    doc.text(this.companyInfo.tagline, 52, 23.6);
   }
 
   private drawTopMeta(
@@ -120,31 +120,26 @@ export class InvoicePdfService {
   ): void {
     const billWidth = 82;
     const detailWidth = contentWidth - billWidth - 8;
-    const topY = 54;
+    const topY = 52;
 
-    this.drawInfoBox(doc, margin, topY, billWidth, 31);
-    this.drawInfoBox(doc, margin + billWidth + 8, topY, detailWidth, 31);
+    this.drawInfoBox(doc, margin, topY, billWidth, 28);
+    this.drawInfoBox(doc, margin + billWidth + 8, topY, detailWidth, 28);
 
     doc.setTextColor(20, 84, 179);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8.5);
-    doc.text('BILL TO', margin + 6, topY + 8);
-    doc.text('INVOICE DETAILS', margin + billWidth + 14, topY + 8);
+    doc.text('BILL TO', margin + 6, topY + 7.4);
+    doc.text('INVOICE DETAILS', margin + billWidth + 14, topY + 7.4);
 
     doc.setTextColor(15, 23, 42);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(15);
-    this.drawWrapped(doc, invoice.billToName, margin + 6, topY + 19, billWidth - 12, 6);
-    if (invoice.accountName && invoice.accountName !== invoice.billToName) {
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      this.drawWrapped(doc, invoice.accountName, margin + 6, topY + 27, billWidth - 12, 4.5);
-    }
+    doc.setFontSize(13.8);
+    this.drawWrapped(doc, invoice.billToName, margin + 6, topY + 17.8, billWidth - 12, 5.4);
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10.2);
-    doc.text(`Month: ${invoice.invoiceMonthLabel}`, margin + billWidth + 14, topY + 18);
-    doc.text(`Date: ${this.formatDate(invoice.invoiceDate)}`, margin + billWidth + 14, topY + 28);
+    doc.setFontSize(9.9);
+    doc.text(`Month: ${invoice.invoiceMonthLabel}`, margin + billWidth + 14, topY + 16.8);
+    doc.text(`Date: ${this.formatDate(invoice.invoiceDate)}`, margin + billWidth + 14, topY + 26.1);
   }
 
   private drawInvoiceTable(
@@ -159,18 +154,11 @@ export class InvoicePdfService {
       const description = item.description || '';
       const titleLines = doc.splitTextToSize(title, 108) as string[];
       const descLines = description ? (doc.splitTextToSize(description, 108) as string[]) : [];
-      const flagLines =
-        item.includeInTotal === false
-          ? (doc.splitTextToSize('Reference only', 108) as string[])
-          : [];
-
-      const textBlockHeight =
-        titleLines.length * 5 + descLines.length * 4.1 + flagLines.length * 4 + 6;
+      const textBlockHeight = titleLines.length * 5 + descLines.length * 4.1 + 6;
       return {
         item,
         titleLines,
         descLines,
-        flagLines,
         height: Math.max(20, textBlockHeight),
       };
     });
@@ -214,13 +202,6 @@ export class InvoicePdfService {
         doc.setFontSize(8.6);
         this.drawLines(doc, row.descLines, margin + 6, lineCursor, 4.2);
         lineCursor += row.descLines.length * 4.2 + 1;
-      }
-
-      if (row.flagLines.length) {
-        doc.setTextColor(154, 107, 18);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8.2);
-        this.drawLines(doc, row.flagLines, margin + 6, lineCursor, 4);
       }
 
       doc.setTextColor(15, 23, 42);
@@ -273,10 +254,10 @@ export class InvoicePdfService {
     doc.setFontSize(11.2);
     doc.text('PAYMENT INSTRUCTIONS', margin + 16, startY);
     doc.setFillColor(81, 146, 229);
-    doc.circle(margin + 7, startY - 1.1, 5.4, 'F');
+    doc.circle(margin + 7, startY - 0.8, 5.2, 'F');
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(12);
-    doc.text('$', margin + 7, startY + 0.95, { align: 'center', baseline: 'middle' });
+    doc.setFontSize(12.6);
+    doc.text('$', margin + 7, startY + 0.55, { align: 'center', baseline: 'middle' });
 
     const cardWidth = (contentWidth - 10) / 2;
     const primary = this.measurePaymentBlock(doc, invoice.primaryPayment, cardWidth);
@@ -332,16 +313,16 @@ export class InvoicePdfService {
     doc.text(block?.title || (accent ? 'Alternate Account' : 'Primary Account'), x + 6, y + 9);
 
     doc.setTextColor(15, 23, 42);
-    doc.setFontSize(9.1);
-    let cursorY = y + 18;
-    this.drawLines(doc, metrics.bankLines, x + 6, cursorY, 4.8);
+    doc.setFontSize(8.9);
+    let cursorY = y + 17;
+    this.drawLines(doc, metrics.bankLines, x + 6, cursorY, 4.5);
 
-    cursorY += Math.max(8, metrics.bankLines.length * 4.8 + 3);
-    cursorY = this.drawLabelValueLines(doc, 'Account No:', metrics.accountLines, x + 6, cursorY, 31, 4.2);
-    cursorY += 4.5;
-    cursorY = this.drawLabelValueLines(doc, 'IBAN:', metrics.ibanLines, x + 6, cursorY, 19, 4.2);
-    cursorY += 4.5;
-    this.drawLabelValueLines(doc, 'Branch:', metrics.branchLines, x + 6, cursorY, 23, 4.2);
+    cursorY += Math.max(7, metrics.bankLines.length * 4.5 + 2.5);
+    cursorY = this.drawLabelValueLines(doc, 'Account No:', metrics.accountLines, x + 6, cursorY, 34, 4);
+    cursorY += 3.8;
+    cursorY = this.drawLabelValueLines(doc, 'IBAN:', metrics.ibanLines, x + 6, cursorY, 34, 4);
+    cursorY += 3.8;
+    this.drawLabelValueLines(doc, 'Branch:', metrics.branchLines, x + 6, cursorY, 34, 4);
   }
 
   private drawNotes(doc: jsPDF, notes: string, x: number, y: number, width: number): number {
@@ -435,22 +416,22 @@ export class InvoicePdfService {
     width: number,
   ): PaymentBlockMetrics {
     const bankLines = doc.splitTextToSize(block?.bankName || '-', width - 12) as string[];
-    const accountLines = doc.splitTextToSize(block?.accountNumber || '-', Math.max(20, width - 34)) as string[];
-    const ibanLines = doc.splitTextToSize(block?.iban || '-', Math.max(20, width - 24)) as string[];
-    const branchLines = doc.splitTextToSize(block?.branch || '-', Math.max(20, width - 27)) as string[];
+    const accountLines = doc.splitTextToSize(block?.accountNumber || '-', Math.max(20, width - 40)) as string[];
+    const ibanLines = doc.splitTextToSize(block?.iban || '-', Math.max(20, width - 40)) as string[];
+    const branchLines = doc.splitTextToSize(block?.branch || '-', Math.max(20, width - 40)) as string[];
 
-    let height = 18;
-    height += Math.max(8, bankLines.length * 4.8 + 3);
-    height += Math.max(accountLines.length * 4.2, 4.2) + 4.5;
-    height += Math.max(ibanLines.length * 4.2, 4.2) + 4.5;
-    height += Math.max(branchLines.length * 4.2, 4.2) + 8;
+    let height = 16;
+    height += Math.max(7, bankLines.length * 4.5 + 2.5);
+    height += Math.max(accountLines.length * 4, 4) + 3.8;
+    height += Math.max(ibanLines.length * 4, 4) + 3.8;
+    height += Math.max(branchLines.length * 4, 4) + 7;
 
     return {
       bankLines,
       accountLines,
       ibanLines,
       branchLines,
-      height: Math.max(54, height),
+      height: Math.max(48, height),
     };
   }
 
