@@ -103,7 +103,7 @@ export class InvoicePdfService {
     }
 
     doc.setTextColor(255, 255, 255);
-    doc.setFont('times', 'bold');
+    doc.setFont('helvetica', 'bold');
     doc.setFontSize(26);
     doc.text(this.companyInfo.brand, 52, 16.5);
     doc.setFont('helvetica', 'normal');
