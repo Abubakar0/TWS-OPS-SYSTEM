@@ -33,7 +33,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) auto auto;
   gap: 12px;
-  align-items: end;
+  align-items: baseline;
 }
 
 .category-form__toggle {

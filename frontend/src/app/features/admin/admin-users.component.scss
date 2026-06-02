@@ -1,9 +1,9 @@
 .users-toolbar {
-  display: grid;
-  grid-template-columns: minmax(0, 1.45fr) repeat(2, minmax(150px, 180px)) auto;
-  gap: 12px;
-  align-items: end;
-  margin-bottom: 16px;
+    display: grid;
+    grid-template-columns: minmax(0, 0.65fr) repeat(2, minmax(150px, 180px)) auto;
+    gap: 12px;
+    align-items: baseline;
+    margin-bottom: 16px;
 }
 
 .toolbar-select {

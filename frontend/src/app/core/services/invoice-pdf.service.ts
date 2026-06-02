@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { jsPDF } from 'jspdf';
+import JSZip from 'jszip';
 
 import { BRANDING } from '../config/branding';
 import { AccountInvoice, AccountInvoicePaymentBlock } from '../models/account.models';
@@ -17,8 +18,7 @@ export class InvoicePdfService {
   private logoDataUrlPromise: Promise<string | null> | null = null;
   private readonly companyInfo = {
     brand: BRANDING.companyName,
-    subBrand: BRANDING.companyTagline,
-    tagline: '',
+    tagline: BRANDING.companyTagline,
     website: 'www.trendwavesolutions.com',
     email: 'info@trendwavesolutions.com',
     phone: '+92 315 5156702',
@@ -26,6 +26,32 @@ export class InvoicePdfService {
   };
 
   async downloadInvoice(invoice: AccountInvoice): Promise<void> {
+    const blob = await this.buildInvoiceBlob(invoice);
+    this.downloadBlob(blob, this.buildFilename(invoice));
+  }
+
+  async downloadInvoiceArchive(invoices: AccountInvoice[], archiveName = 'account-invoices'): Promise<void> {
+    if (!invoices.length) {
+      return;
+    }
+
+    const zip = new JSZip();
+
+    for (const invoice of invoices) {
+      const blob = await this.buildInvoiceBlob(invoice);
+      zip.file(this.buildFilename(invoice), blob);
+    }
+
+    const archive = await zip.generateAsync({ type: 'blob' });
+    this.downloadBlob(archive, `${archiveName.replace(/\.zip$/i, '')}.zip`);
+  }
+
+  async buildInvoiceBlob(invoice: AccountInvoice): Promise<Blob> {
+    const doc = await this.buildInvoiceDocument(invoice);
+    return doc.output('blob');
+  }
+
+  private async buildInvoiceDocument(invoice: AccountInvoice): Promise<jsPDF> {
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
@@ -50,7 +76,7 @@ export class InvoicePdfService {
 
     const footerY = Math.min(286, Math.max(cursorY + 11, 245));
     this.drawFooter(doc, margin, footerY, contentWidth);
-    doc.save(this.buildFilename(invoice));
+    return doc;
   }
 
   private async drawHeader(doc: jsPDF, pageWidth: number): Promise<void> {
@@ -66,28 +92,24 @@ export class InvoicePdfService {
 
     const logoDataUrl = await this.loadLogoDataUrl();
     if (logoDataUrl) {
-      doc.addImage(logoDataUrl, 'PNG', 14, 9, 13, 13);
+      doc.addImage(logoDataUrl, 'PNG', 13, 8.5, 34, 18);
     } else {
       doc.setFillColor(255, 255, 255);
-      doc.roundedRect(14, 9, 13, 13, 4, 4, 'F');
+      doc.roundedRect(13, 8.5, 18, 18, 4, 4, 'F');
       doc.setTextColor(20, 84, 179);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9.5);
-      doc.text('TW', 20.5, 17.4, { align: 'center' });
+      doc.setFontSize(11.5);
+      doc.text('TW', 22, 19.5, { align: 'center' });
     }
 
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(19);
-    doc.text(this.companyInfo.brand, 31, 16);
-    doc.setTextColor(226, 232, 240);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(23);
+    doc.text(this.companyInfo.brand, 52, 16.5);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
-    doc.text(this.companyInfo.subBrand, 14, 26.5);
-
     doc.setTextColor(226, 232, 240);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
-    doc.text(this.companyInfo.tagline, 14, 26.5);
+    doc.setFontSize(8.2);
+    doc.text(this.companyInfo.tagline, 52, 26.5);
   }
 
   private drawTopMeta(
@@ -110,12 +132,16 @@ export class InvoicePdfService {
     doc.text('INVOICE DETAILS', margin + billWidth + 14, topY + 8);
 
     doc.setTextColor(15, 23, 42);
+    doc.setFont('helvetica', 'bold');
     doc.setFontSize(15);
     this.drawWrapped(doc, invoice.billToName, margin + 6, topY + 19, billWidth - 12, 6);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    this.drawWrapped(doc, invoice.accountName || '', margin + 6, topY + 27, billWidth - 12, 4.5);
+    if (invoice.accountName && invoice.accountName !== invoice.billToName) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      this.drawWrapped(doc, invoice.accountName, margin + 6, topY + 27, billWidth - 12, 4.5);
+    }
 
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(10.2);
     doc.text(`Month: ${invoice.invoiceMonthLabel}`, margin + billWidth + 14, topY + 18);
     doc.text(`Date: ${this.formatDate(invoice.invoiceDate)}`, margin + billWidth + 14, topY + 28);
@@ -244,13 +270,13 @@ export class InvoicePdfService {
   ): number {
     doc.setTextColor(20, 84, 179);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10.8);
-    doc.text('PAYMENT INSTRUCTIONS', margin + 14, startY);
+    doc.setFontSize(11.2);
+    doc.text('PAYMENT INSTRUCTIONS', margin + 16, startY);
     doc.setFillColor(81, 146, 229);
-    doc.circle(margin + 6.4, startY - 1, 4.3, 'F');
+    doc.circle(margin + 7, startY - 1.1, 5.4, 'F');
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(10.2);
-    doc.text('$', margin + 6.4, startY + 1.2, { align: 'center' });
+    doc.setFontSize(12);
+    doc.text('$', margin + 7, startY + 0.95, { align: 'center', baseline: 'middle' });
 
     const cardWidth = (contentWidth - 10) / 2;
     const primary = this.measurePaymentBlock(doc, invoice.primaryPayment, cardWidth);
@@ -306,16 +332,16 @@ export class InvoicePdfService {
     doc.text(block?.title || (accent ? 'Alternate Account' : 'Primary Account'), x + 6, y + 9);
 
     doc.setTextColor(15, 23, 42);
-    doc.setFontSize(9.4);
+    doc.setFontSize(9.1);
     let cursorY = y + 18;
     this.drawLines(doc, metrics.bankLines, x + 6, cursorY, 4.8);
 
     cursorY += Math.max(8, metrics.bankLines.length * 4.8 + 3);
-    cursorY = this.drawLabelValueLines(doc, 'Account No:', metrics.accountLines, x + 6, cursorY, 28, 4.2);
+    cursorY = this.drawLabelValueLines(doc, 'Account No:', metrics.accountLines, x + 6, cursorY, 31, 4.2);
     cursorY += 4.5;
-    cursorY = this.drawLabelValueLines(doc, 'IBAN:', metrics.ibanLines, x + 6, cursorY, 18, 4.2);
+    cursorY = this.drawLabelValueLines(doc, 'IBAN:', metrics.ibanLines, x + 6, cursorY, 19, 4.2);
     cursorY += 4.5;
-    this.drawLabelValueLines(doc, 'Branch:', metrics.branchLines, x + 6, cursorY, 21, 4.2);
+    this.drawLabelValueLines(doc, 'Branch:', metrics.branchLines, x + 6, cursorY, 23, 4.2);
   }
 
   private drawNotes(doc: jsPDF, notes: string, x: number, y: number, width: number): number {
@@ -492,5 +518,17 @@ export class InvoicePdfService {
       .toLowerCase();
 
     return `${base || 'invoice'}.pdf`;
+  }
+
+  private downloadBlob(blob: Blob, filename: string): void {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.style.display = 'none';
+    document.body.append(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
   }
 }

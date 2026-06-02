@@ -96,3 +96,17 @@ export interface AccountBulkImportResult {
     message: string;
   }>;
 }
+
+export interface AccountBulkInvoiceResult {
+  summary: {
+    total: number;
+    created: number;
+    failed: number;
+  };
+  invoices: AccountInvoice[];
+  errors: Array<{
+    row: number;
+    accountName?: string | null;
+    message: string;
+  }>;
+}

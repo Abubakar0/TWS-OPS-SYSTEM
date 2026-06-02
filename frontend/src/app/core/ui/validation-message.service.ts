@@ -141,7 +141,7 @@ export class ValidationMessageService {
       case 'alternateAmazonStockCount':
         return `Optional. Minimum ${criteria.minAlternateStockCount}.`;
       case 'soldCount':
-        return `Whole number. Minimum ${criteria.minSoldCount}.`;
+        return `Minimum ${criteria.minSoldCount}.`;
       case 'rating':
         return `Minimum ${criteria.minRating}.`;
       case 'productWatchers':

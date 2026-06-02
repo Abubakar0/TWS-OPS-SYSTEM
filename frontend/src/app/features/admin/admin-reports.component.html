@@ -240,7 +240,7 @@
       </article>
     </section>
 
-    <section class="section-grid section-grid--three">
+    <section class="section-grid">
     <article class="surface-card">
       <div class="surface-card__header">
         <div>
@@ -305,30 +305,6 @@
       } @else {
         <div class="empty-state">No lister report rows matched this filter.</div>
       }
-    </article>
-
-    <article class="surface-card">
-      <div class="surface-card__header">
-        <div>
-          <h2>Current selection</h2>
-          <p>Quick summary of the report scope.</p>
-        </div>
-      </div>
-
-      <div class="soft-card report-summary-card">
-        <div class="report-summary-row">
-          <span>Range</span>
-          <strong>{{ selectedRange() | titlecase }}</strong>
-        </div>
-        <div class="report-summary-row">
-          <span>User filter</span>
-          <strong>{{ filtersForm.controls.userId.value ? 'Single user' : 'All users' }}</strong>
-        </div>
-        <div class="report-summary-row">
-          <span>Rows</span>
-          <strong>{{ stats()?.daily?.length || 0 }}</strong>
-        </div>
-      </div>
     </article>
   </section>
 

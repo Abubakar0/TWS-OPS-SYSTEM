@@ -7,6 +7,20 @@ const { ensureOrdersTable } = require('../orders/orders.service');
 const { ensureChangeRequestTable } = require('../change-requests/change-requests.service');
 
 const DEFAULT_INVOICE_CURRENCY = 'USD';
+const DEFAULT_PRIMARY_PAYMENT = {
+  title: 'Primary Account',
+  bankName: 'Trend Wave Solutions | Bank Alfalah (BAF)',
+  accountNumber: '00081010150545',
+  iban: 'PK54ALFH0008001010150545',
+  branch: 'S. Town Branch',
+};
+const DEFAULT_ALTERNATE_PAYMENT = {
+  title: 'Alternate Account',
+  bankName: 'M Adil Ghaffar | Meezan Bank Limited (MBL)',
+  accountNumber: '03120102615756',
+  iban: 'PK50MEZN0003120102615756',
+  branch: 'I-8 Branch',
+};
 let ensureAccountColumnsPromise = null;
 let ensureAccountInvoiceTablePromise = null;
 let ensureAccountSummaryDependenciesPromise = null;
@@ -216,7 +230,7 @@ const normalizeInvoiceLineItems = (lineItems) => {
         includeInTotal,
       };
     })
-    .slice(0, 3);
+    .slice(0, 8);
 
   if (!normalizedItems.length) {
     throw new AppError('Add at least one invoice line item.', 400);
@@ -243,6 +257,18 @@ const normalizePaymentBlock = (block) => {
   }
 
   return normalized;
+};
+
+const buildDefaultPaymentBlock = (overrides = {}, fallback = DEFAULT_PRIMARY_PAYMENT) => {
+  const normalized = normalizePaymentBlock({
+    title: overrides.title ?? fallback.title,
+    bankName: overrides.bankName ?? fallback.bankName,
+    accountNumber: overrides.accountNumber ?? fallback.accountNumber,
+    iban: overrides.iban ?? fallback.iban,
+    branch: overrides.branch ?? fallback.branch,
+  });
+
+  return normalized || normalizePaymentBlock(fallback);
 };
 
 const calculateNetPayable = (lineItems = []) =>
@@ -731,6 +757,39 @@ const findAccountByName = async (name) => {
   return result.rows[0]?.id || null;
 };
 
+const resolveBulkInvoiceAmount = (lookup, label, fallback = 0) => {
+  const value = readImportValue(
+    lookup,
+    label,
+    `${label} amount`,
+    `${label} usd`,
+    `${label} value`,
+  );
+
+  if (value === undefined) {
+    return fallback;
+  }
+
+  const amount = Number(toMoney(value, Number.NaN).toFixed(2));
+
+  if (!Number.isFinite(amount)) {
+    throw new AppError(`${label} must be a valid number.`, 400);
+  }
+
+  return amount;
+};
+
+const resolveBulkInvoiceText = (lookup, label) =>
+  toText(
+    readImportValue(
+      lookup,
+      label,
+      `${label} description`,
+      `${label} note`,
+      `${label} details`,
+    ),
+  );
+
 const createAccount = async (payload) => {
   await ensureAccountColumns();
   return createAccountRecord(payload);
@@ -919,8 +978,11 @@ const createAccountInvoice = async (actorUserId, accountId, payload = {}) => {
   const invoiceDate = toDateOnly(payload.invoiceDate);
   const currency = toText(payload.currency) || DEFAULT_INVOICE_CURRENCY;
   const lineItems = normalizeInvoiceLineItems(payload.lineItems);
-  const primaryPayment = normalizePaymentBlock(payload.primaryPayment);
-  const alternatePayment = normalizePaymentBlock(payload.alternatePayment);
+  const primaryPayment = buildDefaultPaymentBlock(payload.primaryPayment, DEFAULT_PRIMARY_PAYMENT);
+  const alternatePayment = buildDefaultPaymentBlock(
+    payload.alternatePayment,
+    DEFAULT_ALTERNATE_PAYMENT,
+  );
   const notes = toText(payload.notes);
 
   if (!invoiceMonth) {
@@ -929,10 +991,6 @@ const createAccountInvoice = async (actorUserId, accountId, payload = {}) => {
 
   if (!invoiceDate) {
     throw new AppError('Invoice date is required.', 400);
-  }
-
-  if (!primaryPayment) {
-    throw new AppError('Primary payment details are required.', 400);
   }
 
   const invoiceCode = buildInvoiceCode(invoiceMonth);
@@ -992,6 +1050,173 @@ const createAccountInvoice = async (actorUserId, accountId, payload = {}) => {
   return invoice;
 };
 
+const bulkCreateAccountInvoices = async (actorUserId, rows = []) => {
+  await ensureAccountInvoiceTable();
+
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new AppError('Add at least one invoice row to import.', 400);
+  }
+
+  const importRows = rows.filter((row) => !isImportRowEmpty(row));
+
+  if (!importRows.length) {
+    throw new AppError('Add at least one invoice row to import.', 400);
+  }
+
+  const invoices = [];
+  const errors = [];
+
+  for (const [index, row] of importRows.entries()) {
+    const lookup = buildImportLookup(row);
+    const accountName = String(
+      readImportValue(lookup, 'account name', 'account', 'accountName') ?? '',
+    ).trim();
+
+    try {
+      if (!accountName) {
+        throw new AppError('Account name is required.', 400);
+      }
+
+      const accountId = await findAccountByName(accountName);
+
+      if (!accountId) {
+        throw new AppError('Account not found.', 404);
+      }
+
+      const totalProfit = resolveBulkInvoiceAmount(lookup, 'Total Profit', 0);
+      const companyProfit = resolveBulkInvoiceAmount(lookup, 'Company Profit', 0);
+      const clientProfit = resolveBulkInvoiceAmount(lookup, 'Client Profit', totalProfit);
+      const trackingFees = resolveBulkInvoiceAmount(lookup, 'Tracking Fees', 0);
+      const currency =
+        toText(readImportValue(lookup, 'currency')) || DEFAULT_INVOICE_CURRENCY;
+
+      const invoice = await createAccountInvoice(actorUserId, accountId, {
+        billToName:
+          toText(readImportValue(lookup, 'bill to name', 'billToName', 'client name')) ||
+          accountName,
+        invoiceMonth:
+          toDateOnly(readImportValue(lookup, 'invoice month', 'month', 'invoiceMonth')) ||
+          new Date().toISOString().slice(0, 10),
+        invoiceDate:
+          toDateOnly(readImportValue(lookup, 'invoice date', 'date', 'invoiceDate')) ||
+          new Date().toISOString().slice(0, 10),
+        currency,
+        lineItems: [
+          {
+            title: toText(readImportValue(lookup, 'total profit title')) || 'Total Profit',
+            description: resolveBulkInvoiceText(lookup, 'Total Profit'),
+            amount: totalProfit,
+            includeInTotal: false,
+          },
+          {
+            title: toText(readImportValue(lookup, 'company profit title')) || 'Company Profit',
+            description: resolveBulkInvoiceText(lookup, 'Company Profit'),
+            amount: companyProfit,
+            includeInTotal: false,
+          },
+          {
+            title: toText(readImportValue(lookup, 'client profit title')) || 'Client Profit',
+            description: resolveBulkInvoiceText(lookup, 'Client Profit'),
+            amount: clientProfit,
+            includeInTotal:
+              normalizeImportBoolean(
+                readImportValue(
+                  lookup,
+                  'client profit include in total',
+                  'client profit payable',
+                ),
+                true,
+              ) !== false,
+          },
+          {
+            title: toText(readImportValue(lookup, 'tracking fees title')) || 'Tracking Fees',
+            description: resolveBulkInvoiceText(lookup, 'Tracking Fees'),
+            amount: trackingFees,
+            includeInTotal: normalizeImportBoolean(
+              readImportValue(
+                lookup,
+                'tracking fees include in total',
+                'tracking fees payable',
+              ),
+              false,
+            ),
+          },
+        ],
+        primaryPayment: {
+          title:
+            toText(readImportValue(lookup, 'primary title', 'primary account title')) ||
+            DEFAULT_PRIMARY_PAYMENT.title,
+          bankName:
+            toText(readImportValue(lookup, 'primary bank', 'primary bank / holder', 'primary bankname')) ||
+            DEFAULT_PRIMARY_PAYMENT.bankName,
+          accountNumber:
+            toText(readImportValue(lookup, 'primary account number', 'primary account no')) ||
+            DEFAULT_PRIMARY_PAYMENT.accountNumber,
+          iban:
+            toText(readImportValue(lookup, 'primary iban')) || DEFAULT_PRIMARY_PAYMENT.iban,
+          branch:
+            toText(readImportValue(lookup, 'primary branch')) || DEFAULT_PRIMARY_PAYMENT.branch,
+        },
+        alternatePayment: {
+          title:
+            toText(readImportValue(lookup, 'alternate title', 'alternate account title')) ||
+            DEFAULT_ALTERNATE_PAYMENT.title,
+          bankName:
+            toText(
+              readImportValue(
+                lookup,
+                'alternate bank',
+                'alternate bank / holder',
+                'alternate bankname',
+              ),
+            ) || DEFAULT_ALTERNATE_PAYMENT.bankName,
+          accountNumber:
+            toText(readImportValue(lookup, 'alternate account number', 'alternate account no')) ||
+            DEFAULT_ALTERNATE_PAYMENT.accountNumber,
+          iban:
+            toText(readImportValue(lookup, 'alternate iban')) ||
+            DEFAULT_ALTERNATE_PAYMENT.iban,
+          branch:
+            toText(readImportValue(lookup, 'alternate branch')) ||
+            DEFAULT_ALTERNATE_PAYMENT.branch,
+        },
+        notes: toText(readImportValue(lookup, 'notes', 'invoice notes')),
+      });
+
+      invoices.push(invoice);
+    } catch (error) {
+      errors.push({
+        row: index + 2,
+        accountName: accountName || null,
+        message: error?.message || 'Could not create this invoice row.',
+      });
+    }
+  }
+
+  if (invoices.length > 0) {
+    await writeAuditLog({
+      actorUserId,
+      action: 'account.invoice.bulk_create',
+      targetType: 'account',
+      details: {
+        totalRows: importRows.length,
+        created: invoices.length,
+        failed: errors.length,
+      },
+    });
+  }
+
+  return {
+    summary: {
+      total: importRows.length,
+      created: invoices.length,
+      failed: errors.length,
+    },
+    invoices,
+    errors,
+  };
+};
+
 module.exports = {
   listAccounts,
   getAccountById,
@@ -1002,5 +1227,6 @@ module.exports = {
   bulkImportAccounts,
   assignListersToAccount,
   createAccountInvoice,
+  bulkCreateAccountInvoices,
   ensureAccountInvoiceTable,
 };

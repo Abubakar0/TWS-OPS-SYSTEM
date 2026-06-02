@@ -9,7 +9,7 @@ export const BRANDING = {
   loginEyebrow: 'Trend Wave Commerce Ecosystem',
   loginTitle: 'Welcome back',
   loginDescription: 'Manage research, listings, reporting, and marketplace operations.',
-  invoiceLogoAssetPath: '/trendwave-commerce-hub-icon.svg',
+  invoiceLogoAssetPath: '/trendwave-solutions-invoice-logo.png',
   version: 'v1.4',
   environmentLabel: 'Local',
   platforms: [
