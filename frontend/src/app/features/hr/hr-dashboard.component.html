@@ -1,0 +1,146 @@
+<section class="page-shell hr-page">
+  <header class="page-hero">
+    <div>
+      <h1>HR Dashboard</h1>
+      <p>Track headcount, attendance, approvals, and salary exposure from one workspace.</p>
+    </div>
+
+    <div class="hr-actions">
+      <button mat-stroked-button type="button" (click)="applyPreset('today')">Today</button>
+      <button mat-stroked-button type="button" (click)="applyPreset('week')">This Week</button>
+      <button mat-stroked-button type="button" (click)="applyPreset('month')">This Month</button>
+      <button mat-stroked-button type="button" (click)="refresh()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <app-error-state [message]="error()" actionLabel="Retry" (action)="load()" />
+  }
+
+  <article class="surface-card">
+    <div class="hr-form-grid">
+      <mat-form-field appearance="outline">
+        <mat-label>From</mat-label>
+        <input matInput type="date" [formControl]="dateFrom" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>To</mat-label>
+        <input matInput type="date" [formControl]="dateTo" />
+      </mat-form-field>
+    </div>
+
+    <div class="hr-inline-actions">
+      <button mat-flat-button color="primary" type="button" (click)="load()" [disabled]="loading()">
+        <mat-icon>filter_alt</mat-icon>
+        <span>Apply Range</span>
+      </button>
+    </div>
+  </article>
+
+  @if (loading()) {
+    <article class="surface-card loading-state">
+      <mat-spinner diameter="24"></mat-spinner>
+      <span>Loading HR dashboard.</span>
+    </article>
+  } @else if (stats(); as stats) {
+    <section class="hr-kpis">
+      <article class="hr-kpi"><span>Total Employees</span><strong>{{ stats.totalEmployees || 0 }}</strong></article>
+      <article class="hr-kpi"><span>Active Employees</span><strong>{{ stats.activeEmployees || 0 }}</strong></article>
+      <article class="hr-kpi"><span>Present Today</span><strong>{{ stats.presentToday || 0 }}</strong></article>
+      <article class="hr-kpi"><span>Absent Today</span><strong>{{ stats.absentToday || 0 }}</strong></article>
+      <article class="hr-kpi"><span>Late Today</span><strong>{{ stats.lateToday || 0 }}</strong></article>
+      <article class="hr-kpi"><span>On Leave</span><strong>{{ stats.onLeave || 0 }}</strong></article>
+      <article class="hr-kpi"><span>Pending Leaves</span><strong>{{ stats.pendingLeaves || 0 }}</strong></article>
+      <article class="hr-kpi"><span>Pending Expenses</span><strong>{{ stats.pendingExpenses || 0 }}</strong></article>
+      <article class="hr-kpi"><span>Monthly Salary Cost</span><strong>{{ stats.monthlySalaryCost | currency: 'USD' }}</strong></article>
+    </section>
+
+    <section class="hr-layout">
+      <article class="surface-card hr-block">
+        <div>
+          <h2>Attendance Trend</h2>
+          <p>Daily present, absent, and late counts for the selected range.</p>
+        </div>
+
+        @if (stats.attendanceTrend.length) {
+          <div class="table-wrap hr-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Present</th>
+                  <th>Absent</th>
+                  <th>Late</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (entry of stats.attendanceTrend; track entry.date) {
+                  <tr>
+                    <td>{{ entry.date | date: 'MMM d, y' }}</td>
+                    <td>{{ entry.present }}</td>
+                    <td>{{ entry.absent }}</td>
+                    <td>{{ entry.late }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <p class="hr-empty-copy">No attendance rows yet for this date range.</p>
+        }
+      </article>
+
+      <div class="hr-block hr-sidecard">
+        <article class="surface-card hr-block">
+          <div>
+            <h2>Pending Approvals</h2>
+            <p>Leaves and expenses waiting for HR action.</p>
+          </div>
+
+          <div class="hr-list">
+            @for (leave of stats.pendingApprovals.leaves; track leave.id) {
+              <div class="hr-list-card">
+                <strong>{{ leave.employeeName }}</strong>
+                <small>{{ leave.leaveType }} | {{ leave.startDate | date: 'MMM d' }} - {{ leave.endDate | date: 'MMM d' }}</small>
+              </div>
+            }
+            @for (expense of stats.pendingApprovals.expenses; track expense.id) {
+              <div class="hr-list-card">
+                <strong>{{ expense.employeeName }}</strong>
+                <small>{{ expense.category }} | {{ expense.amount | currency: 'USD' }}</small>
+              </div>
+            }
+            @if (!stats.pendingApprovals.leaves.length && !stats.pendingApprovals.expenses.length) {
+              <p class="hr-empty-copy">No pending approvals right now.</p>
+            }
+          </div>
+        </article>
+
+        <article class="surface-card hr-block">
+          <div>
+            <h2>Upcoming Leaves</h2>
+            <p>Approved time off starting soon.</p>
+          </div>
+
+          <div class="hr-list">
+            @for (leave of stats.upcomingLeaves; track leave.id) {
+              <div class="hr-list-card">
+                <strong>{{ leave.employeeName }}</strong>
+                <small>{{ leave.leaveType }} | Starts {{ leave.startDate | date: 'MMM d, y' }}</small>
+              </div>
+            }
+            @if (!stats.upcomingLeaves.length) {
+              <p class="hr-empty-copy">No upcoming approved leaves.</p>
+            }
+          </div>
+        </article>
+      </div>
+    </section>
+  } @else {
+    <app-empty-state title="No HR data yet" message="Add employees or mark attendance to start seeing HR insights." icon="badge" />
+  }
+</section>

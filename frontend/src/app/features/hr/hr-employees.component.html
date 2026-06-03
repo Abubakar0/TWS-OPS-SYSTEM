@@ -1,0 +1,222 @@
+<section class="page-shell hr-page">
+  <header class="page-hero">
+    <div>
+      <h1>Employees</h1>
+      <p>Link employee records to workspace users and keep work, salary, and contact details in one place.</p>
+    </div>
+
+    <div class="hr-actions">
+      <button mat-flat-button color="primary" type="button" (click)="resetForm()">
+        <mat-icon>person_add</mat-icon>
+        <span>New Employee</span>
+      </button>
+      <button mat-stroked-button type="button" (click)="loadEmployees()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <app-error-state [message]="error()" actionLabel="Retry" (action)="loadEmployees()" />
+  }
+
+  <section class="hr-layout">
+    <article class="surface-card hr-block">
+      <details class="filter-panel">
+        <summary>
+          <div class="filter-panel__title">
+            <mat-icon>filter_list</mat-icon>
+            <div>
+              <h2>Filters</h2>
+              <p>Search by employee, department, or status.</p>
+            </div>
+          </div>
+          <div class="filter-panel__meta">
+            <span>{{ total() }} employees</span>
+            <span class="filter-panel__chevron"><mat-icon>expand_more</mat-icon></span>
+          </div>
+        </summary>
+
+        <div class="filter-panel__content">
+          <div class="hr-form-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Search employees</mat-label>
+              <input matInput [formControl]="search" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Department</mat-label>
+              <input matInput [formControl]="department" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Status</mat-label>
+              <mat-select [formControl]="status">
+                <mat-option value="">All statuses</mat-option>
+                <mat-option value="ACTIVE">Active</mat-option>
+                <mat-option value="INACTIVE">Inactive</mat-option>
+                <mat-option value="PROBATION">Probation</mat-option>
+                <mat-option value="RESIGNED">Resigned</mat-option>
+                <mat-option value="TERMINATED">Terminated</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+        </div>
+      </details>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading employees.</span>
+        </div>
+      } @else if (employees().length) {
+        <div class="hr-list">
+          @for (employee of employees(); track employee.id) {
+            <button class="hr-list-card" type="button" (click)="selectEmployee(employee)">
+              <div class="hr-list-card__header">
+                <div class="hr-list-card__meta">
+                  <strong>{{ employee.fullName }}</strong>
+                  <small>{{ employee.employeeCode }} | {{ employee.email }}</small>
+                  <small>{{ employee.department || 'No department' }} | {{ employee.designation || 'No designation' }}</small>
+                </div>
+                <div class="hr-badges">
+                  <span class="status-badge status-badge--neutral">{{ employee.role | titlecase }}</span>
+                  <span class="status-badge status-badge--success">{{ employee.employmentStatus }}</span>
+                </div>
+              </div>
+            </button>
+          }
+        </div>
+
+        <div class="grid-pager">
+          <span class="grid-pager__status">{{ pageLabel() }}</span>
+          <div class="grid-toolbar__actions">
+            <button mat-stroked-button type="button" (click)="previousPage()" [disabled]="page() === 1">Previous</button>
+            <button mat-stroked-button type="button" (click)="nextPage()" [disabled]="page() * limit() >= total()">Next</button>
+          </div>
+        </div>
+      } @else {
+        <app-empty-state title="No employees yet" message="Create the first employee profile to start HR management." icon="badge" />
+      }
+    </article>
+
+    <article class="surface-card hr-sidecard hr-block">
+      <div>
+        <h2>{{ selectedEmployee() ? 'Edit Employee' : 'Create Employee' }}</h2>
+        <p>{{ selectedEmployee() ? 'Update linked employee details and salary defaults.' : 'Create an employee profile for an existing user account.' }}</p>
+      </div>
+
+      <form class="hr-form-grid" [formGroup]="employeeForm" (ngSubmit)="saveEmployee()">
+        <mat-form-field appearance="outline">
+          <mat-label>User</mat-label>
+          <mat-select formControlName="userId">
+            @for (user of users(); track user.id) {
+              <mat-option [value]="user.id">{{ user.name }} | {{ user.email }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Employee ID</mat-label>
+          <input matInput formControlName="employeeCode" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Phone</mat-label>
+          <input matInput formControlName="phone" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>National ID</mat-label>
+          <input matInput formControlName="nationalId" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Department</mat-label>
+          <input matInput formControlName="department" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Designation</mat-label>
+          <input matInput formControlName="designation" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Manager</mat-label>
+          <mat-select formControlName="managerUserId">
+            <mat-option value="">No manager</mat-option>
+            @for (user of users(); track user.id) {
+              <mat-option [value]="user.id">{{ user.name }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Joining Date</mat-label>
+          <input matInput type="date" formControlName="joiningDate" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Employment Type</mat-label>
+          <mat-select formControlName="employmentType">
+            <mat-option value="FULL_TIME">Full Time</mat-option>
+            <mat-option value="PART_TIME">Part Time</mat-option>
+            <mat-option value="CONTRACT">Contract</mat-option>
+            <mat-option value="INTERN">Intern</mat-option>
+            <mat-option value="REMOTE">Remote</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Status</mat-label>
+          <mat-select formControlName="employmentStatus">
+            <mat-option value="ACTIVE">Active</mat-option>
+            <mat-option value="INACTIVE">Inactive</mat-option>
+            <mat-option value="PROBATION">Probation</mat-option>
+            <mat-option value="RESIGNED">Resigned</mat-option>
+            <mat-option value="TERMINATED">Terminated</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Basic Salary</mat-label>
+          <input matInput type="number" formControlName="basicSalary" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Allowances</mat-label>
+          <input matInput type="number" formControlName="allowances" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Default Deductions</mat-label>
+          <input matInput type="number" formControlName="defaultDeductions" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Payment Method</mat-label>
+          <input matInput formControlName="paymentMethod" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="hr-form-grid--wide">
+          <mat-label>Address</mat-label>
+          <input matInput formControlName="address" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Emergency Contact</mat-label>
+          <input matInput formControlName="emergencyContact" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Bank Name</mat-label>
+          <input matInput formControlName="bankName" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="hr-form-grid--wide">
+          <mat-label>Bank Account</mat-label>
+          <input matInput formControlName="bankAccount" />
+        </mat-form-field>
+
+        <div class="hr-form-grid--wide hr-inline-actions">
+          <button mat-stroked-button type="button" (click)="resetForm()">Clear</button>
+          <button mat-flat-button color="primary" type="submit" [disabled]="employeeForm.invalid || saving()">
+            <mat-icon>save</mat-icon>
+            <span>{{ saving() ? 'Saving' : selectedEmployee() ? 'Save Employee' : 'Create Employee' }}</span>
+          </button>
+        </div>
+      </form>
+
+      @if (selectedEmployee(); as employee) {
+        <div class="hr-meta-grid">
+          <article class="hr-meta-card"><span>Linked User</span><strong>{{ employee.fullName }}</strong></article>
+          <article class="hr-meta-card"><span>Manager</span><strong>{{ employee.managerName || 'Not assigned' }}</strong></article>
+          <article class="hr-meta-card"><span>Salary Base</span><strong>{{ employee.basicSalary | currency: 'USD' }}</strong></article>
+          <article class="hr-meta-card"><span>Allowances</span><strong>{{ employee.allowances | currency: 'USD' }}</strong></article>
+        </div>
+      }
+    </article>
+  </section>
+</section>

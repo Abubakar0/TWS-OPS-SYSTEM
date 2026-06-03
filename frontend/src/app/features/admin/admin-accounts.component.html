@@ -18,6 +18,10 @@
           <mat-icon>table_view</mat-icon>
           <span>Account Template</span>
         </button>
+        <button mat-stroked-button type="button" (click)="downloadInvoiceTemplate()">
+          <mat-icon>description</mat-icon>
+          <span>Invoice Template</span>
+        </button>
         <button
           mat-stroked-button
           type="button"
@@ -26,6 +30,15 @@
         >
           <mat-icon>upload_file</mat-icon>
           <span>{{ importingAccounts() ? 'Importing' : 'Import Accounts' }}</span>
+        </button>
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="invoiceImportInput.click()"
+          [disabled]="importingInvoices()"
+        >
+          <mat-icon>folder_zip</mat-icon>
+          <span>{{ importingInvoices() ? 'Generating' : 'Bulk Invoices' }}</span>
         </button>
         <button mat-stroked-button type="button" (click)="loadAccounts()" [disabled]="loading()">
           <mat-icon>refresh</mat-icon>
@@ -38,6 +51,13 @@
         type="file"
         accept=".xlsx,.xls"
         (change)="importAccountsFromInput($event)"
+      />
+      <input
+        #invoiceImportInput
+        class="visually-hidden-input"
+        type="file"
+        accept=".xlsx,.xls"
+        (change)="importInvoicesFromInput($event)"
       />
     </div>
 
@@ -532,7 +552,6 @@
                     <section class="invoice-preview__box">
                       <span class="invoice-preview__eyebrow">Bill To</span>
                       <strong>{{ preview.billToName }}</strong>
-                      <small>{{ preview.accountName }}</small>
                     </section>
 
                     <section class="invoice-preview__box">
@@ -564,9 +583,6 @@
                             @if (item.description) {
                               <small>{{ item.description }}</small>
                             }
-                            @if (!item.includeInTotal) {
-                              <span class="invoice-preview__row-flag">Reference only</span>
-                            }
                           </div>
                           <strong>{{ item.amount | currency: preview.currency : 'symbol' : '1.2-2' }}</strong>
                         </div>
@@ -589,21 +605,39 @@
                       <article class="invoice-preview__payment-card">
                         <span class="invoice-preview__eyebrow">{{ preview.primaryPayment.title }}</span>
                         <strong>{{ preview.primaryPayment.bankName }}</strong>
-                        <ul>
-                          <li><b>Account No:</b> {{ preview.primaryPayment.accountNumber || '-' }}</li>
-                          <li><b>IBAN:</b> {{ preview.primaryPayment.iban || '-' }}</li>
-                          <li><b>Branch:</b> {{ preview.primaryPayment.branch || '-' }}</li>
-                        </ul>
+                        <dl class="invoice-preview__payment-list">
+                          <div>
+                            <dt>Account No</dt>
+                            <dd>{{ preview.primaryPayment.accountNumber || '-' }}</dd>
+                          </div>
+                          <div>
+                            <dt>IBAN</dt>
+                            <dd>{{ preview.primaryPayment.iban || '-' }}</dd>
+                          </div>
+                          <div>
+                            <dt>Branch</dt>
+                            <dd>{{ preview.primaryPayment.branch || '-' }}</dd>
+                          </div>
+                        </dl>
                       </article>
 
                       <article class="invoice-preview__payment-card invoice-preview__payment-card--accent">
                         <span class="invoice-preview__eyebrow">{{ preview.alternatePayment.title }}</span>
                         <strong>{{ preview.alternatePayment.bankName }}</strong>
-                        <ul>
-                          <li><b>Account No:</b> {{ preview.alternatePayment.accountNumber || '-' }}</li>
-                          <li><b>IBAN:</b> {{ preview.alternatePayment.iban || '-' }}</li>
-                          <li><b>Branch:</b> {{ preview.alternatePayment.branch || '-' }}</li>
-                        </ul>
+                        <dl class="invoice-preview__payment-list">
+                          <div>
+                            <dt>Account No</dt>
+                            <dd>{{ preview.alternatePayment.accountNumber || '-' }}</dd>
+                          </div>
+                          <div>
+                            <dt>IBAN</dt>
+                            <dd>{{ preview.alternatePayment.iban || '-' }}</dd>
+                          </div>
+                          <div>
+                            <dt>Branch</dt>
+                            <dd>{{ preview.alternatePayment.branch || '-' }}</dd>
+                          </div>
+                        </dl>
                       </article>
                     </div>
                   </section>

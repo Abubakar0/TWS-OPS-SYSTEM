@@ -4,7 +4,13 @@ import { map, Observable, tap } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { CACHE_NAMESPACE, CACHE_TTL, makeCacheKey } from '../config/cache';
-import { AccountBulkImportResult, AccountInvoice, AccountInvoicePayload, AccountSummary } from '../models/account.models';
+import {
+  AccountBulkImportResult,
+  AccountBulkInvoiceResult,
+  AccountInvoice,
+  AccountInvoicePayload,
+  AccountSummary,
+} from '../models/account.models';
 import { Account } from '../models/product.models';
 import { PageResult } from '../state/query-state.models';
 import { RequestCacheService } from '../state/request-cache.service';
@@ -125,5 +131,11 @@ export class AccountApiService {
         map((response) => response.invoice),
         tap(() => this.requestCache.invalidatePrefix(makeCacheKey(CACHE_NAMESPACE.accounts, { summary: id }))),
       );
+  }
+
+  bulkCreateAccountInvoices(rows: Array<Record<string, unknown>>): Observable<AccountBulkInvoiceResult> {
+    return this.http
+      .post<AccountBulkInvoiceResult>(`${environment.apiUrl}/accounts/invoices/bulk`, { rows })
+      .pipe(tap(() => this.requestCache.invalidatePrefix(CACHE_NAMESPACE.accounts)));
   }
 }

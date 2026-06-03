@@ -273,7 +273,7 @@ export class HunterFacade {
       this.form.controls.salesLastTwoMonths.value < criteria.minSalesLastTwoMonths
     ) {
       failures.push(
-        `Sales in the past 2 months must be at least ${criteria.minSalesLastTwoMonths}.`,
+        `Sales in the past one month must be at least ${criteria.minSalesLastTwoMonths}.`,
       );
     }
 
@@ -459,8 +459,7 @@ export class HunterFacade {
     {
       label: 'Required fields',
       passed: this.coreValidationIssues().length === 0,
-      detail:
-        this.coreValidationIssues()[0] || 'Core product and marketplace fields are ready.',
+      detail: this.coreValidationIssues()[0] || 'Core product and marketplace fields are ready.',
     },
     {
       label: 'Stock and sales rules',
@@ -779,7 +778,12 @@ export class HunterFacade {
 
   private getBlockingFieldMessage(field: SubmissionControlName): string {
     this.formVersion();
-    return this.messages.submissionFieldError(this.form.controls[field], field, this.criteria(), true);
+    return this.messages.submissionFieldError(
+      this.form.controls[field],
+      field,
+      this.criteria(),
+      true,
+    );
   }
 
   private getBasketDeliveryBlockingMessage(): string {

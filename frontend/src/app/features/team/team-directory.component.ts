@@ -166,4 +166,8 @@ export class TeamDirectoryComponent {
   print(): void {
     window.print();
   }
+
+  memberRoleLabel(member: Team['members'][number]): string {
+    return member.roles?.length ? member.roles.join(', ') : member.role;
+  }
 }

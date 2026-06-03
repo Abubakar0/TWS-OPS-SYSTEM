@@ -1,8 +1,9 @@
 const jwt = require('jsonwebtoken');
 const { env } = require('../config/env');
 const { AppError } = require('./error');
-const { resolvePermissions } = require('../modules/users/permissions');
+const { resolvePermissions, hasAnyRole, normalizeRoles, resolvePrimaryRole } = require('../modules/users/permissions');
 const { assertIpAllowed } = require('../modules/system/system.service');
+const { ensureUserRoleSchema } = require('../modules/users/user-schema.service');
 
 const authenticate = async (req, res, next) => {
   const header = req.get('authorization') || '';
@@ -13,8 +14,11 @@ const authenticate = async (req, res, next) => {
   }
 
   try {
+    await ensureUserRoleSchema();
     req.user = jwt.verify(token, env.jwtSecret);
-    req.user.permissions = resolvePermissions(req.user.role, req.user.permissions);
+    req.user.roles = normalizeRoles(req.user.roles || req.user.role, req.user.role || 'hunter');
+    req.user.role = resolvePrimaryRole(req.user.roles, req.user.role || 'hunter');
+    req.user.permissions = resolvePermissions(req.user.roles, req.user.permissions);
     await assertIpAllowed(req.user, req);
     return next();
   } catch (error) {
@@ -31,7 +35,7 @@ const authenticate = async (req, res, next) => {
 };
 
 const requireRoles = (...roles) => (req, res, next) => {
-  if (!req.user || !roles.includes(req.user.role)) {
+  if (!req.user || !hasAnyRole(req.user, roles)) {
     return next(new AppError('You do not have access to this resource.', 403));
   }
 
@@ -43,7 +47,7 @@ const requirePermissions = (...permissions) => (req, res, next) => {
     return next(new AppError('Authentication required.', 401));
   }
 
-  const granted = resolvePermissions(req.user.role, req.user.permissions);
+  const granted = resolvePermissions(req.user.roles || req.user.role, req.user.permissions);
   const missing = permissions.filter((permission) => !granted[permission]);
 
   if (missing.length > 0) {

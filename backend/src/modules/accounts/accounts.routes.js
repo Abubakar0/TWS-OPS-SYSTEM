@@ -14,6 +14,11 @@ router.get(
   asyncHandler(accountsController.getAccountSummary),
 );
 router.post(
+  '/invoices/bulk',
+  requireRoles('admin', 'super_admin'),
+  asyncHandler(accountsController.bulkCreateAccountInvoices),
+);
+router.post(
   '/:id/invoices',
   requireRoles('admin', 'super_admin'),
   asyncHandler(accountsController.createAccountInvoice),

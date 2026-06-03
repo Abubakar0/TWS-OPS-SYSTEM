@@ -1,0 +1,166 @@
+<section class="page-shell hr-page">
+  <header class="page-hero">
+    <div>
+      <h1>My HR</h1>
+      <p>Review your profile, attendance, leave history, expense submissions, payroll visibility, and warnings.</p>
+    </div>
+
+    <div class="hr-actions">
+      <button mat-stroked-button type="button" (click)="load()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <app-error-state [message]="error()" actionLabel="Retry" (action)="load()" />
+  }
+
+  @if (loading()) {
+    <article class="surface-card loading-state">
+      <mat-spinner diameter="24"></mat-spinner>
+      <span>Loading your HR profile.</span>
+    </article>
+  } @else if (profile(); as profile) {
+    <section class="hr-kpis">
+      <article class="hr-kpi"><span>Employment</span><strong>{{ profile.employee.employmentStatus }}</strong></article>
+      <article class="hr-kpi"><span>Department</span><strong>{{ profile.employee.department || 'Not set' }}</strong></article>
+      <article class="hr-kpi"><span>Leaves</span><strong>{{ profile.leaves.length }}</strong></article>
+      <article class="hr-kpi"><span>Expenses</span><strong>{{ profile.expenses.length }}</strong></article>
+      <article class="hr-kpi"><span>Warnings</span><strong>{{ profile.warnings.length }}</strong></article>
+    </section>
+
+    <section class="hr-layout">
+      <article class="surface-card hr-block">
+        <div>
+          <h2>Profile</h2>
+          <p>{{ profile.employee.fullName }} | {{ profile.employee.email }}</p>
+        </div>
+
+        <div class="hr-meta-grid">
+          <article class="hr-meta-card"><span>Employee ID</span><strong>{{ profile.employee.employeeCode || 'Not set' }}</strong></article>
+          <article class="hr-meta-card"><span>Designation</span><strong>{{ profile.employee.designation || 'Not set' }}</strong></article>
+          <article class="hr-meta-card"><span>Manager</span><strong>{{ profile.employee.managerName || 'Not assigned' }}</strong></article>
+          <article class="hr-meta-card"><span>Joining Date</span><strong>{{ profile.employee.joiningDate | date: 'MMM d, y' }}</strong></article>
+        </div>
+
+        <div class="hr-block">
+          <h3>Attendance</h3>
+          @if (profile.attendance.length) {
+            <div class="hr-list">
+              @for (row of profile.attendance; track row.id) {
+                <div class="hr-list-card">
+                  <strong>{{ row.date | date: 'MMM d, y' }}</strong>
+                  <small>{{ row.status }} | {{ row.checkInTime || 'No check in' }} - {{ row.checkOutTime || 'No check out' }}</small>
+                </div>
+              }
+            </div>
+          } @else {
+            <p class="hr-empty-copy">No attendance history yet.</p>
+          }
+        </div>
+
+        <div class="hr-block">
+          <h3>Warnings</h3>
+          @if (profile.warnings.length) {
+            <div class="hr-list">
+              @for (warning of profile.warnings; track warning.id) {
+                <div class="hr-list-card">
+                  <strong>{{ warning.warningType }}</strong>
+                  <small>{{ warning.reason }}</small>
+                </div>
+              }
+            </div>
+          } @else {
+            <p class="hr-empty-copy">No warnings on file.</p>
+          }
+        </div>
+      </article>
+
+      <div class="hr-block hr-sidecard">
+        <article class="surface-card hr-block">
+          <h2>Apply Leave</h2>
+          <form class="hr-form-grid" [formGroup]="leaveForm" (ngSubmit)="submitLeave()">
+            <mat-form-field appearance="outline">
+              <mat-label>Leave Type</mat-label>
+              <mat-select formControlName="leaveType">
+                <mat-option value="ANNUAL">Annual</mat-option>
+                <mat-option value="SICK">Sick</mat-option>
+                <mat-option value="CASUAL">Casual</mat-option>
+                <mat-option value="EMERGENCY">Emergency</mat-option>
+                <mat-option value="UNPAID">Unpaid</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Start Date</mat-label>
+              <input matInput type="date" formControlName="startDate" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>End Date</mat-label>
+              <input matInput type="date" formControlName="endDate" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="hr-form-grid--wide">
+              <mat-label>Reason</mat-label>
+              <input matInput formControlName="reason" />
+            </mat-form-field>
+
+            <div class="hr-form-grid--wide hr-inline-actions">
+              <button mat-flat-button color="primary" type="submit" [disabled]="leaveForm.invalid || savingLeave()">
+                <mat-icon>send</mat-icon>
+                <span>{{ savingLeave() ? 'Submitting' : 'Submit Leave' }}</span>
+              </button>
+            </div>
+          </form>
+        </article>
+
+        <article class="surface-card hr-block">
+          <h2>Submit Expense</h2>
+          <form class="hr-form-grid" [formGroup]="expenseForm" (ngSubmit)="submitExpense()">
+            <mat-form-field appearance="outline">
+              <mat-label>Category</mat-label>
+              <mat-select formControlName="category">
+                <mat-option value="INTERNET">Internet</mat-option>
+                <mat-option value="FUEL">Fuel</mat-option>
+                <mat-option value="SOFTWARE">Software</mat-option>
+                <mat-option value="EQUIPMENT">Equipment</mat-option>
+                <mat-option value="TRAVEL">Travel</mat-option>
+                <mat-option value="OFFICE">Office</mat-option>
+                <mat-option value="MISC">Misc</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Title</mat-label>
+              <input matInput formControlName="title" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Amount</mat-label>
+              <input matInput type="number" formControlName="amount" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Date</mat-label>
+              <input matInput type="date" formControlName="expenseDate" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="hr-form-grid--wide">
+              <mat-label>Description</mat-label>
+              <input matInput formControlName="description" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="hr-form-grid--wide">
+              <mat-label>Receipt URL</mat-label>
+              <input matInput formControlName="receiptUrl" />
+            </mat-form-field>
+
+            <div class="hr-form-grid--wide hr-inline-actions">
+              <button mat-flat-button color="primary" type="submit" [disabled]="expenseForm.invalid || savingExpense()">
+                <mat-icon>send</mat-icon>
+                <span>{{ savingExpense() ? 'Submitting' : 'Submit Expense' }}</span>
+              </button>
+            </div>
+          </form>
+        </article>
+      </div>
+    </section>
+  } @else {
+    <app-empty-state title="No HR profile linked yet" message="Once HR links your user account to an employee profile, your self-service workspace will appear here." icon="badge" />
+  }
+</section>

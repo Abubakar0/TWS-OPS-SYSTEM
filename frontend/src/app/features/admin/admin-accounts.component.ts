@@ -109,6 +109,7 @@ export class AdminAccountsComponent implements OnInit {
   readonly detailLoading = signal(false);
   readonly detailError = signal('');
   readonly importingAccounts = signal(false);
+  readonly importingInvoices = signal(false);
   readonly accountModalOpen = signal(false);
   readonly listerModalOpen = signal(false);
   readonly invoiceModalOpen = signal(false);
@@ -358,6 +359,43 @@ export class AdminAccountsComponent implements OnInit {
     this.toast.success('Account import template downloaded.');
   }
 
+  downloadInvoiceTemplate(): void {
+    this.exportService.downloadWorkbook({
+      filename: 'bulk-invoice-template.xlsx',
+      sheetName: 'Invoices',
+      rows: [
+        {
+          'Account Name': 'Default eBay Account',
+          'Bill To Name': 'Default eBay Account',
+          'Invoice Month': buildInvoiceMonthValue(),
+          'Invoice Date': buildInvoiceDateValue(),
+          Currency: 'USD',
+          'Total Profit': '',
+          'Total Profit Description': '',
+          'Company Profit': '',
+          'Company Profit Description': '',
+          'Client Profit': '',
+          'Client Profit Description': '',
+          'Tracking Fees': '',
+          'Tracking Fees Description': '',
+          'Primary Title': DEFAULT_PRIMARY_PAYMENT.title,
+          'Primary Bank / Holder': DEFAULT_PRIMARY_PAYMENT.bankName,
+          'Primary Account Number': DEFAULT_PRIMARY_PAYMENT.accountNumber,
+          'Primary IBAN': DEFAULT_PRIMARY_PAYMENT.iban,
+          'Primary Branch': DEFAULT_PRIMARY_PAYMENT.branch,
+          'Alternate Title': DEFAULT_ALTERNATE_PAYMENT.title,
+          'Alternate Bank / Holder': DEFAULT_ALTERNATE_PAYMENT.bankName,
+          'Alternate Account Number': DEFAULT_ALTERNATE_PAYMENT.accountNumber,
+          'Alternate IBAN': DEFAULT_ALTERNATE_PAYMENT.iban,
+          'Alternate Branch': DEFAULT_ALTERNATE_PAYMENT.branch,
+          Notes: '',
+        },
+      ],
+    });
+
+    this.toast.success('Bulk invoice template downloaded.');
+  }
+
   async importAccountsFromInput(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement | null;
     const file = input?.files?.[0];
@@ -409,6 +447,65 @@ export class AdminAccountsComponent implements OnInit {
       this.toast.error(message);
     } finally {
       this.importingAccounts.set(false);
+      if (input) {
+        input.value = '';
+      }
+    }
+  }
+
+  async importInvoicesFromInput(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0];
+
+    if (!file || this.importingInvoices()) {
+      if (input) {
+        input.value = '';
+      }
+      return;
+    }
+
+    this.importingInvoices.set(true);
+
+    try {
+      const rows = await this.exportService.parseExcelRows(file);
+
+      if (!rows.length) {
+        this.toast.warning('The selected file does not contain any invoice rows.');
+        return;
+      }
+
+      const result = await firstValueFrom(this.accountApi.bulkCreateAccountInvoices(rows));
+
+      if (this.activeAccount()) {
+        this.reloadActiveAccountSummary();
+      }
+
+      if (result.invoices.length) {
+        await this.invoicePdf.downloadInvoiceArchive(
+          result.invoices,
+          `account-invoices-${new Date().toISOString().slice(0, 10)}`,
+        );
+      }
+
+      if (result.summary.failed > 0) {
+        const preview = result.errors
+          .slice(0, 3)
+          .map((error) => `Row ${error.row}: ${error.message}`)
+          .join(' ');
+        this.toast.warning(
+          `Generated ${result.summary.created} invoice(s). ${result.summary.failed} row(s) need attention. ${preview}`,
+        );
+      } else {
+        this.toast.success(`Generated ${result.summary.created} invoice(s) and downloaded the archive.`);
+      }
+    } catch (error: unknown) {
+      const message =
+        error && typeof error === 'object' && 'error' in error
+          ? ((error as { error?: { message?: string } }).error?.message ?? 'Could not generate invoices.')
+          : 'Could not generate invoices.';
+      this.toast.error(message);
+    } finally {
+      this.importingInvoices.set(false);
       if (input) {
         input.value = '';
       }
@@ -490,7 +587,8 @@ export class AdminAccountsComponent implements OnInit {
     const defaults = [
       { ...DEFAULT_INVOICE_LINE_ITEMS[0], amount: totalProfit },
       { ...DEFAULT_INVOICE_LINE_ITEMS[1], amount: 0 },
-      { ...DEFAULT_INVOICE_LINE_ITEMS[2], amount: 0 },
+      { ...DEFAULT_INVOICE_LINE_ITEMS[2], amount: totalProfit },
+      { ...DEFAULT_INVOICE_LINE_ITEMS[3], amount: 0 },
     ];
 
     defaults.forEach((item, index) => {

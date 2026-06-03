@@ -19,6 +19,12 @@ EXCEPTION
 END $$;
 
 DO $$ BEGIN
+  ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'hr';
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
   CREATE TYPE product_status AS ENUM ('approved', 'rejected', 'assigned', 'listed');
 EXCEPTION
   WHEN duplicate_object THEN NULL;
@@ -30,6 +36,7 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   role user_role NOT NULL,
+  roles JSONB NOT NULL DEFAULT '[]'::jsonb,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   status TEXT NOT NULL DEFAULT 'active',
   permissions JSONB NOT NULL DEFAULT '{}'::jsonb,
@@ -297,9 +304,152 @@ CREATE TABLE IF NOT EXISTS listings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS employee_profiles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  employee_code TEXT NOT NULL UNIQUE,
+  phone TEXT,
+  national_id TEXT,
+  address TEXT,
+  emergency_contact TEXT,
+  department TEXT,
+  designation TEXT,
+  manager_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  joining_date DATE,
+  employment_type TEXT NOT NULL DEFAULT 'FULL_TIME',
+  employment_status TEXT NOT NULL DEFAULT 'ACTIVE',
+  basic_salary NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  allowances NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  default_deductions NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  payment_method TEXT,
+  bank_details JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS hr_attendance (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_profile_id UUID NOT NULL REFERENCES employee_profiles(id) ON DELETE CASCADE,
+  attendance_date DATE NOT NULL,
+  check_in_time TIME,
+  check_out_time TIME,
+  status TEXT NOT NULL DEFAULT 'PRESENT',
+  late_minutes INTEGER NOT NULL DEFAULT 0,
+  notes TEXT,
+  marked_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (employee_profile_id, attendance_date)
+);
+
+CREATE TABLE IF NOT EXISTS hr_leave_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_profile_id UUID NOT NULL REFERENCES employee_profiles(id) ON DELETE CASCADE,
+  leave_type TEXT NOT NULL,
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  total_days NUMERIC(6, 2) NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'PENDING',
+  reason TEXT,
+  review_notes TEXT,
+  approved_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  approved_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS hr_leave_balances (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_profile_id UUID NOT NULL UNIQUE REFERENCES employee_profiles(id) ON DELETE CASCADE,
+  annual_days NUMERIC(6, 2) NOT NULL DEFAULT 14,
+  sick_days NUMERIC(6, 2) NOT NULL DEFAULT 10,
+  casual_days NUMERIC(6, 2) NOT NULL DEFAULT 5,
+  emergency_days NUMERIC(6, 2) NOT NULL DEFAULT 3,
+  unpaid_days NUMERIC(6, 2) NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS hr_payroll (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_profile_id UUID NOT NULL REFERENCES employee_profiles(id) ON DELETE CASCADE,
+  payroll_month DATE NOT NULL,
+  basic_salary NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  allowances NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  bonuses NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  deductions NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  advances NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  unpaid_leave_deduction NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  late_deduction NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  net_salary NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'DRAFT',
+  approved_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  approved_at TIMESTAMPTZ,
+  paid_at TIMESTAMPTZ,
+  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (employee_profile_id, payroll_month)
+);
+
+CREATE TABLE IF NOT EXISTS hr_expenses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_profile_id UUID NOT NULL REFERENCES employee_profiles(id) ON DELETE CASCADE,
+  category TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  amount NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  expense_date DATE NOT NULL,
+  status TEXT NOT NULL DEFAULT 'SUBMITTED',
+  receipt_url TEXT,
+  approved_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  approved_at TIMESTAMPTZ,
+  paid_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS hr_employee_documents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_profile_id UUID NOT NULL REFERENCES employee_profiles(id) ON DELETE CASCADE,
+  document_type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  file_name TEXT,
+  file_url TEXT,
+  notes TEXT,
+  uploaded_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS hr_warnings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_profile_id UUID NOT NULL REFERENCES employee_profiles(id) ON DELETE CASCADE,
+  warning_type TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  details TEXT,
+  issued_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  issued_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  employee_response TEXT,
+  attachment_url TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS hr_performance_notes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  employee_profile_id UUID NOT NULL REFERENCES employee_profiles(id) ON DELETE CASCADE,
+  note_type TEXT NOT NULL DEFAULT 'GENERAL',
+  note TEXT NOT NULL,
+  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 ALTER TABLE products ADD COLUMN IF NOT EXISTS assigned_lister_id UUID REFERENCES users(id);
 ALTER TABLE products ADD COLUMN IF NOT EXISTS sold_count INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS roles JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES users(id);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_by UUID REFERENCES users(id);
@@ -311,6 +461,9 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS tenant_id TEXT;
 UPDATE users
 SET status = CASE WHEN is_active THEN 'active' ELSE 'disabled' END
 WHERE status IS NULL OR status = '';
+UPDATE users
+SET roles = jsonb_build_array(role::text)
+WHERE roles IS NULL OR roles = '[]'::jsonb;
 ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS min_stock_count INTEGER NOT NULL DEFAULT 8;
 ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS min_alt_stock_count INTEGER NOT NULL DEFAULT 8;
 ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS min_rating NUMERIC(4, 2) NOT NULL DEFAULT 0;
@@ -361,6 +514,7 @@ CREATE INDEX IF NOT EXISTS idx_products_assigned_lister_id ON products(assigned_
 CREATE INDEX IF NOT EXISTS idx_products_status ON products(status);
 CREATE INDEX IF NOT EXISTS idx_products_deleted_at ON products(deleted_at);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+CREATE INDEX IF NOT EXISTS idx_users_roles_gin ON users USING GIN(roles);
 CREATE INDEX IF NOT EXISTS idx_users_deleted_at ON users(deleted_at);
 CREATE INDEX IF NOT EXISTS idx_team_members_user_id ON team_members(user_id);
 CREATE INDEX IF NOT EXISTS idx_hunter_weekly_reviews_hunter_id ON hunter_weekly_reviews(hunter_id);
@@ -379,6 +533,14 @@ CREATE INDEX IF NOT EXISTS idx_orders_amazon_order_id ON orders(amazon_order_id)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_account_invoices_invoice_code ON account_invoices(invoice_code);
 CREATE INDEX IF NOT EXISTS idx_account_invoices_account_id ON account_invoices(account_id);
 CREATE INDEX IF NOT EXISTS idx_account_invoices_invoice_date ON account_invoices(invoice_date DESC);
+CREATE INDEX IF NOT EXISTS idx_employee_profiles_department ON employee_profiles(department);
+CREATE INDEX IF NOT EXISTS idx_employee_profiles_manager ON employee_profiles(manager_user_id);
+CREATE INDEX IF NOT EXISTS idx_hr_attendance_date ON hr_attendance(attendance_date DESC);
+CREATE INDEX IF NOT EXISTS idx_hr_leave_requests_status ON hr_leave_requests(status);
+CREATE INDEX IF NOT EXISTS idx_hr_payroll_month ON hr_payroll(payroll_month DESC);
+CREATE INDEX IF NOT EXISTS idx_hr_expenses_status ON hr_expenses(status);
+CREATE INDEX IF NOT EXISTS idx_hr_documents_type ON hr_employee_documents(document_type);
+CREATE INDEX IF NOT EXISTS idx_hr_warnings_type ON hr_warnings(warning_type);
 CREATE INDEX IF NOT EXISTS idx_products_asin
   ON products(asin)
   WHERE asin IS NOT NULL AND asin <> '';

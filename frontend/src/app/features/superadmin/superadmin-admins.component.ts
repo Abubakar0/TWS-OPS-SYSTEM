@@ -109,7 +109,7 @@ export class SuperAdminAdminsComponent implements OnInit {
     this.adminApi
       .createUser({
         ...this.adminForm.getRawValue(),
-        role: 'admin',
+        roles: ['admin'],
       })
       .pipe(finalize(() => this.saving.set(false)))
       .subscribe({

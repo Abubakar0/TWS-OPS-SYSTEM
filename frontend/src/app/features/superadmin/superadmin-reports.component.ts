@@ -10,7 +10,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { forkJoin } from 'rxjs';
 
-import { User } from '../../core/models/auth.models';
+import { User, userHasRole } from '../../core/models/auth.models';
 import { OrderStats } from '../../core/models/order.models';
 import { ProductCategory } from '../../core/models/product.models';
 import { OrderApiService } from '../../core/api/order-api.service';
@@ -69,7 +69,7 @@ export class SuperAdminReportsComponent implements OnInit {
   readonly activeDateFilters = signal<{ from?: string; to?: string }>({});
   private readonly destroyRef = inject(DestroyRef);
 
-  readonly reportUsers = computed(() => this.users().filter((user) => user.role !== 'super_admin'));
+  readonly reportUsers = computed(() => this.users().filter((user) => !userHasRole(user, 'super_admin')));
 
   readonly filtersForm = new FormGroup({
     userId: new FormControl('', { nonNullable: true }),
@@ -263,8 +263,8 @@ export class SuperAdminReportsComponent implements OnInit {
     return {
       from: dateFilters.from,
       to: dateFilters.to,
-      hunterId: selectedUser?.role === 'hunter' ? selectedUser.id : undefined,
-      listerId: selectedUser?.role === 'lister' ? selectedUser.id : undefined,
+      hunterId: selectedUser && userHasRole(selectedUser, 'hunter') ? selectedUser.id : undefined,
+      listerId: selectedUser && userHasRole(selectedUser, 'lister') ? selectedUser.id : undefined,
       category: this.filtersForm.controls.category.value || undefined,
     };
   }

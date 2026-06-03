@@ -1,0 +1,191 @@
+<section class="page-shell hr-page">
+  <header class="page-hero">
+    <div>
+      <h1>Expenses</h1>
+      <p>Track reimbursement requests, approve spend, and keep employee out-of-pocket costs visible.</p>
+    </div>
+
+    <div class="hr-actions">
+      <button mat-flat-button color="primary" type="button" (click)="resetForm()">
+        <mat-icon>receipt_long</mat-icon>
+        <span>New Expense</span>
+      </button>
+      <button mat-stroked-button type="button" (click)="loadExpenses()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <app-error-state [message]="error()" actionLabel="Retry" (action)="loadExpenses()" />
+  }
+
+  <section class="hr-layout">
+    <article class="surface-card hr-block">
+      <details class="filter-panel">
+        <summary>
+          <div class="filter-panel__title">
+            <mat-icon>filter_list</mat-icon>
+            <div>
+              <h2>Filters</h2>
+              <p>Review spend by employee, category, or workflow status.</p>
+            </div>
+          </div>
+          <div class="filter-panel__meta">
+            <span>{{ total() }} expenses</span>
+            <span class="filter-panel__chevron"><mat-icon>expand_more</mat-icon></span>
+          </div>
+        </summary>
+
+        <div class="filter-panel__content">
+          <div class="hr-form-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Employee</mat-label>
+              <mat-select [formControl]="employeeFilter">
+                <mat-option value="">All employees</mat-option>
+                @for (employee of employees(); track employee.id) {
+                  <mat-option [value]="employee.id">{{ employee.fullName }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Status</mat-label>
+              <mat-select [formControl]="statusFilter">
+                <mat-option value="">All statuses</mat-option>
+                <mat-option value="SUBMITTED">Submitted</mat-option>
+                <mat-option value="APPROVED">Approved</mat-option>
+                <mat-option value="REJECTED">Rejected</mat-option>
+                <mat-option value="PAID">Paid</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Category</mat-label>
+              <mat-select [formControl]="categoryFilter">
+                <mat-option value="">All categories</mat-option>
+                <mat-option value="INTERNET">Internet</mat-option>
+                <mat-option value="FUEL">Fuel</mat-option>
+                <mat-option value="SOFTWARE">Software</mat-option>
+                <mat-option value="EQUIPMENT">Equipment</mat-option>
+                <mat-option value="TRAVEL">Travel</mat-option>
+                <mat-option value="OFFICE">Office</mat-option>
+                <mat-option value="MISC">Misc</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <div class="hr-inline-actions">
+            <button mat-stroked-button type="button" (click)="loadExpenses(1)">Apply Filters</button>
+          </div>
+        </div>
+      </details>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading expenses.</span>
+        </div>
+      } @else if (rows().length) {
+        <div class="hr-list">
+          @for (row of rows(); track row.id) {
+            <button class="hr-list-card" type="button" (click)="selectRow(row)">
+              <div class="hr-list-card__header">
+                <div class="hr-list-card__meta">
+                  <strong>{{ row.title }}</strong>
+                  <small>{{ row.employeeName }} | {{ row.category }}</small>
+                  <small>{{ row.expenseDate | date: 'MMM d, y' }} | {{ row.amount | currency: 'USD' }}</small>
+                </div>
+                <div class="hr-badges">
+                  <span class="status-badge status-badge--neutral">{{ row.status }}</span>
+                </div>
+              </div>
+            </button>
+          }
+        </div>
+
+        <div class="grid-pager">
+          <span class="grid-pager__status">{{ pageLabel() }}</span>
+          <div class="grid-toolbar__actions">
+            <button mat-stroked-button type="button" (click)="previousPage()" [disabled]="page() === 1">Previous</button>
+            <button mat-stroked-button type="button" (click)="nextPage()" [disabled]="page() * limit() >= total()">Next</button>
+          </div>
+        </div>
+      } @else {
+        <app-empty-state title="No expenses yet" message="Submitted expense rows will appear here for review and payout." icon="receipt_long" />
+      }
+    </article>
+
+    <article class="surface-card hr-sidecard hr-block">
+      <div>
+        <h2>Submit Expense</h2>
+        <p>Create a new expense row and use the review panel below for approvals.</p>
+      </div>
+
+      <form class="hr-form-grid" [formGroup]="expenseForm" (ngSubmit)="createExpense()">
+        <mat-form-field appearance="outline">
+          <mat-label>Employee</mat-label>
+          <mat-select formControlName="employeeId">
+            @for (employee of employees(); track employee.id) {
+              <mat-option [value]="employee.id">{{ employee.fullName }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Category</mat-label>
+          <mat-select formControlName="category">
+            <mat-option value="INTERNET">Internet</mat-option>
+            <mat-option value="FUEL">Fuel</mat-option>
+            <mat-option value="SOFTWARE">Software</mat-option>
+            <mat-option value="EQUIPMENT">Equipment</mat-option>
+            <mat-option value="TRAVEL">Travel</mat-option>
+            <mat-option value="OFFICE">Office</mat-option>
+            <mat-option value="MISC">Misc</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Title</mat-label>
+          <input matInput formControlName="title" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Amount</mat-label>
+          <input matInput type="number" formControlName="amount" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Expense Date</mat-label>
+          <input matInput type="date" formControlName="expenseDate" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Receipt URL</mat-label>
+          <input matInput formControlName="receiptUrl" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="hr-form-grid--wide">
+          <mat-label>Description</mat-label>
+          <input matInput formControlName="description" />
+        </mat-form-field>
+
+        <div class="hr-form-grid--wide hr-inline-actions">
+          <button mat-stroked-button type="button" (click)="resetForm()">Clear</button>
+          <button mat-flat-button color="primary" type="submit" [disabled]="expenseForm.invalid || saving()">
+            <mat-icon>save</mat-icon>
+            <span>{{ saving() ? 'Saving' : 'Submit Expense' }}</span>
+          </button>
+        </div>
+      </form>
+
+      @if (selectedRow(); as expense) {
+        <div class="hr-meta-grid">
+          <article class="hr-meta-card"><span>Employee</span><strong>{{ expense.employeeName }}</strong></article>
+          <article class="hr-meta-card"><span>Status</span><strong>{{ expense.status }}</strong></article>
+          <article class="hr-meta-card"><span>Amount</span><strong>{{ expense.amount | currency: 'USD' }}</strong></article>
+          <article class="hr-meta-card"><span>Approver</span><strong>{{ expense.approvedByName || 'Pending' }}</strong></article>
+        </div>
+
+        <div class="hr-inline-actions">
+          <button mat-stroked-button type="button" (click)="rejectSelected()">Reject</button>
+          <button mat-stroked-button type="button" (click)="approveSelected()">Approve</button>
+          <button mat-flat-button color="primary" type="button" (click)="markPaidSelected()">Mark Paid</button>
+        </div>
+      }
+    </article>
+  </section>
+</section>

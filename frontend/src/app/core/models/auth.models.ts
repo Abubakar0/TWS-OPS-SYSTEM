@@ -1,4 +1,4 @@
-export type UserRole = 'super_admin' | 'admin' | 'hunter' | 'lister' | 'order_processor';
+export type UserRole = 'super_admin' | 'admin' | 'hr' | 'hunter' | 'lister' | 'order_processor';
 export type UserStatus = 'active' | 'disabled' | 'locked' | 'deleted';
 export type UserPermissionKey =
   | 'canManageAdmins'
@@ -6,6 +6,8 @@ export type UserPermissionKey =
   | 'canViewReports'
   | 'canExportReports'
   | 'canManageSettings'
+  | 'canManageHr'
+  | 'canViewPayroll'
   | 'canProcessOrders'
   | 'canViewAllOrders'
   | 'canViewLogs'
@@ -20,6 +22,7 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  roles: UserRole[];
   isActive: boolean;
   status?: UserStatus;
   permissions?: UserPermissions;
@@ -49,6 +52,23 @@ export interface HunterAssignment {
   listerEmail: string | null;
   listerActive: boolean | null;
 }
+
+export const normalizeUserRoles = (
+  user: Pick<User, 'role' | 'roles'> | null | undefined,
+): UserRole[] => {
+  const roles = Array.isArray(user?.roles) && user.roles.length ? user.roles : user?.role ? [user.role] : [];
+  return [...new Set(roles)];
+};
+
+export const userHasRole = (
+  user: Pick<User, 'role' | 'roles'> | null | undefined,
+  role: UserRole,
+): boolean => normalizeUserRoles(user).includes(role);
+
+export const userHasAnyRole = (
+  user: Pick<User, 'role' | 'roles'> | null | undefined,
+  roles: readonly UserRole[],
+): boolean => roles.some((role) => userHasRole(user, role));
 
 export interface BulkImportError {
   row: number;

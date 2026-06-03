@@ -3,15 +3,17 @@ const jwt = require('jsonwebtoken');
 const { pool } = require('../../db/pool');
 const { env } = require('../../config/env');
 const { AppError } = require('../../middleware/error');
-const { resolvePermissions } = require('../users/permissions');
+const { normalizeRoles, resolvePermissions, resolvePrimaryRole } = require('../users/permissions');
 const { writeAuditLog } = require('../users/audit.service');
 const { assertIpAllowed } = require('../system/system.service');
+const { ensureUserRoleSchema } = require('../users/user-schema.service');
 
 const userSelect = `
   id,
   name,
   email,
   role,
+  COALESCE(roles, jsonb_build_array(role::text)) AS roles,
   is_active AS "isActive",
   COALESCE(status, CASE WHEN is_active THEN 'active' ELSE 'disabled' END) AS status,
   COALESCE(permissions, '{}'::jsonb) AS permissions,
@@ -30,10 +32,11 @@ const buildProfile = (user) => ({
   id: user.id,
   name: user.name,
   email: user.email,
-  role: user.role,
+  role: resolvePrimaryRole(user.roles || user.role, user.role),
+  roles: normalizeRoles(user.roles || user.role, user.role),
   isActive: Boolean(user.is_active ?? user.isActive),
   status: user.status || (user.is_active ?? user.isActive ? 'active' : 'disabled'),
-  permissions: resolvePermissions(user.role, user.permissions),
+  permissions: resolvePermissions(user.roles || user.role, user.permissions),
   createdBy: user.createdBy || null,
   updatedBy: user.updatedBy || null,
   disabledBy: user.disabledBy || null,
@@ -51,6 +54,7 @@ const signToken = (user) =>
       id: user.id,
       email: user.email,
       role: user.role,
+      roles: user.roles,
       name: user.name,
       permissions: user.permissions,
     },
@@ -59,6 +63,8 @@ const signToken = (user) =>
   );
 
 const login = async ({ email, password }, req) => {
+  await ensureUserRoleSchema();
+
   if (!email || !password) {
     throw new AppError('Email and password are required.', 400);
   }
@@ -71,6 +77,7 @@ const login = async ({ email, password }, req) => {
         email,
         password_hash,
         role,
+        COALESCE(roles, jsonb_build_array(role::text)) AS roles,
         is_active,
         COALESCE(status, CASE WHEN is_active THEN 'active' ELSE 'disabled' END) AS status,
         COALESCE(permissions, '{}'::jsonb) AS permissions,
@@ -141,6 +148,7 @@ const login = async ({ email, password }, req) => {
 };
 
 const getUserById = async (id) => {
+  await ensureUserRoleSchema();
   const result = await pool.query(`SELECT ${userSelect} FROM users WHERE id = $1 AND deleted_at IS NULL`, [id]);
   const user = result.rows[0];
 

@@ -3,7 +3,7 @@ import { Router } from '@angular/router';
 import { catchError, map, of, tap } from 'rxjs';
 
 import { APP_ROUTES } from '../config/routes';
-import { LoginResponse, User, UserRole } from '../models/auth.models';
+import { LoginResponse, User, UserRole, normalizeUserRoles, userHasAnyRole, userHasRole } from '../models/auth.models';
 import { AuthApiService } from '../api/auth-api.service';
 
 interface JwtPayload {
@@ -96,8 +96,7 @@ export class AuthService {
   }
 
   hasRole(roles: readonly UserRole[]): boolean {
-    const user = this.userSignal();
-    return Boolean(user && roles.includes(user.role));
+    return userHasAnyRole(this.userSignal(), roles);
   }
 
   hasPermission(permission: keyof NonNullable<User['permissions']>): boolean {
@@ -109,7 +108,9 @@ export class AuthService {
   }
 
   canAccessUrl(role: UserRole | undefined, url: string | null | undefined): boolean {
-    if (!role || !url) {
+    const user = this.userSignal();
+
+    if (!role || !url || !user) {
       return false;
     }
 
@@ -119,23 +120,48 @@ export class AuthService {
       return false;
     }
 
-    if (role === 'super_admin') {
-      return path.startsWith('/superadmin') || path.startsWith('/admin');
+    if (userHasRole(user, 'super_admin')) {
+      return (
+        path.startsWith('/superadmin') ||
+        path.startsWith('/admin') ||
+        path.startsWith('/hr') ||
+        path.startsWith('/order-processor') ||
+        path.startsWith('/hunter') ||
+        path.startsWith('/lister') ||
+        path.startsWith('/my-hr') ||
+        path.startsWith('/team')
+      );
     }
 
-    if (role === 'admin') {
-      return path.startsWith('/admin') || path.startsWith('/hunter') || path.startsWith('/lister');
+    if (path.startsWith('/admin')) {
+      return userHasRole(user, 'admin');
     }
 
-    if (role === 'order_processor') {
-      return path.startsWith('/order-processor');
+    if (path.startsWith('/hr')) {
+      return userHasRole(user, 'hr');
     }
 
-    if (role === 'lister') {
-      return path.startsWith('/lister');
+    if (path.startsWith('/order-processor')) {
+      return userHasRole(user, 'order_processor') || userHasRole(user, 'admin');
     }
 
-    return path.startsWith('/hunter');
+    if (path.startsWith('/lister')) {
+      return userHasRole(user, 'lister') || userHasRole(user, 'admin');
+    }
+
+    if (path.startsWith('/hunter')) {
+      return userHasRole(user, 'hunter') || userHasRole(user, 'admin');
+    }
+
+    if (path.startsWith('/my-hr')) {
+      return true;
+    }
+
+    if (path.startsWith('/team')) {
+      return true;
+    }
+
+    return false;
   }
 
   resolvePostLoginDestination(role: UserRole | undefined, returnUrl?: string | null): string {
@@ -147,19 +173,51 @@ export class AuthService {
   }
 
   homeForRole(role?: UserRole): string {
-    if (role === 'super_admin') {
+    const user = this.userSignal();
+
+    if (userHasRole(user, 'super_admin') || role === 'super_admin') {
       return '/superadmin/dashboard';
     }
 
-    if (role === 'admin') {
+    if (userHasRole(user, 'admin') || role === 'admin') {
       return '/admin/dashboard';
     }
 
-    if (role === 'lister') {
+    if (userHasRole(user, 'hr') || role === 'hr') {
+      return '/hr/dashboard';
+    }
+
+    if (userHasRole(user, 'lister') || role === 'lister') {
       return '/lister/dashboard';
     }
 
-    if (role === 'order_processor') {
+    if (userHasRole(user, 'order_processor') || role === 'order_processor') {
+      return '/order-processor/dashboard';
+    }
+
+    if (userHasRole(user, 'hunter') || role === 'hunter') {
+      return '/hunter/dashboard';
+    }
+
+    const normalizedRoles = normalizeUserRoles(user);
+
+    if (normalizedRoles.includes('super_admin')) {
+      return '/superadmin/dashboard';
+    }
+
+    if (normalizedRoles.includes('admin')) {
+      return '/admin/dashboard';
+    }
+
+    if (normalizedRoles.includes('hr')) {
+      return '/hr/dashboard';
+    }
+
+    if (normalizedRoles.includes('lister')) {
+      return '/lister/dashboard';
+    }
+
+    if (normalizedRoles.includes('order_processor')) {
       return '/order-processor/dashboard';
     }
 
@@ -167,10 +225,15 @@ export class AuthService {
   }
 
   private persistSession(token: string, user: User): void {
+    const normalizedUser: User = {
+      ...user,
+      roles: normalizeUserRoles(user),
+    };
+
     localStorage.setItem(this.tokenKey, token);
-    localStorage.setItem(this.userKey, JSON.stringify(user));
+    localStorage.setItem(this.userKey, JSON.stringify(normalizedUser));
     this.tokenSignal.set(token);
-    this.userSignal.set(user);
+    this.userSignal.set(normalizedUser);
     this.initializedSignal.set(true);
   }
 
@@ -193,7 +256,11 @@ export class AuthService {
     }
 
     try {
-      return JSON.parse(value) as User;
+      const parsed = JSON.parse(value) as User;
+      return {
+        ...parsed,
+        roles: normalizeUserRoles(parsed),
+      };
     } catch (error) {
       localStorage.removeItem(this.userKey);
       return null;

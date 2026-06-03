@@ -60,19 +60,25 @@ export const DEFAULT_ALTERNATE_PAYMENT: InvoicePaymentValue = {
 export const DEFAULT_INVOICE_LINE_ITEMS: InvoiceLineItemValue[] = [
   {
     title: 'Total Profit',
-    description: 'Total profit generated from all operations.',
+    description: '',
     amount: 0,
     includeInTotal: false,
   },
   {
     title: 'Company Profit',
-    description: "Our company's profit share.",
+    description: '',
     amount: 0,
     includeInTotal: true,
   },
   {
+    title: 'Client Profit',
+    description: '',
+    amount: 0,
+    includeInTotal: false,
+  },
+  {
     title: 'Tracking Fees',
-    description: 'Tracking fees for the month.',
+    description: '',
     amount: 0,
     includeInTotal: true,
   },

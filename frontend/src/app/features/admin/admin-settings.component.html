@@ -103,7 +103,7 @@
           </mat-form-field>
 
           <mat-form-field appearance="outline">
-            <mat-label>Minimum sales in 2 months</mat-label>
+            <mat-label>Amazon minimum sales in 1 months</mat-label>
             <input
               matInput
               type="number"
@@ -138,7 +138,9 @@
 
         <div class="toggle-stack">
           <label class="toggle-row">
-            <mat-checkbox [formControl]="criteriaForm.controls.asinRequired">Require ASIN</mat-checkbox>
+            <mat-checkbox [formControl]="criteriaForm.controls.asinRequired"
+              >Require ASIN</mat-checkbox
+            >
           </label>
           <label class="toggle-row">
             <mat-checkbox [formControl]="criteriaForm.controls.customLabelRequired"
