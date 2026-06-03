@@ -1,0 +1,161 @@
+<section class="page-shell hr-page">
+  <header class="page-hero">
+    <div>
+      <h1>Documents</h1>
+      <p>Store HR document metadata for employee records, then filter and review it quickly.</p>
+    </div>
+
+    <div class="hr-actions">
+      <button mat-stroked-button type="button" (click)="loadDocuments()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <app-error-state [message]="error()" actionLabel="Retry" (action)="loadDocuments()" />
+  }
+
+  <section class="hr-layout">
+    <article class="surface-card hr-block">
+      <details class="filter-panel">
+        <summary>
+          <div class="filter-panel__title">
+            <mat-icon>filter_list</mat-icon>
+            <div>
+              <h2>Filters</h2>
+              <p>Find documents by employee or document type.</p>
+            </div>
+          </div>
+          <div class="filter-panel__meta">
+            <span>{{ total() }} documents</span>
+            <span class="filter-panel__chevron"><mat-icon>expand_more</mat-icon></span>
+          </div>
+        </summary>
+
+        <div class="filter-panel__content">
+          <div class="hr-form-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Employee</mat-label>
+              <mat-select [formControl]="employeeFilter">
+                <mat-option value="">All employees</mat-option>
+                @for (employee of employees(); track employee.id) {
+                  <mat-option [value]="employee.id">{{ employee.fullName }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Document Type</mat-label>
+              <mat-select [formControl]="typeFilter">
+                <mat-option value="">All types</mat-option>
+                <mat-option value="CV">CV</mat-option>
+                <mat-option value="CNIC">CNIC</mat-option>
+                <mat-option value="OFFER_LETTER">Offer Letter</mat-option>
+                <mat-option value="CONTRACT">Contract</mat-option>
+                <mat-option value="CERTIFICATE">Certificate</mat-option>
+                <mat-option value="POLICY">Policy</mat-option>
+                <mat-option value="OTHER">Other</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <div class="hr-inline-actions">
+            <button mat-stroked-button type="button" (click)="loadDocuments(1)">Apply Filters</button>
+          </div>
+        </div>
+      </details>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading documents.</span>
+        </div>
+      } @else if (rows().length) {
+        <div class="hr-list">
+          @for (row of rows(); track row.id) {
+            <div class="hr-list-card">
+              <div class="hr-list-card__header">
+                <div class="hr-list-card__meta">
+                  <strong>{{ row.title }}</strong>
+                  <small>{{ row.employeeName }} | {{ row.documentType }}</small>
+                  <small>{{ row.fileName || 'No file name' }} | {{ row.fileUrl || 'No file URL' }}</small>
+                </div>
+                <div class="hr-badges">
+                  <button mat-stroked-button type="button" (click)="deleteDocument(row.id)">
+                    <mat-icon>delete</mat-icon>
+                    <span>Delete</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+
+        <div class="grid-pager">
+          <span class="grid-pager__status">{{ pageLabel() }}</span>
+          <div class="grid-toolbar__actions">
+            <button mat-stroked-button type="button" (click)="previousPage()" [disabled]="page() === 1">Previous</button>
+            <button mat-stroked-button type="button" (click)="nextPage()" [disabled]="page() * limit() >= total()">Next</button>
+          </div>
+        </div>
+      } @else {
+        <app-empty-state title="No documents yet" message="Uploaded HR document metadata will show up here." icon="folder" />
+      }
+    </article>
+
+    <article class="surface-card hr-sidecard hr-block">
+      <div>
+        <h2>Upload Document Metadata</h2>
+        <p>Save the document title, file link, and notes against an employee profile.</p>
+      </div>
+
+      <form class="hr-form-grid" [formGroup]="documentForm" (ngSubmit)="uploadDocument()">
+        <mat-form-field appearance="outline">
+          <mat-label>Employee</mat-label>
+          <mat-select formControlName="employeeId">
+            @for (employee of employees(); track employee.id) {
+              <mat-option [value]="employee.id">{{ employee.fullName }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Document Type</mat-label>
+          <mat-select formControlName="documentType">
+            <mat-option value="CV">CV</mat-option>
+            <mat-option value="CNIC">CNIC</mat-option>
+            <mat-option value="OFFER_LETTER">Offer Letter</mat-option>
+            <mat-option value="CONTRACT">Contract</mat-option>
+            <mat-option value="CERTIFICATE">Certificate</mat-option>
+            <mat-option value="POLICY">Policy</mat-option>
+            <mat-option value="OTHER">Other</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="hr-form-grid--wide">
+          <mat-label>Title</mat-label>
+          <input matInput formControlName="title" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>File Name</mat-label>
+          <input matInput formControlName="fileName" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>File URL</mat-label>
+          <input matInput formControlName="fileUrl" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="hr-form-grid--wide">
+          <mat-label>Notes</mat-label>
+          <input matInput formControlName="notes" />
+        </mat-form-field>
+
+        <div class="hr-form-grid--wide hr-inline-actions">
+          <button mat-stroked-button type="button" (click)="resetForm()">Clear</button>
+          <button mat-flat-button color="primary" type="submit" [disabled]="documentForm.invalid || saving()">
+            <mat-icon>save</mat-icon>
+            <span>{{ saving() ? 'Saving' : 'Save Document' }}</span>
+          </button>
+        </div>
+      </form>
+    </article>
+  </section>
+</section>

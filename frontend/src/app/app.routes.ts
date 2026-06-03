@@ -245,6 +245,11 @@ export const routes: Routes = [
           import('./features/team/team-directory.component').then((m) => m.TeamDirectoryComponent),
       },
       {
+        path: 'my-hr',
+        loadComponent: () =>
+          import('./features/hr/my-hr.component').then((m) => m.MyHrComponent),
+      },
+      {
         path: 'orders/processing',
         canActivate: [permissionGuard],
         data: { permissions: ['canProcessOrders'] },
@@ -372,6 +377,68 @@ export const routes: Routes = [
               import('./features/superadmin/superadmin-security.component').then(
                 (m) => m.SuperAdminSecurityComponent,
               ),
+          },
+        ],
+      },
+      {
+        path: 'hr',
+        canActivate: [roleGuard],
+        data: { roles: ['hr', 'super_admin'] },
+        children: [
+          {
+            path: '',
+            pathMatch: 'full',
+            redirectTo: 'dashboard',
+          },
+          {
+            path: 'dashboard',
+            loadComponent: () =>
+              import('./features/hr/hr-dashboard.component').then((m) => m.HrDashboardComponent),
+          },
+          {
+            path: 'employees',
+            loadComponent: () =>
+              import('./features/hr/hr-employees.component').then((m) => m.HrEmployeesComponent),
+          },
+          {
+            path: 'attendance',
+            loadComponent: () =>
+              import('./features/hr/hr-attendance.component').then((m) => m.HrAttendanceComponent),
+          },
+          {
+            path: 'leaves',
+            loadComponent: () =>
+              import('./features/hr/hr-leaves.component').then((m) => m.HrLeavesComponent),
+          },
+          {
+            path: 'payroll',
+            loadComponent: () =>
+              import('./features/hr/hr-payroll.component').then((m) => m.HrPayrollComponent),
+          },
+          {
+            path: 'expenses',
+            loadComponent: () =>
+              import('./features/hr/hr-expenses.component').then((m) => m.HrExpensesComponent),
+          },
+          {
+            path: 'performance',
+            loadComponent: () =>
+              import('./features/hr/hr-performance.component').then((m) => m.HrPerformanceComponent),
+          },
+          {
+            path: 'warnings',
+            loadComponent: () =>
+              import('./features/hr/hr-warnings.component').then((m) => m.HrWarningsComponent),
+          },
+          {
+            path: 'documents',
+            loadComponent: () =>
+              import('./features/hr/hr-documents.component').then((m) => m.HrDocumentsComponent),
+          },
+          {
+            path: 'reports',
+            loadComponent: () =>
+              import('./features/hr/hr-reports.component').then((m) => m.HrReportsComponent),
           },
         ],
       },

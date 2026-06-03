@@ -116,7 +116,7 @@ export class AdminService {
     name: string;
     email: string;
     password: string;
-    role: UserRole;
+    roles: UserRole[];
     isActive: boolean;
     permissions?: Partial<UserPermissions>;
   }) {

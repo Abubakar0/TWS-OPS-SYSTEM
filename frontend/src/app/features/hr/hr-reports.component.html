@@ -1,0 +1,109 @@
+<section class="page-shell hr-page">
+  <header class="page-hero">
+    <div>
+      <h1>HR Reports</h1>
+      <p>Review attendance, payroll, expense, and performance summaries from one reporting surface.</p>
+    </div>
+
+    <div class="hr-actions">
+      <button mat-stroked-button type="button" (click)="load()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <app-error-state [message]="error()" actionLabel="Retry" (action)="load()" />
+  }
+
+  <article class="surface-card hr-block">
+    <div class="hr-form-grid">
+      <mat-form-field appearance="outline">
+        <mat-label>Employee</mat-label>
+        <mat-select [formControl]="employeeId">
+          <mat-option value="">All employees</mat-option>
+          @for (employee of employees(); track employee.id) {
+            <mat-option [value]="employee.id">{{ employee.fullName }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>From</mat-label>
+        <input matInput type="date" [formControl]="dateFrom" />
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>To</mat-label>
+        <input matInput type="date" [formControl]="dateTo" />
+      </mat-form-field>
+    </div>
+
+    <div class="hr-inline-actions">
+      <button mat-flat-button color="primary" type="button" (click)="load()" [disabled]="loading()">Apply Filters</button>
+    </div>
+  </article>
+
+  @if (loading()) {
+    <article class="surface-card loading-state">
+      <mat-spinner diameter="24"></mat-spinner>
+      <span>Loading reports.</span>
+    </article>
+  } @else if (attendanceReport() && payrollReport() && expenseReport()) {
+    <section class="hr-report-grid">
+      <article class="surface-card hr-block">
+        <h2>Attendance Summary</h2>
+        <div class="hr-meta-grid">
+          <article class="hr-meta-card"><span>Present</span><strong>{{ attendanceReport()!.summary['present'] || 0 }}</strong></article>
+          <article class="hr-meta-card"><span>Absent</span><strong>{{ attendanceReport()!.summary['absent'] || 0 }}</strong></article>
+          <article class="hr-meta-card"><span>Late</span><strong>{{ attendanceReport()!.summary['late'] || 0 }}</strong></article>
+          <article class="hr-meta-card"><span>Half Day</span><strong>{{ attendanceReport()!.summary['halfDay'] || 0 }}</strong></article>
+        </div>
+      </article>
+
+      <article class="surface-card hr-block">
+        <h2>Payroll Summary</h2>
+        <div class="hr-meta-grid">
+          <article class="hr-meta-card"><span>Total Payrolls</span><strong>{{ payrollReport()!.summary['totalPayrolls'] || 0 }}</strong></article>
+          <article class="hr-meta-card"><span>Total Net Salary</span><strong>{{ asNumber(payrollReport()!.summary['totalNetSalary']) | currency: 'USD' }}</strong></article>
+          <article class="hr-meta-card"><span>Approved</span><strong>{{ payrollReport()!.summary['approved'] || 0 }}</strong></article>
+          <article class="hr-meta-card"><span>Paid</span><strong>{{ payrollReport()!.summary['paid'] || 0 }}</strong></article>
+        </div>
+      </article>
+
+      <article class="surface-card hr-block">
+        <h2>Expense Summary</h2>
+        <div class="hr-meta-grid">
+          <article class="hr-meta-card"><span>Total Expenses</span><strong>{{ expenseReport()!.summary['totalExpenses'] || 0 }}</strong></article>
+          <article class="hr-meta-card"><span>Total Amount</span><strong>{{ asNumber(expenseReport()!.summary['totalAmount']) | currency: 'USD' }}</strong></article>
+          <article class="hr-meta-card"><span>Submitted</span><strong>{{ expenseReport()!.summary['submitted'] || 0 }}</strong></article>
+          <article class="hr-meta-card"><span>Paid</span><strong>{{ expenseReport()!.summary['paid'] || 0 }}</strong></article>
+        </div>
+      </article>
+    </section>
+
+    <article class="surface-card hr-block">
+      <h2>Performance Snapshot</h2>
+      @if (performanceRows().length) {
+        <div class="hr-list">
+          @for (row of performanceRows(); track row.employeeId) {
+            <div class="hr-list-card">
+              <div class="hr-list-card__header">
+                <div class="hr-list-card__meta">
+                  <strong>{{ row.employeeName }}</strong>
+                  <small>{{ row.roles.join(', ') }} | {{ row.department || 'No department' }}</small>
+                </div>
+                <div class="hr-badges">
+                  <span class="status-badge status-badge--success">{{ row.profitGenerated | currency: 'USD' }}</span>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      } @else {
+        <p class="hr-empty-copy">No performance rows yet.</p>
+      }
+    </article>
+  } @else {
+    <app-empty-state title="No HR report data yet" message="As soon as employees, attendance, payroll, or expenses exist, this reporting view will start filling in." icon="bar_chart" />
+  }
+</section>

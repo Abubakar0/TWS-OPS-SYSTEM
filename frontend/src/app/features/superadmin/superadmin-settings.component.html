@@ -3,7 +3,10 @@
     <div>
       <span class="kicker">Super Admin</span>
       <h1>Settings</h1>
-      <p>Manage the global validation rules, listing accounts, and default operational values that feed the rest of the app.</p>
+      <p>
+        Manage the global validation rules, listing accounts, and default operational values that
+        feed the rest of the app.
+      </p>
     </div>
 
     <div class="page-actions">
@@ -23,7 +26,10 @@
       <div class="surface-card__header">
         <div>
           <h2>Global validation rules</h2>
-          <p>These defaults shape hunter validation, approval thresholds, and the submission experience across every workspace.</p>
+          <p>
+            These defaults shape hunter validation, approval thresholds, and the submission
+            experience across every workspace.
+          </p>
         </div>
       </div>
 
@@ -49,7 +55,7 @@
           <input matInput type="number" formControlName="minWatcherCount" />
         </mat-form-field>
         <mat-form-field appearance="outline">
-          <mat-label>Minimum sales in past two months</mat-label>
+          <mat-label>Amazon minimum sales in past 1 months</mat-label>
           <input matInput type="number" formControlName="minSalesLastTwoMonths" />
         </mat-form-field>
         <mat-form-field appearance="outline">
@@ -83,15 +89,24 @@
             <mat-checkbox formControlName="basketCountRequired">Require basket count</mat-checkbox>
           </label>
           <label class="toggle-row">
-            <mat-checkbox formControlName="deliveryDaysRequired">Require delivery days</mat-checkbox>
+            <mat-checkbox formControlName="deliveryDaysRequired"
+              >Require delivery days</mat-checkbox
+            >
           </label>
           <label class="toggle-row">
-            <mat-checkbox formControlName="monthlyGraphRequired">Require 1-month graph uptrend</mat-checkbox>
+            <mat-checkbox formControlName="monthlyGraphRequired"
+              >Require 1-month graph uptrend</mat-checkbox
+            >
           </label>
         </div>
 
         <div class="field-span-2 actions-row">
-          <button mat-flat-button color="primary" type="submit" [disabled]="criteriaForm.invalid || saving()">
+          <button
+            mat-flat-button
+            color="primary"
+            type="submit"
+            [disabled]="criteriaForm.invalid || saving()"
+          >
             <mat-icon>save</mat-icon>
             <span>{{ saving() ? 'Saving' : 'Save Global Settings' }}</span>
           </button>
@@ -154,7 +169,12 @@
         </mat-form-field>
 
         <div class="field-span-2 actions-row">
-          <button mat-flat-button color="primary" type="submit" [disabled]="apiLimitsForm.invalid || saving()">
+          <button
+            mat-flat-button
+            color="primary"
+            type="submit"
+            [disabled]="apiLimitsForm.invalid || saving()"
+          >
             <mat-icon>speed</mat-icon>
             <span>{{ saving() ? 'Saving' : 'Save API Limits' }}</span>
           </button>
@@ -182,7 +202,12 @@
         <label class="toggle-row">
           <mat-checkbox formControlName="isActive">Enable account immediately</mat-checkbox>
         </label>
-        <button mat-flat-button color="primary" type="submit" [disabled]="accountForm.invalid || saving()">
+        <button
+          mat-flat-button
+          color="primary"
+          type="submit"
+          [disabled]="accountForm.invalid || saving()"
+        >
           <mat-icon>add</mat-icon>
           <span>Add Account</span>
         </button>

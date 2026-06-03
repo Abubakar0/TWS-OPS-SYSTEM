@@ -1,0 +1,68 @@
+<section class="page-shell hr-page">
+  <header class="page-hero">
+    <div>
+      <h1>Performance</h1>
+      <p>Blend operational output with attendance, leave, and warning signals in one scorecard view.</p>
+    </div>
+
+    <div class="hr-actions">
+      <mat-form-field appearance="outline">
+        <mat-label>Search performance</mat-label>
+        <input matInput [formControl]="search" />
+      </mat-form-field>
+      <button mat-stroked-button type="button" (click)="load()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <app-error-state [message]="error()" actionLabel="Retry" (action)="load()" />
+  }
+
+  @if (loading()) {
+    <article class="surface-card loading-state">
+      <mat-spinner diameter="24"></mat-spinner>
+      <span>Loading performance data.</span>
+    </article>
+  } @else if (filteredRows().length) {
+    <section class="hr-kpis">
+      <article class="hr-kpi"><span>Employees</span><strong>{{ summary().employees }}</strong></article>
+      <article class="hr-kpi"><span>Hunters</span><strong>{{ summary().hunters }}</strong></article>
+      <article class="hr-kpi"><span>Listers</span><strong>{{ summary().listers }}</strong></article>
+      <article class="hr-kpi"><span>Order Processors</span><strong>{{ summary().processors }}</strong></article>
+    </section>
+
+    <article class="surface-card hr-block">
+      <div class="hr-list">
+        @for (row of filteredRows(); track row.employeeId) {
+          <div class="hr-list-card">
+            <div class="hr-list-card__header">
+              <div class="hr-list-card__meta">
+                <strong>{{ row.employeeName }}</strong>
+                <small>{{ row.employeeEmail }} | {{ row.roles.join(', ') }}</small>
+                <small>{{ row.department || 'No department' }} | {{ row.designation || 'No designation' }}</small>
+              </div>
+              <div class="hr-badges">
+                <span class="status-badge status-badge--info">Warnings {{ row.warnings }}</span>
+                <span class="status-badge status-badge--neutral">Leaves {{ row.approvedLeaves }}</span>
+              </div>
+            </div>
+
+            <div class="hr-meta-grid">
+              <article class="hr-meta-card"><span>Products Submitted</span><strong>{{ row.productsSubmitted }}</strong></article>
+              <article class="hr-meta-card"><span>Orders Received</span><strong>{{ row.ordersReceived }}</strong></article>
+              <article class="hr-meta-card"><span>Orders Added</span><strong>{{ row.ordersAdded }}</strong></article>
+              <article class="hr-meta-card"><span>Orders Placed</span><strong>{{ row.ordersPlaced }}</strong></article>
+              <article class="hr-meta-card"><span>Profit Generated</span><strong>{{ row.profitGenerated | currency: 'USD' }}</strong></article>
+              <article class="hr-meta-card"><span>Change Requests</span><strong>{{ row.changeRequests }}</strong></article>
+            </div>
+          </div>
+        }
+      </div>
+    </article>
+  } @else {
+    <app-empty-state title="No performance rows yet" message="Create employee links and operational data to start the HR performance view." icon="analytics" />
+  }
+</section>

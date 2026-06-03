@@ -9,10 +9,15 @@ const {
   VALID_ROLES,
   canManageRole,
   listPermissionMatrix,
+  normalizeRoles,
+  resolvePrimaryRole,
   resolvePermissions,
+  hasRole,
+  hasAnyRole,
 } = require('./permissions');
 const { listAuditLogs, writeAuditLog } = require('./audit.service');
 const { getConfiguredLimit } = require('../system/system.service');
+const { ensureUserRoleSchema } = require('./user-schema.service');
 
 const VALID_USER_STATUSES = ['active', 'disabled', 'locked', 'deleted'];
 
@@ -21,6 +26,7 @@ const userSelect = `
   name,
   email,
   role,
+  COALESCE(roles, jsonb_build_array(role::text)) AS roles,
   is_active AS "isActive",
   COALESCE(status, CASE WHEN is_active THEN 'active' ELSE 'disabled' END) AS status,
   COALESCE(permissions, '{}'::jsonb) AS permissions,
@@ -41,6 +47,7 @@ const signImpersonationToken = (user) =>
       id: user.id,
       email: user.email,
       role: user.role,
+      roles: user.roles,
       name: user.name,
       permissions: user.permissions,
     },
@@ -53,9 +60,11 @@ const normalizePermissions = (permissions) =>
 
 const normalizeUser = (row) => ({
   ...row,
+  roles: normalizeRoles(row.roles || row.role, row.role || 'hunter'),
+  role: resolvePrimaryRole(row.roles || row.role, row.role || 'hunter'),
   isActive: Boolean(row.isActive),
   status: row.status || (row.isActive ? 'active' : 'disabled'),
-  permissions: resolvePermissions(row.role, normalizePermissions(row.permissions)),
+  permissions: resolvePermissions(row.roles || row.role, normalizePermissions(row.permissions)),
 });
 
 const normalizeImportKey = (value) =>
@@ -118,6 +127,19 @@ const normalizeImportedRole = (value) => {
   return normalized || 'hunter';
 };
 
+const normalizeImportedRoles = (value) => {
+  if (Array.isArray(value)) {
+    return normalizeRoles(value, 'hunter');
+  }
+
+  const normalized = String(value ?? '')
+    .split(/[|,/]/)
+    .map((role) => normalizeImportedRole(role))
+    .filter(Boolean);
+
+  return normalizeRoles(normalized, 'hunter');
+};
+
 const deriveNameFromEmail = (email) => {
   const localPart = String(email ?? '').split('@')[0] || '';
   const normalized = localPart.replace(/[._-]+/g, ' ').trim();
@@ -136,6 +158,21 @@ const assertValidRole = (role) => {
   if (!VALID_ROLES.includes(role)) {
     throw new AppError('Invalid user role.', 400);
   }
+};
+
+const assertValidRoles = (roles) => {
+  const normalized = normalizeRoles(roles);
+  const invalidRoles = normalized.filter((role) => !VALID_ROLES.includes(role));
+
+  if (invalidRoles.length > 0) {
+    throw new AppError(`Invalid user roles: ${invalidRoles.join(', ')}.`, 400);
+  }
+
+  if (normalized.includes('admin') && normalized.includes('super_admin')) {
+    throw new AppError('Admin and Super Admin cannot be assigned together.', 400);
+  }
+
+  return normalized;
 };
 
 const assertValidStatus = (status) => {
@@ -161,9 +198,15 @@ const assertValidPermissionOverrides = (permissions) => {
 };
 
 const assertActorCanManageRole = (actor, role, actionLabel = 'manage') => {
-  if (!actor || !canManageRole(actor.role, role)) {
+  if (!actor || !canManageRole(actor.roles || actor.role, role)) {
     throw new AppError(`You do not have permission to ${actionLabel} ${role.replace('_', ' ')} users.`, 403);
   }
+};
+
+const assertActorCanManageRoles = (actor, roles, actionLabel = 'manage') => {
+  const normalized = assertValidRoles(roles);
+  normalized.forEach((role) => assertActorCanManageRole(actor, role, actionLabel));
+  return normalized;
 };
 
 const ensureEmailAvailable = async (email, currentUserId = null) => {
@@ -191,6 +234,7 @@ const mapUserPersistenceError = (error) => {
 };
 
 const getUserById = async (id, { includeDeleted = false } = {}) => {
+  await ensureUserRoleSchema();
   const result = await pool.query(
     `
       SELECT ${userSelect}
@@ -212,10 +256,10 @@ const getUserById = async (id, { includeDeleted = false } = {}) => {
 };
 
 const ensureActorCanTouchUser = (actor, target, actionLabel = 'manage') => {
-  assertActorCanManageRole(actor, target.role, actionLabel);
+  assertActorCanManageRoles(actor, target.roles || [target.role], actionLabel);
 
-  if (actor.role === 'admin' && ['admin', 'super_admin'].includes(target.role)) {
-    throw new AppError('Admins can only manage hunter and lister users.', 403);
+  if (hasRole(actor, 'admin') && hasAnyRole(target, ['admin', 'super_admin'])) {
+    throw new AppError('Admins can only manage hunter, lister, order processor, and HR users.', 403);
   }
 };
 
@@ -223,8 +267,13 @@ const buildVisibilityFilters = (actor, query) => {
   const clauses = [];
   const params = [];
 
-  if (actor.role === 'admin') {
-    clauses.push(`role IN ('hunter', 'lister', 'order_processor')`);
+  if (hasRole(actor, 'admin') && !hasRole(actor, 'super_admin')) {
+    clauses.push(`(
+      COALESCE(roles, jsonb_build_array(role::text)) @> '["hunter"]'::jsonb
+      OR COALESCE(roles, jsonb_build_array(role::text)) @> '["lister"]'::jsonb
+      OR COALESCE(roles, jsonb_build_array(role::text)) @> '["order_processor"]'::jsonb
+      OR COALESCE(roles, jsonb_build_array(role::text)) @> '["hr"]'::jsonb
+    )`);
   }
 
   if (!query.includeDeleted) {
@@ -234,12 +283,12 @@ const buildVisibilityFilters = (actor, query) => {
   if (query.role) {
     assertValidRole(query.role);
 
-    if (actor.role === 'admin' && !['hunter', 'lister', 'order_processor'].includes(query.role)) {
-      throw new AppError('Admins can only access hunter, lister, and order processor records.', 403);
+    if (hasRole(actor, 'admin') && !hasRole(actor, 'super_admin') && !['hunter', 'lister', 'order_processor', 'hr'].includes(query.role)) {
+      throw new AppError('Admins can only access hunter, lister, order processor, and HR records.', 403);
     }
 
-    params.push(query.role);
-    clauses.push(`role = $${params.length}`);
+    params.push(JSON.stringify([query.role]));
+    clauses.push(`COALESCE(roles, jsonb_build_array(role::text)) @> $${params.length}::jsonb`);
   }
 
   if (query.search) {
@@ -248,6 +297,7 @@ const buildVisibilityFilters = (actor, query) => {
       name ILIKE $${params.length}
       OR email ILIKE $${params.length}
       OR role::text ILIKE $${params.length}
+      OR COALESCE(roles::text, '') ILIKE $${params.length}
       OR status ILIKE $${params.length}
     )`);
   }
@@ -265,6 +315,7 @@ const buildVisibilityFilters = (actor, query) => {
 };
 
 const listUsers = async (actor, query = {}) => {
+  await ensureUserRoleSchema();
   const filters = buildVisibilityFilters(actor, query);
   const defaultLimit = await getConfiguredLimit('users', query.limit);
   const pageRequest = normalizePageRequest(query, defaultLimit);
@@ -298,14 +349,15 @@ const listUsers = async (actor, query = {}) => {
 };
 
 const createUser = async (actor, payload) => {
-  const { name, email, password, role } = payload;
+  await ensureUserRoleSchema();
+  const { name, email, password } = payload;
+  const roles = assertActorCanManageRoles(actor, payload.roles || payload.role || ['hunter'], 'create');
+  const role = resolvePrimaryRole(roles);
 
-  if (!name || !email || !password || !role) {
-    throw new AppError('Name, email, password, and valid role are required.', 400);
+  if (!name || !email || !password || !roles.length) {
+    throw new AppError('Name, email, password, and at least one valid role are required.', 400);
   }
 
-  assertValidRole(role);
-  assertActorCanManageRole(actor, role, 'create');
   assertValidPermissionOverrides(payload.permissions);
 
   const normalizedName = String(name).trim();
@@ -320,7 +372,7 @@ const createUser = async (actor, payload) => {
   const passwordHash = await bcrypt.hash(password, 10);
   const isActive = payload.isActive ?? true;
   const status = isActive ? 'active' : 'disabled';
-  const permissions = resolvePermissions(role, payload.permissions);
+  const permissions = resolvePermissions(roles, payload.permissions);
 
   let result;
 
@@ -332,6 +384,7 @@ const createUser = async (actor, payload) => {
           email,
           password_hash,
           role,
+          roles,
           is_active,
           status,
           permissions,
@@ -339,7 +392,7 @@ const createUser = async (actor, payload) => {
           updated_by,
           disabled_by
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $8, $9)
+        VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8::jsonb, $9, $9, $10)
         RETURNING ${userSelect}
       `,
       [
@@ -347,6 +400,7 @@ const createUser = async (actor, payload) => {
         normalizedEmail,
         passwordHash,
         role,
+        JSON.stringify(roles),
         isActive,
         status,
         JSON.stringify(permissions),
@@ -367,6 +421,7 @@ const createUser = async (actor, payload) => {
     targetId: createdUser.id,
     details: {
       role: createdUser.role,
+      roles: createdUser.roles,
       status: createdUser.status,
       email: createdUser.email,
     },
@@ -376,6 +431,7 @@ const createUser = async (actor, payload) => {
 };
 
 const bulkImportUsers = async (actor, rows = []) => {
+  await ensureUserRoleSchema();
   if (!Array.isArray(rows) || rows.length === 0) {
     throw new AppError('Add at least one user row to import.', 400);
   }
@@ -395,7 +451,7 @@ const bulkImportUsers = async (actor, rows = []) => {
       .trim()
       .toLowerCase();
     const password = String(readImportValue(lookup, 'password', 'temporary password') ?? '').trim();
-    const role = normalizeImportedRole(readImportValue(lookup, 'role', 'user role'));
+    const roles = normalizeImportedRoles(readImportValue(lookup, 'roles', 'role', 'user roles'));
     const name =
       String(readImportValue(lookup, 'name', 'full name', 'user name') ?? '').trim() ||
       deriveNameFromEmail(email);
@@ -431,7 +487,7 @@ const bulkImportUsers = async (actor, rows = []) => {
         name,
         email,
         password,
-        role,
+        roles,
         isActive,
         permissions,
       });
@@ -470,6 +526,7 @@ const bulkImportUsers = async (actor, rows = []) => {
 };
 
 const updateUser = async (actor, id, payload) => {
+  await ensureUserRoleSchema();
   const existing = await getUserById(id, { includeDeleted: true });
   ensureActorCanTouchUser(actor, existing, 'update');
 
@@ -491,16 +548,18 @@ const updateUser = async (actor, id, payload) => {
     addUpdate('email', normalizedEmail);
   }
 
-  if (payload.role !== undefined) {
-    assertValidRole(payload.role);
-    assertActorCanManageRole(actor, payload.role, 'assign');
-    addUpdate('role', payload.role);
+  let nextRoles = existing.roles || [existing.role];
+
+  if (payload.roles !== undefined || payload.role !== undefined) {
+    nextRoles = assertActorCanManageRoles(actor, payload.roles || payload.role, 'assign');
+    addUpdate('roles', JSON.stringify(nextRoles), '::jsonb');
+    addUpdate('role', resolvePrimaryRole(nextRoles));
   }
 
   if (payload.permissions !== undefined) {
-    const targetRole = payload.role || existing.role;
+    const targetRoles = payload.roles || payload.role || nextRoles;
     assertValidPermissionOverrides(payload.permissions);
-    addUpdate('permissions', JSON.stringify(resolvePermissions(targetRole, payload.permissions)), '::jsonb');
+    addUpdate('permissions', JSON.stringify(resolvePermissions(targetRoles, payload.permissions)), '::jsonb');
   }
 
   if (payload.password) {
@@ -551,7 +610,7 @@ const updateUser = async (actor, id, payload) => {
 
   const updatedUser = normalizeUser(result.rows[0]);
   const action =
-    payload.role !== undefined
+    payload.role !== undefined || payload.roles !== undefined
       ? 'user.role.change'
       : payload.isActive !== undefined || payload.status !== undefined
         ? updatedUser.isActive
@@ -566,6 +625,7 @@ const updateUser = async (actor, id, payload) => {
     targetId: updatedUser.id,
     details: {
       role: updatedUser.role,
+      roles: updatedUser.roles,
       status: updatedUser.status,
       permissions: updatedUser.permissions,
     },
@@ -575,6 +635,7 @@ const updateUser = async (actor, id, payload) => {
 };
 
 const softDeleteUser = async (actor, id) => {
+  await ensureUserRoleSchema();
   const existing = await getUserById(id, { includeDeleted: true });
   ensureActorCanTouchUser(actor, existing, 'delete');
 
@@ -607,6 +668,7 @@ const softDeleteUser = async (actor, id) => {
 };
 
 const restoreUser = async (actor, id) => {
+  await ensureUserRoleSchema();
   const existing = await getUserById(id, { includeDeleted: true });
   ensureActorCanTouchUser(actor, existing, 'restore');
 
@@ -639,6 +701,7 @@ const restoreUser = async (actor, id) => {
 };
 
 const resetUserPassword = async (actor, id, password = 'Password123!') => {
+  await ensureUserRoleSchema();
   const target = await getUserById(id, { includeDeleted: true });
   ensureActorCanTouchUser(actor, target, 'reset password for');
 
@@ -668,6 +731,7 @@ const resetUserPassword = async (actor, id, password = 'Password123!') => {
 };
 
 const unlockUser = async (actor, id) => {
+  await ensureUserRoleSchema();
   const target = await getUserById(id, { includeDeleted: true });
   ensureActorCanTouchUser(actor, target, 'unlock');
 
@@ -700,13 +764,14 @@ const unlockUser = async (actor, id) => {
 };
 
 const impersonateUser = async (actor, id) => {
+  await ensureUserRoleSchema();
   const target = await getUserById(id, { includeDeleted: false });
 
-  if (actor.role !== 'super_admin') {
+  if (!hasRole(actor, 'super_admin')) {
     throw new AppError('Only Super Admin users can impersonate another user.', 403);
   }
 
-  if (target.role !== 'admin') {
+  if (!hasRole(target, 'admin')) {
     throw new AppError('Super Admin impersonation is limited to admin accounts.', 400);
   }
 
@@ -732,8 +797,12 @@ const impersonateUser = async (actor, id) => {
 };
 
 const listAssignments = async (query = {}) => {
+  await ensureUserRoleSchema();
   const params = [];
-  const where = ["hunter.role = 'hunter'", 'hunter.deleted_at IS NULL'];
+  const where = [
+    `COALESCE(hunter.roles, jsonb_build_array(hunter.role::text)) @> '["hunter"]'::jsonb`,
+    'hunter.deleted_at IS NULL',
+  ];
 
   if (query.search) {
     params.push(`%${String(query.search).trim()}%`);
@@ -791,8 +860,13 @@ const listAssignments = async (query = {}) => {
 };
 
 const setHunterLister = async (actor, hunterId, listerId) => {
+  await ensureUserRoleSchema();
   const hunter = await pool.query(
-    "SELECT id, role, email FROM users WHERE id = $1 AND role = 'hunter' AND deleted_at IS NULL",
+    `SELECT id, role, roles, email
+     FROM users
+     WHERE id = $1
+       AND COALESCE(roles, jsonb_build_array(role::text)) @> '["hunter"]'::jsonb
+       AND deleted_at IS NULL`,
     [hunterId],
   );
 
@@ -825,7 +899,11 @@ const setHunterLister = async (actor, hunterId, listerId) => {
   }
 
   const lister = await pool.query(
-    "SELECT id FROM users WHERE id = $1 AND role = 'lister' AND deleted_at IS NULL",
+    `SELECT id
+     FROM users
+     WHERE id = $1
+       AND COALESCE(roles, jsonb_build_array(role::text)) @> '["lister"]'::jsonb
+       AND deleted_at IS NULL`,
     [listerId],
   );
 
@@ -869,6 +947,7 @@ const setHunterLister = async (actor, hunterId, listerId) => {
 const getPermissionsMatrix = async () => listPermissionMatrix();
 
 module.exports = {
+  getUserById,
   listUsers,
   createUser,
   bulkImportUsers,

@@ -6,7 +6,7 @@ import { catchError } from 'rxjs/operators';
 import { ListerApiService } from '../api/lister-api.service';
 import { SystemApiService } from '../api/system-api.service';
 import { AuthService } from '../auth/auth.service';
-import { User } from '../models/auth.models';
+import { User, userHasRole } from '../models/auth.models';
 import { AssignedHunter, HuntingCriteria, Account } from '../models/product.models';
 import { ApiLimitSettings, IpRestrictionSettings } from '../models/system.models';
 import { ReferenceDataService } from './reference-data.service';
@@ -76,17 +76,16 @@ export class SessionCacheService {
       return;
     }
 
-    const shouldLoadCriteria =
-      user.role === 'hunter' || user.role === 'admin' || user.role === 'super_admin';
+    const shouldLoadCriteria = userHasRole(user, 'hunter') || userHasRole(user, 'admin') || userHasRole(user, 'super_admin');
     const shouldLoadAccounts =
-      user.role === 'lister' ||
-      user.role === 'order_processor' ||
-      user.role === 'admin' ||
-      user.role === 'super_admin';
-    const includeInactiveAccounts = user.role === 'admin' || user.role === 'super_admin';
-    const shouldLoadSystem = user.role === 'admin' || user.role === 'super_admin';
+      userHasRole(user, 'lister') ||
+      userHasRole(user, 'order_processor') ||
+      userHasRole(user, 'admin') ||
+      userHasRole(user, 'super_admin');
+    const includeInactiveAccounts = userHasRole(user, 'admin') || userHasRole(user, 'super_admin');
+    const shouldLoadSystem = userHasRole(user, 'admin') || userHasRole(user, 'super_admin');
     const assignedHunters$ =
-      user.role === 'lister' ? this.listerApi.listAssignedHunters() : of([] as AssignedHunter[]);
+      userHasRole(user, 'lister') ? this.listerApi.listAssignedHunters() : of([] as AssignedHunter[]);
     const systemSettings$ = shouldLoadSystem
       ? this.systemApi.getSettings().pipe(catchError(() => of(null)))
       : of(null);

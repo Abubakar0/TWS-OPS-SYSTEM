@@ -265,7 +265,7 @@ const analyzeProduct = (input, criteria, options = {}) => {
     "sales_last_two_months",
     input.salesLastTwoMonths !== null &&
       input.salesLastTwoMonths >= criteria.minSalesLastTwoMonths,
-    `Minimum sales in the past two months must be at least ${criteria.minSalesLastTwoMonths}.`,
+    `Minimum sales in the past one month must be at least ${criteria.minSalesLastTwoMonths}.`,
   );
   addNote(
     "basket_count",

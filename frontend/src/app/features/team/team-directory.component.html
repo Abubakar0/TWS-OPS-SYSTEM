@@ -49,7 +49,7 @@
               <mat-label>Members</mat-label>
               <mat-select formControlName="memberIds" multiple>
                 @for (user of users(); track user.id) {
-                  <mat-option [value]="user.id">{{ user.name }} | {{ user.role }}</mat-option>
+                  <mat-option [value]="user.id">{{ user.name }} | {{ user.roles.join(', ') }}</mat-option>
                 }
               </mat-select>
             </mat-form-field>
@@ -88,7 +88,7 @@
                   <strong>{{ member.name }}</strong>
                   <span>{{ member.email }}</span>
                 </div>
-                <span class="status-badge status-badge--neutral">{{ member.role }}</span>
+                <span class="status-badge status-badge--neutral">{{ memberRoleLabel(member) }}</span>
               </div>
             } @empty {
               <div class="empty-state">No members assigned yet.</div>

@@ -38,7 +38,7 @@ export class ValidationMessageService {
         case 'productWatchers':
           return 'Product watchers are required by the current admin settings.';
         case 'salesLastTwoMonths':
-          return 'Sales in the past two months are required.';
+          return 'Sales in the past one month is required.';
         case 'basketCount':
           return 'Basket count is required by the current admin settings.';
         case 'deliveryDays':
@@ -87,7 +87,9 @@ export class ValidationMessageService {
     }
 
     if (control.hasError('minlength')) {
-      return field === 'customLabel' ? 'Use a longer value.' : 'Password must be at least 8 characters.';
+      return field === 'customLabel'
+        ? 'Use a longer value.'
+        : 'Password must be at least 8 characters.';
     }
 
     if (control.hasError('min')) {
@@ -135,7 +137,9 @@ export class ValidationMessageService {
       case 'category':
         return 'Use the last product category from Ebay.';
       case 'customLabel':
-        return criteria.customLabelRequired ? 'Required by the current rules.' : 'Defaults to your name.';
+        return criteria.customLabelRequired
+          ? 'Required by the current rules.'
+          : 'Defaults to your name.';
       case 'amazonStockCount':
         return `Minimum ${criteria.minStockCount}.`;
       case 'alternateAmazonStockCount':
@@ -151,7 +155,9 @@ export class ValidationMessageService {
       case 'salesLastTwoMonths':
         return `Minimum ${criteria.minSalesLastTwoMonths}.`;
       case 'basketCount':
-        return criteria.basketCountRequired ? 'Required for this workflow.' : 'Optional basket count.';
+        return criteria.basketCountRequired
+          ? 'Required for this workflow.'
+          : 'Optional basket count.';
       case 'deliveryDays':
         return criteria.deliveryDaysRequired
           ? `Required. Maximum ${criteria.maxDeliveryDays} days.`
@@ -204,7 +210,11 @@ export class ValidationMessageService {
     return '';
   }
 
-  orderFieldError(control: AbstractControl | null, field: keyof OrderForm['controls'], touched: boolean): string {
+  orderFieldError(
+    control: AbstractControl | null,
+    field: keyof OrderForm['controls'],
+    touched: boolean,
+  ): string {
     if (!control || !touched) {
       return '';
     }

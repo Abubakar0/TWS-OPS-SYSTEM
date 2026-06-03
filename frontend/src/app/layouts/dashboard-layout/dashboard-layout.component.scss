@@ -144,7 +144,22 @@
 
 .sidebar-nav {
   display: grid;
+  gap: 14px;
+}
+
+.sidebar-nav__section {
+  display: grid;
   gap: 8px;
+}
+
+.sidebar-nav__section-label {
+  margin: 0;
+  padding: 0 14px;
+  color: var(--tws-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .sidebar-nav__item {

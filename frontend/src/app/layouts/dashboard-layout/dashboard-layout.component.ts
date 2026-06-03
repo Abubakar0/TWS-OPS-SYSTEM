@@ -12,12 +12,18 @@ import { filter, map, startWith } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { BRANDING } from '../../core/config/branding';
 import { ConfirmService } from '../../core/ui/confirm.service';
+import { userHasRole } from '../../core/models/auth.models';
 
 interface NavItem {
   label: string;
   route: string;
   exact: boolean;
   icon: string;
+}
+
+interface NavSection {
+  label: string;
+  items: NavItem[];
 }
 
 const SHARED_TEAM_ITEM: NavItem = {
@@ -39,6 +45,13 @@ const ORDER_PROCESSOR_ISSUES_ITEM: NavItem = {
   route: '/order-processor/issues',
   exact: true,
   icon: 'error_outline',
+};
+
+const MY_HR_ITEM: NavItem = {
+  label: 'My HR',
+  route: '/my-hr',
+  exact: true,
+  icon: 'badge',
 };
 
 const SIDEBAR_COLLAPSED_KEY = 'tws_sidebar_collapsed';
@@ -122,6 +135,18 @@ export class DashboardLayoutComponent {
     { label: 'Add Order', route: '/order-processor/orders/new', exact: true, icon: 'add_circle' },
     ORDER_PROCESSOR_ISSUES_ITEM,
   ];
+  readonly hrTabs: NavItem[] = [
+    { label: 'HR Dashboard', route: '/hr/dashboard', exact: true, icon: 'monitoring' },
+    { label: 'Employees', route: '/hr/employees', exact: true, icon: 'badge' },
+    { label: 'Attendance', route: '/hr/attendance', exact: true, icon: 'event_available' },
+    { label: 'Leaves', route: '/hr/leaves', exact: true, icon: 'event_busy' },
+    { label: 'Payroll', route: '/hr/payroll', exact: true, icon: 'payments' },
+    { label: 'Expenses', route: '/hr/expenses', exact: true, icon: 'receipt' },
+    { label: 'Performance', route: '/hr/performance', exact: true, icon: 'leaderboard' },
+    { label: 'Warnings', route: '/hr/warnings', exact: true, icon: 'warning_amber' },
+    { label: 'Documents', route: '/hr/documents', exact: true, icon: 'folder_copy' },
+    { label: 'Reports', route: '/hr/reports', exact: true, icon: 'query_stats' },
+  ];
   readonly superAdminTabs: NavItem[] = [
     { label: 'Dashboard', route: '/superadmin/dashboard', exact: true, icon: 'monitoring' },
     { label: 'Admins', route: '/superadmin/admins', exact: true, icon: 'shield_person' },
@@ -135,7 +160,7 @@ export class DashboardLayoutComponent {
     SHARED_TEAM_ITEM,
   ];
 
-  readonly sidebarNavItems = computed<NavItem[]>(() => {
+  readonly sidebarSections = computed<NavSection[]>(() => {
     const user = this.user();
 
     if (!user) {
@@ -143,39 +168,68 @@ export class DashboardLayoutComponent {
     }
 
     const canProcessOrders =
-      user.role === 'admin' ||
-      user.role === 'super_admin' ||
-      user.role === 'order_processor' ||
+      userHasRole(user, 'admin') ||
+      userHasRole(user, 'super_admin') ||
+      userHasRole(user, 'order_processor') ||
       Boolean(user.permissions?.canProcessOrders);
-    let items: NavItem[] = [];
+    const sections: NavSection[] = [];
 
-    if (user.role === 'hunter') {
-      items = [...this.hunterTabs];
-    } else if (user.role === 'lister') {
-      items = [...this.listerTabs];
-    } else if (user.role === 'super_admin') {
-      items = [...this.superAdminTabs];
-    } else if (user.role === 'order_processor') {
-      items = [...this.orderProcessorTabs];
-    } else if (user.role === 'admin') {
-      items = [...this.adminTabs];
+    if (userHasRole(user, 'super_admin')) {
+      sections.push({ label: 'Super Admin', items: [...this.superAdminTabs] });
     }
 
-    if (canProcessOrders && user.role !== 'order_processor') {
-      items.push(ORDER_PROCESSING_ITEM);
+    if (userHasRole(user, 'admin')) {
+      const adminItems = [...this.adminTabs];
+
+      if (canProcessOrders) {
+        adminItems.push(ORDER_PROCESSING_ITEM);
+      }
+
+      sections.push({ label: 'Admin', items: adminItems });
     }
 
-    return items;
+    if (userHasRole(user, 'hr')) {
+      sections.push({ label: 'HR', items: [...this.hrTabs] });
+    }
+
+    if (userHasRole(user, 'hunter')) {
+      sections.push({ label: 'Hunter', items: [...this.hunterTabs, MY_HR_ITEM] });
+    }
+
+    if (userHasRole(user, 'lister')) {
+      sections.push({ label: 'Lister', items: [...this.listerTabs, MY_HR_ITEM] });
+    }
+
+    if (userHasRole(user, 'order_processor')) {
+      sections.push({ label: 'Order Processor', items: [...this.orderProcessorTabs, MY_HR_ITEM] });
+    }
+
+    if (!sections.length) {
+      sections.push({ label: 'Workspace', items: [MY_HR_ITEM] });
+    }
+
+    return sections;
   });
   readonly roleLabel = computed(() => {
-    const role = this.user()?.role;
+    const user = this.user();
+    const role = user?.role;
 
     if (!role) {
       return '';
     }
 
+    if (userHasRole(user, 'admin') && userHasRole(user, 'hr')) {
+      return 'Admin + HR';
+    }
+
+    if (userHasRole(user, 'super_admin') && userHasRole(user, 'hr')) {
+      return 'Super Admin + HR';
+    }
+
     return role === 'super_admin'
       ? 'Super Admin'
+      : role === 'hr'
+        ? 'HR'
       : role === 'order_processor'
         ? 'Order Processor'
         : role.charAt(0).toUpperCase() + role.slice(1);
@@ -202,7 +256,7 @@ export class DashboardLayoutComponent {
     return {
       sidebarOpen,
       sidebarCollapsed,
-      navItems: this.sidebarNavItems(),
+      navSections: this.sidebarSections(),
       userName: user?.name || this.branding.productName,
       userEmail: user?.email || 'workspace@trendwavesolutions.com',
       roleLabel,
@@ -224,6 +278,8 @@ export class DashboardLayoutComponent {
         return '/hunter/dashboard';
       case 'lister':
         return '/lister/dashboard';
+      case 'hr':
+        return '/hr/dashboard';
       case 'super_admin':
         return '/superadmin/dashboard';
       case 'order_processor':

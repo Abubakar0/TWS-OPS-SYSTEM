@@ -26,6 +26,12 @@
   font-size: 0.85rem;
 }
 
+.badge-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .actions-col {
   width: 152px;
 }
@@ -58,6 +64,33 @@
   gap: 12px;
 }
 
+.form-section {
+  display: grid;
+  gap: 12px;
+}
+
+.form-section__header {
+  display: grid;
+  gap: 4px;
+}
+
+.form-section__header p {
+  margin: 0;
+  color: var(--tws-muted);
+  font-size: 0.9rem;
+}
+
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
+.form-error {
+  color: var(--mat-sys-error, #d14343);
+  font-size: 0.82rem;
+}
+
 @media (max-width: 760px) {
   .users-toolbar {
     grid-template-columns: 1fr;
@@ -74,5 +107,9 @@
   .table-actions {
     width: 100%;
     justify-content: flex-start;
+  }
+
+  .checkbox-grid {
+    grid-template-columns: 1fr;
   }
 }

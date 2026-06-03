@@ -112,7 +112,7 @@
             <tr>
               <th>Name</th>
               <th>Email</th>
-              <th>Role</th>
+              <th>Roles</th>
               <th>Status</th>
               <th>Last login</th>
               <th class="actions-col">Actions</th>
@@ -128,7 +128,13 @@
                   </div>
                 </td>
                 <td>{{ row.user.email }}</td>
-                <td><span class="status-badge status-badge--neutral">{{ roleLabels[row.user.role] }}</span></td>
+                <td>
+                  <div class="badge-list">
+                    @for (role of row.user.roles.length ? row.user.roles : [row.user.role]; track role) {
+                      <span class="status-badge status-badge--neutral">{{ roleLabels[role] }}</span>
+                    }
+                  </div>
+                </td>
                 <td>
                   <span class="status-badge" [class.status-badge--success]="row.statusLabel === 'active'" [class.status-badge--danger]="row.statusLabel === 'disabled'">
                     {{ row.statusLabel | titlecase }}
@@ -220,14 +226,27 @@
           }
         </mat-form-field>
 
-        <mat-form-field appearance="outline">
-          <mat-label>Role</mat-label>
-          <mat-select formControlName="role">
+        <div class="field-span-2 form-section">
+          <div class="form-section__header">
+            <strong>Roles</strong>
+            <p>Choose one or more workspace roles for this user.</p>
+          </div>
+          <div class="checkbox-grid">
             @for (role of facade.availableRoles(); track role) {
-              <mat-option [value]="role">{{ roleLabels[role] }}</mat-option>
+              <label class="toggle-row">
+                <mat-checkbox
+                  [checked]="facade.userForm.controls.roles.value.includes(role)"
+                  (change)="facade.toggleRoleSelection(role, $event.checked)"
+                >
+                  {{ roleLabels[role] }}
+                </mat-checkbox>
+              </label>
             }
-          </mat-select>
-        </mat-form-field>
+          </div>
+          @if (facade.formErrors().roles) {
+            <div class="form-error">{{ facade.formErrors().roles }}</div>
+          }
+        </div>
 
         <label class="toggle-row field-span-2">
           <mat-checkbox formControlName="isActive">Allow sign-in</mat-checkbox>

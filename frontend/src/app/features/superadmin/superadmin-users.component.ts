@@ -10,7 +10,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 
-import { User } from '../../core/models/auth.models';
+import { User, userHasRole } from '../../core/models/auth.models';
 import { AdminService } from '../../core/services/admin.service';
 import { ReferenceDataService } from '../../core/state/reference-data.service';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
@@ -47,10 +47,10 @@ export class SuperAdminUsersComponent implements OnInit {
   readonly destroyRef = inject(DestroyRef);
 
   readonly visibleUsers = computed(() =>
-    this.users().filter((user) => user.role === 'hunter' || user.role === 'lister'),
+    this.users().filter((user) => userHasRole(user, 'hunter') || userHasRole(user, 'lister')),
   );
-  readonly hunterCount = computed(() => this.visibleUsers().filter((user) => user.role === 'hunter').length);
-  readonly listerCount = computed(() => this.visibleUsers().filter((user) => user.role === 'lister').length);
+  readonly hunterCount = computed(() => this.visibleUsers().filter((user) => userHasRole(user, 'hunter')).length);
+  readonly listerCount = computed(() => this.visibleUsers().filter((user) => userHasRole(user, 'lister')).length);
   readonly deletedCount = computed(() => this.visibleUsers().filter((user) => Boolean(user.deletedAt)).length);
 
   constructor(

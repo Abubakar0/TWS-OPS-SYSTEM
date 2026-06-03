@@ -5,6 +5,7 @@ export interface TeamMember {
   name: string;
   email: string;
   role: UserRole;
+  roles?: UserRole[];
   isActive: boolean;
 }
 

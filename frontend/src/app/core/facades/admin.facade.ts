@@ -7,7 +7,7 @@ import { AdminApiService } from '../api/admin-api.service';
 import { AuthService } from '../auth/auth.service';
 import { ADMIN_MANAGED_ROLES, SUPER_ADMIN_MANAGED_ROLES } from '../config/roles';
 import { SEARCH_DEBOUNCE_MS } from '../config/validation';
-import { User, UserPermissions, UserRole } from '../models/auth.models';
+import { User, UserPermissions, UserRole, userHasRole, userHasAnyRole } from '../models/auth.models';
 import { ExportService } from '../services/export.service';
 import { mapUserRow } from '../mappers/user-row.mapper';
 import { ReferenceDataService } from '../state/reference-data.service';
@@ -26,6 +26,8 @@ const buildPermissions = (
   canViewReports: Boolean(overrides.canViewReports),
   canExportReports: Boolean(overrides.canExportReports),
   canManageSettings: Boolean(overrides.canManageSettings),
+  canManageHr: Boolean(overrides.canManageHr),
+  canViewPayroll: Boolean(overrides.canViewPayroll),
   canProcessOrders: Boolean(overrides.canProcessOrders),
   canViewAllOrders: Boolean(overrides.canViewAllOrders),
   canViewLogs: Boolean(overrides.canViewLogs),
@@ -59,14 +61,15 @@ export class AdminFacade {
     nonNullable: true,
   });
 
-  readonly adminCount = computed(() => this.users().filter((user) => user.role === 'admin').length);
-  readonly hunterCount = computed(() => this.users().filter((user) => user.role === 'hunter').length);
-  readonly listerCount = computed(() => this.users().filter((user) => user.role === 'lister').length);
-  readonly orderProcessorCount = computed(() => this.users().filter((user) => user.role === 'order_processor').length);
+  readonly adminCount = computed(() => this.users().filter((user) => userHasRole(user, 'admin')).length);
+  readonly hrCount = computed(() => this.users().filter((user) => userHasRole(user, 'hr')).length);
+  readonly hunterCount = computed(() => this.users().filter((user) => userHasRole(user, 'hunter')).length);
+  readonly listerCount = computed(() => this.users().filter((user) => userHasRole(user, 'lister')).length);
+  readonly orderProcessorCount = computed(() => this.users().filter((user) => userHasRole(user, 'order_processor')).length);
   readonly activeCount = computed(() => this.users().filter((user) => user.isActive).length);
   readonly disabledCount = computed(() => this.users().filter((user) => !user.isActive).length);
   readonly availableRoles = computed<UserRole[]>(() =>
-    this.auth.currentUser()?.role === 'super_admin'
+    userHasRole(this.auth.currentUser(), 'super_admin')
       ? [...SUPER_ADMIN_MANAGED_ROLES]
       : [...ADMIN_MANAGED_ROLES],
   );
@@ -76,7 +79,7 @@ export class AdminFacade {
     const role = this.roleFilter();
     const status = this.statusFilter();
     const filtered = this.users().filter((user) => {
-      const matchesRole = role === 'all' ? true : user.role === role;
+      const matchesRole = role === 'all' ? true : userHasRole(user, role);
       const matchesStatus = status === 'all' ? true : status === 'active' ? user.isActive : !user.isActive;
 
       if (!term) {
@@ -86,7 +89,7 @@ export class AdminFacade {
       return (
         matchesRole &&
         matchesStatus &&
-        [user.name, user.email, user.role, user.isActive ? 'enabled' : 'disabled'].some((value) =>
+        [user.name, user.email, ...(user.roles || [user.role]), user.isActive ? 'enabled' : 'disabled'].some((value) =>
           value.toLowerCase().includes(term),
         )
       );
@@ -97,7 +100,7 @@ export class AdminFacade {
         case 'email':
           return user.email.toLowerCase();
         case 'role':
-          return user.role;
+          return (user.roles || [user.role]).join(', ');
         case 'status':
           return user.isActive ? 'enabled' : 'disabled';
         case 'name':
@@ -126,6 +129,11 @@ export class AdminFacade {
     name: this.messages.userFieldError(this.userForm.controls.name, this.userForm.controls.name.touched || this.userForm.controls.name.dirty),
     email: this.messages.userFieldError(this.userForm.controls.email, this.userForm.controls.email.touched || this.userForm.controls.email.dirty),
     password: this.messages.userFieldError(this.userForm.controls.password, this.userForm.controls.password.touched || this.userForm.controls.password.dirty),
+    roles: this.userForm.controls.roles.hasError('required')
+      ? 'Select at least one role.'
+      : this.userForm.controls.roles.hasError('invalidCombination')
+        ? 'Admin and Super Admin cannot be assigned together.'
+        : '',
   }));
 
   private readonly destroyRef = inject(DestroyRef);
@@ -178,7 +186,7 @@ export class AdminFacade {
       name: '',
       email: '',
       password: '',
-      role: 'hunter',
+      roles: ['hunter'],
       isActive: true,
       canProcessOrders: false,
       canViewAllOrders: false,
@@ -195,7 +203,7 @@ export class AdminFacade {
       name: user.name,
       email: user.email,
       password: '',
-      role: user.role,
+      roles: user.roles?.length ? [...user.roles] : [user.role],
       isActive: user.isActive,
       canProcessOrders: Boolean(user.permissions?.canProcessOrders),
       canViewAllOrders: Boolean(user.permissions?.canViewAllOrders),
@@ -217,7 +225,7 @@ export class AdminFacade {
       name: '',
       email: '',
       password: '',
-      role: 'hunter',
+      roles: ['hunter'],
       isActive: true,
       canProcessOrders: false,
       canViewAllOrders: false,
@@ -263,7 +271,8 @@ export class AdminFacade {
     const payload: Partial<User> & { password?: string } = {
       name: raw.name,
       email: raw.email,
-      role: raw.role,
+      role: raw.roles[0],
+      roles: raw.roles,
       isActive: raw.isActive,
       permissions: buildPermissions({
         ...editingUser.permissions,
@@ -346,7 +355,7 @@ export class AdminFacade {
       columns: [
         { header: 'Name', value: (user) => user.name },
         { header: 'Email', value: (user) => user.email },
-        { header: 'Role', value: (user) => user.role },
+        { header: 'Roles', value: (user) => (user.roles?.length ? user.roles.join(', ') : user.role) },
         { header: 'Status', value: (user) => (user.isActive ? 'Enabled' : 'Disabled') },
       ],
     });
@@ -362,7 +371,7 @@ export class AdminFacade {
         { header: 'Name', value: () => '' },
         { header: 'Email', value: () => '' },
         { header: 'Password', value: () => '' },
-        { header: 'Role', value: () => '' },
+        { header: 'Roles', value: () => '' },
         { header: 'Active', value: () => '' },
         { header: 'Can Process Orders', value: () => '' },
         { header: 'Can View All Orders', value: () => '' },
@@ -439,6 +448,20 @@ export class AdminFacade {
 
   togglePasswordVisibility(): void {
     this.passwordHidden.update((value) => !value);
+  }
+
+  toggleRoleSelection(role: UserRole, enabled: boolean): void {
+    const current = new Set(this.userForm.controls.roles.value);
+
+    if (enabled) {
+      current.add(role);
+    } else {
+      current.delete(role);
+    }
+
+    this.userForm.controls.roles.setValue([...current]);
+    this.userForm.controls.roles.markAsTouched();
+    this.userForm.controls.roles.updateValueAndValidity();
   }
 
   private initialize(): void {

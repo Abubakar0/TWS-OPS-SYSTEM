@@ -1,0 +1,196 @@
+<section class="page-shell hr-page">
+  <header class="page-hero">
+    <div>
+      <h1>Leaves</h1>
+      <p>Review leave balances in motion, approve or reject requests, and raise new requests on behalf of employees.</p>
+    </div>
+
+    <div class="hr-actions">
+      <button mat-flat-button color="primary" type="button" (click)="resetForm()">
+        <mat-icon>event</mat-icon>
+        <span>New Leave</span>
+      </button>
+      <button mat-stroked-button type="button" (click)="loadLeaves()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <app-error-state [message]="error()" actionLabel="Retry" (action)="loadLeaves()" />
+  }
+
+  <section class="hr-layout">
+    <article class="surface-card hr-block">
+      <details class="filter-panel">
+        <summary>
+          <div class="filter-panel__title">
+            <mat-icon>filter_list</mat-icon>
+            <div>
+              <h2>Filters</h2>
+              <p>Focus the queue by employee, type, status, or date window.</p>
+            </div>
+          </div>
+          <div class="filter-panel__meta">
+            <span>{{ total() }} requests</span>
+            <span class="filter-panel__chevron"><mat-icon>expand_more</mat-icon></span>
+          </div>
+        </summary>
+
+        <div class="filter-panel__content">
+          <div class="hr-form-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Employee</mat-label>
+              <mat-select [formControl]="employeeFilter">
+                <mat-option value="">All employees</mat-option>
+                @for (employee of employees(); track employee.id) {
+                  <mat-option [value]="employee.id">{{ employee.fullName }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Status</mat-label>
+              <mat-select [formControl]="statusFilter">
+                <mat-option value="">All statuses</mat-option>
+                <mat-option value="PENDING">Pending</mat-option>
+                <mat-option value="APPROVED">Approved</mat-option>
+                <mat-option value="REJECTED">Rejected</mat-option>
+                <mat-option value="CANCELLED">Cancelled</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Leave Type</mat-label>
+              <mat-select [formControl]="leaveTypeFilter">
+                <mat-option value="">All leave types</mat-option>
+                <mat-option value="ANNUAL">Annual</mat-option>
+                <mat-option value="SICK">Sick</mat-option>
+                <mat-option value="CASUAL">Casual</mat-option>
+                <mat-option value="EMERGENCY">Emergency</mat-option>
+                <mat-option value="UNPAID">Unpaid</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>From</mat-label>
+              <input matInput type="date" [formControl]="dateFrom" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>To</mat-label>
+              <input matInput type="date" [formControl]="dateTo" />
+            </mat-form-field>
+          </div>
+
+          <div class="hr-inline-actions">
+            <button mat-stroked-button type="button" (click)="loadLeaves(1)">Apply Filters</button>
+          </div>
+        </div>
+      </details>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading leave requests.</span>
+        </div>
+      } @else if (leaves().length) {
+        <div class="hr-list">
+          @for (leave of leaves(); track leave.id) {
+            <button class="hr-list-card" type="button" (click)="selectLeave(leave)">
+              <div class="hr-list-card__header">
+                <div class="hr-list-card__meta">
+                  <strong>{{ leave.employeeName }}</strong>
+                  <small>{{ leave.employeeCode }} | {{ leave.employeeEmail }}</small>
+                  <small>{{ leave.leaveType }} | {{ leave.startDate | date: 'MMM d, y' }} - {{ leave.endDate | date: 'MMM d, y' }}</small>
+                </div>
+                <div class="hr-badges">
+                  <span class="status-badge status-badge--neutral">{{ leave.status }}</span>
+                  <span class="status-badge status-badge--info">{{ leave.totalDays }} day(s)</span>
+                </div>
+              </div>
+            </button>
+          }
+        </div>
+
+        <div class="grid-pager">
+          <span class="grid-pager__status">{{ pageLabel() }}</span>
+          <div class="grid-toolbar__actions">
+            <button mat-stroked-button type="button" (click)="previousPage()" [disabled]="page() === 1">Previous</button>
+            <button mat-stroked-button type="button" (click)="nextPage()" [disabled]="page() * limit() >= total()">Next</button>
+          </div>
+        </div>
+      } @else {
+        <app-empty-state title="No leave requests yet" message="Create the first request or wait for employees to submit leave." icon="event_busy" />
+      }
+    </article>
+
+    <article class="surface-card hr-sidecard hr-block">
+      <div>
+        <h2>New Leave Request</h2>
+        <p>Raise leave for an employee, then use the review panel below to approve or reject selected requests.</p>
+      </div>
+
+      <form class="hr-form-grid" [formGroup]="leaveForm" (ngSubmit)="createLeave()">
+        <mat-form-field appearance="outline">
+          <mat-label>Employee</mat-label>
+          <mat-select formControlName="employeeId">
+            @for (employee of employees(); track employee.id) {
+              <mat-option [value]="employee.id">{{ employee.fullName }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Leave Type</mat-label>
+          <mat-select formControlName="leaveType">
+            <mat-option value="ANNUAL">Annual</mat-option>
+            <mat-option value="SICK">Sick</mat-option>
+            <mat-option value="CASUAL">Casual</mat-option>
+            <mat-option value="EMERGENCY">Emergency</mat-option>
+            <mat-option value="UNPAID">Unpaid</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Start Date</mat-label>
+          <input matInput type="date" formControlName="startDate" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>End Date</mat-label>
+          <input matInput type="date" formControlName="endDate" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="hr-form-grid--wide">
+          <mat-label>Reason</mat-label>
+          <input matInput formControlName="reason" />
+        </mat-form-field>
+
+        <div class="hr-form-grid--wide hr-inline-actions">
+          <button mat-stroked-button type="button" (click)="resetForm()">Clear</button>
+          <button mat-flat-button color="primary" type="submit" [disabled]="leaveForm.invalid || saving()">
+            <mat-icon>save</mat-icon>
+            <span>{{ saving() ? 'Saving' : 'Create Leave' }}</span>
+          </button>
+        </div>
+      </form>
+
+      @if (selectedLeave(); as leave) {
+        <div class="hr-block">
+          <h3>Review Selected Request</h3>
+          <div class="hr-meta-grid">
+            <article class="hr-meta-card"><span>Employee</span><strong>{{ leave.employeeName }}</strong></article>
+            <article class="hr-meta-card"><span>Status</span><strong>{{ leave.status }}</strong></article>
+            <article class="hr-meta-card"><span>Days</span><strong>{{ leave.totalDays }}</strong></article>
+            <article class="hr-meta-card"><span>Approver</span><strong>{{ leave.approvedByName || 'Pending review' }}</strong></article>
+          </div>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Review Notes</mat-label>
+            <input matInput [formControl]="reviewNotes" />
+          </mat-form-field>
+
+          <div class="hr-inline-actions">
+            <button mat-stroked-button type="button" (click)="cancelSelected()">Cancel Request</button>
+            <button mat-stroked-button type="button" (click)="rejectSelected()">Reject</button>
+            <button mat-flat-button color="primary" type="button" (click)="approveSelected()">Approve</button>
+          </div>
+        </div>
+      }
+    </article>
+  </section>
+</section>

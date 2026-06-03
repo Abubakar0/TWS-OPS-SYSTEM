@@ -1,0 +1,150 @@
+<section class="page-shell hr-page">
+  <header class="page-hero">
+    <div>
+      <h1>Warnings</h1>
+      <p>Issue verbal, written, or final warnings and keep employee response history in one place.</p>
+    </div>
+
+    <div class="hr-actions">
+      <button mat-stroked-button type="button" (click)="loadWarnings()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <app-error-state [message]="error()" actionLabel="Retry" (action)="loadWarnings()" />
+  }
+
+  <section class="hr-layout">
+    <article class="surface-card hr-block">
+      <details class="filter-panel">
+        <summary>
+          <div class="filter-panel__title">
+            <mat-icon>filter_list</mat-icon>
+            <div>
+              <h2>Filters</h2>
+              <p>Review warnings by employee or severity.</p>
+            </div>
+          </div>
+          <div class="filter-panel__meta">
+            <span>{{ total() }} warnings</span>
+            <span class="filter-panel__chevron"><mat-icon>expand_more</mat-icon></span>
+          </div>
+        </summary>
+
+        <div class="filter-panel__content">
+          <div class="hr-form-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Employee</mat-label>
+              <mat-select [formControl]="employeeFilter">
+                <mat-option value="">All employees</mat-option>
+                @for (employee of employees(); track employee.id) {
+                  <mat-option [value]="employee.id">{{ employee.fullName }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Warning Type</mat-label>
+              <mat-select [formControl]="warningTypeFilter">
+                <mat-option value="">All types</mat-option>
+                <mat-option value="VERBAL">Verbal</mat-option>
+                <mat-option value="WRITTEN">Written</mat-option>
+                <mat-option value="FINAL">Final</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <div class="hr-inline-actions">
+            <button mat-stroked-button type="button" (click)="loadWarnings(1)">Apply Filters</button>
+          </div>
+        </div>
+      </details>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading warnings.</span>
+        </div>
+      } @else if (rows().length) {
+        <div class="hr-list">
+          @for (row of rows(); track row.id) {
+            <div class="hr-list-card">
+              <div class="hr-list-card__header">
+                <div class="hr-list-card__meta">
+                  <strong>{{ row.employeeName }}</strong>
+                  <small>{{ row.employeeCode }} | {{ row.employeeEmail }}</small>
+                  <small>{{ row.reason }}</small>
+                </div>
+                <div class="hr-badges">
+                  <span class="status-badge status-badge--warning">{{ row.warningType }}</span>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+
+        <div class="grid-pager">
+          <span class="grid-pager__status">{{ pageLabel() }}</span>
+          <div class="grid-toolbar__actions">
+            <button mat-stroked-button type="button" (click)="previousPage()" [disabled]="page() === 1">Previous</button>
+            <button mat-stroked-button type="button" (click)="nextPage()" [disabled]="page() * limit() >= total()">Next</button>
+          </div>
+        </div>
+      } @else {
+        <app-empty-state title="No warnings yet" message="Warnings issued by HR will show up here." icon="warning" />
+      }
+    </article>
+
+    <article class="surface-card hr-sidecard hr-block">
+      <div>
+        <h2>Issue Warning</h2>
+        <p>Capture the warning reason, details, and any employee response.</p>
+      </div>
+
+      <form class="hr-form-grid" [formGroup]="warningForm" (ngSubmit)="createWarning()">
+        <mat-form-field appearance="outline">
+          <mat-label>Employee</mat-label>
+          <mat-select formControlName="employeeId">
+            @for (employee of employees(); track employee.id) {
+              <mat-option [value]="employee.id">{{ employee.fullName }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Warning Type</mat-label>
+          <mat-select formControlName="warningType">
+            <mat-option value="VERBAL">Verbal</mat-option>
+            <mat-option value="WRITTEN">Written</mat-option>
+            <mat-option value="FINAL">Final</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="hr-form-grid--wide">
+          <mat-label>Reason</mat-label>
+          <input matInput formControlName="reason" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="hr-form-grid--wide">
+          <mat-label>Details</mat-label>
+          <input matInput formControlName="details" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Employee Response</mat-label>
+          <input matInput formControlName="employeeResponse" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Attachment URL</mat-label>
+          <input matInput formControlName="attachmentUrl" />
+        </mat-form-field>
+
+        <div class="hr-form-grid--wide hr-inline-actions">
+          <button mat-stroked-button type="button" (click)="resetForm()">Clear</button>
+          <button mat-flat-button color="primary" type="submit" [disabled]="warningForm.invalid || saving()">
+            <mat-icon>save</mat-icon>
+            <span>{{ saving() ? 'Saving' : 'Issue Warning' }}</span>
+          </button>
+        </div>
+      </form>
+    </article>
+  </section>
+</section>

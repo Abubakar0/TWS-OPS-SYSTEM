@@ -63,7 +63,7 @@
             <mat-select formControlName="userId">
               <mat-option value="">All operators</mat-option>
               @for (user of reportUsers(); track user.id) {
-                <mat-option [value]="user.id">{{ user.name }} ({{ user.role }})</mat-option>
+                <mat-option [value]="user.id">{{ user.name }} ({{ user.roles.join(', ') }})</mat-option>
               }
             </mat-select>
           </mat-form-field>

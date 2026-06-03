@@ -40,7 +40,13 @@
         </mat-form-field>
       </div>
 
-      <button mat-flat-button color="primary" type="button" (click)="facade.checkAsin()" [disabled]="facade.asinChecking()">
+      <button
+        mat-flat-button
+        color="primary"
+        type="button"
+        (click)="facade.checkAsin()"
+        [disabled]="facade.asinChecking()"
+      >
         @if (facade.asinChecking()) {
           <mat-spinner diameter="18"></mat-spinner>
         } @else {
@@ -73,6 +79,46 @@
             </div>
           </div>
         }
+
+        <article class="surface-card form-section">
+          <div class="surface-card__header">
+            <div>
+              <h2>Pricing</h2>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="field-shell">
+              <label class="field-label">Amazon price <span>*</span></label>
+              <mat-form-field appearance="outline">
+                <input
+                  matInput
+                  formControlName="amazonPrice"
+                  inputmode="decimal"
+                  autocomplete="off"
+                />
+                @if (facade.fieldStates().amazonPrice.error) {
+                  <mat-error>{{ facade.fieldStates().amazonPrice.error }}</mat-error>
+                }
+              </mat-form-field>
+            </div>
+
+            <div class="field-shell">
+              <label class="field-label">eBay Listing price <span>*</span></label>
+              <mat-form-field appearance="outline">
+                <input
+                  matInput
+                  formControlName="ebayPrice"
+                  inputmode="decimal"
+                  autocomplete="off"
+                />
+                @if (facade.fieldStates().ebayPrice.error) {
+                  <mat-error>{{ facade.fieldStates().ebayPrice.error }}</mat-error>
+                }
+              </mat-form-field>
+            </div>
+          </div>
+        </article>
 
         <article class="surface-card form-section">
           <div class="surface-card__header">
@@ -253,7 +299,7 @@
             </div>
 
             <div class="field-shell">
-              <label class="field-label">Sales in past 1 months <span>*</span></label>
+              <label class="field-label">Amazon sales in past 1 months <span>*</span></label>
               <mat-form-field appearance="outline">
                 <input matInput type="number" formControlName="salesLastTwoMonths" />
                 @if (facade.fieldStates().salesLastTwoMonths.error) {
@@ -313,36 +359,6 @@
           </div>
         </article>
 
-        <article class="surface-card form-section">
-          <div class="surface-card__header">
-            <div>
-              <h2>Pricing</h2>
-            </div>
-          </div>
-
-          <div class="form-grid">
-            <div class="field-shell">
-              <label class="field-label">Amazon price <span>*</span></label>
-              <mat-form-field appearance="outline">
-                <input matInput formControlName="amazonPrice" inputmode="decimal" autocomplete="off" />
-                @if (facade.fieldStates().amazonPrice.error) {
-                  <mat-error>{{ facade.fieldStates().amazonPrice.error }}</mat-error>
-                }
-              </mat-form-field>
-            </div>
-
-            <div class="field-shell">
-              <label class="field-label">eBay price <span>*</span></label>
-              <mat-form-field appearance="outline">
-                <input matInput formControlName="ebayPrice" inputmode="decimal" autocomplete="off" />
-                @if (facade.fieldStates().ebayPrice.error) {
-                  <mat-error>{{ facade.fieldStates().ebayPrice.error }}</mat-error>
-                }
-              </mat-form-field>
-            </div>
-          </div>
-        </article>
-
         <div class="submission-stickybar">
           <div class="submission-stickybar__meta">
             <strong>{{ facade.approvalSummary().label }}</strong>
@@ -350,7 +366,14 @@
           </div>
 
           <div class="submission-stickybar__actions">
-            <button mat-stroked-button type="button" (click)="facade.clearForm()" [disabled]="facade.saving()">Clear form</button>
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="facade.clearForm()"
+              [disabled]="facade.saving()"
+            >
+              Clear form
+            </button>
             <button mat-flat-button color="primary" type="submit" [disabled]="!facade.canSubmit()">
               @if (facade.saving()) {
                 <mat-spinner diameter="18"></mat-spinner>
@@ -371,21 +394,33 @@
             <h2>Economics Preview</h2>
             <p>Updates live as prices change.</p>
           </div>
-          <span class="status-badge status-badge--neutral">{{ facade.qualityPreview() || 'Pending quality' }}</span>
+          <span class="status-badge status-badge--neutral">{{
+            facade.qualityPreview() || 'Pending quality'
+          }}</span>
         </div>
 
         <div class="mini-stats mini-stats--three">
           <div>
             <span>Fees</span>
-            <strong>{{ facade.economics().fees === null ? '--' : (facade.economics().fees | currency: 'USD') }}</strong>
+            <strong>{{
+              facade.economics().fees === null ? '--' : (facade.economics().fees | currency: 'USD')
+            }}</strong>
           </div>
           <div>
             <span>Profit</span>
-            <strong>{{ facade.economics().profit === null ? '--' : (facade.economics().profit | currency: 'USD') }}</strong>
+            <strong>{{
+              facade.economics().profit === null
+                ? '--'
+                : (facade.economics().profit | currency: 'USD')
+            }}</strong>
           </div>
           <div>
             <span>ROI</span>
-            <strong>{{ facade.economics().roi === null ? '--' : ((facade.economics().roi | number: '1.0-2') + '%') }}</strong>
+            <strong>{{
+              facade.economics().roi === null
+                ? '--'
+                : (facade.economics().roi | number: '1.0-2') + '%'
+            }}</strong>
           </div>
         </div>
       </article>
@@ -467,8 +502,15 @@
       </div>
 
       <div class="app-modal__footer">
-        <button mat-stroked-button type="button" (click)="facade.closeSubmissionModal()">Close</button>
-        <a mat-flat-button color="primary" routerLink="/hunter/products" (click)="facade.closeSubmissionModal()">
+        <button mat-stroked-button type="button" (click)="facade.closeSubmissionModal()">
+          Close
+        </button>
+        <a
+          mat-flat-button
+          color="primary"
+          routerLink="/hunter/products"
+          (click)="facade.closeSubmissionModal()"
+        >
           <span>Open Product List</span>
         </a>
       </div>

@@ -90,7 +90,7 @@
               <strong>{{ user.name }}</strong>
               <span>{{ user.email }}</span>
               <small>
-                {{ user.role | titlecase }} |
+                {{ user.roles.join(', ') | titlecase }} |
                 {{ user.deletedAt ? 'Archived' : user.isActive ? 'Enabled' : 'Disabled' }}
               </small>
             </div>

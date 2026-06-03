@@ -45,18 +45,26 @@
 
       <div class="app-sidebar__body">
         <nav class="sidebar-nav" aria-label="Sidebar navigation">
-          @for (item of vm.navItems; track item.route) {
-            <a
-              class="sidebar-nav__item"
-              [routerLink]="item.route"
-              routerLinkActive="is-active"
-              [routerLinkActiveOptions]="{ exact: item.exact }"
-              (click)="closeSidebar()"
-              [matTooltip]="vm.sidebarCollapsed ? item.label : ''"
-            >
-              <mat-icon>{{ item.icon }}</mat-icon>
-              <span [class.is-hidden]="vm.sidebarCollapsed">{{ item.label }}</span>
-            </a>
+          @for (section of vm.navSections; track section.label) {
+            <section class="sidebar-nav__section">
+              <p class="sidebar-nav__section-label" [class.is-hidden]="vm.sidebarCollapsed">
+                {{ section.label }}
+              </p>
+
+              @for (item of section.items; track item.route) {
+                <a
+                  class="sidebar-nav__item"
+                  [routerLink]="item.route"
+                  routerLinkActive="is-active"
+                  [routerLinkActiveOptions]="{ exact: item.exact }"
+                  (click)="closeSidebar()"
+                  [matTooltip]="vm.sidebarCollapsed ? item.label : ''"
+                >
+                  <mat-icon>{{ item.icon }}</mat-icon>
+                  <span [class.is-hidden]="vm.sidebarCollapsed">{{ item.label }}</span>
+                </a>
+              }
+            </section>
           }
         </nav>
       </div>

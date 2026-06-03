@@ -3,8 +3,11 @@
 }
 
 .team-card {
-  display: grid;
-  gap: 14px;
+  padding: 20px;
+  border-radius: 16px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
 }
 
 .team-card .breakdown-row {

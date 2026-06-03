@@ -1,0 +1,180 @@
+<section class="page-shell hr-page">
+  <header class="page-hero">
+    <div>
+      <h1>Payroll</h1>
+      <p>Generate monthly payroll, review deductions, and move salary batches from draft to paid.</p>
+    </div>
+
+    <div class="hr-actions">
+      <button mat-flat-button color="primary" type="button" (click)="resetForm()">
+        <mat-icon>payments</mat-icon>
+        <span>New Payroll</span>
+      </button>
+      <button mat-stroked-button type="button" (click)="loadPayroll()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        <span>Refresh</span>
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <app-error-state [message]="error()" actionLabel="Retry" (action)="loadPayroll()" />
+  }
+
+  <section class="hr-layout">
+    <article class="surface-card hr-block">
+      <details class="filter-panel">
+        <summary>
+          <div class="filter-panel__title">
+            <mat-icon>filter_list</mat-icon>
+            <div>
+              <h2>Filters</h2>
+              <p>Review payroll by employee, month, or payment status.</p>
+            </div>
+          </div>
+          <div class="filter-panel__meta">
+            <span>{{ total() }} records</span>
+            <span class="filter-panel__chevron"><mat-icon>expand_more</mat-icon></span>
+          </div>
+        </summary>
+
+        <div class="filter-panel__content">
+          <div class="hr-form-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Employee</mat-label>
+              <mat-select [formControl]="employeeFilter">
+                <mat-option value="">All employees</mat-option>
+                @for (employee of employees(); track employee.id) {
+                  <mat-option [value]="employee.id">{{ employee.fullName }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Status</mat-label>
+              <mat-select [formControl]="statusFilter">
+                <mat-option value="">All statuses</mat-option>
+                <mat-option value="DRAFT">Draft</mat-option>
+                <mat-option value="APPROVED">Approved</mat-option>
+                <mat-option value="PAID">Paid</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Payroll Month</mat-label>
+              <input matInput type="date" [formControl]="payrollMonthFilter" />
+            </mat-form-field>
+          </div>
+
+          <div class="hr-inline-actions">
+            <button mat-stroked-button type="button" (click)="loadPayroll(1)">Apply Filters</button>
+          </div>
+        </div>
+      </details>
+
+      @if (loading()) {
+        <div class="loading-state">
+          <mat-spinner diameter="24"></mat-spinner>
+          <span>Loading payroll.</span>
+        </div>
+      } @else if (rows().length) {
+        <div class="hr-list">
+          @for (row of rows(); track row.id) {
+            <button class="hr-list-card" type="button" (click)="selectRow(row)">
+              <div class="hr-list-card__header">
+                <div class="hr-list-card__meta">
+                  <strong>{{ row.employeeName }}</strong>
+                  <small>{{ row.employeeCode }} | {{ row.employeeEmail }}</small>
+                  <small>{{ row.payrollMonth | date: 'MMMM y' }} | Net {{ row.netSalary | currency: 'USD' }}</small>
+                </div>
+                <div class="hr-badges">
+                  <span class="status-badge status-badge--neutral">{{ row.status }}</span>
+                </div>
+              </div>
+            </button>
+          }
+        </div>
+
+        <div class="grid-pager">
+          <span class="grid-pager__status">{{ pageLabel() }}</span>
+          <div class="grid-toolbar__actions">
+            <button mat-stroked-button type="button" (click)="previousPage()" [disabled]="page() === 1">Previous</button>
+            <button mat-stroked-button type="button" (click)="nextPage()" [disabled]="page() * limit() >= total()">Next</button>
+          </div>
+        </div>
+      } @else {
+        <app-empty-state title="No payroll records yet" message="Generate the first payroll batch to start tracking salary cycles." icon="payments" />
+      }
+    </article>
+
+    <article class="surface-card hr-sidecard hr-block">
+      <div>
+        <h2>{{ selectedRow() ? 'Edit Payroll' : 'Generate Payroll' }}</h2>
+        <p>{{ selectedRow() ? 'Adjust a generated payroll row before or after approval.' : 'Generate a month of payroll from employee salary defaults.' }}</p>
+      </div>
+
+      <form class="hr-form-grid" [formGroup]="payrollForm" (ngSubmit)="savePayroll()">
+        <mat-form-field appearance="outline">
+          <mat-label>Employee</mat-label>
+          <mat-select formControlName="employeeId">
+            @for (employee of employees(); track employee.id) {
+              <mat-option [value]="employee.id">{{ employee.fullName }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Payroll Month</mat-label>
+          <input matInput type="date" formControlName="payrollMonth" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Basic Salary</mat-label>
+          <input matInput type="number" formControlName="basicSalary" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Allowances</mat-label>
+          <input matInput type="number" formControlName="allowances" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Bonuses</mat-label>
+          <input matInput type="number" formControlName="bonuses" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Deductions</mat-label>
+          <input matInput type="number" formControlName="deductions" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Advances</mat-label>
+          <input matInput type="number" formControlName="advances" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Unpaid Leave Deduction</mat-label>
+          <input matInput type="number" formControlName="unpaidLeaveDeduction" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Late Deduction</mat-label>
+          <input matInput type="number" formControlName="lateDeduction" />
+        </mat-form-field>
+
+        <div class="hr-form-grid--wide hr-inline-actions">
+          <button mat-stroked-button type="button" (click)="resetForm()">Clear</button>
+          <button mat-flat-button color="primary" type="submit" [disabled]="payrollForm.invalid || saving()">
+            <mat-icon>save</mat-icon>
+            <span>{{ saving() ? 'Saving' : selectedRow() ? 'Save Payroll' : 'Generate Payroll' }}</span>
+          </button>
+        </div>
+      </form>
+
+      @if (selectedRow(); as payroll) {
+        <div class="hr-meta-grid">
+          <article class="hr-meta-card"><span>Employee</span><strong>{{ payroll.employeeName }}</strong></article>
+          <article class="hr-meta-card"><span>Status</span><strong>{{ payroll.status }}</strong></article>
+          <article class="hr-meta-card"><span>Net Salary</span><strong>{{ payroll.netSalary | currency: 'USD' }}</strong></article>
+          <article class="hr-meta-card"><span>Approved By</span><strong>{{ payroll.approvedByName || 'Pending' }}</strong></article>
+        </div>
+
+        <div class="hr-inline-actions">
+          <button mat-stroked-button type="button" (click)="approveSelected()">Approve</button>
+          <button mat-flat-button color="primary" type="button" (click)="markPaidSelected()">Mark Paid</button>
+        </div>
+      }
+    </article>
+  </section>
+</section>
