@@ -271,13 +271,40 @@ const buildDefaultPaymentBlock = (overrides = {}, fallback = DEFAULT_PRIMARY_PAY
   return normalized || normalizePaymentBlock(fallback);
 };
 
-const calculateNetPayable = (lineItems = []) =>
-  Number(
-    lineItems.reduce(
-      (total, item) => total + (item.includeInTotal === false ? 0 : Number(item.amount || 0)),
-      0,
-    ).toFixed(2),
+const calculateNetPayable = (lineItems = []) => {
+  const normalizedItems = Array.isArray(lineItems) ? lineItems : [];
+  const findByTitle = (title) =>
+    normalizedItems.find((item) => String(item?.title || '').trim().toLowerCase() === title);
+
+  const companyProfit = findByTitle('company profit');
+  const clientProfit = findByTitle('client profit');
+  const trackingFees = findByTitle('tracking fees');
+  const totalProfit = findByTitle('total profit');
+
+  const legacyPattern =
+    totalProfit &&
+    companyProfit &&
+    clientProfit &&
+    trackingFees &&
+    companyProfit.includeInTotal === false &&
+    clientProfit.includeInTotal !== false &&
+    trackingFees.includeInTotal === false;
+
+  if (legacyPattern) {
+    return Number(
+      (Number(companyProfit.amount || 0) + Number(trackingFees.amount || 0)).toFixed(2),
+    );
+  }
+
+  return Number(
+    normalizedItems
+      .reduce(
+        (total, item) => total + (item.includeInTotal === false ? 0 : Number(item.amount || 0)),
+        0,
+      )
+      .toFixed(2),
   );
+};
 
 const invoiceFromRow = (row) => {
   const lineItems = Array.isArray(row.lineItems) ? row.lineItems : [];
@@ -1112,7 +1139,14 @@ const bulkCreateAccountInvoices = async (actorUserId, rows = []) => {
             title: toText(readImportValue(lookup, 'company profit title')) || 'Company Profit',
             description: resolveBulkInvoiceText(lookup, 'Company Profit'),
             amount: companyProfit,
-            includeInTotal: false,
+            includeInTotal: normalizeImportBoolean(
+              readImportValue(
+                lookup,
+                'company profit include in total',
+                'company profit payable',
+              ),
+              true,
+            ),
           },
           {
             title: toText(readImportValue(lookup, 'client profit title')) || 'Client Profit',
@@ -1125,7 +1159,7 @@ const bulkCreateAccountInvoices = async (actorUserId, rows = []) => {
                   'client profit include in total',
                   'client profit payable',
                 ),
-                true,
+                false,
               ) !== false,
           },
           {
@@ -1138,7 +1172,7 @@ const bulkCreateAccountInvoices = async (actorUserId, rows = []) => {
                 'tracking fees include in total',
                 'tracking fees payable',
               ),
-              false,
+              true,
             ),
           },
         ],

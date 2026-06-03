@@ -68,19 +68,19 @@ export const DEFAULT_INVOICE_LINE_ITEMS: InvoiceLineItemValue[] = [
     title: 'Company Profit',
     description: '',
     amount: 0,
-    includeInTotal: false,
+    includeInTotal: true,
   },
   {
     title: 'Client Profit',
     description: '',
     amount: 0,
-    includeInTotal: true,
+    includeInTotal: false,
   },
   {
     title: 'Tracking Fees',
     description: '',
     amount: 0,
-    includeInTotal: false,
+    includeInTotal: true,
   },
 ];
 
