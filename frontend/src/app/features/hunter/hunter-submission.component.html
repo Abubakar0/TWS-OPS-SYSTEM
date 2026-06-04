@@ -123,65 +123,6 @@
         <article class="surface-card form-section">
           <div class="surface-card__header">
             <div>
-              <h2>Product details</h2>
-              <p>Core product identifiers for the submission.</p>
-            </div>
-          </div>
-
-          <div class="form-grid">
-            <div class="field-shell field-span-2">
-              <label class="field-label">Ebay Product title <span>*</span></label>
-              <mat-form-field appearance="outline">
-                <input matInput formControlName="title" autocomplete="off" />
-                @if (facade.fieldStates().title.error) {
-                  <mat-error>{{ facade.fieldStates().title.error }}</mat-error>
-                }
-              </mat-form-field>
-            </div>
-
-            <div class="field-shell">
-              <label class="field-label">Category (Ebay)</label>
-              <mat-form-field appearance="outline">
-                <input
-                  matInput
-                  formControlName="category"
-                  autocomplete="off"
-                  [matAutocomplete]="categoryAuto"
-                />
-                <mat-autocomplete #categoryAuto="matAutocomplete" autoActiveFirstOption>
-                  @for (category of facade.filteredCategories(); track category.id) {
-                    <mat-option [value]="category.name">{{ category.name }}</mat-option>
-                  }
-                </mat-autocomplete>
-                @if (facade.fieldStates().category.error) {
-                  <mat-error>{{ facade.fieldStates().category.error }}</mat-error>
-                }
-              </mat-form-field>
-              <div class="field-helper">
-                <mat-icon>info</mat-icon>
-                <span>{{ facade.fieldStates().category.helper }}</span>
-              </div>
-            </div>
-
-            <div class="field-shell">
-              <label class="field-label">Custom label</label>
-              <mat-form-field appearance="outline">
-                <input matInput formControlName="customLabel" autocomplete="off" />
-                @if (facade.fieldStates().customLabel.error) {
-                  <mat-error>{{ facade.fieldStates().customLabel.error }}</mat-error>
-                }
-              </mat-form-field>
-              <div class="field-helper">
-                <mat-icon>info</mat-icon>
-                <span>{{ facade.fieldStates().customLabel.helper }}</span>
-              </div>
-            </div>
-          </div>
-        </article>
-
-        <article class="surface-card form-section">
-          <div class="surface-card__header">
-            <div>
               <h2>Marketplace links</h2>
               <p>Validated before the request is sent.</p>
             </div>
@@ -223,6 +164,65 @@
         <article class="surface-card form-section">
           <div class="surface-card__header">
             <div>
+              <h2>Product details</h2>
+              <p>Core product identifiers for the submission.</p>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <div class="field-shell field-span-2">
+              <label class="field-label">ebay Product title <span>*</span></label>
+              <mat-form-field appearance="outline">
+                <input matInput formControlName="title" autocomplete="off" />
+                @if (facade.fieldStates().title.error) {
+                  <mat-error>{{ facade.fieldStates().title.error }}</mat-error>
+                }
+              </mat-form-field>
+            </div>
+
+            <div class="field-shell">
+              <label class="field-label">Category (ebay)</label>
+              <mat-form-field appearance="outline">
+                <input
+                  matInput
+                  formControlName="category"
+                  autocomplete="off"
+                  [matAutocomplete]="categoryAuto"
+                />
+                <mat-autocomplete #categoryAuto="matAutocomplete" autoActiveFirstOption>
+                  @for (category of facade.filteredCategories(); track category.id) {
+                    <mat-option [value]="category.name">{{ category.name }}</mat-option>
+                  }
+                </mat-autocomplete>
+                @if (facade.fieldStates().category.error) {
+                  <mat-error>{{ facade.fieldStates().category.error }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ facade.fieldStates().category.helper }}</span>
+              </div>
+            </div>
+
+            <div class="field-shell">
+              <label class="field-label">Custom label</label>
+              <mat-form-field appearance="outline">
+                <input matInput formControlName="customLabel" autocomplete="off" />
+                @if (facade.fieldStates().customLabel.error) {
+                  <mat-error>{{ facade.fieldStates().customLabel.error }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ facade.fieldStates().customLabel.helper }}</span>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="surface-card form-section">
+          <div class="surface-card__header">
+            <div>
               <h2>Stock and sales</h2>
             </div>
           </div>
@@ -257,16 +257,16 @@
             </div>
 
             <div class="field-shell">
-              <label class="field-label">Ebay Sold count <span>*</span></label>
+              <label class="field-label">Amazon delivery days</label>
               <mat-form-field appearance="outline">
-                <input matInput type="number" formControlName="soldCount" />
-                @if (facade.fieldStates().soldCount.error) {
-                  <mat-error>{{ facade.fieldStates().soldCount.error }}</mat-error>
+                <input matInput type="number" formControlName="deliveryDays" />
+                @if (facade.fieldStates().deliveryDays.error) {
+                  <mat-error>{{ facade.fieldStates().deliveryDays.error }}</mat-error>
                 }
               </mat-form-field>
               <div class="field-helper">
                 <mat-icon>info</mat-icon>
-                <span>{{ facade.fieldStates().soldCount.helper }}</span>
+                <span>{{ facade.fieldStates().deliveryDays.helper }}</span>
               </div>
             </div>
 
@@ -285,6 +285,20 @@
             </div>
 
             <div class="field-shell">
+              <label class="field-label">ebay Total Sold count <span>*</span></label>
+              <mat-form-field appearance="outline">
+                <input matInput type="number" formControlName="soldCount" />
+                @if (facade.fieldStates().soldCount.error) {
+                  <mat-error>{{ facade.fieldStates().soldCount.error }}</mat-error>
+                }
+              </mat-form-field>
+              <div class="field-helper">
+                <mat-icon>info</mat-icon>
+                <span>{{ facade.fieldStates().soldCount.helper }}</span>
+              </div>
+            </div>
+
+            <div class="field-shell">
               <label class="field-label">Product watchers <span>*</span></label>
               <mat-form-field appearance="outline">
                 <input matInput type="number" formControlName="productWatchers" />
@@ -299,7 +313,7 @@
             </div>
 
             <div class="field-shell">
-              <label class="field-label">Amazon sales in past 1 months <span>*</span></label>
+              <label class="field-label">ebay sales in past 1 months <span>*</span></label>
               <mat-form-field appearance="outline">
                 <input matInput type="number" formControlName="salesLastTwoMonths" />
                 @if (facade.fieldStates().salesLastTwoMonths.error) {
@@ -323,20 +337,6 @@
               <div class="field-helper">
                 <mat-icon>info</mat-icon>
                 <span>{{ facade.fieldStates().basketCount.helper }}</span>
-              </div>
-            </div>
-
-            <div class="field-shell">
-              <label class="field-label">Delivery days</label>
-              <mat-form-field appearance="outline">
-                <input matInput type="number" formControlName="deliveryDays" />
-                @if (facade.fieldStates().deliveryDays.error) {
-                  <mat-error>{{ facade.fieldStates().deliveryDays.error }}</mat-error>
-                }
-              </mat-form-field>
-              <div class="field-helper">
-                <mat-icon>info</mat-icon>
-                <span>{{ facade.fieldStates().deliveryDays.helper }}</span>
               </div>
             </div>
 
