@@ -11,6 +11,11 @@ const listUsers = async (req, res) => {
   });
 };
 
+const listUserReference = async (req, res) => {
+  const users = await usersService.listUserReference(req.user, req.query);
+  res.json({ users });
+};
+
 const createUser = async (req, res) => {
   const user = await usersService.createUser(req.user, req.body);
   res.status(201).json({ user });
@@ -88,6 +93,7 @@ const getPermissionsMatrix = async (req, res) => {
 };
 
 module.exports = {
+  listUserReference,
   listUsers,
   createUser,
   bulkImportUsers,

@@ -276,6 +276,12 @@ const buildVisibilityFilters = (actor, query) => {
     )`);
   }
 
+  if (hasRole(actor, 'hr') && !hasAnyRole(actor, ['admin', 'super_admin'])) {
+    clauses.push(
+      `NOT (COALESCE(roles, jsonb_build_array(role::text)) @> '["super_admin"]'::jsonb)`,
+    );
+  }
+
   if (!query.includeDeleted) {
     clauses.push('deleted_at IS NULL');
   }
@@ -312,6 +318,22 @@ const buildVisibilityFilters = (actor, query) => {
     whereSql: clauses.length ? `WHERE ${clauses.join(' AND ')}` : '',
     params,
   };
+};
+
+const listUserReference = async (actor, query = {}) => {
+  await ensureUserRoleSchema();
+  const filters = buildVisibilityFilters(actor, { ...query, includeDeleted: false });
+  const result = await pool.query(
+    `
+      SELECT ${userSelect}
+      FROM users
+      ${filters.whereSql}
+      ORDER BY name
+    `,
+    filters.params,
+  );
+
+  return result.rows.map(normalizeUser);
 };
 
 const listUsers = async (actor, query = {}) => {
@@ -948,6 +970,7 @@ const getPermissionsMatrix = async () => listPermissionMatrix();
 
 module.exports = {
   getUserById,
+  listUserReference,
   listUsers,
   createUser,
   bulkImportUsers,

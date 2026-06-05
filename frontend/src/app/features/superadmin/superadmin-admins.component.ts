@@ -12,7 +12,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { debounceTime, distinctUntilChanged, finalize } from 'rxjs';
 
 import { AuthService } from '../../core/auth/auth.service';
-import { User } from '../../core/models/auth.models';
+import { User, UserRole, userHasRole } from '../../core/models/auth.models';
 import { AdminService } from '../../core/services/admin.service';
 import { ReferenceDataService } from '../../core/state/reference-data.service';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
@@ -45,20 +45,23 @@ export class SuperAdminAdminsComponent implements OnInit {
   readonly saving = signal(false);
   readonly error = signal('');
   readonly passwordHidden = signal(true);
+  readonly editingAdminId = signal<string | null>(null);
   readonly searchControl = new FormControl('', { nonNullable: true });
   readonly searchTerm = signal('');
   readonly destroyRef = inject(DestroyRef);
 
   readonly activeAdmins = computed(() => this.admins().filter((user) => user.isActive).length);
   readonly disabledAdmins = computed(() => this.admins().filter((user) => !user.isActive).length);
+  readonly selectedAdmin = computed(
+    () => this.admins().find((user) => user.id === this.editingAdminId()) || null,
+  );
+  readonly isEditing = computed(() => Boolean(this.editingAdminId()));
 
   readonly adminForm = new FormGroup({
     name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     email: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.email] }),
-    password: new FormControl('Password123!', {
-      nonNullable: true,
-      validators: [Validators.required, Validators.minLength(8)],
-    }),
+    password: new FormControl('Password123!', { nonNullable: true }),
+    includeHr: new FormControl(false, { nonNullable: true }),
     isActive: new FormControl(true, { nonNullable: true }),
   });
 
@@ -71,6 +74,8 @@ export class SuperAdminAdminsComponent implements OnInit {
     private readonly confirm: ConfirmService,
     private readonly toast: ToastService,
   ) {
+    this.syncPasswordValidators(false);
+
     this.searchControl.valueChanges
       .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
       .subscribe((value) => {
@@ -106,24 +111,33 @@ export class SuperAdminAdminsComponent implements OnInit {
     this.saving.set(true);
     this.error.set('');
 
-    this.adminApi
-      .createUser({
-        ...this.adminForm.getRawValue(),
-        roles: ['admin'],
-      })
+    const roles: UserRole[] = this.adminForm.controls.includeHr.value ? ['admin', 'hr'] : ['admin'];
+    const editingAdmin = this.selectedAdmin();
+    const password = this.adminForm.controls.password.value.trim();
+    const request$ = editingAdmin
+      ? this.adminApi.updateUser(editingAdmin.id, {
+          name: this.adminForm.controls.name.value.trim(),
+          email: this.adminForm.controls.email.value.trim(),
+          isActive: this.adminForm.controls.isActive.value,
+          roles,
+          ...(password ? { password } : {}),
+        })
+      : this.adminApi.createUser({
+          name: this.adminForm.controls.name.value.trim(),
+          email: this.adminForm.controls.email.value.trim(),
+          password,
+          roles,
+          isActive: this.adminForm.controls.isActive.value,
+        });
+
+    request$
       .pipe(finalize(() => this.saving.set(false)))
       .subscribe({
         next: () => {
-          this.adminForm.reset({
-            name: '',
-            email: '',
-            password: 'Password123!',
-            isActive: true,
-          });
-          this.passwordHidden.set(true);
+          this.cancelEdit();
           this.referenceData.refreshUsers();
           this.workspaceSync.notifyUsersChanged();
-          this.toast.success('Admin created.');
+          this.toast.success(editingAdmin ? 'Admin updated.' : 'Admin created.');
           this.loadAdmins();
         },
         error: (error) => {
@@ -134,6 +148,39 @@ export class SuperAdminAdminsComponent implements OnInit {
 
   togglePasswordVisibility(): void {
     this.passwordHidden.update((value) => !value);
+  }
+
+  startEdit(user: User): void {
+    this.editingAdminId.set(user.id);
+    this.syncPasswordValidators(true);
+    this.adminForm.reset(
+      {
+        name: user.name,
+        email: user.email,
+        password: '',
+        includeHr: userHasRole(user, 'hr'),
+        isActive: user.isActive,
+      },
+      { emitEvent: false },
+    );
+    this.passwordHidden.set(true);
+    this.error.set('');
+  }
+
+  cancelEdit(): void {
+    this.editingAdminId.set(null);
+    this.syncPasswordValidators(false);
+    this.adminForm.reset(
+      {
+        name: '',
+        email: '',
+        password: 'Password123!',
+        includeHr: false,
+        isActive: true,
+      },
+      { emitEvent: false },
+    );
+    this.passwordHidden.set(true);
   }
 
   async toggleAdmin(user: User): Promise<void> {
@@ -197,5 +244,37 @@ export class SuperAdminAdminsComponent implements OnInit {
       },
       error: (error) => (this.error.set(error?.error?.message || 'Could not start impersonation.')),
     });
+  }
+
+  async deleteAdmin(user: User): Promise<void> {
+    const confirmed = await this.confirm.ask({
+      title: 'Delete admin?',
+      message: `${user.name} will be removed from the workspace. You can restore deleted users later from Super Admin controls if needed.`,
+      confirmText: 'Delete',
+      tone: 'danger',
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    this.adminApi.deleteUser(user.id).subscribe({
+      next: () => {
+        if (this.editingAdminId() === user.id) {
+          this.cancelEdit();
+        }
+        this.referenceData.refreshUsers();
+        this.workspaceSync.notifyUsersChanged();
+        this.toast.success('Admin deleted.');
+        this.loadAdmins();
+      },
+      error: (error) => (this.error.set(error?.error?.message || 'Could not delete admin.')),
+    });
+  }
+
+  private syncPasswordValidators(editing: boolean): void {
+    const passwordControl = this.adminForm.controls.password;
+    passwordControl.setValidators(editing ? [Validators.minLength(8)] : [Validators.required, Validators.minLength(8)]);
+    passwordControl.updateValueAndValidity({ emitEvent: false });
   }
 }

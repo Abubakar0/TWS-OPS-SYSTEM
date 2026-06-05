@@ -40,8 +40,12 @@
     <article class="surface-card">
       <div class="surface-card__header">
         <div>
-          <h2>Add admin</h2>
-          <p>Super Admin can create and activate admin accounts directly from this workspace.</p>
+          <h2>{{ isEditing() ? 'Edit admin' : 'Add admin' }}</h2>
+          <p>
+            {{ isEditing()
+              ? 'Update admin access, email, password, and HR visibility from one form.'
+              : 'Super Admin can create and activate admin accounts directly from this workspace.' }}
+          </p>
         </div>
       </div>
 
@@ -75,10 +79,20 @@
           <mat-checkbox formControlName="isActive">Allow this admin to log in immediately</mat-checkbox>
         </label>
 
+        <label class="toggle-row field-span-2">
+          <mat-checkbox formControlName="includeHr">Also grant HR access</mat-checkbox>
+        </label>
+
         <div class="field-span-2 actions-row">
+          @if (isEditing()) {
+            <button mat-stroked-button type="button" (click)="cancelEdit()" [disabled]="saving()">
+              <mat-icon>close</mat-icon>
+              <span>Cancel</span>
+            </button>
+          }
           <button mat-flat-button color="primary" type="submit" [disabled]="adminForm.invalid || saving()">
-            <mat-icon>admin_panel_settings</mat-icon>
-            <span>{{ saving() ? 'Creating' : 'Create Admin' }}</span>
+            <mat-icon>{{ isEditing() ? 'save' : 'admin_panel_settings' }}</mat-icon>
+            <span>{{ saving() ? (isEditing() ? 'Saving' : 'Creating') : (isEditing() ? 'Save Changes' : 'Create Admin') }}</span>
           </button>
         </div>
       </form>
@@ -133,10 +147,20 @@
               <div class="list-row__content">
                 <strong>{{ user.name }}</strong>
                 <span>{{ user.email }}</span>
+                <div class="list-row__badges">
+                  <span class="status-badge status-badge--neutral">Admin</span>
+                  @if (user.roles.includes('hr')) {
+                    <span class="status-badge status-badge--info">HR</span>
+                  }
+                </div>
                 <small>{{ user.isActive ? 'Enabled' : 'Disabled' }}</small>
               </div>
 
               <div class="row-actions">
+                <button mat-stroked-button type="button" (click)="startEdit(user)">
+                  <mat-icon>edit</mat-icon>
+                  <span>Edit</span>
+                </button>
                 <button mat-stroked-button type="button" (click)="toggleAdmin(user)">
                   <mat-icon>{{ user.isActive ? 'block' : 'check_circle' }}</mat-icon>
                   <span>{{ user.isActive ? 'Disable' : 'Enable' }}</span>
@@ -148,6 +172,10 @@
                 <button mat-flat-button color="primary" type="button" (click)="impersonate(user)" [disabled]="!user.isActive">
                   <mat-icon>switch_account</mat-icon>
                   <span>Impersonate</span>
+                </button>
+                <button mat-stroked-button type="button" (click)="deleteAdmin(user)">
+                  <mat-icon>delete</mat-icon>
+                  <span>Delete</span>
                 </button>
               </div>
             </div>

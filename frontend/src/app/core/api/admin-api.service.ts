@@ -68,6 +68,23 @@ export class AdminApiService {
     );
   }
 
+  listUserReference(role?: UserRole): Observable<User[]> {
+    let params = new HttpParams();
+
+    if (role) {
+      params = params.set('role', role);
+    }
+
+    return this.requestCache.getOrCreate(
+      makeCacheKey(CACHE_NAMESPACE.users, { role: role || 'reference', ref: true }),
+      CACHE_TTL.long,
+      () =>
+        this.http
+          .get<{ users: User[] }>(`${environment.apiUrl}/users/reference`, { params })
+          .pipe(map((response) => response.users)),
+    );
+  }
+
   createUser(payload: {
     name: string;
     email: string;

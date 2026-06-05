@@ -170,6 +170,55 @@
         </div>
       </article>
 
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Workspace announcement</h2>
+            <p>Show an update banner across the app until this message is changed or disabled.</p>
+          </div>
+        </div>
+
+        <form class="form-grid" [formGroup]="announcementForm" (ngSubmit)="saveAnnouncement()">
+          <label class="toggle-row field-span-2">
+            <mat-checkbox [formControl]="announcementForm.controls.enabled"
+              >Enable global announcement</mat-checkbox
+            >
+          </label>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Tone</mat-label>
+            <mat-select [formControl]="announcementForm.controls.tone">
+              <mat-option value="info">Info</mat-option>
+              <mat-option value="success">Success</mat-option>
+              <mat-option value="warning">Warning</mat-option>
+              <mat-option value="danger">Danger</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Title</mat-label>
+            <input matInput [formControl]="announcementForm.controls.title" autocomplete="off" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="field-span-2">
+            <mat-label>Message</mat-label>
+            <textarea
+              matInput
+              rows="3"
+              [formControl]="announcementForm.controls.message"
+              autocomplete="off"
+            ></textarea>
+          </mat-form-field>
+
+          <div class="field-span-2 actions-row">
+            <button mat-flat-button color="primary" type="submit" [disabled]="categorySaving()">
+              <mat-icon>campaign</mat-icon>
+              <span>{{ categorySaving() ? 'Saving' : 'Save Announcement' }}</span>
+            </button>
+          </div>
+        </form>
+      </article>
+
       <article class="surface-card categories-card">
         <div class="surface-card__header">
           <div>

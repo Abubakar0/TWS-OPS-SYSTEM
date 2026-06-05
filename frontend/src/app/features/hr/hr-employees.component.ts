@@ -54,6 +54,12 @@ export class HrEmployeesComponent implements OnInit {
   readonly department = new FormControl('', { nonNullable: true });
   readonly status = new FormControl('', { nonNullable: true });
   readonly users = signal<{ id: string; name: string; email: string }[]>([]);
+  readonly availableUsers = computed(() => {
+    const linkedUserIds = new Set(this.employees().map((employee) => employee.userId));
+    const selectedUserId = this.selectedEmployee()?.userId;
+
+    return this.users().filter((user) => user.id === selectedUserId || !linkedUserIds.has(user.id));
+  });
   readonly employeeForm = new FormGroup({
     userId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     employeeCode: new FormControl('', { nonNullable: true }),

@@ -152,26 +152,7 @@ export class ReferenceDataService {
   }
 
   private async fetchAllUsers(role?: UserRole): Promise<User[]> {
-    const firstPage = await firstValueFrom(
-      this.adminApi.listUsers(role, {
-        page: 1,
-        limit: 100,
-      }),
-    );
-    const users = [...firstPage.items];
-    const totalPages = Math.max(1, Math.ceil(firstPage.total / firstPage.limit));
-
-    for (let page = 2; page <= totalPages; page += 1) {
-      const nextPage = await firstValueFrom(
-        this.adminApi.listUsers(role, {
-          page,
-          limit: firstPage.limit,
-        }),
-      );
-      users.push(...nextPage.items);
-    }
-
-    return users;
+    return firstValueFrom(this.adminApi.listUserReference(role));
   }
 
   private async fetchAllAccounts(includeInactive: boolean): Promise<Account[]> {

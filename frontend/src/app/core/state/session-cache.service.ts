@@ -1,4 +1,4 @@
-import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { forkJoin, of, take } from 'rxjs';
 import { catchError } from 'rxjs/operators';
@@ -62,6 +62,19 @@ export class SessionCacheService {
       this.ipRestrictionSignal.set(snapshot.ipRestriction);
       this.dashboardPreferencesSignal.set(snapshot.dashboardPreferences);
     }
+
+    effect(() => {
+      const user = this.auth.currentUser();
+
+      if (!user) {
+        this.clear();
+        return;
+      }
+
+      if (this.hydratedUserId() && this.hydratedUserId() !== user.id) {
+        this.clear();
+      }
+    });
   }
 
   hydrate(): void {

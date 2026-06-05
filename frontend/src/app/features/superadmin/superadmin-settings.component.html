@@ -185,6 +185,53 @@
     <article class="surface-card">
       <div class="surface-card__header">
         <div>
+          <h2>Workspace announcement</h2>
+          <p>Show a shared banner across the app when operations teams need a visible update.</p>
+        </div>
+      </div>
+
+      <form class="form-grid" [formGroup]="announcementForm" (ngSubmit)="saveAnnouncement()">
+        <label class="toggle-row field-span-2">
+          <mat-checkbox formControlName="enabled">Enable global announcement</mat-checkbox>
+        </label>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Tone</mat-label>
+          <mat-select formControlName="tone">
+            <mat-option value="info">Info</mat-option>
+            <mat-option value="success">Success</mat-option>
+            <mat-option value="warning">Warning</mat-option>
+            <mat-option value="danger">Danger</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Title</mat-label>
+          <input matInput formControlName="title" autocomplete="off" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="field-span-2">
+          <mat-label>Message</mat-label>
+          <textarea matInput rows="3" formControlName="message" autocomplete="off"></textarea>
+        </mat-form-field>
+
+        <div class="field-span-2 actions-row">
+          <button
+            mat-flat-button
+            color="primary"
+            type="submit"
+            [disabled]="saving()"
+          >
+            <mat-icon>campaign</mat-icon>
+            <span>{{ saving() ? 'Saving' : 'Save Announcement' }}</span>
+          </button>
+        </div>
+      </form>
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
           <h2>Listing accounts</h2>
           <p>Control which accounts are available to listers across the operation.</p>
         </div>

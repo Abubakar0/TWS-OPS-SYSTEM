@@ -65,8 +65,8 @@ const toUpperEnum = (value, allowed, fallback = null) => {
   return normalized;
 };
 
-const hasHrAccess = (user) => hasAnyRole(user, ['hr', 'super_admin']);
-const hasPayrollAccess = (user) => hasAnyRole(user, ['hr', 'super_admin']);
+const hasHrAccess = (user) => hasAnyRole(user, ['admin', 'hr', 'super_admin']);
+const hasPayrollAccess = (user) => hasAnyRole(user, ['admin', 'hr', 'super_admin']);
 
 const ensureHrManager = (user, message = 'You do not have access to HR management.') => {
   if (!hasHrAccess(user)) {

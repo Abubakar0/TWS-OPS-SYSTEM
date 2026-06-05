@@ -806,6 +806,11 @@ textarea.mat-mdc-input-element {
   color: var(--tws-muted);
 }
 
+.status-badge--info {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+}
+
 .status-badge--danger {
   background: var(--tws-rose-soft);
   color: var(--tws-rose);

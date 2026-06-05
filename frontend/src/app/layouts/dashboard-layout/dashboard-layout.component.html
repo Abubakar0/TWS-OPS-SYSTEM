@@ -99,6 +99,31 @@
         <mat-icon>menu</mat-icon>
       </button>
       <main class="app-main">
+        @if (announcement(); as announcementBar) {
+          <section
+            class="workspace-announcement"
+            [class.workspace-announcement--info]="announcementBar.tone === 'info'"
+            [class.workspace-announcement--success]="announcementBar.tone === 'success'"
+            [class.workspace-announcement--warning]="announcementBar.tone === 'warning'"
+            [class.workspace-announcement--danger]="announcementBar.tone === 'danger'"
+          >
+            <mat-icon>{{
+              announcementBar.tone === 'success'
+                ? 'campaign'
+                : announcementBar.tone === 'warning'
+                  ? 'warning_amber'
+                  : announcementBar.tone === 'danger'
+                    ? 'priority_high'
+                    : 'info'
+            }}</mat-icon>
+            <div>
+              @if (announcementBar.title) {
+                <strong>{{ announcementBar.title }}</strong>
+              }
+              <span>{{ announcementBar.message }}</span>
+            </div>
+          </section>
+        }
         <router-outlet />
       </main>
     </div>

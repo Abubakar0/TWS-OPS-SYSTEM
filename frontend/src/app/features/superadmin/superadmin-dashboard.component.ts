@@ -7,7 +7,10 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { forkJoin } from 'rxjs';
 
+import { HrApiService } from '../../core/api/hr-api.service';
+import { HrDashboardStats } from '../../core/models/hr.models';
 import { AdminService, SuperAdminStats } from '../../core/services/admin.service';
 
 type DashboardRangePreset = 'today' | 'yesterday' | 'week' | 'month' | 'year' | 'custom';
@@ -49,6 +52,7 @@ const customDateRangeValidator: ValidatorFn = (control): ValidationErrors | null
 })
 export class SuperAdminDashboardComponent implements OnInit {
   readonly stats = signal<SuperAdminStats | null>(null);
+  readonly hrStats = signal<HrDashboardStats | null>(null);
   readonly loading = signal(false);
   readonly error = signal('');
   readonly selectedRange = signal<DashboardRangePreset>('month');
@@ -124,8 +128,41 @@ export class SuperAdminDashboardComponent implements OnInit {
       tone: '',
     },
   ]);
+  readonly hrHighlights = computed(() => [
+    {
+      label: 'Employees',
+      value: this.hrStats()?.totalEmployees ?? 0,
+      detail: 'Employee profiles across the workspace.',
+      icon: 'badge',
+      tone: '',
+    },
+    {
+      label: 'Present Today',
+      value: this.hrStats()?.presentToday ?? 0,
+      detail: 'Daily attendance already captured.',
+      icon: 'event_available',
+      tone: 'stat-card__icon--success',
+    },
+    {
+      label: 'Pending Leaves',
+      value: this.hrStats()?.pendingLeaves ?? 0,
+      detail: 'Leave approvals still waiting.',
+      icon: 'event_busy',
+      tone: 'stat-card__icon--warning',
+    },
+    {
+      label: 'Monthly Salary Cost',
+      value: `$${(this.hrStats()?.monthlySalaryCost ?? 0).toFixed(2)}`,
+      detail: 'Current salary obligation for active staff.',
+      icon: 'payments',
+      tone: 'stat-card__icon--warning',
+    },
+  ]);
 
-  constructor(private readonly adminApi: AdminService) {}
+  constructor(
+    private readonly adminApi: AdminService,
+    private readonly hrApi: HrApiService,
+  ) {}
 
   ngOnInit(): void {
     this.applyPreset('month');
@@ -173,8 +210,14 @@ export class SuperAdminDashboardComponent implements OnInit {
     this.loading.set(true);
     this.error.set('');
 
-    this.adminApi.getSuperAdminStats(filters).subscribe({
-      next: (stats) => this.stats.set(stats),
+    forkJoin({
+      stats: this.adminApi.getSuperAdminStats(filters),
+      hr: this.hrApi.getDashboard(filters),
+    }).subscribe({
+      next: ({ stats, hr }) => {
+        this.stats.set(stats);
+        this.hrStats.set(hr);
+      },
       error: (error) => {
         this.error.set(error?.error?.message || 'Could not load Super Admin dashboard stats.');
         this.loading.set(false);

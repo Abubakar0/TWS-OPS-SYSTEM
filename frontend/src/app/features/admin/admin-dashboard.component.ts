@@ -10,6 +10,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { forkJoin } from 'rxjs';
 
 import { ChangeRequestApiService } from '../../core/api/change-request-api.service';
+import { HrApiService } from '../../core/api/hr-api.service';
+import { HrDashboardStats } from '../../core/models/hr.models';
 import { AdminService, AdminStats, AuditLogEntry } from '../../core/services/admin.service';
 import { ChangeRequestSummary } from '../../core/models/product.models';
 
@@ -45,6 +47,7 @@ export class AdminDashboardComponent implements OnInit {
   });
   readonly loading = signal(false);
   readonly error = signal('');
+  readonly hrStats = signal<HrDashboardStats | null>(null);
 
   readonly filtersForm = new FormGroup({
     from: new FormControl('', { nonNullable: true }),
@@ -133,6 +136,36 @@ export class AdminDashboardComponent implements OnInit {
       share: listedTotal ? Math.round((row.listed / listedTotal) * 100) : 0,
     }));
   });
+  readonly hrHighlights = computed(() => [
+    {
+      label: 'Employees',
+      value: this.hrStats()?.totalEmployees ?? 0,
+      detail: 'Employee profiles visible to HR leadership.',
+      icon: 'badge',
+      tone: '',
+    },
+    {
+      label: 'Present Today',
+      value: this.hrStats()?.presentToday ?? 0,
+      detail: 'Attendance rows already marked today.',
+      icon: 'event_available',
+      tone: 'stat-card__icon--success',
+    },
+    {
+      label: 'Pending Leaves',
+      value: this.hrStats()?.pendingLeaves ?? 0,
+      detail: 'Leave requests waiting for review.',
+      icon: 'event_busy',
+      tone: 'stat-card__icon--warning',
+    },
+    {
+      label: 'Pending Expenses',
+      value: this.hrStats()?.pendingExpenses ?? 0,
+      detail: 'Expense claims still awaiting action.',
+      icon: 'receipt',
+      tone: 'stat-card__icon--warning',
+    },
+  ]);
   readonly selectedRangeLabel = computed(() => {
     const { from, to } = this.filtersForm.getRawValue();
 
@@ -146,6 +179,7 @@ export class AdminDashboardComponent implements OnInit {
   constructor(
     private readonly adminApi: AdminService,
     private readonly changeRequestApi: ChangeRequestApiService,
+    private readonly hrApi: HrApiService,
   ) {}
 
   ngOnInit(): void {
@@ -176,11 +210,13 @@ export class AdminDashboardComponent implements OnInit {
       stats: this.adminApi.getAdminStats(filters),
       logs: this.adminApi.listAuditLogs(filters),
       changeRequests: this.changeRequestApi.getSummary(),
+      hr: this.hrApi.getDashboard(filters),
     }).subscribe({
-      next: ({ stats, logs, changeRequests }) => {
+      next: ({ stats, logs, changeRequests, hr }) => {
         this.stats.set(stats);
         this.activityLogs.set(logs);
         this.changeRequestSummary.set(changeRequests);
+        this.hrStats.set(hr);
         this.loading.set(false);
       },
       error: (error) => {

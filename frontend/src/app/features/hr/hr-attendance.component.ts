@@ -4,6 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -22,6 +23,7 @@ import { ErrorStateComponent } from '../../shared/error-state/error-state.compon
     CommonModule,
     ReactiveFormsModule,
     MatButtonModule,
+    MatCheckboxModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
@@ -45,6 +47,7 @@ export class HrAttendanceComponent implements OnInit {
   readonly rows = signal<AttendanceEntry[]>([]);
   readonly employees = signal<EmployeeProfile[]>([]);
   readonly selectedRow = signal<AttendanceEntry | null>(null);
+  readonly bulkSelectedEmployeeIds = signal<string[]>([]);
   readonly page = signal(1);
   readonly limit = signal(30);
   readonly total = signal(0);
@@ -64,6 +67,23 @@ export class HrAttendanceComponent implements OnInit {
     lateMinutes: new FormControl(0, { nonNullable: true }),
     notes: new FormControl('', { nonNullable: true }),
   });
+  readonly bulkAttendanceForm = new FormGroup({
+    date: new FormControl(new Date().toISOString().slice(0, 10), {
+      nonNullable: true,
+      validators: [Validators.required],
+    }),
+    status: new FormControl('PRESENT', {
+      nonNullable: true,
+      validators: [Validators.required],
+    }),
+    checkInTime: new FormControl('', { nonNullable: true }),
+    checkOutTime: new FormControl('', { nonNullable: true }),
+    lateMinutes: new FormControl(0, { nonNullable: true }),
+    notes: new FormControl('', { nonNullable: true }),
+  });
+  readonly allEmployeesSelected = computed(
+    () => this.employees().length > 0 && this.bulkSelectedEmployeeIds().length === this.employees().length,
+  );
 
   readonly pageLabel = computed(() => {
     const total = this.total();
@@ -145,6 +165,59 @@ export class HrAttendanceComponent implements OnInit {
       checkOutTime: '',
       lateMinutes: 0,
       notes: '',
+    });
+  }
+
+  toggleBulkEmployee(employeeId: string, checked: boolean): void {
+    const next = new Set(this.bulkSelectedEmployeeIds());
+
+    if (checked) {
+      next.add(employeeId);
+    } else {
+      next.delete(employeeId);
+    }
+
+    this.bulkSelectedEmployeeIds.set([...next]);
+  }
+
+  toggleAllEmployees(checked: boolean): void {
+    this.bulkSelectedEmployeeIds.set(checked ? this.employees().map((employee) => employee.id) : []);
+  }
+
+  clearBulkSelection(): void {
+    this.bulkSelectedEmployeeIds.set([]);
+  }
+
+  saveBulkAttendance(): void {
+    if (this.bulkAttendanceForm.invalid || this.saving() || !this.bulkSelectedEmployeeIds().length) {
+      this.bulkAttendanceForm.markAllAsTouched();
+      return;
+    }
+
+    this.saving.set(true);
+
+    const raw = this.bulkAttendanceForm.getRawValue();
+    const rows = this.bulkSelectedEmployeeIds().map((employeeId) => ({
+      employeeId,
+      date: raw.date,
+      status: raw.status,
+      checkInTime: raw.checkInTime || null,
+      checkOutTime: raw.checkOutTime || null,
+      lateMinutes: raw.lateMinutes || 0,
+      notes: raw.notes || null,
+    }));
+
+    this.hrApi.bulkAttendance(rows).subscribe({
+      next: (result) => {
+        this.toast.success(`Marked attendance for ${result.processed} employee(s).`);
+        this.saving.set(false);
+        this.loadAttendance(this.page());
+        this.clearBulkSelection();
+      },
+      error: (error) => {
+        this.toast.error(error?.error?.message || 'Could not bulk mark attendance.');
+        this.saving.set(false);
+      },
     });
   }
 

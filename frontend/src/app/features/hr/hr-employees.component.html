@@ -101,18 +101,19 @@
 
     <article class="surface-card hr-sidecard hr-block">
       <div>
-        <h2>{{ selectedEmployee() ? 'Edit Employee' : 'Create Employee' }}</h2>
-        <p>{{ selectedEmployee() ? 'Update linked employee details and salary defaults.' : 'Create an employee profile for an existing user account.' }}</p>
+        <h2>{{ selectedEmployee() ? 'Update Employee Profile' : 'Create Employee Profile' }}</h2>
+        <p>{{ selectedEmployee() ? 'Update the linked employee details, salary defaults, and reporting line.' : 'Choose a user who is not profiled yet, then create the HR record in one pass.' }}</p>
       </div>
 
       <form class="hr-form-grid" [formGroup]="employeeForm" (ngSubmit)="saveEmployee()">
         <mat-form-field appearance="outline">
           <mat-label>User</mat-label>
           <mat-select formControlName="userId">
-            @for (user of users(); track user.id) {
+            @for (user of availableUsers(); track user.id) {
               <mat-option [value]="user.id">{{ user.name }} | {{ user.email }}</mat-option>
             }
           </mat-select>
+          <mat-hint>Only users without an employee profile are shown for new records.</mat-hint>
         </mat-form-field>
         <mat-form-field appearance="outline">
           <mat-label>Employee ID</mat-label>
@@ -204,7 +205,7 @@
           <button mat-stroked-button type="button" (click)="resetForm()">Clear</button>
           <button mat-flat-button color="primary" type="submit" [disabled]="employeeForm.invalid || saving()">
             <mat-icon>save</mat-icon>
-            <span>{{ saving() ? 'Saving' : selectedEmployee() ? 'Save Employee' : 'Create Employee' }}</span>
+            <span>{{ saving() ? 'Saving' : selectedEmployee() ? 'Update Profile' : 'Create Profile' }}</span>
           </button>
         </div>
       </form>

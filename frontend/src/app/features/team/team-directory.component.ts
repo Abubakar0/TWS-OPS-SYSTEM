@@ -44,6 +44,19 @@ export class TeamDirectoryComponent {
     const role = this.auth.currentUser()?.role;
     return role === 'admin' || role === 'super_admin';
   });
+  readonly memberTeamLookup = computed(() => {
+    const lookup = new Map<string, string[]>();
+
+    for (const team of this.teams()) {
+      for (const member of team.members) {
+        const existing = lookup.get(member.id) || [];
+        existing.push(team.name);
+        lookup.set(member.id, existing);
+      }
+    }
+
+    return lookup;
+  });
   readonly editingTeam = computed(
     () => this.teams().find((team) => team.id === this.selectedTeamId()) || null,
   );
@@ -169,5 +182,10 @@ export class TeamDirectoryComponent {
 
   memberRoleLabel(member: Team['members'][number]): string {
     return member.roles?.length ? member.roles.join(', ') : member.role;
+  }
+
+  teamMembershipLabel(userId: string): string {
+    const teams = this.memberTeamLookup().get(userId) || [];
+    return teams.length ? teams.join(', ') : 'Not assigned';
   }
 }

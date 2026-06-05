@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -9,10 +9,14 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { Meta } from '@angular/platform-browser';
 import { filter, map, startWith } from 'rxjs';
 
+import { SystemApiService } from '../../core/api/system-api.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { BRANDING } from '../../core/config/branding';
+import { AnnouncementBarSettings } from '../../core/models/system.models';
+import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
 import { ConfirmService } from '../../core/ui/confirm.service';
 import { userHasRole } from '../../core/models/auth.models';
+import { Title } from '@angular/platform-browser';
 
 interface NavItem {
   label: string;
@@ -77,6 +81,9 @@ export class DashboardLayoutComponent {
   private readonly confirm = inject(ConfirmService);
   private readonly router = inject(Router);
   private readonly meta = inject(Meta);
+  private readonly title = inject(Title);
+  private readonly systemApi = inject(SystemApiService);
+  private readonly workspaceSync = inject(WorkspaceSyncService);
   readonly currentUrl = toSignal(
     this.router.events.pipe(
       filter((event): event is NavigationEnd => event instanceof NavigationEnd),
@@ -87,6 +94,7 @@ export class DashboardLayoutComponent {
   );
 
   readonly user = this.auth.currentUser;
+  readonly announcement = signal<AnnouncementBarSettings | null>(null);
   readonly sidebarOpen = signal(false);
   readonly sidebarCollapsed = signal(this.readSidebarCollapsed());
   readonly branding = BRANDING;
@@ -188,7 +196,7 @@ export class DashboardLayoutComponent {
       sections.push({ label: 'Admin', items: adminItems });
     }
 
-    if (userHasRole(user, 'hr')) {
+    if (userHasRole(user, 'admin') || userHasRole(user, 'hr') || userHasRole(user, 'super_admin')) {
       sections.push({ label: 'HR', items: [...this.hrTabs] });
     }
 
@@ -270,6 +278,20 @@ export class DashboardLayoutComponent {
 
   constructor() {
     this.meta.updateTag({ name: 'robots', content: 'noindex, nofollow' });
+    this.loadAnnouncement();
+
+    effect(() => {
+      const version = this.workspaceSync.settingsVersion();
+
+      if (version > 0) {
+        this.loadAnnouncement(true);
+      }
+    });
+
+    effect(() => {
+      const currentUrl = this.currentUrl();
+      this.title.setTitle(`${this.resolvePageTitle(currentUrl)} | ${this.branding.productName}`);
+    });
   }
 
   private homeRouteForRole(role?: string): string {
@@ -328,5 +350,42 @@ export class DashboardLayoutComponent {
     } catch (error) {
       return false;
     }
+  }
+
+  private loadAnnouncement(bypassCache = false): void {
+    this.systemApi.getAnnouncement(bypassCache).subscribe({
+      next: (announcement) => {
+        this.announcement.set(announcement.enabled && announcement.message ? announcement : null);
+      },
+      error: () => {
+        this.announcement.set(null);
+      },
+    });
+  }
+
+  private resolvePageTitle(url: string): string {
+    const path = (url || '').split('?')[0];
+    const navTitle =
+      this.sidebarSections()
+        .flatMap((section) => section.items)
+        .find((item) => item.exact ? item.route === path : path.startsWith(item.route))?.label || '';
+
+    if (navTitle) {
+      return navTitle;
+    }
+
+    if (path.startsWith('/my-hr')) {
+      return 'My HR';
+    }
+
+    if (path.startsWith('/team')) {
+      return 'Team';
+    }
+
+    if (path.startsWith('/login')) {
+      return 'Sign In';
+    }
+
+    return 'Workspace';
   }
 }
