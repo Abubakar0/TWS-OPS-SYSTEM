@@ -936,12 +936,17 @@ textarea.mat-mdc-input-element {
   padding-right: 4px;
 }
 
-.app-sheet__footer,
-.app-modal__footer {
+.app-sheet__footer {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
   padding-top: 16px;
+}
+
+.app-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .app-modal-backdrop {
@@ -960,7 +965,7 @@ textarea.mat-mdc-input-element {
   max-height: min(90vh, 760px);
   display: grid;
   grid-template-rows: auto 1fr auto;
-  overflow: hidden;
+  overflow: auto;
   padding: 20px;
   border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 20px;
