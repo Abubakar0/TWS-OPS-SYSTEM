@@ -14,7 +14,10 @@ import { AdminFacade } from '../../core/facades/admin.facade';
 import { ROLE_LABELS } from '../../core/config/roles';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../shared/error-state/error-state.component';
-import { SearchableSelectComponent } from '../../shared/ui/searchable-select.component';
+import {
+  SearchableSelectComponent,
+  SearchableSelectOption,
+} from '../../shared/ui/searchable-select.component';
 
 @Component({
   selector: 'app-admin-users',
@@ -45,9 +48,9 @@ export class AdminUsersComponent {
     { value: 'all', label: 'All roles' },
     ...this.facade.availableRoles().map((role) => ({ value: role, label: this.roleLabels[role] })),
   ]);
-  readonly statusFilterOptions = [
+  readonly statusFilterOptions: SearchableSelectOption<'all' | 'active' | 'disabled'>[] = [
     { value: 'all', label: 'All statuses' },
     { value: 'active', label: 'Active' },
     { value: 'disabled', label: 'Disabled' },
-  ] as const;
+  ];
 }

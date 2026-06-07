@@ -97,6 +97,11 @@ const getPermissionsMatrix = async (req, res) => {
   res.json({ matrix });
 };
 
+const acknowledgeTrainingRules = async (req, res) => {
+  const user = await usersService.acknowledgeTrainingRules(req.user);
+  res.json({ user });
+};
+
 module.exports = {
   listUserReference,
   getUserDetails,
@@ -113,4 +118,5 @@ module.exports = {
   getPermissionsMatrix,
   listAssignments,
   setHunterLister,
+  acknowledgeTrainingRules,
 };

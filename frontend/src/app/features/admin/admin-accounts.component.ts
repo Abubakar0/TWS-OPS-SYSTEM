@@ -44,7 +44,10 @@ import {
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../shared/error-state/error-state.component';
 import { FilterPanelComponent } from '../../shared/ui/filter-panel.component';
-import { SearchableSelectComponent } from '../../shared/ui/searchable-select.component';
+import {
+  SearchableSelectComponent,
+  SearchableSelectOption,
+} from '../../shared/ui/searchable-select.component';
 
 type AccountStatusFilter = 'all' | 'active' | 'disabled';
 type MarketplaceFilter =
@@ -171,7 +174,7 @@ export class AdminAccountsComponent implements OnInit {
       return matchesMarketplace && matchesCountry && matchesAssignment && matchesStatus && matchesSearch;
     });
   });
-  readonly marketplaceOptions = [
+  readonly marketplaceOptions: SearchableSelectOption<MarketplaceFilter>[] = [
     { value: 'all', label: 'All marketplaces' },
     { value: 'amazon', label: 'Amazon' },
     { value: 'ebay', label: 'eBay' },
@@ -180,8 +183,8 @@ export class AdminAccountsComponent implements OnInit {
     { value: 'noon', label: 'Noon' },
     { value: 'woocommerce', label: 'WooCommerce' },
     { value: 'shopify', label: 'Shopify' },
-  ] as const;
-  readonly countryOptions = [
+  ];
+  readonly countryOptions: SearchableSelectOption<CountryFilter>[] = [
     { value: 'all', label: 'All countries' },
     { value: 'USA', label: 'USA' },
     { value: 'UK', label: 'UK' },
@@ -189,17 +192,17 @@ export class AdminAccountsComponent implements OnInit {
     { value: 'UAE', label: 'UAE' },
     { value: 'Pakistan', label: 'Pakistan' },
     { value: 'Other', label: 'Other' },
-  ] as const;
-  readonly assignmentOptions = [
+  ];
+  readonly assignmentOptions: SearchableSelectOption<AssignmentFilter>[] = [
     { value: 'all', label: 'All assignments' },
     { value: 'assigned', label: 'Assigned' },
     { value: 'unassigned', label: 'Unassigned' },
-  ] as const;
-  readonly statusOptions = [
+  ];
+  readonly statusOptions: SearchableSelectOption<AccountStatusFilter>[] = [
     { value: 'all', label: 'All statuses' },
     { value: 'active', label: 'Active' },
     { value: 'disabled', label: 'Disabled' },
-  ] as const;
+  ];
 
   readonly accountForm = new FormGroup({
     name: new FormControl('', {

@@ -1,5 +1,6 @@
 export type UserRole = 'super_admin' | 'admin' | 'hr' | 'hunter' | 'lister' | 'order_processor';
 export type UserStatus = 'active' | 'disabled' | 'locked' | 'deleted';
+export type HunterLifecycleStatus = 'TRAINING' | 'ACTIVE' | 'REJECTED';
 export type UserPermissionKey =
   | 'canManageAdmins'
   | 'canManageUsers'
@@ -33,6 +34,10 @@ export interface User {
   deletedAt?: string | null;
   parentUserId?: string | null;
   tenantId?: string | null;
+  hunterStatus?: HunterLifecycleStatus;
+  trainingRulesAcknowledgedAt?: string | null;
+  trainingExtendedUntil?: string | null;
+  mentorListerId?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -69,6 +74,9 @@ export const userHasAnyRole = (
   user: Pick<User, 'role' | 'roles'> | null | undefined,
   roles: readonly UserRole[],
 ): boolean => roles.some((role) => userHasRole(user, role));
+
+export const isTrainingHunterUser = (user: User | null | undefined): boolean =>
+  userHasRole(user, 'hunter') && (user?.hunterStatus || 'ACTIVE') === 'TRAINING';
 
 export interface BulkImportError {
   row: number;

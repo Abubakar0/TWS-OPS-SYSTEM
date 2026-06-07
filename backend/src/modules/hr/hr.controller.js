@@ -212,6 +212,11 @@ const getMyHr = async (req, res) => {
   res.json({ profile });
 };
 
+const markBirthdayPopupShown = async (req, res) => {
+  const profile = await hrService.markBirthdayPopupShown(req.user);
+  res.json({ profile });
+};
+
 const updateMyProfile = async (req, res) => {
   const profile = await hrService.updateMyProfile(req.user, req.body);
   res.json({ profile });
@@ -225,6 +230,7 @@ const reviewEmployeeProfile = async (req, res) => {
 module.exports = {
   getDashboard,
   getMyHr,
+  markBirthdayPopupShown,
   updateMyProfile,
   listEmployees,
   createEmployee,

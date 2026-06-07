@@ -68,6 +68,7 @@ const DEFAULT_ANNOUNCEMENT_BAR = {
 
 const DEFAULT_HR_SETTINGS = {
   allowEmployeeProfileEditing: true,
+  allowDualRoleSelfListing: false,
 };
 
 const settingsCache = new Map();
@@ -171,6 +172,10 @@ const normalizeSettingRow = (key, value) => {
         value?.allowEmployeeProfileEditing !== undefined
           ? Boolean(value.allowEmployeeProfileEditing)
           : DEFAULT_HR_SETTINGS.allowEmployeeProfileEditing,
+      allowDualRoleSelfListing:
+        value?.allowDualRoleSelfListing !== undefined
+          ? Boolean(value.allowDualRoleSelfListing)
+          : DEFAULT_HR_SETTINGS.allowDualRoleSelfListing,
     };
   }
 
@@ -443,6 +448,10 @@ const updateHrSettings = async (user, payload = {}) => {
       payload.allowEmployeeProfileEditing !== undefined
         ? Boolean(payload.allowEmployeeProfileEditing)
         : DEFAULT_HR_SETTINGS.allowEmployeeProfileEditing,
+    allowDualRoleSelfListing:
+      payload.allowDualRoleSelfListing !== undefined
+        ? Boolean(payload.allowDualRoleSelfListing)
+        : DEFAULT_HR_SETTINGS.allowDualRoleSelfListing,
   };
   const saved = await saveSetting(user, SETTING_KEYS.hrSettings, next);
 

@@ -6,9 +6,13 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { take } from 'rxjs';
 
+import { HunterApiService } from '../../core/api/hunter-api.service';
+import { AuthService } from '../../core/auth/auth.service';
 import { HuntingCriteria } from '../../core/models/product.models';
+import { isTrainingHunterUser } from '../../core/models/auth.models';
 import { ReferenceDataService } from '../../core/state/reference-data.service';
 import { SessionCacheService } from '../../core/state/session-cache.service';
+import { ToastService } from '../../core/ui/toast.service';
 
 @Component({
   selector: 'app-hunter-rules',
@@ -19,43 +23,49 @@ import { SessionCacheService } from '../../core/state/session-cache.service';
 })
 export class HunterRulesComponent implements OnInit {
   readonly loading = signal(true);
+  readonly acknowledging = signal(false);
   readonly error = signal('');
   readonly criteria = signal<HuntingCriteria | null>(null);
+  readonly user = computed(() => this.auth.currentUser());
+  readonly isTrainingHunter = computed(() => isTrainingHunterUser(this.user()));
+  readonly hasAcknowledgedRules = computed(() =>
+    Boolean(this.user()?.trainingRulesAcknowledgedAt),
+  );
   readonly recommendedTools = [
     {
       name: 'eBay Sold History',
       purpose: 'Check real sold demand before hunting.',
       description: 'Review sold listings to confirm buyers are actively purchasing the same or very similar item.',
       usage: 'Open sold history, compare sell-through, note title patterns, and confirm price consistency.',
-      link: 'https://www.ebay.com/sh/research',
+      link: 'https://chromewebstore.google.com/detail/ebay-sold-history-button/lhdknendolkhkmfpklppgpbimpbnlgel?hl=en',
     },
     {
       name: 'eBay Image Downloader',
       purpose: 'Verify listing image quality and reuse patterns.',
       description: 'Pull listing imagery quickly so you can compare product matches and catch weak or duplicate source photos.',
       usage: 'Use it when you need to compare the Amazon source item against existing eBay competitors.',
-      link: 'https://chromewebstore.google.com/',
+      link: 'https://chromewebstore.google.com/detail/ebay-image-downloader-ima/cghikkbnjoibaneicdgjdhjfcmijjgnp?hl=en',
     },
     {
       name: 'Keepa',
       purpose: 'Track Amazon pricing, stock swings, and demand history.',
       description: 'Keepa helps confirm whether the current Amazon buy price and stock are stable enough to support a clean listing.',
       usage: 'Check the buy box price, recent price spikes, stock dips, and offer consistency before you submit.',
-      link: 'https://keepa.com/',
+      link: 'https://chromewebstore.google.com/detail/keepa-amazon-price-tracke/neebplgakaahbhdphmkckjjcegoiijjo?hl=en',
     },
     {
       name: 'Grabley',
       purpose: 'Speed up product research and cross-platform checks.',
       description: 'Use Grabley when you need faster sourcing comparisons or support material during the hunt.',
       usage: 'Cross-check demand signals and save yourself manual comparison time.',
-      link: 'https://grabley.com/',
+      link: 'https://chromewebstore.google.com/detail/grabley-product-search-to/hppdgjpcbnbfapnailmeiibngpolplao?hl=en',
     },
     {
       name: 'SellerSprite',
       purpose: 'Validate competition and demand trends.',
       description: 'SellerSprite is useful for deeper product intelligence, especially when you need extra confidence on demand.',
       usage: 'Review search demand, related competition, and broader product movement before you submit borderline items.',
-      link: 'https://www.sellersprite.com/',
+      link: 'https://chromewebstore.google.com/detail/sellersprite-amazon-resea/lnbmbgocenenhhhdojdielgnmeflbnfb?hl=en',
     },
   ];
   readonly basics = [
@@ -137,6 +147,14 @@ export class HunterRulesComponent implements OnInit {
     'Submit only after every required field and every rule is satisfied.',
   ];
 
+  readonly pageTitle = computed(() =>
+    this.isTrainingHunter() ? 'Training Hunter Rules' : 'Hunting Rules',
+  );
+  readonly pageDescription = computed(() =>
+    this.isTrainingHunter()
+      ? 'Read these rules carefully, acknowledge them once, and then start your training submissions.'
+      : 'Everything a hunter should check before sending a product into the listing workflow.',
+  );
   readonly ruleRows = computed(() => {
     const criteria = this.criteria();
 
@@ -145,17 +163,59 @@ export class HunterRulesComponent implements OnInit {
     }
 
     return [
-      ['Minimum ROI', `${criteria.minRoi}%`],
-      ['Minimum profit', `${criteria.minProfit.toFixed(2)}`],
-      ['Minimum Amazon stock', `${criteria.minStockCount}`],
+      ['Minimum ROI', `${(this.isTrainingHunter() ? criteria.trainingMinRoi : criteria.minRoi) ?? criteria.minRoi}%`],
+      [
+        'Minimum profit',
+        `${((this.isTrainingHunter() ? criteria.trainingMinProfit : criteria.minProfit) ?? criteria.minProfit).toFixed(2)}`,
+      ],
+      [
+        'Minimum Amazon stock',
+        `${(this.isTrainingHunter() ? criteria.trainingMinStockCount : criteria.minStockCount) ?? criteria.minStockCount}`,
+      ],
       ['Minimum alternate stock', `${criteria.minAlternateStockCount}`],
-      ['Minimum sold count', `${criteria.minSoldCount}`],
-      ['Minimum rating', `${criteria.minRating}`],
-      ['Minimum watchers', `${criteria.minWatcherCount}`],
-      ['Minimum 2-month sales', `${criteria.minSalesLastTwoMonths}`],
+      [
+        'Minimum sold count',
+        `${(this.isTrainingHunter() ? criteria.trainingMinSoldCount : criteria.minSoldCount) ?? criteria.minSoldCount}`,
+      ],
+      [
+        'Minimum rating',
+        `${(this.isTrainingHunter() ? criteria.trainingMinRating : criteria.minRating) ?? criteria.minRating}`,
+      ],
+      [
+        'Minimum watchers',
+        `${(this.isTrainingHunter() ? criteria.trainingMinWatcherCount : criteria.minWatcherCount) ?? criteria.minWatcherCount}`,
+      ],
+      [
+        'Minimum 2-month sales',
+        `${(this.isTrainingHunter() ? criteria.trainingMinSalesLastTwoMonths : criteria.minSalesLastTwoMonths) ?? criteria.minSalesLastTwoMonths}`,
+      ],
       ['Maximum delivery days', `${criteria.maxDeliveryDays}`],
-      ['Require ASIN', criteria.asinRequired ? 'Yes' : 'No'],
-      ['Require custom label', criteria.customLabelRequired ? 'Yes' : 'No'],
+      [
+        'Require ASIN',
+        (this.isTrainingHunter() ? criteria.trainingAsinRequired : criteria.asinRequired) ? 'Yes' : 'No',
+      ],
+      [
+        'Require custom label',
+        (this.isTrainingHunter()
+          ? criteria.trainingCustomLabelRequired
+          : criteria.customLabelRequired)
+          ? 'Yes'
+          : 'No',
+      ],
+      [
+        'Require category',
+        (this.isTrainingHunter() ? criteria.trainingCategoryRequired : criteria.categoryRequired)
+          ? 'Yes'
+          : 'No',
+      ],
+      [
+        'Require alternate Amazon link',
+        (this.isTrainingHunter()
+          ? criteria.trainingAmazonAltUrlRequired
+          : criteria.amazonAltUrlRequired)
+          ? 'Yes'
+          : 'No',
+      ],
       ['Require basket count', criteria.basketCountRequired ? 'Yes' : 'No'],
       ['Require delivery days', criteria.deliveryDaysRequired ? 'Yes' : 'No'],
       ['Require 1-month graph uptrend', criteria.monthlyGraphRequired ? 'Yes' : 'No'],
@@ -170,15 +230,29 @@ export class HunterRulesComponent implements OnInit {
       return [];
     }
 
-    const excellentRoi = Math.max(criteria.minRoi + 15, criteria.minRoi * 1.35, 35);
-    const excellentProfit = Math.max(criteria.minProfit + 5, criteria.minProfit * 1.5, 5);
+    const minRoi = (this.isTrainingHunter() ? criteria.trainingMinRoi : criteria.minRoi) ?? criteria.minRoi;
+    const minProfit =
+      (this.isTrainingHunter() ? criteria.trainingMinProfit : criteria.minProfit) ??
+      criteria.minProfit;
+    const minSales =
+      (this.isTrainingHunter()
+        ? criteria.trainingMinSalesLastTwoMonths
+        : criteria.minSalesLastTwoMonths) ?? criteria.minSalesLastTwoMonths;
+    const minStock =
+      (this.isTrainingHunter() ? criteria.trainingMinStockCount : criteria.minStockCount) ??
+      criteria.minStockCount;
+    const minRating =
+      (this.isTrainingHunter() ? criteria.trainingMinRating : criteria.minRating) ??
+      criteria.minRating;
+    const excellentRoi = Math.max(minRoi + 15, minRoi * 1.35, 35);
+    const excellentProfit = Math.max(minProfit + 5, minProfit * 1.5, 5);
     const excellentSales = Math.max(
-      criteria.minSalesLastTwoMonths + 12,
-      criteria.minSalesLastTwoMonths * 1.4,
+      minSales + 12,
+      minSales * 1.4,
       12,
     );
-    const excellentStock = Math.max(criteria.minStockCount + 4, criteria.minStockCount * 1.3, 12);
-    const excellentRating = Math.max(criteria.minRating + 0.5, 4.2);
+    const excellentStock = Math.max(minStock + 4, minStock * 1.3, 12);
+    const excellentRating = Math.max(minRating + 0.5, 4.2);
 
     return [
       {
@@ -201,6 +275,9 @@ export class HunterRulesComponent implements OnInit {
   });
 
   private readonly sessionCache = inject(SessionCacheService);
+  private readonly auth = inject(AuthService);
+  private readonly hunterApi = inject(HunterApiService);
+  private readonly toast = inject(ToastService);
 
   constructor(private readonly referenceData: ReferenceDataService) {}
 
@@ -223,6 +300,28 @@ export class HunterRulesComponent implements OnInit {
         error: (error) => {
           this.error.set(error?.error?.message || 'Could not load the current hunting criteria.');
           this.loading.set(false);
+        },
+      });
+  }
+
+  acknowledgeRules(): void {
+    if (!this.isTrainingHunter() || this.hasAcknowledgedRules() || this.acknowledging()) {
+      return;
+    }
+
+    this.acknowledging.set(true);
+    this.hunterApi
+      .acknowledgeTrainingRules()
+      .pipe(take(1))
+      .subscribe({
+        next: (user) => {
+          this.auth.updateCurrentUser(user);
+          this.toast.success('Training rules acknowledged. Product submission is now unlocked.');
+          this.acknowledging.set(false);
+        },
+        error: (error) => {
+          this.error.set(error?.error?.message || 'Could not acknowledge the training rules.');
+          this.acknowledging.set(false);
         },
       });
   }

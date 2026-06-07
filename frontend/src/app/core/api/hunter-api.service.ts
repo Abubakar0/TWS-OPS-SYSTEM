@@ -5,6 +5,7 @@ import { map, Observable, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { CACHE_NAMESPACE, CACHE_TTL, makeCacheKey } from '../config/cache';
 import { AsinCheckResult, Product, ProductCreatePayload, ProductFilters } from '../models/product.models';
+import { User } from '../models/auth.models';
 import { RequestCacheService } from '../state/request-cache.service';
 import { PageResult } from '../state/query-state.models';
 
@@ -22,6 +23,12 @@ export class HunterApiService {
         map((response) => response.product),
         tap(() => this.requestCache.invalidatePrefix(CACHE_NAMESPACE.products)),
       );
+  }
+
+  acknowledgeTrainingRules(): Observable<User> {
+    return this.http
+      .post<{ user: User }>(`${environment.apiUrl}/users/me/hunter-training/acknowledge`, {})
+      .pipe(map((response) => response.user));
   }
 
   checkAsin(asin: string): Observable<AsinCheckResult> {

@@ -1,4 +1,11 @@
-export type ProductStatus = 'approved' | 'rejected' | 'assigned' | 'listed';
+export type ProductStatus =
+  | 'ready_for_listing'
+  | 'listed_needs_review'
+  | 'listed'
+  | 'listing_rejected'
+  | 'rejected'
+  | 'approved'
+  | 'assigned';
 export type ProductQualityLabel = 'Best Hunt' | 'Good Hunt' | 'Avg Hunt' | 'Rejected';
 
 export interface ValidationNote {
@@ -11,6 +18,7 @@ export interface Product {
   id: string;
   hunterId: string;
   hunterName: string;
+  hunterStatus?: 'TRAINING' | 'ACTIVE' | 'REJECTED';
   assignedListerId: string | null;
   assignedListerName: string | null;
   listedBy: string | null;
@@ -42,6 +50,27 @@ export interface Product {
   profit: number;
   roi: number;
   status: ProductStatus;
+  rawStatus?: string;
+  listingReviewStatus?: 'NOT_REQUIRED' | 'PENDING' | 'APPROVED' | 'REJECTED';
+  listingSubmittedForReviewAt?: string | null;
+  listingReviewedBy?: string | null;
+  listingReviewedByName?: string | null;
+  listingReviewedAt?: string | null;
+  listingReviewRejectionReason?: string | null;
+  originalHunterId?: string | null;
+  originalHunterName?: string | null;
+  currentHunterId?: string | null;
+  currentHunterName?: string | null;
+  transferHistory?: Array<{
+    id: string;
+    sourceHunterId: string;
+    sourceHunterName: string;
+    targetHunterId: string;
+    targetHunterName: string;
+    transferredBy: string;
+    transferredByName: string;
+    transferredAt: string;
+  }>;
   rejectionReason: string | null;
   validationNotes: ValidationNote[];
   primaryFailure?: string | null;
@@ -168,6 +197,23 @@ export interface HuntingCriteria {
   deliveryDaysRequired: boolean;
   maxDeliveryDays: number;
   monthlyGraphRequired: boolean;
+  categoryRequired?: boolean;
+  amazonAltUrlRequired?: boolean;
+  trainingMinRoi?: number;
+  trainingMinProfit?: number;
+  trainingMinSoldCount?: number;
+  trainingMinStockCount?: number;
+  trainingMinRating?: number;
+  trainingMinWatcherCount?: number;
+  trainingMinSalesLastTwoMonths?: number;
+  trainingAsinRequired?: boolean;
+  trainingCustomLabelRequired?: boolean;
+  trainingCategoryRequired?: boolean;
+  trainingAmazonAltUrlRequired?: boolean;
+  trainingMaxRejectedProductsAllowed?: number;
+  trainingMinApprovalRateForActivation?: number;
+  trainingMinListedProductsForActivation?: number;
+  trainingMinOrdersGeneratedForActivation?: number;
   updatedAt?: string | null;
   updatedBy?: string | null;
 }
@@ -198,6 +244,21 @@ export interface BulkListedPayload {
     listingUrl: string;
     itemId?: string;
   }>;
+}
+
+export interface ProductOwnershipTransferSummary {
+  hunter: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  summary: {
+    total: number;
+    readyForListing: number;
+    listedNeedsReview: number;
+    listed: number;
+    rejected: number;
+  };
 }
 
 export interface ChangeRequest {

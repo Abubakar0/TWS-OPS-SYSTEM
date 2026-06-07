@@ -16,6 +16,15 @@ const userSelect = `
   COALESCE(roles, jsonb_build_array(role::text)) AS roles,
   is_active AS "isActive",
   COALESCE(status, CASE WHEN is_active THEN 'active' ELSE 'disabled' END) AS status,
+  COALESCE(hunter_status, 'ACTIVE') AS "hunterStatus",
+  training_rules_acknowledged_at AS "trainingRulesAcknowledgedAt",
+  training_extended_until AS "trainingExtendedUntil",
+  (
+    SELECT assignment.lister_id
+    FROM hunter_lister_assignments assignment
+    WHERE assignment.hunter_id = users.id
+    LIMIT 1
+  ) AS "mentorListerId",
   COALESCE(permissions, '{}'::jsonb) AS permissions,
   created_by AS "createdBy",
   updated_by AS "updatedBy",
@@ -36,6 +45,10 @@ const buildProfile = (user) => ({
   roles: normalizeRoles(user.roles || user.role, user.role),
   isActive: Boolean(user.is_active ?? user.isActive),
   status: user.status || (user.is_active ?? user.isActive ? 'active' : 'disabled'),
+  hunterStatus: user.hunterStatus || 'ACTIVE',
+  trainingRulesAcknowledgedAt: user.trainingRulesAcknowledgedAt || null,
+  trainingExtendedUntil: user.trainingExtendedUntil || null,
+  mentorListerId: user.mentorListerId || null,
   permissions: resolvePermissions(user.roles || user.role, user.permissions),
   createdBy: user.createdBy || null,
   updatedBy: user.updatedBy || null,
@@ -80,6 +93,15 @@ const login = async ({ email, password }, req) => {
         COALESCE(roles, jsonb_build_array(role::text)) AS roles,
         is_active,
         COALESCE(status, CASE WHEN is_active THEN 'active' ELSE 'disabled' END) AS status,
+        COALESCE(hunter_status, 'ACTIVE') AS "hunterStatus",
+        training_rules_acknowledged_at AS "trainingRulesAcknowledgedAt",
+        training_extended_until AS "trainingExtendedUntil",
+        (
+          SELECT assignment.lister_id
+          FROM hunter_lister_assignments assignment
+          WHERE assignment.hunter_id = users.id
+          LIMIT 1
+        ) AS "mentorListerId",
         COALESCE(permissions, '{}'::jsonb) AS permissions,
         created_by AS "createdBy",
         updated_by AS "updatedBy",

@@ -7,7 +7,15 @@ import { AdminApiService } from '../api/admin-api.service';
 import { AuthService } from '../auth/auth.service';
 import { ADMIN_MANAGED_ROLES, SUPER_ADMIN_MANAGED_ROLES } from '../config/roles';
 import { SEARCH_DEBOUNCE_MS } from '../config/validation';
-import { User, UserDetails, UserPermissions, UserRole, userHasRole, userHasAnyRole } from '../models/auth.models';
+import {
+  HunterLifecycleStatus,
+  User,
+  UserDetails,
+  UserPermissions,
+  UserRole,
+  userHasAnyRole,
+  userHasRole,
+} from '../models/auth.models';
 import { ExportService } from '../services/export.service';
 import { mapUserRow } from '../mappers/user-row.mapper';
 import { ReferenceDataService } from '../state/reference-data.service';
@@ -53,6 +61,7 @@ export class AdminFacade {
   readonly editingUser = signal<User | null>(null);
   readonly passwordHidden = signal(true);
   readonly importingUsers = signal(false);
+  readonly mentorListers = signal<User[]>([]);
   readonly userDetailsOpen = signal(false);
   readonly userDetailsLoading = signal(false);
   readonly userDetailsError = signal('');
@@ -78,6 +87,17 @@ export class AdminFacade {
       : [...ADMIN_MANAGED_ROLES],
   );
   readonly isEditing = computed(() => Boolean(this.editingUser()));
+  readonly hunterRoleSelected = computed(() =>
+    this.userForm.controls.roles.value.includes('hunter'),
+  );
+  readonly mentorListerOptions = computed(() => [
+    { value: '', label: 'No mentor assigned' },
+    ...this.mentorListers().map((user) => ({
+      value: user.id,
+      label: user.name,
+      description: user.email,
+    })),
+  ]);
   readonly filteredUsers = computed(() => {
     const term = this.searchTerm();
     const role = this.roleFilter();
@@ -191,6 +211,9 @@ export class AdminFacade {
       email: '',
       password: '',
       roles: ['hunter'],
+      hunterStatus: 'TRAINING',
+      mentorListerId: '',
+      trainingExtendedUntil: '',
       isActive: true,
       canProcessOrders: false,
       canViewAllOrders: false,
@@ -233,6 +256,9 @@ export class AdminFacade {
       email: user.email,
       password: '',
       roles: user.roles?.length ? [...user.roles] : [user.role],
+      hunterStatus: user.hunterStatus || 'ACTIVE',
+      mentorListerId: user.mentorListerId || '',
+      trainingExtendedUntil: user.trainingExtendedUntil || '',
       isActive: user.isActive,
       canProcessOrders: Boolean(user.permissions?.canProcessOrders),
       canViewAllOrders: Boolean(user.permissions?.canViewAllOrders),
@@ -255,6 +281,9 @@ export class AdminFacade {
       email: '',
       password: '',
       roles: ['hunter'],
+      hunterStatus: 'TRAINING',
+      mentorListerId: '',
+      trainingExtendedUntil: '',
       isActive: true,
       canProcessOrders: false,
       canViewAllOrders: false,
@@ -271,12 +300,21 @@ export class AdminFacade {
     this.error.set('');
     const raw = this.userForm.getRawValue();
     const editingUser = this.editingUser();
+    const includeHunterFields = raw.roles.includes('hunter');
+    const hunterPayload = includeHunterFields
+      ? {
+          hunterStatus: raw.hunterStatus as HunterLifecycleStatus,
+          mentorListerId: raw.mentorListerId || null,
+          trainingExtendedUntil: raw.trainingExtendedUntil || null,
+        }
+      : {};
 
     if (!editingUser) {
       this.adminApi
         .createUser({
           ...raw,
           password: raw.password || 'Password123!',
+          ...hunterPayload,
           permissions: {
             canProcessOrders: raw.canProcessOrders,
             canViewAllOrders: raw.canViewAllOrders,
@@ -309,6 +347,14 @@ export class AdminFacade {
         canViewAllOrders: raw.canViewAllOrders,
       }),
     };
+
+    if (includeHunterFields) {
+      payload.hunterStatus = raw.hunterStatus;
+      payload.mentorListerId = raw.mentorListerId || null;
+      payload.trainingExtendedUntil = raw.trainingExtendedUntil || null;
+    } else {
+      payload.mentorListerId = null;
+    }
 
     if (raw.password.trim()) {
       payload.password = raw.password.trim();
@@ -495,6 +541,10 @@ export class AdminFacade {
 
   private initialize(): void {
     this.loadUsers();
+    this.referenceData
+      .getUsers('lister')
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((users) => this.mentorListers.set(users));
 
     this.searchControl.valueChanges
       .pipe(debounceTime(SEARCH_DEBOUNCE_MS), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))

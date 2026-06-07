@@ -1,11 +1,14 @@
 import { AbstractControl, FormControl, FormGroup, ValidationErrors, Validators } from '@angular/forms';
-import { UserRole } from '../../core/models/auth.models';
+import { HunterLifecycleStatus, UserRole } from '../../core/models/auth.models';
 
 export type UserForm = FormGroup<{
   name: FormControl<string>;
   email: FormControl<string>;
   password: FormControl<string>;
   roles: FormControl<UserRole[]>;
+  hunterStatus: FormControl<HunterLifecycleStatus>;
+  mentorListerId: FormControl<string>;
+  trainingExtendedUntil: FormControl<string>;
   isActive: FormControl<boolean>;
   canProcessOrders: FormControl<boolean>;
   canViewAllOrders: FormControl<boolean>;
@@ -37,6 +40,9 @@ export const createUserForm = (): UserForm =>
       nonNullable: true,
       validators: [rolesValidator],
     }),
+    hunterStatus: new FormControl<HunterLifecycleStatus>('TRAINING', { nonNullable: true }),
+    mentorListerId: new FormControl('', { nonNullable: true }),
+    trainingExtendedUntil: new FormControl('', { nonNullable: true }),
     isActive: new FormControl(true, { nonNullable: true }),
     canProcessOrders: new FormControl(false, { nonNullable: true }),
     canViewAllOrders: new FormControl(false, { nonNullable: true }),

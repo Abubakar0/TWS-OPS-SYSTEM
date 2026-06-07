@@ -4,7 +4,12 @@ import { Observable, map, tap } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { CACHE_NAMESPACE, CACHE_TTL, makeCacheKey } from '../config/cache';
-import { Product, ProductFilters, ProductUpdatePayload } from '../models/product.models';
+import {
+  Product,
+  ProductFilters,
+  ProductOwnershipTransferSummary,
+  ProductUpdatePayload,
+} from '../models/product.models';
 import { RequestCacheService } from '../state/request-cache.service';
 import { PageResult } from '../state/query-state.models';
 
@@ -117,5 +122,45 @@ export class ProductAdminApiService {
         map((response) => response.product),
         tap(() => this.requestCache.invalidatePrefix(CACHE_NAMESPACE.products)),
       );
+  }
+
+  approveListingReview(id: string): Observable<Product> {
+    return this.http
+      .patch<{ product: Product }>(`${environment.apiUrl}/products/${id}/review/approve`, {})
+      .pipe(
+        map((response) => response.product),
+        tap(() => this.requestCache.invalidatePrefix(CACHE_NAMESPACE.products)),
+      );
+  }
+
+  rejectListingReview(id: string, rejectionReason: string): Observable<Product> {
+    return this.http
+      .patch<{ product: Product }>(`${environment.apiUrl}/products/${id}/review/reject`, {
+        rejectionReason,
+      })
+      .pipe(
+        map((response) => response.product),
+        tap(() => this.requestCache.invalidatePrefix(CACHE_NAMESPACE.products)),
+      );
+  }
+
+  getOwnershipTransferSummary(hunterId: string): Observable<ProductOwnershipTransferSummary> {
+    return this.http.get<ProductOwnershipTransferSummary>(
+      `${environment.apiUrl}/products/ownership-transfer/${hunterId}/summary`,
+    );
+  }
+
+  transferProductOwnership(payload: {
+    sourceHunterId: string;
+    targetHunterId: string;
+    transferMode: 'all' | 'selected';
+    productIds?: string[];
+  }): Observable<{ transferred: number; sourceHunterId: string; targetHunterId: string }> {
+    return this.http
+      .post<{ transferred: number; sourceHunterId: string; targetHunterId: string }>(
+        `${environment.apiUrl}/products/ownership-transfer`,
+        payload,
+      )
+      .pipe(tap(() => this.requestCache.invalidatePrefix(CACHE_NAMESPACE.products)));
   }
 }

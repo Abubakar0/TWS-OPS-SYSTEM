@@ -48,6 +48,12 @@ export class HrApiService {
       .pipe(map((response) => response.profile));
   }
 
+  markBirthdayPopupShown(): Observable<MyHrProfile> {
+    return this.http
+      .post<{ profile: MyHrProfile }>(`${environment.apiUrl}/hr/me/birthday-popup-shown`, {})
+      .pipe(map((response) => response.profile));
+  }
+
   updateMyProfile(payload: Partial<EmployeeProfile>): Observable<MyHrProfile> {
     return this.http
       .patch<{ profile: MyHrProfile }>(`${environment.apiUrl}/hr/me/profile`, payload)

@@ -3,7 +3,15 @@ import { Router } from '@angular/router';
 import { catchError, map, of, tap } from 'rxjs';
 
 import { APP_ROUTES } from '../config/routes';
-import { LoginResponse, User, UserRole, normalizeUserRoles, userHasAnyRole, userHasRole } from '../models/auth.models';
+import {
+  LoginResponse,
+  User,
+  UserRole,
+  isTrainingHunterUser,
+  normalizeUserRoles,
+  userHasAnyRole,
+  userHasRole,
+} from '../models/auth.models';
 import { AuthApiService } from '../api/auth-api.service';
 import { RequestCacheService } from '../state/request-cache.service';
 
@@ -109,6 +117,16 @@ export class AuthService {
     this.persistSession(response.token, response.user);
   }
 
+  updateCurrentUser(user: User): void {
+    const token = this.tokenSignal();
+
+    if (!token) {
+      return;
+    }
+
+    this.persistSession(token, user);
+  }
+
   canAccessUrl(role: UserRole | undefined, url: string | null | undefined): boolean {
     const user = this.userSignal();
 
@@ -120,6 +138,14 @@ export class AuthService {
 
     if (!path || path === '/' || path === '/login') {
       return false;
+    }
+
+    if (isTrainingHunterUser(user) && !userHasAnyRole(user, ['admin', 'super_admin'])) {
+      const allowedPaths = user.trainingRulesAcknowledgedAt
+        ? ['/hunter/submission', '/hunter/products', '/hunter/rules', '/hunter/training-progress']
+        : ['/hunter/products', '/hunter/rules', '/hunter/training-progress'];
+
+      return allowedPaths.some((allowedPath) => path.startsWith(allowedPath));
     }
 
     if (userHasRole(user, 'super_admin')) {
@@ -176,6 +202,10 @@ export class AuthService {
 
   homeForRole(role?: UserRole): string {
     const user = this.userSignal();
+
+    if (isTrainingHunterUser(user) && !userHasAnyRole(user, ['admin', 'super_admin'])) {
+      return '/hunter/rules';
+    }
 
     if (userHasRole(user, 'super_admin') || role === 'super_admin') {
       return '/superadmin/dashboard';

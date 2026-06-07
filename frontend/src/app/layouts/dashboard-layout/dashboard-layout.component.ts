@@ -23,7 +23,7 @@ import { BRANDING } from '../../core/config/branding';
 import { AnnouncementBarSettings } from '../../core/models/system.models';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
 import { ConfirmService } from '../../core/ui/confirm.service';
-import { userHasRole } from '../../core/models/auth.models';
+import { isTrainingHunterUser, userHasRole } from '../../core/models/auth.models';
 import { Title } from '@angular/platform-browser';
 
 interface NavItem {
@@ -118,11 +118,13 @@ export class DashboardLayoutComponent {
     { label: 'Change Requests', route: '/hunter/changes', exact: true, icon: 'edit_note' },
     { label: 'Weekly Review', route: '/hunter/review', exact: true, icon: 'assignment_turned_in' },
     { label: 'Hunting Rules', route: '/hunter/rules', exact: true, icon: 'rule' },
+    { label: 'My Training Progress', route: '/hunter/training-progress', exact: true, icon: 'school' },
     SHARED_TEAM_ITEM,
   ];
   readonly listerTabs: NavItem[] = [
     { label: 'Dashboard', route: '/lister/dashboard', exact: true, icon: 'space_dashboard' },
     { label: 'Listing Queue', route: '/lister/products', exact: true, icon: 'view_kanban' },
+    { label: 'Listing Review Queue', route: '/lister/listing-reviews', exact: true, icon: 'fact_check' },
     { label: 'Orders', route: '/lister/orders', exact: true, icon: 'receipt_long' },
     { label: 'Change Requests', route: '/lister/changes', exact: true, icon: 'fact_check' },
     { label: 'Account Usage', route: '/lister/account-usage', exact: true, icon: 'storefront' },
@@ -133,6 +135,7 @@ export class DashboardLayoutComponent {
     { label: 'Users', route: '/admin/users', exact: true, icon: 'group' },
     { label: 'Assignments', route: '/admin/assignments', exact: true, icon: 'swap_horiz' },
     { label: 'Products', route: '/admin/products', exact: true, icon: 'inventory_2' },
+    { label: 'Listing Reviews', route: '/admin/listing-reviews', exact: true, icon: 'fact_check' },
     { label: 'Orders', route: '/admin/orders', exact: true, icon: 'receipt_long' },
     { label: 'Order Issues', route: '/admin/order-issues', exact: true, icon: 'error_outline' },
     { label: 'Change Requests', route: '/admin/change-requests', exact: true, icon: 'fact_check' },
@@ -170,8 +173,10 @@ export class DashboardLayoutComponent {
     { label: 'Admins', route: '/superadmin/admins', exact: true, icon: 'shield_person' },
     { label: 'Users', route: '/superadmin/users', exact: true, icon: 'manage_accounts' },
     { label: 'Products', route: '/superadmin/products', exact: true, icon: 'inventory_2' },
+    { label: 'Listing Reviews', route: '/superadmin/listing-reviews', exact: true, icon: 'fact_check' },
     { label: 'Reports', route: '/superadmin/reports', exact: true, icon: 'query_stats' },
     { label: 'Orders', route: '/superadmin/orders', exact: true, icon: 'receipt_long' },
+    { label: 'Product Transfers', route: '/superadmin/product-transfers', exact: true, icon: 'swap_horiz' },
     { label: 'Settings', route: '/superadmin/settings', exact: true, icon: 'settings' },
     { label: 'System', route: '/superadmin/system', exact: true, icon: 'dns' },
     { label: 'Security', route: '/superadmin/security', exact: true, icon: 'lan' },
@@ -212,7 +217,16 @@ export class DashboardLayoutComponent {
     }
 
     if (userHasRole(user, 'hunter')) {
-      sections.push({ label: 'Hunter', items: [...this.hunterTabs, MY_HR_ITEM] });
+      const hunterItems = isTrainingHunterUser(user)
+        ? this.hunterTabs.filter((item) =>
+            (user.trainingRulesAcknowledgedAt
+              ? ['/hunter/submission', '/hunter/products', '/hunter/rules', '/hunter/training-progress']
+              : ['/hunter/products', '/hunter/rules', '/hunter/training-progress']
+            ).includes(item.route),
+          )
+        : this.hunterTabs;
+
+      sections.push({ label: 'Hunter', items: [...hunterItems, MY_HR_ITEM] });
     }
 
     if (userHasRole(user, 'lister')) {
@@ -329,6 +343,10 @@ export class DashboardLayoutComponent {
   }
 
   private homeRouteForRole(role?: string): string {
+    if (isTrainingHunterUser(this.user())) {
+      return '/hunter/rules';
+    }
+
     switch (role) {
       case 'hunter':
         return '/hunter/dashboard';

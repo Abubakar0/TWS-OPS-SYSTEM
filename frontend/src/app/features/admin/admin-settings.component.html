@@ -40,8 +40,8 @@
       <article class="surface-card">
         <div class="surface-card__header">
           <div>
-            <h2>Approval rules</h2>
-            <p>Set the baseline thresholds the review engine uses for new product submissions.</p>
+            <h2>Active Hunter Rules</h2>
+            <p>Set the baseline thresholds the review engine uses for active hunter submissions.</p>
           </div>
         </div>
 
@@ -148,6 +148,16 @@
             >
           </label>
           <label class="toggle-row">
+            <mat-checkbox [formControl]="criteriaForm.controls.categoryRequired"
+              >Require category</mat-checkbox
+            >
+          </label>
+          <label class="toggle-row">
+            <mat-checkbox [formControl]="criteriaForm.controls.amazonAltUrlRequired"
+              >Require alternate Amazon link</mat-checkbox
+            >
+          </label>
+          <label class="toggle-row">
             <mat-checkbox [formControl]="criteriaForm.controls.watchersRequired"
               >Require watchers</mat-checkbox
             >
@@ -165,6 +175,85 @@
           <label class="toggle-row">
             <mat-checkbox [formControl]="criteriaForm.controls.monthlyGraphRequired"
               >Require 1-month graph uptrend</mat-checkbox
+            >
+          </label>
+        </div>
+      </article>
+
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Training Hunter Rules</h2>
+            <p>Use a separate ruleset and activation targets for hunters still in training.</p>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Training minimum ROI</mat-label>
+            <input matInput type="number" [formControl]="criteriaForm.controls.trainingMinRoi" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Training minimum profit</mat-label>
+            <input matInput type="number" [formControl]="criteriaForm.controls.trainingMinProfit" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Training minimum Amazon stock</mat-label>
+            <input matInput type="number" [formControl]="criteriaForm.controls.trainingMinStockCount" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Training minimum sold count</mat-label>
+            <input matInput type="number" [formControl]="criteriaForm.controls.trainingMinSoldCount" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Training minimum rating</mat-label>
+            <input matInput type="number" [formControl]="criteriaForm.controls.trainingMinRating" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Training minimum watchers</mat-label>
+            <input matInput type="number" [formControl]="criteriaForm.controls.trainingMinWatcherCount" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Training minimum 2-month sales</mat-label>
+            <input matInput type="number" [formControl]="criteriaForm.controls.trainingMinSalesLastTwoMonths" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Max rejected products allowed</mat-label>
+            <input matInput type="number" [formControl]="criteriaForm.controls.trainingMaxRejectedProductsAllowed" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Minimum approval rate for activation</mat-label>
+            <input matInput type="number" [formControl]="criteriaForm.controls.trainingMinApprovalRateForActivation" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Minimum listed products for activation</mat-label>
+            <input matInput type="number" [formControl]="criteriaForm.controls.trainingMinListedProductsForActivation" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Minimum orders generated for activation</mat-label>
+            <input matInput type="number" [formControl]="criteriaForm.controls.trainingMinOrdersGeneratedForActivation" />
+          </mat-form-field>
+        </div>
+
+        <div class="toggle-stack">
+          <label class="toggle-row">
+            <mat-checkbox [formControl]="criteriaForm.controls.trainingAsinRequired"
+              >Require ASIN</mat-checkbox
+            >
+          </label>
+          <label class="toggle-row">
+            <mat-checkbox [formControl]="criteriaForm.controls.trainingCustomLabelRequired"
+              >Require custom label</mat-checkbox
+            >
+          </label>
+          <label class="toggle-row">
+            <mat-checkbox [formControl]="criteriaForm.controls.trainingCategoryRequired"
+              >Require category</mat-checkbox
+            >
+          </label>
+          <label class="toggle-row">
+            <mat-checkbox [formControl]="criteriaForm.controls.trainingAmazonAltUrlRequired"
+              >Require alternate Amazon link</mat-checkbox
             >
           </label>
         </div>
@@ -231,6 +320,11 @@
           <label class="toggle-row field-span-2">
             <mat-checkbox [formControl]="hrSettingsForm.controls.allowEmployeeProfileEditing">
               Allow employees to edit their own profile
+            </mat-checkbox>
+          </label>
+          <label class="toggle-row field-span-2">
+            <mat-checkbox [formControl]="hrSettingsForm.controls.allowDualRoleSelfListing">
+              Allow dual-role hunter+lister users to list their own hunted products for review
             </mat-checkbox>
           </label>
 

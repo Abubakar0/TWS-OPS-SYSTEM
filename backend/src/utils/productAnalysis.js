@@ -206,9 +206,17 @@ const analyzeProduct = (input, criteria, options = {}) => {
     "Amazon product link must be a valid Amazon URL.",
   );
   addNote(
+    "category",
+    !criteria.categoryRequired || Boolean(input.category),
+    "Category is required for this hunting criteria.",
+  );
+  addNote(
     "amazon_alt_url",
-    amazonAltUrlValid,
-    "Amazon alternate link must be a valid Amazon URL when provided.",
+    (!criteria.amazonAltUrlRequired && amazonAltUrlValid) ||
+      (criteria.amazonAltUrlRequired && Boolean(input.amazonAltUrl) && amazonAltUrlValid),
+    criteria.amazonAltUrlRequired
+      ? "Amazon alternate link is required and must be a valid Amazon URL."
+      : "Amazon alternate link must be a valid Amazon URL when provided.",
   );
   addNote(
     "ebay_url",

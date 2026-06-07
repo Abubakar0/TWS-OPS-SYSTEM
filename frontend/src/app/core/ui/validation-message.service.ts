@@ -25,6 +25,8 @@ export class ValidationMessageService {
           return 'Choose a product category.';
         case 'amazonUrl':
           return 'Amazon link is required.';
+        case 'amazonAltUrl':
+          return 'Alternate Amazon link is required by the current rules.';
         case 'ebayUrl':
           return 'eBay link is required.';
         case 'customLabel':
@@ -135,7 +137,13 @@ export class ValidationMessageService {
   submissionHelper(field: SubmissionControlName, criteria: HuntingCriteria): string {
     switch (field) {
       case 'category':
-        return 'Use the last product category from Ebay.';
+        return criteria.categoryRequired
+          ? 'Required. Use the matching eBay product category.'
+          : 'Use the matching eBay product category when available.';
+      case 'amazonAltUrl':
+        return criteria.amazonAltUrlRequired
+          ? 'Required by the current rules.'
+          : 'Optional secondary Amazon source link.';
       case 'customLabel':
         return criteria.customLabelRequired
           ? 'Required by the current rules.'

@@ -44,6 +44,7 @@ export class MyHrComponent implements OnInit {
   readonly profile = signal<MyHrProfile | null>(null);
   readonly profileForm = new FormGroup({
     phone: new FormControl('', { nonNullable: true }),
+    dateOfBirth: new FormControl('', { nonNullable: true }),
     nationalId: new FormControl('', { nonNullable: true }),
     address: new FormControl('', { nonNullable: true }),
     emergencyContact: new FormControl('', { nonNullable: true }),
@@ -81,6 +82,7 @@ export class MyHrComponent implements OnInit {
         this.profileForm.patchValue(
           {
             phone: profile.employee.phone || '',
+            dateOfBirth: profile.employee.dateOfBirth ? profile.employee.dateOfBirth.slice(0, 10) : '',
             nationalId: profile.employee.nationalId || '',
             address: profile.employee.address || '',
             emergencyContact: profile.employee.emergencyContact || '',
@@ -110,6 +112,7 @@ export class MyHrComponent implements OnInit {
     this.hrApi
       .updateMyProfile({
         phone: this.profileForm.controls.phone.value,
+        dateOfBirth: this.profileForm.controls.dateOfBirth.value || null,
         nationalId: this.profileForm.controls.nationalId.value,
         address: this.profileForm.controls.address.value,
         emergencyContact: this.profileForm.controls.emergencyContact.value,
@@ -130,6 +133,24 @@ export class MyHrComponent implements OnInit {
           this.savingProfile.set(false);
         },
       });
+  }
+
+  dismissBirthdayModal(): void {
+    if (this.savingProfile()) {
+      return;
+    }
+
+    this.savingProfile.set(true);
+    this.hrApi.markBirthdayPopupShown().subscribe({
+      next: (nextProfile) => {
+        this.profile.set(nextProfile);
+        this.savingProfile.set(false);
+      },
+      error: (error) => {
+        this.toast.error(error?.error?.message || 'Could not update birthday acknowledgment.');
+        this.savingProfile.set(false);
+      },
+    });
   }
 
   submitLeave(): void {

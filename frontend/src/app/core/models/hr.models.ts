@@ -15,6 +15,7 @@ export interface EmployeeProfile {
   managerUserId?: string | null;
   managerName?: string | null;
   joiningDate?: string | null;
+  dateOfBirth?: string | null;
   employmentType: string;
   employmentStatus: string;
   basicSalary: number;
@@ -33,6 +34,7 @@ export interface EmployeeProfile {
   profileReviewedBy?: string | null;
   profileReviewedByName?: string | null;
   selfEditRequestedAt?: string | null;
+  birthdayPopupShownYear?: number | null;
 }
 
 export interface AttendanceEntry {
@@ -146,6 +148,15 @@ export interface HrDashboardLeavePreview {
   endDate: string;
 }
 
+export interface HrCelebrationPreview {
+  id: string;
+  employeeName: string;
+  department?: string | null;
+  designation?: string | null;
+  eventDate: string;
+  years?: number | null;
+}
+
 export interface HrDashboardExpensePreview {
   id: string;
   employeeName: string;
@@ -178,6 +189,10 @@ export interface HrDashboardStats {
     expenses: HrDashboardExpensePreview[];
   };
   upcomingLeaves: HrDashboardLeavePreview[];
+  todaysBirthdays: HrCelebrationPreview[];
+  upcomingBirthdays: HrCelebrationPreview[];
+  todaysWorkAnniversaries: HrCelebrationPreview[];
+  upcomingWorkAnniversaries: HrCelebrationPreview[];
   recentActivity: HrActivityItem[];
 }
 
@@ -219,4 +234,6 @@ export interface MyHrProfile {
   expenses: ExpenseRecord[];
   warnings: WarningRecord[];
   allowEmployeeProfileEditing: boolean;
+  showBirthdayModal?: boolean;
+  birthdayMessageYear?: number | null;
 }

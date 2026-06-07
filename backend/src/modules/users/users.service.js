@@ -23,6 +23,7 @@ const { ensureHrTables } = require('../hr/hr.service');
 const { getCriteria } = require('../criteria/criteria.service');
 
 const VALID_USER_STATUSES = ['active', 'disabled', 'locked', 'deleted'];
+const VALID_HUNTER_STATUSES = ['TRAINING', 'ACTIVE', 'REJECTED'];
 
 const userSelect = `
   id,
@@ -32,6 +33,15 @@ const userSelect = `
   COALESCE(roles, jsonb_build_array(role::text)) AS roles,
   is_active AS "isActive",
   COALESCE(status, CASE WHEN is_active THEN 'active' ELSE 'disabled' END) AS status,
+  COALESCE(hunter_status, 'ACTIVE') AS "hunterStatus",
+  training_rules_acknowledged_at AS "trainingRulesAcknowledgedAt",
+  training_extended_until AS "trainingExtendedUntil",
+  (
+    SELECT assignment.lister_id
+    FROM hunter_lister_assignments assignment
+    WHERE assignment.hunter_id = users.id
+    LIMIT 1
+  ) AS "mentorListerId",
   COALESCE(permissions, '{}'::jsonb) AS permissions,
   created_by AS "createdBy",
   updated_by AS "updatedBy",
@@ -67,6 +77,10 @@ const normalizeUser = (row) => ({
   role: resolvePrimaryRole(row.roles || row.role, row.role || 'hunter'),
   isActive: Boolean(row.isActive),
   status: row.status || (row.isActive ? 'active' : 'disabled'),
+  hunterStatus: row.hunterStatus || 'ACTIVE',
+  trainingRulesAcknowledgedAt: row.trainingRulesAcknowledgedAt || null,
+  trainingExtendedUntil: row.trainingExtendedUntil || null,
+  mentorListerId: row.mentorListerId || null,
   permissions: resolvePermissions(row.roles || row.role, normalizePermissions(row.permissions)),
 });
 
@@ -217,6 +231,32 @@ const assertValidStatus = (status) => {
   }
 };
 
+const normalizeHunterStatus = (value, fallback = 'ACTIVE') => {
+  const normalized = String(value ?? fallback)
+    .trim()
+    .toUpperCase();
+
+  if (!VALID_HUNTER_STATUSES.includes(normalized)) {
+    throw new AppError('Invalid hunter status.', 400);
+  }
+
+  return normalized;
+};
+
+const sanitizeTrainingDate = (value) => {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  const normalized = String(value).trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+    throw new AppError('Training extension date must use YYYY-MM-DD format.', 400);
+  }
+
+  return normalized;
+};
+
 const assertValidPermissionOverrides = (permissions) => {
   if (permissions === undefined) {
     return;
@@ -289,6 +329,14 @@ const getUserById = async (id, { includeDeleted = false } = {}) => {
   }
 
   return normalizeUser(user);
+};
+
+const syncMentorListerAssignment = async (actor, hunterId, mentorListerId) => {
+  if (mentorListerId === undefined) {
+    return;
+  }
+
+  await setHunterLister(actor, hunterId, mentorListerId || null);
 };
 
 const ensureActorCanTouchUser = (actor, target, actionLabel = 'manage') => {
@@ -592,6 +640,12 @@ const createUser = async (actor, payload) => {
   const isActive = payload.isActive ?? true;
   const status = isActive ? 'active' : 'disabled';
   const permissions = resolvePermissions(roles, payload.permissions);
+  const hunterStatus = roles.includes('hunter')
+    ? normalizeHunterStatus(payload.hunterStatus, 'TRAINING')
+    : 'ACTIVE';
+  const trainingExtendedUntil = roles.includes('hunter')
+    ? sanitizeTrainingDate(payload.trainingExtendedUntil)
+    : null;
 
   let result;
 
@@ -606,12 +660,14 @@ const createUser = async (actor, payload) => {
           roles,
           is_active,
           status,
+          hunter_status,
+          training_extended_until,
           permissions,
           created_by,
           updated_by,
           disabled_by
         )
-        VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8::jsonb, $9, $9, $10)
+        VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10::jsonb, $11, $11, $12)
         RETURNING ${userSelect}
       `,
       [
@@ -622,6 +678,8 @@ const createUser = async (actor, payload) => {
         JSON.stringify(roles),
         isActive,
         status,
+        hunterStatus,
+        trainingExtendedUntil,
         JSON.stringify(permissions),
         actor.id,
         isActive ? null : actor.id,
@@ -633,6 +691,10 @@ const createUser = async (actor, payload) => {
 
   const createdUser = normalizeUser(result.rows[0]);
 
+  if (roles.includes('hunter')) {
+    await syncMentorListerAssignment(actor, createdUser.id, payload.mentorListerId);
+  }
+
   await writeAuditLog({
     actorUserId: actor.id,
     action: 'user.create',
@@ -642,6 +704,7 @@ const createUser = async (actor, payload) => {
       role: createdUser.role,
       roles: createdUser.roles,
       status: createdUser.status,
+      hunterStatus: createdUser.hunterStatus,
       email: createdUser.email,
     },
   });
@@ -781,6 +844,22 @@ const updateUser = async (actor, id, payload) => {
     addUpdate('permissions', JSON.stringify(resolvePermissions(targetRoles, payload.permissions)), '::jsonb');
   }
 
+  if (payload.hunterStatus !== undefined) {
+    if (!nextRoles.includes('hunter')) {
+      throw new AppError('Hunter status can only be set for hunter users.', 400);
+    }
+
+    addUpdate('hunter_status', normalizeHunterStatus(payload.hunterStatus, existing.hunterStatus || 'ACTIVE'));
+  }
+
+  if (payload.trainingExtendedUntil !== undefined) {
+    if (!nextRoles.includes('hunter')) {
+      throw new AppError('Training extension can only be set for hunter users.', 400);
+    }
+
+    addUpdate('training_extended_until', sanitizeTrainingDate(payload.trainingExtendedUntil));
+  }
+
   if (payload.password) {
     addUpdate('password_hash', await bcrypt.hash(payload.password, 10));
   }
@@ -828,6 +907,11 @@ const updateUser = async (actor, id, payload) => {
   }
 
   const updatedUser = normalizeUser(result.rows[0]);
+
+  if (payload.mentorListerId !== undefined && nextRoles.includes('hunter')) {
+    await syncMentorListerAssignment(actor, updatedUser.id, payload.mentorListerId);
+  }
+
   const action =
     actor.role === 'super_admin'
       ? 'SUPER_ADMIN_EDITED_USER'
@@ -848,6 +932,7 @@ const updateUser = async (actor, id, payload) => {
       role: updatedUser.role,
       roles: updatedUser.roles,
       status: updatedUser.status,
+      hunterStatus: updatedUser.hunterStatus,
       permissions: updatedUser.permissions,
     },
   });
@@ -1167,6 +1252,44 @@ const setHunterLister = async (actor, hunterId, listerId) => {
 
 const getPermissionsMatrix = async () => listPermissionMatrix();
 
+const acknowledgeTrainingRules = async (actor) => {
+  const user = await getUserById(actor.id, { includeDeleted: false });
+
+  if (!hasRole(user, 'hunter')) {
+    throw new AppError('Only hunters can acknowledge training rules.', 403);
+  }
+
+  if (user.hunterStatus !== 'TRAINING') {
+    return user;
+  }
+
+  const result = await pool.query(
+    `
+      UPDATE users
+      SET training_rules_acknowledged_at = COALESCE(training_rules_acknowledged_at, NOW()),
+          updated_at = NOW()
+      WHERE id = $1
+      RETURNING ${userSelect}
+    `,
+    [actor.id],
+  );
+
+  const updatedUser = normalizeUser(result.rows[0]);
+
+  await writeAuditLog({
+    actorUserId: actor.id,
+    action: 'TRAINING_RULES_ACKNOWLEDGED',
+    targetType: 'user',
+    targetId: actor.id,
+    details: {
+      hunterStatus: updatedUser.hunterStatus,
+      acknowledgedAt: updatedUser.trainingRulesAcknowledgedAt,
+    },
+  });
+
+  return updatedUser;
+};
+
 module.exports = {
   getUserById,
   getUserDetails,
@@ -1184,4 +1307,5 @@ module.exports = {
   getPermissionsMatrix,
   listAssignments,
   setHunterLister,
+  acknowledgeTrainingRules,
 };

@@ -9,6 +9,7 @@ router.use(authenticate);
 
 router.get('/dashboard', requireRoles('admin', 'hr', 'super_admin'), asyncHandler(controller.getDashboard));
 router.get('/me', asyncHandler(controller.getMyHr));
+router.post('/me/birthday-popup-shown', asyncHandler(controller.markBirthdayPopupShown));
 router.patch('/me/profile', asyncHandler(controller.updateMyProfile));
 
 router.get('/employees', requireRoles('admin', 'hr', 'super_admin'), asyncHandler(controller.listEmployees));

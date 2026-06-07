@@ -4,7 +4,14 @@ import { map, Observable, tap } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { CACHE_NAMESPACE, CACHE_TTL, makeCacheKey } from '../config/cache';
-import { Account, AssignedHunter, BulkListedPayload, Product, ProductFilters } from '../models/product.models';
+import {
+  Account,
+  AssignedHunter,
+  BulkListedPayload,
+  Product,
+  ProductFilters,
+  ProductStatus,
+} from '../models/product.models';
 import { RequestCacheService } from '../state/request-cache.service';
 import { PageResult } from '../state/query-state.models';
 
@@ -68,6 +75,33 @@ export class ListerApiService {
   rejectProduct(id: string, rejectionReason: string): Observable<Product> {
     return this.http
       .patch<{ product: Product }>(`${environment.apiUrl}/products/${id}/reject`, { rejectionReason })
+      .pipe(
+        map((response) => response.product),
+        tap(() => this.invalidateListingCaches()),
+      );
+  }
+
+  listListingReviews(filters: ProductFilters = {}): Observable<PageResult<Product>> {
+    return this.listQueueProducts({
+      ...filters,
+      status: (filters.status as ProductStatus | '') || 'listed_needs_review',
+    });
+  }
+
+  approveListingReview(id: string): Observable<Product> {
+    return this.http
+      .patch<{ product: Product }>(`${environment.apiUrl}/products/${id}/review/approve`, {})
+      .pipe(
+        map((response) => response.product),
+        tap(() => this.invalidateListingCaches()),
+      );
+  }
+
+  rejectListingReview(id: string, rejectionReason: string): Observable<Product> {
+    return this.http
+      .patch<{ product: Product }>(`${environment.apiUrl}/products/${id}/review/reject`, {
+        rejectionReason,
+      })
       .pipe(
         map((response) => response.product),
         tap(() => this.invalidateListingCaches()),

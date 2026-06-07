@@ -16,7 +16,10 @@ import { ReferenceDataService } from '../../core/state/reference-data.service';
 import { ToastService } from '../../core/ui/toast.service';
 import { ErrorStateComponent } from '../../shared/error-state/error-state.component';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
-import { SearchableSelectComponent } from '../../shared/ui/searchable-select.component';
+import {
+  SearchableSelectComponent,
+  SearchableSelectOption,
+} from '../../shared/ui/searchable-select.component';
 
 @Component({
   selector: 'app-hr-employees',
@@ -66,6 +69,7 @@ export class HrEmployeesComponent implements OnInit {
     userId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     employeeCode: new FormControl('', { nonNullable: true }),
     phone: new FormControl('', { nonNullable: true }),
+    dateOfBirth: new FormControl('', { nonNullable: true }),
     nationalId: new FormControl('', { nonNullable: true }),
     address: new FormControl('', { nonNullable: true }),
     emergencyContact: new FormControl('', { nonNullable: true }),
@@ -94,22 +98,22 @@ export class HrEmployeesComponent implements OnInit {
     const end = Math.min(total, start + this.employees().length - 1);
     return `Showing ${start}-${end} of ${total}`;
   });
-  readonly statusOptions = [
+  readonly statusOptions: SearchableSelectOption<string>[] = [
     { value: '', label: 'All statuses' },
     { value: 'ACTIVE', label: 'Active' },
     { value: 'INACTIVE', label: 'Inactive' },
     { value: 'PROBATION', label: 'Probation' },
     { value: 'RESIGNED', label: 'Resigned' },
     { value: 'TERMINATED', label: 'Terminated' },
-  ] as const;
+  ];
   readonly employeeStatusOptions = this.statusOptions.filter((option) => option.value !== '');
-  readonly employmentTypeOptions = [
+  readonly employmentTypeOptions: SearchableSelectOption<string>[] = [
     { value: 'FULL_TIME', label: 'Full Time' },
     { value: 'PART_TIME', label: 'Part Time' },
     { value: 'CONTRACT', label: 'Contract' },
     { value: 'INTERN', label: 'Intern' },
     { value: 'REMOTE', label: 'Remote' },
-  ] as const;
+  ];
   readonly userSelectOptions = computed(() =>
     this.availableUsers().map((user) => ({
       value: user.id,
@@ -179,6 +183,7 @@ export class HrEmployeesComponent implements OnInit {
       userId: employee.userId,
       employeeCode: employee.employeeCode || '',
       phone: employee.phone || '',
+      dateOfBirth: employee.dateOfBirth ? employee.dateOfBirth.slice(0, 10) : '',
       nationalId: employee.nationalId || '',
       address: employee.address || '',
       emergencyContact: employee.emergencyContact || '',
@@ -215,6 +220,7 @@ export class HrEmployeesComponent implements OnInit {
       userId: '',
       employeeCode: '',
       phone: '',
+      dateOfBirth: '',
       nationalId: '',
       address: '',
       emergencyContact: '',
@@ -243,6 +249,7 @@ export class HrEmployeesComponent implements OnInit {
     const payload = {
       ...raw,
       managerUserId: raw.managerUserId || null,
+      dateOfBirth: raw.dateOfBirth || null,
       bankDetails: {
         bankName: raw.bankName || null,
         accountNumber: raw.bankAccount || null,

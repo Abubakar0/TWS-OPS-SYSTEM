@@ -34,6 +34,7 @@ export interface AnnouncementBarSettings {
 
 export interface HrSettings {
   allowEmployeeProfileEditing: boolean;
+  allowDualRoleSelfListing: boolean;
 }
 
 export interface SystemSettingsResponse {

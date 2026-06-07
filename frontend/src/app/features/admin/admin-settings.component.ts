@@ -118,10 +118,60 @@ export class AdminSettingsComponent implements OnInit {
     }),
     asinRequired: new FormControl(true, { nonNullable: true }),
     customLabelRequired: new FormControl(false, { nonNullable: true }),
+    categoryRequired: new FormControl(false, { nonNullable: true }),
+    amazonAltUrlRequired: new FormControl(false, { nonNullable: true }),
     watchersRequired: new FormControl(false, { nonNullable: true }),
     basketCountRequired: new FormControl(false, { nonNullable: true }),
     deliveryDaysRequired: new FormControl(false, { nonNullable: true }),
     monthlyGraphRequired: new FormControl(false, { nonNullable: true }),
+    trainingMinRoi: new FormControl(30, {
+      nonNullable: true,
+      validators: [Validators.required, Validators.min(0)],
+    }),
+    trainingMinProfit: new FormControl(0, {
+      nonNullable: true,
+      validators: [Validators.required, Validators.min(0)],
+    }),
+    trainingMinSoldCount: new FormControl(1, {
+      nonNullable: true,
+      validators: [Validators.required, Validators.min(0)],
+    }),
+    trainingMinStockCount: new FormControl(8, {
+      nonNullable: true,
+      validators: [Validators.required, Validators.min(0)],
+    }),
+    trainingMinRating: new FormControl(0, {
+      nonNullable: true,
+      validators: [Validators.required, Validators.min(0)],
+    }),
+    trainingMinWatcherCount: new FormControl(0, {
+      nonNullable: true,
+      validators: [Validators.required, Validators.min(0)],
+    }),
+    trainingMinSalesLastTwoMonths: new FormControl(0, {
+      nonNullable: true,
+      validators: [Validators.required, Validators.min(0)],
+    }),
+    trainingAsinRequired: new FormControl(true, { nonNullable: true }),
+    trainingCustomLabelRequired: new FormControl(false, { nonNullable: true }),
+    trainingCategoryRequired: new FormControl(false, { nonNullable: true }),
+    trainingAmazonAltUrlRequired: new FormControl(false, { nonNullable: true }),
+    trainingMaxRejectedProductsAllowed: new FormControl(0, {
+      nonNullable: true,
+      validators: [Validators.required, Validators.min(0)],
+    }),
+    trainingMinApprovalRateForActivation: new FormControl(0, {
+      nonNullable: true,
+      validators: [Validators.required, Validators.min(0)],
+    }),
+    trainingMinListedProductsForActivation: new FormControl(0, {
+      nonNullable: true,
+      validators: [Validators.required, Validators.min(0)],
+    }),
+    trainingMinOrdersGeneratedForActivation: new FormControl(0, {
+      nonNullable: true,
+      validators: [Validators.required, Validators.min(0)],
+    }),
   });
   readonly announcementForm = new FormGroup({
     enabled: new FormControl(false, { nonNullable: true }),
@@ -133,6 +183,7 @@ export class AdminSettingsComponent implements OnInit {
   });
   readonly hrSettingsForm = new FormGroup({
     allowEmployeeProfileEditing: new FormControl(true, { nonNullable: true }),
+    allowDualRoleSelfListing: new FormControl(false, { nonNullable: true }),
   });
 
   readonly hasUnsavedChanges = computed(() => {

@@ -142,6 +142,10 @@
           <input matInput formControlName="phone" />
         </mat-form-field>
         <mat-form-field appearance="outline">
+          <mat-label>Date of Birth</mat-label>
+          <input matInput type="date" formControlName="dateOfBirth" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
           <mat-label>National ID</mat-label>
           <input matInput formControlName="nationalId" />
         </mat-form-field>
@@ -273,6 +277,9 @@
           </article>
           <article class="hr-meta-card">
             <span>Manager</span><strong>{{ employee.managerName || 'Not assigned' }}</strong>
+          </article>
+          <article class="hr-meta-card">
+            <span>Date of Birth</span><strong>{{ employee.dateOfBirth ? (employee.dateOfBirth | date: 'MMM d, y') : 'Not set' }}</strong>
           </article>
           <article class="hr-meta-card">
             <span>Salary Base</span><strong>{{ employee.basicSalary | currency: 'USD' }}</strong>

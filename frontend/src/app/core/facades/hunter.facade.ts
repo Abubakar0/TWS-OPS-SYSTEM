@@ -18,6 +18,7 @@ import {
   ProductQualityLabel,
   WeeklyReviewStatus,
 } from '../models/product.models';
+import { isTrainingHunterUser } from '../models/auth.models';
 import { ReferenceDataService } from '../state/reference-data.service';
 import { SessionCacheService } from '../state/session-cache.service';
 import { WorkspaceSyncService } from '../state/workspace-sync.service';
@@ -35,6 +36,7 @@ import {
   decimalValidator,
   decimalValue,
 } from '../../shared/validators/price.validator';
+import { marketplaceUrlValidator } from '../../shared/validators/listing-link.validator';
 
 type SummaryTone = 'success' | 'warning' | 'danger' | 'neutral';
 
@@ -96,6 +98,23 @@ export class HunterFacade {
     deliveryDaysRequired: false,
     maxDeliveryDays: 7,
     monthlyGraphRequired: false,
+    categoryRequired: false,
+    amazonAltUrlRequired: false,
+    trainingMinRoi: 30,
+    trainingMinProfit: 0,
+    trainingMinSoldCount: 1,
+    trainingMinStockCount: 8,
+    trainingMinRating: 0,
+    trainingMinWatcherCount: 0,
+    trainingMinSalesLastTwoMonths: 0,
+    trainingAsinRequired: true,
+    trainingCustomLabelRequired: false,
+    trainingCategoryRequired: false,
+    trainingAmazonAltUrlRequired: false,
+    trainingMaxRejectedProductsAllowed: 0,
+    trainingMinApprovalRateForActivation: 0,
+    trainingMinListedProductsForActivation: 0,
+    trainingMinOrdersGeneratedForActivation: 0,
   });
 
   readonly asinControl = createSubmissionAsinControl();
@@ -111,6 +130,37 @@ export class HunterFacade {
 
   readonly defaultCustomLabel = computed(
     () => this.auth.currentUser()?.name || `${BRANDING.logoLabel} Hunter`,
+  );
+  readonly isTrainingHunter = computed(() => isTrainingHunterUser(this.auth.currentUser()));
+  readonly hasAcknowledgedTrainingRules = computed(() =>
+    Boolean(this.auth.currentUser()?.trainingRulesAcknowledgedAt),
+  );
+  readonly effectiveCriteria = computed(() => {
+    const criteria = this.criteria();
+
+    if (!this.isTrainingHunter()) {
+      return criteria;
+    }
+
+    return {
+      ...criteria,
+      minRoi: criteria.trainingMinRoi ?? criteria.minRoi,
+      minProfit: criteria.trainingMinProfit ?? criteria.minProfit,
+      minSoldCount: criteria.trainingMinSoldCount ?? criteria.minSoldCount,
+      minStockCount: criteria.trainingMinStockCount ?? criteria.minStockCount,
+      minRating: criteria.trainingMinRating ?? criteria.minRating,
+      minWatcherCount: criteria.trainingMinWatcherCount ?? criteria.minWatcherCount,
+      minSalesLastTwoMonths:
+        criteria.trainingMinSalesLastTwoMonths ?? criteria.minSalesLastTwoMonths,
+      asinRequired: criteria.trainingAsinRequired ?? criteria.asinRequired,
+      customLabelRequired: criteria.trainingCustomLabelRequired ?? criteria.customLabelRequired,
+      categoryRequired: criteria.trainingCategoryRequired ?? criteria.categoryRequired,
+      amazonAltUrlRequired:
+        criteria.trainingAmazonAltUrlRequired ?? criteria.amazonAltUrlRequired,
+    };
+  });
+  readonly validationRuleLabel = computed(() =>
+    this.isTrainingHunter() ? 'Training Rules' : 'Active Hunter Rules',
   );
   readonly filteredCategories = computed(() => {
     const term = this.form.controls.category.value.trim().toLowerCase();
@@ -129,7 +179,7 @@ export class HunterFacade {
 
   readonly fieldStates = computed<Record<SubmissionControlName, SubmissionFieldState>>(() => {
     this.formVersion();
-    const criteria = this.criteria();
+    const criteria = this.effectiveCriteria();
 
     return Object.fromEntries(
       SUBMISSION_FIELDS.map((field) => {
@@ -156,7 +206,7 @@ export class HunterFacade {
       return { fees: null, profit: null, roi: null };
     }
 
-    const feePercent = this.criteria().feePercent;
+    const feePercent = this.effectiveCriteria().feePercent;
     const fees = Number(((ebayPrice * feePercent) / 100).toFixed(2));
     const profit = Number((ebayPrice - amazonPrice - fees).toFixed(2));
     const roi = Number(((profit / amazonPrice) * 100).toFixed(2));
@@ -167,10 +217,11 @@ export class HunterFacade {
   readonly coreFieldIssues = computed(() =>
     [
       this.fieldStates().title.error,
+      this.effectiveCriteria().categoryRequired ? this.fieldStates().category.error : '',
       this.fieldStates().amazonUrl.error,
-      this.fieldStates().amazonAltUrl.error,
+      this.effectiveCriteria().amazonAltUrlRequired ? this.fieldStates().amazonAltUrl.error : '',
       this.fieldStates().ebayUrl.error,
-      this.criteria().customLabelRequired ? this.fieldStates().customLabel.error : '',
+      this.effectiveCriteria().customLabelRequired ? this.fieldStates().customLabel.error : '',
     ].filter(Boolean),
   );
 
@@ -195,10 +246,15 @@ export class HunterFacade {
   readonly coreValidationIssues = computed(() =>
     [
       this.getBlockingFieldMessage('title'),
+      this.effectiveCriteria().categoryRequired ? this.getBlockingFieldMessage('category') : '',
       this.getBlockingFieldMessage('amazonUrl'),
-      this.getBlockingFieldMessage('amazonAltUrl'),
+      this.effectiveCriteria().amazonAltUrlRequired
+        ? this.getBlockingFieldMessage('amazonAltUrl')
+        : '',
       this.getBlockingFieldMessage('ebayUrl'),
-      this.criteria().customLabelRequired ? this.getBlockingFieldMessage('customLabel') : '',
+      this.effectiveCriteria().customLabelRequired
+        ? this.getBlockingFieldMessage('customLabel')
+        : '',
     ].filter(Boolean),
   );
 
@@ -225,7 +281,7 @@ export class HunterFacade {
   readonly stockSalesRuleFailures = computed(() => {
     this.formVersion();
     const failures: string[] = [];
-    const criteria = this.criteria();
+    const criteria = this.effectiveCriteria();
 
     if (
       this.form.controls.amazonStockCount.valid &&
@@ -313,12 +369,12 @@ export class HunterFacade {
 
     const failures: string[] = [];
 
-    if ((this.economics().profit ?? 0) < this.criteria().minProfit) {
-      failures.push(`Profit must be at least ${this.criteria().minProfit.toFixed(2)}.`);
+    if ((this.economics().profit ?? 0) < this.effectiveCriteria().minProfit) {
+      failures.push(`Profit must be at least ${this.effectiveCriteria().minProfit.toFixed(2)}.`);
     }
 
-    if ((this.economics().roi ?? 0) < this.criteria().minRoi) {
-      failures.push(`ROI must be at least ${this.criteria().minRoi}%.`);
+    if ((this.economics().roi ?? 0) < this.effectiveCriteria().minRoi) {
+      failures.push(`ROI must be at least ${this.effectiveCriteria().minRoi}%.`);
     }
 
     return failures;
@@ -349,7 +405,7 @@ export class HunterFacade {
     const sales = this.form.controls.salesLastTwoMonths.value ?? 0;
     const stock = this.form.controls.amazonStockCount.value ?? 0;
     const rating = this.form.controls.rating.value ?? 0;
-    const criteria = this.criteria();
+    const criteria = this.effectiveCriteria();
 
     const strongSignals = [
       roi >= Math.max(criteria.minRoi + 15, criteria.minRoi * 1.35, 35),
@@ -377,6 +433,14 @@ export class HunterFacade {
         tone: 'neutral' as SummaryTone,
         label: 'Loading rules',
         message: 'Fetching the latest approval settings.',
+      };
+    }
+
+    if (this.isTrainingHunter() && !this.hasAcknowledgedTrainingRules()) {
+      return {
+        tone: 'warning' as SummaryTone,
+        label: 'Training Rules',
+        message: 'Read and acknowledge the hunting rules before submitting products.',
       };
     }
 
@@ -434,8 +498,8 @@ export class HunterFacade {
     if (this.qualityPreview()) {
       return {
         tone: 'success' as SummaryTone,
-        label: 'System Approved',
-        message: 'Current values satisfy the active validation rules.',
+        label: this.validationRuleLabel(),
+        message: `Current values satisfy the ${this.validationRuleLabel().toLowerCase()}.`,
       };
     }
 
@@ -462,13 +526,13 @@ export class HunterFacade {
       detail: this.coreValidationIssues()[0] || 'Core product and marketplace fields are ready.',
     },
     {
-      label: 'Stock and sales rules',
+      label: this.validationRuleLabel(),
       passed:
         this.stockValidationIssues().length === 0 && this.stockSalesRuleFailures().length === 0,
       detail:
         this.stockValidationIssues()[0] ||
         this.stockSalesRuleFailures()[0] ||
-        'Within the current admin thresholds.',
+        `Within the current ${this.validationRuleLabel().toLowerCase()} thresholds.`,
     },
     {
       label: 'Basket and delivery',
@@ -504,6 +568,7 @@ export class HunterFacade {
     this.formVersion();
     return (
       !this.weeklyReviewStatus()?.required &&
+      (!this.isTrainingHunter() || this.hasAcknowledgedTrainingRules()) &&
       this.asinVerified() &&
       !this.asinDuplicate() &&
       !this.saving() &&
@@ -683,6 +748,13 @@ export class HunterFacade {
     this.loadCriteria();
     this.loadCategories();
 
+    effect(
+      () => {
+        this.applyCriteriaValidators(this.effectiveCriteria());
+      },
+      { allowSignalWrites: true, injector: this.injector },
+    );
+
     this.weeklyReviewApi
       .getStatus()
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -710,6 +782,14 @@ export class HunterFacade {
   }
 
   private applyCriteriaValidators(criteria: HuntingCriteria): void {
+    this.form.controls.category.setValidators(
+      criteria.categoryRequired ? [Validators.required] : [],
+    );
+    this.form.controls.amazonAltUrl.setValidators(
+      criteria.amazonAltUrlRequired
+        ? [Validators.required, marketplaceUrlValidator('amazon')]
+        : [marketplaceUrlValidator('amazon')],
+    );
     this.form.controls.customLabel.setValidators(
       criteria.customLabelRequired ? [Validators.required] : [],
     );
@@ -759,7 +839,6 @@ export class HunterFacade {
       .subscribe({
         next: (criteria) => {
           this.criteria.set(criteria);
-          this.applyCriteriaValidators(criteria);
           this.criteriaLoading.set(false);
         },
         error: () => this.criteriaLoading.set(false),
@@ -781,7 +860,7 @@ export class HunterFacade {
     return this.messages.submissionFieldError(
       this.form.controls[field],
       field,
-      this.criteria(),
+      this.effectiveCriteria(),
       true,
     );
   }
@@ -804,7 +883,7 @@ export class HunterFacade {
       this.form.controls.customLabel.value || this.defaultCustomLabel(),
       { emitEvent: false },
     );
-    this.applyCriteriaValidators(this.criteria());
+    this.applyCriteriaValidators(this.effectiveCriteria());
     this.formVersion.update((value) => value + 1);
   }
 
@@ -836,7 +915,7 @@ export class HunterFacade {
       },
       { emitEvent: false },
     );
-    this.applyCriteriaValidators(this.criteria());
+    this.applyCriteriaValidators(this.effectiveCriteria());
     this.form.markAsPristine();
     this.form.markAsUntouched();
   }

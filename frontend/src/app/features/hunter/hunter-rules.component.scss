@@ -2,6 +2,18 @@
   display: block;
 }
 
+.training-banner {
+  display: grid;
+  gap: 16px;
+}
+
+.training-banner__actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 .simple-table__row--two {
   grid-template-columns: minmax(0, 1fr) auto;
 }

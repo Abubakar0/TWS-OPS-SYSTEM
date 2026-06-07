@@ -97,6 +97,48 @@
       <div class="hr-block hr-sidecard">
         <article class="surface-card hr-block">
           <div>
+            <h2>Birthdays & Anniversaries</h2>
+            <p>Celebrate the team and keep upcoming milestones visible.</p>
+          </div>
+
+          <div class="hr-list">
+            @for (item of stats.todaysBirthdays; track item.id) {
+              <div class="hr-list-card">
+                <strong>{{ item.employeeName }}</strong>
+                <small>Birthday today{{ item.department ? (' | ' + item.department) : '' }}</small>
+              </div>
+            }
+            @for (item of stats.upcomingBirthdays; track item.id) {
+              <div class="hr-list-card">
+                <strong>{{ item.employeeName }}</strong>
+                <small>Birthday on {{ item.eventDate | date: 'MMM d' }}</small>
+              </div>
+            }
+            @for (item of stats.todaysWorkAnniversaries; track item.id) {
+              <div class="hr-list-card">
+                <strong>{{ item.employeeName }}</strong>
+                <small>{{ item.years || 0 }} year work anniversary today</small>
+              </div>
+            }
+            @for (item of stats.upcomingWorkAnniversaries; track item.id) {
+              <div class="hr-list-card">
+                <strong>{{ item.employeeName }}</strong>
+                <small>{{ item.years || 0 }} years on {{ item.eventDate | date: 'MMM d' }}</small>
+              </div>
+            }
+            @if (
+              !stats.todaysBirthdays.length &&
+              !stats.upcomingBirthdays.length &&
+              !stats.todaysWorkAnniversaries.length &&
+              !stats.upcomingWorkAnniversaries.length
+            ) {
+              <p class="hr-empty-copy">No birthdays or anniversaries coming up.</p>
+            }
+          </div>
+        </article>
+
+        <article class="surface-card hr-block">
+          <div>
             <h2>Pending Approvals</h2>
             <p>Leaves and expenses waiting for HR action.</p>
           </div>

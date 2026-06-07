@@ -119,6 +119,7 @@ const employeeSelect = `
   e.manager_user_id AS "managerUserId",
   manager.name AS "managerName",
   e.joining_date AS "joiningDate",
+  e.date_of_birth AS "dateOfBirth",
   e.employment_type AS "employmentType",
   e.employment_status AS "employmentStatus",
   e.basic_salary AS "basicSalary",
@@ -133,6 +134,7 @@ const employeeSelect = `
   e.profile_reviewed_by AS "profileReviewedBy",
   profile_reviewer.name AS "profileReviewedByName",
   e.self_edit_requested_at AS "selfEditRequestedAt",
+  e.birthday_popup_shown_year AS "birthdayPopupShownYear",
   e.created_by AS "createdBy",
   e.updated_by AS "updatedBy",
   e.created_at AS "createdAt",
@@ -171,6 +173,7 @@ const ensureHrTables = async () => {
             designation TEXT,
             manager_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
             joining_date DATE,
+            date_of_birth DATE,
             employment_type TEXT NOT NULL DEFAULT 'FULL_TIME',
             employment_status TEXT NOT NULL DEFAULT 'ACTIVE',
             basic_salary NUMERIC(10, 2) NOT NULL DEFAULT 0,
@@ -184,6 +187,7 @@ const ensureHrTables = async () => {
             profile_reviewed_at TIMESTAMPTZ,
             profile_reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL,
             self_edit_requested_at TIMESTAMPTZ,
+            birthday_popup_shown_year INTEGER,
             created_by UUID REFERENCES users(id) ON DELETE SET NULL,
             updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -198,7 +202,9 @@ const ensureHrTables = async () => {
             ADD COLUMN IF NOT EXISTS profile_locked BOOLEAN NOT NULL DEFAULT FALSE,
             ADD COLUMN IF NOT EXISTS profile_reviewed_at TIMESTAMPTZ,
             ADD COLUMN IF NOT EXISTS profile_reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL,
-            ADD COLUMN IF NOT EXISTS self_edit_requested_at TIMESTAMPTZ
+            ADD COLUMN IF NOT EXISTS self_edit_requested_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS date_of_birth DATE,
+            ADD COLUMN IF NOT EXISTS birthday_popup_shown_year INTEGER
         `);
 
         await pool.query(`
@@ -479,6 +485,7 @@ const createEmployee = async (viewer, payload = {}) => {
         designation,
         manager_user_id,
         joining_date,
+        date_of_birth,
         employment_type,
         employment_status,
         basic_salary,
@@ -491,7 +498,7 @@ const createEmployee = async (viewer, payload = {}) => {
       )
       VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-        $11, $12, $13, $14, $15, $16, $17::jsonb, $18, $18
+        $11, $12, $13, $14, $15, $16, $17, $18::jsonb, $19, $19
       )
     `,
     [
@@ -505,6 +512,7 @@ const createEmployee = async (viewer, payload = {}) => {
       toText(payload.designation),
       toText(payload.managerUserId),
       toDate(payload.joiningDate),
+      toDate(payload.dateOfBirth),
       toUpperEnum(payload.employmentType, EMPLOYMENT_TYPES, 'FULL_TIME'),
       toUpperEnum(payload.employmentStatus, EMPLOYMENT_STATUSES, 'ACTIVE'),
       toMoney(payload.basicSalary, 0),
@@ -554,6 +562,7 @@ const updateEmployee = async (viewer, id, payload = {}) => {
   if (payload.designation !== undefined) add('designation', toText(payload.designation));
   if (payload.managerUserId !== undefined) add('manager_user_id', toText(payload.managerUserId));
   if (payload.joiningDate !== undefined) add('joining_date', toDate(payload.joiningDate));
+  if (payload.dateOfBirth !== undefined) add('date_of_birth', toDate(payload.dateOfBirth));
   if (payload.employmentType !== undefined) add('employment_type', toUpperEnum(payload.employmentType, EMPLOYMENT_TYPES, null));
   if (payload.employmentStatus !== undefined) add('employment_status', toUpperEnum(payload.employmentStatus, EMPLOYMENT_STATUSES, null));
   if (payload.basicSalary !== undefined) add('basic_salary', toMoney(payload.basicSalary, 0));
@@ -619,6 +628,7 @@ const updateMyProfile = async (viewer, payload = {}) => {
   if (payload.nationalId !== undefined) add('national_id', toText(payload.nationalId));
   if (payload.address !== undefined) add('address', toText(payload.address));
   if (payload.emergencyContact !== undefined) add('emergency_contact', toText(payload.emergencyContact));
+  if (payload.dateOfBirth !== undefined) add('date_of_birth', toDate(payload.dateOfBirth));
   if (payload.paymentMethod !== undefined) add('payment_method', toText(payload.paymentMethod));
   if (payload.bankDetails !== undefined) add('bank_details', JSON.stringify(payload.bankDetails || {}), '::jsonb');
 
@@ -1712,7 +1722,18 @@ const getHrDashboard = async (viewer, query = {}) => {
   const dateFrom = toDate(query.dateFrom) || new Date().toISOString().slice(0, 10);
   const dateTo = toDate(query.dateTo) || dateFrom;
 
-  const [summary, attendanceTrend, pendingLeaves, pendingExpenses, upcomingLeaves, recentActivity] = await Promise.all([
+  const [
+    summary,
+    attendanceTrend,
+    pendingLeaves,
+    pendingExpenses,
+    upcomingLeaves,
+    todaysBirthdays,
+    upcomingBirthdays,
+    todaysWorkAnniversaries,
+    upcomingWorkAnniversaries,
+    recentActivity,
+  ] = await Promise.all([
     pool.query(
       `
         SELECT
@@ -1781,6 +1802,70 @@ const getHrDashboard = async (viewer, query = {}) => {
     ),
     pool.query(
       `
+        SELECT
+          e.id,
+          u.name AS "employeeName",
+          e.department,
+          e.designation,
+          e.date_of_birth AS "eventDate"
+        FROM employee_profiles e
+        JOIN users u ON u.id = e.user_id
+        WHERE e.date_of_birth IS NOT NULL
+          AND to_char(e.date_of_birth, 'MM-DD') = to_char(CURRENT_DATE, 'MM-DD')
+        ORDER BY u.name
+      `,
+    ),
+    pool.query(
+      `
+        SELECT
+          e.id,
+          u.name AS "employeeName",
+          e.department,
+          e.designation,
+          e.date_of_birth AS "eventDate"
+        FROM employee_profiles e
+        JOIN users u ON u.id = e.user_id
+        WHERE e.date_of_birth IS NOT NULL
+          AND to_char(e.date_of_birth, 'MM-DD') > to_char(CURRENT_DATE, 'MM-DD')
+        ORDER BY to_char(e.date_of_birth, 'MM-DD') ASC, u.name
+        LIMIT 10
+      `,
+    ),
+    pool.query(
+      `
+        SELECT
+          e.id,
+          u.name AS "employeeName",
+          e.department,
+          e.designation,
+          e.joining_date AS "eventDate",
+          EXTRACT(YEAR FROM age(CURRENT_DATE, e.joining_date))::int AS years
+        FROM employee_profiles e
+        JOIN users u ON u.id = e.user_id
+        WHERE e.joining_date IS NOT NULL
+          AND to_char(e.joining_date, 'MM-DD') = to_char(CURRENT_DATE, 'MM-DD')
+        ORDER BY u.name
+      `,
+    ),
+    pool.query(
+      `
+        SELECT
+          e.id,
+          u.name AS "employeeName",
+          e.department,
+          e.designation,
+          e.joining_date AS "eventDate",
+          (EXTRACT(YEAR FROM age(CURRENT_DATE, e.joining_date))::int + 1) AS years
+        FROM employee_profiles e
+        JOIN users u ON u.id = e.user_id
+        WHERE e.joining_date IS NOT NULL
+          AND to_char(e.joining_date, 'MM-DD') > to_char(CURRENT_DATE, 'MM-DD')
+        ORDER BY to_char(e.joining_date, 'MM-DD') ASC, u.name
+        LIMIT 10
+      `,
+    ),
+    pool.query(
+      `
         SELECT id, action, target_type AS "targetType", created_at AS "createdAt", details
         FROM audit_logs
         WHERE action IN (
@@ -1814,6 +1899,10 @@ const getHrDashboard = async (viewer, query = {}) => {
       expenses: pendingExpenses.rows,
     },
     upcomingLeaves: upcomingLeaves.rows,
+    todaysBirthdays: todaysBirthdays.rows,
+    upcomingBirthdays: upcomingBirthdays.rows,
+    todaysWorkAnniversaries: todaysWorkAnniversaries.rows,
+    upcomingWorkAnniversaries: upcomingWorkAnniversaries.rows,
     recentActivity: recentActivity.rows,
   };
 };
@@ -1940,6 +2029,10 @@ const getMyHr = async (viewer) => {
   await ensureHrTables();
   const employee = await requireEmployeeForSelf(viewer);
   const hrSettings = await getHrSettings();
+  const currentYear = new Date().getFullYear();
+  const birthdayToday =
+    employee.dateOfBirth &&
+    employee.dateOfBirth.slice(5, 10) === new Date().toISOString().slice(5, 10);
   const [attendance, leaves, expenses, payroll, warnings] = await Promise.all([
     listAttendance(viewer, { limit: 12 }),
     listLeaves(viewer, { limit: 12 }),
@@ -1956,7 +2049,29 @@ const getMyHr = async (viewer) => {
     expenses: expenses.items,
     warnings: warnings.items,
     allowEmployeeProfileEditing: hrSettings.allowEmployeeProfileEditing,
+    showBirthdayModal:
+      Boolean(birthdayToday) && employee.birthdayPopupShownYear !== currentYear,
+    birthdayMessageYear: birthdayToday ? currentYear : null,
   };
+};
+
+const markBirthdayPopupShown = async (viewer) => {
+  await ensureHrTables();
+  const employee = await requireEmployeeForSelf(viewer);
+  const currentYear = new Date().getFullYear();
+
+  await pool.query(
+    `
+      UPDATE employee_profiles
+      SET birthday_popup_shown_year = $1,
+          updated_by = $2,
+          updated_at = NOW()
+      WHERE id = $3
+    `,
+    [currentYear, viewer.id, employee.id],
+  );
+
+  return getMyHr(viewer);
 };
 
 module.exports = {
@@ -2004,4 +2119,5 @@ module.exports = {
   getExpenseReport,
   getPerformanceReport,
   getMyHr,
+  markBirthdayPopupShown,
 };

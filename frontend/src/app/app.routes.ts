@@ -4,6 +4,7 @@ import {
   dashboardRedirectGuard,
   permissionGuard,
   roleGuard,
+  trainingHunterGuard,
 } from './core/guards/auth.guard';
 
 export const routes: Routes = [
@@ -39,7 +40,7 @@ export const routes: Routes = [
       },
       {
         path: 'hunter',
-        canActivate: [roleGuard],
+        canActivate: [roleGuard, trainingHunterGuard],
         data: { roles: ['hunter', 'admin'] },
         children: [
           {
@@ -49,6 +50,8 @@ export const routes: Routes = [
           },
           {
             path: 'dashboard',
+            canActivate: [trainingHunterGuard],
+            data: { allowTraining: false },
             loadComponent: () =>
               import('./features/hunter/hunter-dashboard.component').then(
                 (m) => m.HunterDashboardComponent,
@@ -56,6 +59,8 @@ export const routes: Routes = [
           },
           {
             path: 'submission',
+            canActivate: [trainingHunterGuard],
+            data: { allowTraining: true },
             loadComponent: () =>
               import('./features/hunter/hunter-submission.component').then(
                 (m) => m.HunterSubmissionComponent,
@@ -63,13 +68,26 @@ export const routes: Routes = [
           },
           {
             path: 'products',
+            canActivate: [trainingHunterGuard],
+            data: { allowTraining: true },
             loadComponent: () =>
               import('./features/hunter/hunter-products.component').then(
                 (m) => m.HunterProductsComponent,
               ),
           },
           {
+            path: 'training-progress',
+            canActivate: [trainingHunterGuard],
+            data: { allowTraining: true },
+            loadComponent: () =>
+              import('./features/hunter/hunter-training-progress.component').then(
+                (m) => m.HunterTrainingProgressComponent,
+              ),
+          },
+          {
             path: 'orders',
+            canActivate: [trainingHunterGuard],
+            data: { allowTraining: false },
             loadComponent: () =>
               import('./features/orders/hunter-orders.component').then(
                 (m) => m.HunterOrdersComponent,
@@ -77,6 +95,8 @@ export const routes: Routes = [
           },
           {
             path: 'order-issues',
+            canActivate: [trainingHunterGuard],
+            data: { allowTraining: false },
             loadComponent: () =>
               import('./features/hunter/hunter-order-issues.component').then(
                 (m) => m.HunterOrderIssuesComponent,
@@ -84,6 +104,8 @@ export const routes: Routes = [
           },
           {
             path: 'changes',
+            canActivate: [trainingHunterGuard],
+            data: { allowTraining: false },
             loadComponent: () =>
               import('./features/hunter/hunter-changes.component').then(
                 (m) => m.HunterChangesComponent,
@@ -91,6 +113,8 @@ export const routes: Routes = [
           },
           {
             path: 'review',
+            canActivate: [trainingHunterGuard],
+            data: { allowTraining: false },
             loadComponent: () =>
               import('./features/hunter/hunter-review.component').then(
                 (m) => m.HunterReviewComponent,
@@ -98,6 +122,8 @@ export const routes: Routes = [
           },
           {
             path: 'rules',
+            canActivate: [trainingHunterGuard],
+            data: { allowTraining: true },
             loadComponent: () =>
               import('./features/hunter/hunter-rules.component').then(
                 (m) => m.HunterRulesComponent,
@@ -150,6 +176,18 @@ export const routes: Routes = [
                 (m) => m.ListerAccountUsageComponent,
               ),
           },
+          {
+            path: 'listing-reviews',
+            loadComponent: () =>
+              import('./features/products/listing-review-queue.component').then(
+                (m) => m.ListingReviewQueueComponent,
+              ),
+            data: {
+              reviewScope: 'lister',
+              title: 'Listing Review Queue',
+              subtitle: 'Approve or reject listed products that still need final review.',
+            },
+          },
         ],
       },
       {
@@ -187,6 +225,18 @@ export const routes: Routes = [
               import('./features/admin/admin-products.component').then(
                 (m) => m.AdminProductsComponent,
               ),
+          },
+          {
+            path: 'listing-reviews',
+            loadComponent: () =>
+              import('./features/products/listing-review-queue.component').then(
+                (m) => m.ListingReviewQueueComponent,
+              ),
+            data: {
+              reviewScope: 'admin',
+              title: 'Listing Reviews',
+              subtitle: 'Review listed products before they become final listed records.',
+            },
           },
           {
             path: 'orders',
@@ -360,6 +410,18 @@ export const routes: Routes = [
               ),
           },
           {
+            path: 'listing-reviews',
+            loadComponent: () =>
+              import('./features/products/listing-review-queue.component').then(
+                (m) => m.ListingReviewQueueComponent,
+              ),
+            data: {
+              reviewScope: 'superadmin',
+              title: 'Listing Reviews',
+              subtitle: 'Review and control self-listed products across the whole workspace.',
+            },
+          },
+          {
             path: 'reports',
             loadComponent: () =>
               import('./features/reports/reports-hub.component').then(
@@ -380,6 +442,13 @@ export const routes: Routes = [
             loadComponent: () =>
               import('./features/orders/superadmin-orders.component').then(
                 (m) => m.SuperAdminOrdersComponent,
+              ),
+          },
+          {
+            path: 'product-transfers',
+            loadComponent: () =>
+              import('./features/superadmin/superadmin-product-transfers.component').then(
+                (m) => m.SuperadminProductTransfersComponent,
               ),
           },
           {

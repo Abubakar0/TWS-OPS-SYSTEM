@@ -19,6 +19,11 @@ router.get(
   asyncHandler(usersController.getPermissionsMatrix),
 );
 router.get('/assignments', requireRoles('admin', 'super_admin'), asyncHandler(usersController.listAssignments));
+router.post(
+  '/me/hunter-training/acknowledge',
+  requireRoles('hunter'),
+  asyncHandler(usersController.acknowledgeTrainingRules),
+);
 router.get('/', requireRoles('admin', 'super_admin'), asyncHandler(usersController.listUsers));
 router.get('/:id/details', requireRoles('admin', 'super_admin'), asyncHandler(usersController.getUserDetails));
 router.post(

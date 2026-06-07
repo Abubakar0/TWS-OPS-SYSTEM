@@ -2,7 +2,7 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 
 import { AuthService } from '../auth/auth.service';
-import { UserPermissionKey, UserRole } from '../models/auth.models';
+import { UserPermissionKey, UserRole, isTrainingHunterUser, userHasAnyRole } from '../models/auth.models';
 
 const createLoginRedirect = (router: Router, returnUrl: string) =>
   {
@@ -72,4 +72,29 @@ export const permissionGuard: CanActivateFn = (route, state) => {
   }
 
   return router.createUrlTree([auth.homeForRole(auth.currentUser()?.role)]);
+};
+
+export const trainingHunterGuard: CanActivateFn = (route, state) => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  const user = auth.currentUser();
+  const allowTraining = route.data['allowTraining'] !== false;
+
+  if (!auth.hasActiveSession()) {
+    return createLoginRedirect(router, state.url);
+  }
+
+  if (!isTrainingHunterUser(user) || userHasAnyRole(user, ['admin', 'super_admin'])) {
+    return true;
+  }
+
+  if (state.url.startsWith('/hunter/submission') && !user?.trainingRulesAcknowledgedAt) {
+    return router.createUrlTree(['/hunter/rules']);
+  }
+
+  if (allowTraining) {
+    return true;
+  }
+
+  return router.createUrlTree(['/hunter/rules']);
 };

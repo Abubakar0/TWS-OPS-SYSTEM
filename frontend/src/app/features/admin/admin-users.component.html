@@ -246,6 +246,41 @@
           }
         </div>
 
+        @if (facade.hunterRoleSelected()) {
+          <div class="field-span-2 form-section">
+            <div class="form-section__header">
+              <strong>Hunter training</strong>
+              <p>Set the hunter lifecycle state, optional mentor, and any manual training extension.</p>
+            </div>
+
+            <div class="form-grid">
+              <app-searchable-select
+                class="field-span-2"
+                label="Hunter status"
+                [formControl]="facade.userForm.controls.hunterStatus"
+                [options]="[
+                  { value: 'TRAINING', label: 'Training' },
+                  { value: 'ACTIVE', label: 'Active' },
+                  { value: 'REJECTED', label: 'Rejected' }
+                ]"
+              />
+
+              <app-searchable-select
+                class="field-span-2"
+                label="Mentor lister"
+                [formControl]="facade.userForm.controls.mentorListerId"
+                [options]="facade.mentorListerOptions()"
+              />
+
+              <mat-form-field appearance="outline" class="field-span-2">
+                <mat-label>Training extended until</mat-label>
+                <input matInput type="date" formControlName="trainingExtendedUntil" />
+                <mat-hint>Optional manual extension date.</mat-hint>
+              </mat-form-field>
+            </div>
+          </div>
+        }
+
         <label class="toggle-row field-span-2">
           <mat-checkbox formControlName="isActive">Allow sign-in</mat-checkbox>
         </label>

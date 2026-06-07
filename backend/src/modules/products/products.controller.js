@@ -41,6 +41,29 @@ const markProductsListed = async (req, res) => {
   res.json({ products });
 };
 
+const approveListingReview = async (req, res) => {
+  const product = await productsService.approveListingReview(req.user, req.params.id);
+  res.json({ product });
+};
+
+const rejectListingReview = async (req, res) => {
+  const product = await productsService.rejectListingReview(req.user, req.params.id, req.body);
+  res.json({ product });
+};
+
+const getOwnershipTransferSummary = async (req, res) => {
+  const result = await productsService.getOwnershipTransferSummary(
+    req.user,
+    req.params.hunterId,
+  );
+  res.json(result);
+};
+
+const transferProductOwnership = async (req, res) => {
+  const result = await productsService.transferProductOwnership(req.user, req.body);
+  res.json(result);
+};
+
 const rejectProduct = async (req, res) => {
   const product = await productsService.rejectProduct(req.user, req.params.id, req.body);
   res.json({ product });
@@ -74,6 +97,10 @@ module.exports = {
   checkAsinAvailability,
   listAssignedHunters,
   markProductsListed,
+  approveListingReview,
+  rejectListingReview,
+  getOwnershipTransferSummary,
+  transferProductOwnership,
   rejectProduct,
   softDeleteProducts,
   bulkUpdateProducts,

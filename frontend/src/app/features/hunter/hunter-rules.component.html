@@ -2,18 +2,25 @@
   <article class="surface-card">
     <div class="surface-card__header">
       <div>
-        <h1>Hunting Rules</h1>
-        <p>Everything a hunter should check before sending a product into the listing workflow.</p>
+        <h1>{{ pageTitle() }}</h1>
+        <p>{{ pageDescription() }}</p>
       </div>
       <div class="page-actions">
-        <a mat-stroked-button routerLink="/hunter/review">
-          <mat-icon>assignment_turned_in</mat-icon>
-          <span>Weekly Review</span>
-        </a>
-        <a mat-flat-button color="primary" routerLink="/hunter/changes">
-          <mat-icon>swap_horiz</mat-icon>
-          <span>Changed Product Requests</span>
-        </a>
+        @if (!isTrainingHunter()) {
+          <a mat-stroked-button routerLink="/hunter/review">
+            <mat-icon>assignment_turned_in</mat-icon>
+            <span>Weekly Review</span>
+          </a>
+          <a mat-flat-button color="primary" routerLink="/hunter/changes">
+            <mat-icon>swap_horiz</mat-icon>
+            <span>Changed Product Requests</span>
+          </a>
+        } @else if (hasAcknowledgedRules()) {
+          <a mat-flat-button color="primary" routerLink="/hunter/submission">
+            <mat-icon>playlist_add</mat-icon>
+            <span>Go to Product Submission</span>
+          </a>
+        }
       </div>
     </div>
   </article>
@@ -29,6 +36,39 @@
     </article>
   } @else {
     <section class="section-grid">
+      @if (isTrainingHunter()) {
+        <article class="surface-card training-banner">
+          <div>
+            <h2>Training acknowledgment</h2>
+            <p>
+              Read the guide, confirm you understand the rules, and then start submitting training
+              products.
+            </p>
+          </div>
+
+          <div class="training-banner__actions">
+            @if (hasAcknowledgedRules()) {
+              <span class="status-badge status-badge--success">Rules acknowledged</span>
+              <a mat-flat-button color="primary" routerLink="/hunter/submission">
+                <mat-icon>playlist_add</mat-icon>
+                <span>Open Product Submission</span>
+              </a>
+            } @else {
+              <button
+                mat-flat-button
+                color="primary"
+                type="button"
+                (click)="acknowledgeRules()"
+                [disabled]="acknowledging()"
+              >
+                <mat-icon>task_alt</mat-icon>
+                <span>{{ acknowledging() ? 'Saving' : 'I have read and understood the rules' }}</span>
+              </button>
+            }
+          </div>
+        </article>
+      }
+
       <article class="surface-card">
         <div class="surface-card__header">
           <div>
@@ -52,7 +92,10 @@
         <div class="surface-card__header">
           <div>
             <h2>Live criteria</h2>
-            <p>These values come from the current admin settings.</p>
+            <p>
+              These values come from the current
+              {{ isTrainingHunter() ? 'training hunter' : 'active hunter' }} settings.
+            </p>
           </div>
         </div>
 
