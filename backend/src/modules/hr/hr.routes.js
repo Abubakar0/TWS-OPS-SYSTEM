@@ -9,11 +9,13 @@ router.use(authenticate);
 
 router.get('/dashboard', requireRoles('admin', 'hr', 'super_admin'), asyncHandler(controller.getDashboard));
 router.get('/me', asyncHandler(controller.getMyHr));
+router.patch('/me/profile', asyncHandler(controller.updateMyProfile));
 
 router.get('/employees', requireRoles('admin', 'hr', 'super_admin'), asyncHandler(controller.listEmployees));
 router.post('/employees', requireRoles('admin', 'hr', 'super_admin'), asyncHandler(controller.createEmployee));
 router.get('/employees/:id', asyncHandler(controller.getEmployee));
 router.patch('/employees/:id', requireRoles('admin', 'hr', 'super_admin'), asyncHandler(controller.updateEmployee));
+router.patch('/employees/:id/profile-review', requireRoles('admin', 'hr', 'super_admin'), asyncHandler(controller.reviewEmployeeProfile));
 
 router.get('/attendance', asyncHandler(controller.listAttendance));
 router.post('/attendance', requireRoles('admin', 'hr', 'super_admin'), asyncHandler(controller.createAttendance));

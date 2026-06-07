@@ -102,6 +102,17 @@
   background: rgba(248, 250, 252, 0.85);
 }
 
+.detail-row--actions .link-actions {
+  margin-top: 8px;
+}
+
+.link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
 .action-stack {
   display: grid;
   gap: 12px;

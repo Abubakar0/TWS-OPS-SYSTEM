@@ -182,6 +182,33 @@ const getAssignedListerId = async (hunterId) => {
   return result.rows[0]?.lister_id || null;
 };
 
+const EDITABLE_PRODUCT_FIELDS = [
+  "title",
+  "category",
+  "amazonUrl",
+  "amazonAltUrl",
+  "ebayUrl",
+  "customLabel",
+  "amazonStockCount",
+  "alternateAmazonStockCount",
+  "soldCount",
+  "rating",
+  "productWatchers",
+  "salesLastTwoMonths",
+  "basketCount",
+  "amazonPrice",
+  "ebayPrice",
+  "deliveryDays",
+  "monthlyGraphUptrend",
+];
+
+const buildEditableProductPayload = (payload = {}) =>
+  Object.fromEntries(
+    EDITABLE_PRODUCT_FIELDS.filter((field) =>
+      Object.prototype.hasOwnProperty.call(payload, field),
+    ).map((field) => [field, payload[field]]),
+  );
+
 const buildQualitySql = (criteria) => {
   const excellentRoi = Math.max(
     criteria.minRoi + 15,
@@ -555,6 +582,151 @@ const createProduct = async (user, payload) => {
   return product;
 };
 
+const updateProduct = async (user, id, payload = {}) => {
+  await ensureProductColumns();
+  const product = await getProductById(user, id);
+
+  if (product.deletedAt) {
+    throw new AppError("Deleted products cannot be edited.", 400);
+  }
+
+  if (user.role === "hunter" && product.status === "listed") {
+    throw new AppError(
+      "Listed products can no longer be edited by hunters.",
+      403,
+    );
+  }
+
+  const editablePayload = buildEditableProductPayload(payload);
+
+  if (!Object.keys(editablePayload).length) {
+    throw new AppError("No editable product fields were provided.", 400);
+  }
+
+  const normalizedExisting = normalizeProductPayload({
+    title: product.title,
+    category: product.category,
+    asin: product.asin,
+    amazonUrl: product.amazonUrl,
+    amazonAltUrl: product.amazonAltUrl,
+    ebayUrl: product.ebayUrl,
+    customLabel: product.customLabel,
+    amazonPrice: product.amazonPrice,
+    ebayPrice: product.ebayPrice,
+    amazonStockCount: product.amazonStockCount ?? product.stockQuantity,
+    alternateAmazonStockCount: product.alternateAmazonStockCount,
+    soldCount: product.soldCount,
+    rating: product.rating,
+    productWatchers: product.productWatchers,
+    salesLastTwoMonths: product.salesLastTwoMonths,
+    basketCount: product.basketCount,
+    deliveryDays: product.deliveryDays,
+    monthlyGraphUptrend: product.monthlyGraphUptrend,
+  });
+  const normalizedIncoming = normalizeProductPayload(editablePayload);
+  const nextInput = { ...normalizedExisting };
+
+  for (const field of EDITABLE_PRODUCT_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(editablePayload, field)) {
+      nextInput[field] = normalizedIncoming[field];
+    }
+  }
+
+  const criteria = await getCriteria();
+  const analysis = analyzeProduct(nextInput, criteria, {
+    hasDuplicateAsin: false,
+  });
+  const nextStatus =
+    product.status === "listed"
+      ? "listed"
+      : analysis.status === "approved" && product.assignedListerId
+        ? "assigned"
+        : analysis.status;
+  const nextRejectionReason =
+    nextStatus === "rejected"
+      ? analysis.primaryFailure || analysis.rejectionReason || null
+      : null;
+
+  await pool.query(
+    `
+      UPDATE products
+      SET title = $2,
+          category = $3,
+          amazon_url = $4,
+          amazon_alt_url = $5,
+          ebay_url = $6,
+          custom_label = $7,
+          amazon_price = $8,
+          ebay_price = $9,
+          sold_count = $10,
+          stock_quantity = $11,
+          alternate_stock_quantity = $12,
+          rating = $13,
+          product_watchers = $14,
+          sales_last_two_months = $15,
+          basket_count = $16,
+          delivery_days = $17,
+          monthly_graph_uptrend = $18,
+          fees = $19,
+          profit = $20,
+          roi = $21,
+          status = $22,
+          rejection_reason = $23,
+          validation_notes = $24::jsonb,
+          updated_at = NOW()
+      WHERE id = $1
+    `,
+    [
+      id,
+      nextInput.title || null,
+      nextInput.category || null,
+      nextInput.amazonUrl,
+      nextInput.amazonAltUrl || null,
+      nextInput.ebayUrl,
+      nextInput.customLabel || null,
+      nextInput.amazonPrice,
+      nextInput.ebayPrice,
+      nextInput.soldCount,
+      nextInput.amazonStockCount,
+      nextInput.alternateAmazonStockCount,
+      nextInput.rating,
+      nextInput.productWatchers,
+      nextInput.salesLastTwoMonths,
+      nextInput.basketCount,
+      nextInput.deliveryDays,
+      nextInput.monthlyGraphUptrend,
+      analysis.fees,
+      analysis.profit,
+      analysis.roi,
+      nextStatus,
+      nextRejectionReason,
+      JSON.stringify(analysis.validationNotes),
+    ],
+  );
+
+  const updatedProduct = await getProductById(user, id);
+  const action =
+    user.role === "hunter"
+      ? "PRODUCT_UPDATED_BY_HUNTER"
+      : "PRODUCT_EDITED_BY_ADMIN";
+
+  await writeAuditLog({
+    actorUserId: user.id,
+    action,
+    targetType: "product",
+    targetId: updatedProduct.id,
+    details: {
+      status: updatedProduct.status,
+      asin: updatedProduct.asin,
+      title: updatedProduct.title,
+      category: updatedProduct.category,
+      qualityLabel: updatedProduct.qualityLabel || null,
+    },
+  });
+
+  return updatedProduct;
+};
+
 const listAssignedHunters = async (user) => {
   const defaultLimit = await getConfiguredLimit("hunters");
   const pageRequest = normalizePageRequest(
@@ -820,7 +992,10 @@ const rejectProduct = async (user, id, payload = {}) => {
 
   await writeAuditLog({
     actorUserId: user.id,
-    action: "product.rejected",
+    action:
+      user.role === "admin" || user.role === "super_admin"
+        ? "PRODUCT_REJECTED_BY_ADMIN"
+        : "product.rejected",
     targetType: "product",
     targetId: product.id,
     details: {
@@ -1054,6 +1229,7 @@ const restoreProduct = async (user, id) => {
 
 module.exports = {
   createProduct,
+  updateProduct,
   listProducts,
   getProductById,
   checkAsinAvailability,

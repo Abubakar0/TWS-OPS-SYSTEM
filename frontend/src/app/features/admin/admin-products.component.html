@@ -49,75 +49,47 @@
           <input matInput formControlName="search" autocomplete="off" />
         </mat-form-field>
 
-        <mat-form-field appearance="outline">
-          <mat-label>Hunter</mat-label>
-          <mat-select formControlName="hunterId">
-            <mat-option value="">All hunters</mat-option>
-            @for (hunter of facade.availableHunters(); track hunter.id) {
-              <mat-option [value]="hunter.id">{{ hunter.name }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        <app-searchable-select
+          label="Hunter"
+          [formControl]="facade.filters.controls.hunterId"
+          [options]="facade.availableHunterOptions()"
+        />
 
-        <mat-form-field appearance="outline">
-          <mat-label>Lister</mat-label>
-          <mat-select formControlName="listerId">
-            <mat-option value="">All listers</mat-option>
-            @for (lister of facade.availableListers(); track lister.id) {
-              <mat-option [value]="lister.id">{{ lister.name }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        <app-searchable-select
+          label="Lister"
+          [formControl]="facade.filters.controls.listerId"
+          [options]="facade.availableListerOptions()"
+        />
 
-        <mat-form-field appearance="outline">
-          <mat-label>Account</mat-label>
-          <mat-select formControlName="accountId">
-            <mat-option value="">All accounts</mat-option>
-            @for (account of facade.availableAccounts(); track account.id) {
-              <mat-option [value]="account.id">{{ account.name }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        <app-searchable-select
+          label="Account"
+          [formControl]="facade.filters.controls.accountId"
+          [options]="facade.availableAccountOptions()"
+        />
 
-        <mat-form-field appearance="outline">
-          <mat-label>Category</mat-label>
-          <mat-select formControlName="category">
-            <mat-option value="">All categories</mat-option>
-            @for (category of facade.availableCategories(); track category.id) {
-              <mat-option [value]="category.name">{{ category.name }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        <app-searchable-select
+          label="Category"
+          [formControl]="facade.filters.controls.category"
+          [options]="facade.availableCategoryOptions()"
+        />
 
-        <mat-form-field appearance="outline">
-          <mat-label>Status</mat-label>
-          <mat-select formControlName="status">
-            <mat-option value="">All statuses</mat-option>
-            <mat-option value="approved">Approved</mat-option>
-            <mat-option value="assigned">Assigned</mat-option>
-            <mat-option value="listed">Listed</mat-option>
-            <mat-option value="rejected">Rejected</mat-option>
-          </mat-select>
-        </mat-form-field>
+        <app-searchable-select
+          label="Status"
+          [formControl]="facade.filters.controls.status"
+          [options]="facade.statusOptions"
+        />
 
-        <mat-form-field appearance="outline">
-          <mat-label>Quality</mat-label>
-          <mat-select formControlName="quality">
-            <mat-option value="">All quality</mat-option>
-            @for (quality of facade.qualityOptions; track quality) {
-              <mat-option [value]="quality">{{ quality }}</mat-option>
-            }
-          </mat-select>
-        </mat-form-field>
+        <app-searchable-select
+          label="Quality"
+          [formControl]="facade.filters.controls.quality"
+          [options]="facade.qualityFilterOptions"
+        />
 
-        <mat-form-field appearance="outline">
-          <mat-label>Deleted state</mat-label>
-          <mat-select formControlName="deletedState">
-            <mat-option value="active">Active only</mat-option>
-            <mat-option value="deleted">Deleted only</mat-option>
-            <mat-option value="all">All products</mat-option>
-          </mat-select>
-        </mat-form-field>
+        <app-searchable-select
+          label="Deleted state"
+          [formControl]="facade.filters.controls.deletedState"
+          [options]="facade.deletedStateOptions"
+        />
 
         <mat-form-field appearance="outline">
           <mat-label>From date</mat-label>
@@ -200,10 +172,10 @@
             (change)="facade.toggleSelectAll($event.checked)"
           />
           <span>Product</span>
-          <span>Hunter</span>
-          <span>Assigned Lister</span>
-          <span>Created</span>
-          <span>Listed</span>
+          <span>Workflow</span>
+          <span>Pricing</span>
+          <span>Signals</span>
+          <span>Dates</span>
           <span>Actions</span>
         </div>
 
@@ -217,30 +189,66 @@
               <strong [attr.title]="product.title || product.asin || 'Untitled product'">{{
                 product.title || product.asin || 'Untitled product'
               }}</strong>
-              <small>{{ product.asin || 'No ASIN' }}</small>
+              <small>ASIN {{ product.asin || 'Not Assigned' }}</small>
               <small>{{ product.category || 'Not Assigned' }}</small>
+              <div class="product-links">
+                @if (product.amazonUrl) {
+                  <a class="status-badge" [href]="product.amazonUrl" target="_blank" rel="noopener">Amazon</a>
+                }
+                @if (product.amazonAltUrl) {
+                  <a class="status-badge" [href]="product.amazonAltUrl" target="_blank" rel="noopener">Amazon Alt</a>
+                }
+                @if (product.ebayUrl) {
+                  <a class="status-badge" [href]="product.ebayUrl" target="_blank" rel="noopener">Source eBay</a>
+                }
+                @if (product.listingUrl) {
+                  <a class="status-badge" [href]="product.listingUrl" target="_blank" rel="noopener">Listed eBay</a>
+                }
+              </div>
             </div>
             <div class="product-cell">
-              <span>{{ product.hunterName }}</span>
-              <span class="status-badge">{{ product.qualityLabel || 'Not Assigned' }}</span>
+              <strong>{{ product.hunterName }}</strong>
+              <small>Lister {{ product.assignedListerName || 'Not Assigned' }}</small>
+              <small>Account {{ product.accountName || 'Not Assigned' }}</small>
+              <div class="product-badges">
+                <span class="status-badge">{{ product.status }}</span>
+                <span class="status-badge">{{ product.qualityLabel || 'Not Assigned' }}</span>
+              </div>
             </div>
             <div class="product-cell">
-              <span>{{ product.assignedListerName || 'Not Assigned' }}</span
-              >
-              <span class="status-badge">{{ product.status }}</span>
+              <strong>${{ product.profit | number: '1.2-2' }}</strong>
+              <small>ROI {{ product.roi | number: '1.2-2' }}%</small>
+              <small>Amazon ${{ product.amazonPrice ?? 0 | number: '1.2-2' }} | eBay ${{ product.ebayPrice ?? 0 | number: '1.2-2' }}</small>
             </div>
-            <span>{{ product.createdAt | date: 'MMM d, y' }}</span>
-            <span>{{
-              product.listedAt ? (product.listedAt | date: 'MMM d, y') : 'Not Listed'
-            }}</span>
+            <div class="product-cell">
+              <strong>Rating {{ product.rating ?? '0.0' }}</strong>
+              <small>Sold {{ product.soldCount || 0 }} | Stock {{ product.amazonStockCount ?? product.stockQuantity ?? 0 }}</small>
+              <small>Watchers {{ product.productWatchers ?? 0 }} | Sales {{ product.salesLastTwoMonths ?? 0 }}</small>
+            </div>
+            <div class="product-cell">
+              <strong>Created {{ product.createdAt | date: 'MMM d, y' }}</strong>
+              <small>Listed {{ product.listedAt ? (product.listedAt | date: 'MMM d, y') : 'Not Listed' }}</small>
+              <small>{{ product.deletedAt ? 'Deleted' : 'Active' }}</small>
+            </div>
             <div class="row-actions">
-              <button mat-icon-button type="button" (click)="facade.openDetail(product)">
+              <button mat-icon-button type="button" (click)="facade.openDetail(product)" matTooltip="View details">
                 <mat-icon>visibility</mat-icon>
               </button>
+              @if (facade.canEditProducts()) {
+                <button mat-icon-button type="button" (click)="facade.openEditModal(product)" matTooltip="Edit product">
+                  <mat-icon>edit</mat-icon>
+                </button>
+              }
+              @if (facade.canRejectProducts() && product.status !== 'rejected') {
+                <button mat-icon-button type="button" (click)="facade.openRejectModal(product)" matTooltip="Reject product">
+                  <mat-icon>block</mat-icon>
+                </button>
+              }
               <button
                 mat-icon-button
                 type="button"
                 (click)="facade.openDeleteModal('soft', [product.id])"
+                matTooltip="Soft delete"
               >
                 <mat-icon>delete_outline</mat-icon>
               </button>
@@ -248,6 +256,7 @@
                 mat-icon-button
                 type="button"
                 (click)="facade.openDeleteModal('permanent', [product.id])"
+                matTooltip="Permanent delete"
               >
                 <mat-icon>delete_forever</mat-icon>
               </button>
@@ -314,6 +323,9 @@
             <span>Hunter</span><strong>{{ product.hunterName }}</strong>
           </div>
           <div>
+            <span>ASIN</span><strong>{{ product.asin || 'Not Assigned' }}</strong>
+          </div>
+          <div>
             <span>Category</span><strong>{{ product.category || 'Not Assigned' }}</strong>
           </div>
           <div>
@@ -341,7 +353,171 @@
           <div>
             <span>Delete reason</span><strong>{{ product.deleteReason || 'None' }}</strong>
           </div>
+          <div>
+            <span>Rating</span><strong>{{ product.rating ?? '0.0' }}</strong>
+          </div>
+          <div>
+            <span>Sold Count</span><strong>{{ product.soldCount || 0 }}</strong>
+          </div>
+          <div>
+            <span>Stock Count</span><strong>{{ product.amazonStockCount ?? product.stockQuantity ?? 0 }}</strong>
+          </div>
+          <div>
+            <span>Watchers</span><strong>{{ product.productWatchers ?? 0 }}</strong>
+          </div>
+          <div>
+            <span>Profit</span><strong>${{ product.profit | number: '1.2-2' }}</strong>
+          </div>
+          <div>
+            <span>ROI</span><strong>{{ product.roi | number: '1.2-2' }}%</strong>
+          </div>
+          <div>
+            <span>Amazon Price</span><strong>${{ product.amazonPrice ?? 0 | number: '1.2-2' }}</strong>
+          </div>
+          <div>
+            <span>eBay Price</span><strong>${{ product.ebayPrice ?? 0 | number: '1.2-2' }}</strong>
+          </div>
         </div>
+
+        <div class="detail-links">
+          @if (product.amazonUrl) {
+            <a mat-stroked-button [href]="product.amazonUrl" target="_blank" rel="noopener">Amazon Link</a>
+          }
+          @if (product.amazonAltUrl) {
+            <a mat-stroked-button [href]="product.amazonAltUrl" target="_blank" rel="noopener">Amazon Alternate Link</a>
+          }
+          @if (product.ebayUrl) {
+            <a mat-stroked-button [href]="product.ebayUrl" target="_blank" rel="noopener">Source eBay Link</a>
+          }
+          @if (product.listingUrl) {
+            <a mat-stroked-button [href]="product.listingUrl" target="_blank" rel="noopener">Listed eBay Link</a>
+          }
+        </div>
+      </section>
+    </div>
+  }
+
+  @if (facade.editModalOpen()) {
+    <div class="app-modal-backdrop" (click)="facade.closeEditModal()">
+      <section class="app-modal bulk-edit-modal" (click)="$event.stopPropagation()">
+        <div class="app-modal__header">
+          <div>
+            <h2>Edit product</h2>
+            <p>Update sourcing links, economics, and quality signals for this product.</p>
+          </div>
+          <button mat-icon-button type="button" (click)="facade.closeEditModal()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <form [formGroup]="facade.editForm" class="action-stack" (ngSubmit)="facade.confirmEdit()">
+          <div class="bulk-edit-grid">
+            <mat-form-field appearance="outline" class="bulk-edit-grid__wide">
+              <mat-label>Product title</mat-label>
+              <input matInput formControlName="title" autocomplete="off" />
+            </mat-form-field>
+            <app-searchable-select label="Category" [formControl]="facade.editForm.controls.category" [options]="facade.availableCategoryOptions()" />
+            <mat-form-field appearance="outline">
+              <mat-label>Custom label</mat-label>
+              <input matInput formControlName="customLabel" autocomplete="off" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Amazon link</mat-label>
+              <input matInput formControlName="amazonUrl" autocomplete="off" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Amazon alternate link</mat-label>
+              <input matInput formControlName="amazonAltUrl" autocomplete="off" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="bulk-edit-grid__wide">
+              <mat-label>Source eBay link</mat-label>
+              <input matInput formControlName="ebayUrl" autocomplete="off" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Amazon price</mat-label>
+              <input matInput type="number" formControlName="amazonPrice" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>eBay price</mat-label>
+              <input matInput type="number" formControlName="ebayPrice" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Stock count</mat-label>
+              <input matInput type="number" formControlName="amazonStockCount" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Alternate stock count</mat-label>
+              <input matInput type="number" formControlName="alternateAmazonStockCount" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Sold count</mat-label>
+              <input matInput type="number" formControlName="soldCount" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Rating</mat-label>
+              <input matInput type="number" formControlName="rating" step="0.1" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Watchers</mat-label>
+              <input matInput type="number" formControlName="productWatchers" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Sales last 2 months</mat-label>
+              <input matInput type="number" formControlName="salesLastTwoMonths" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Basket count</mat-label>
+              <input matInput type="number" formControlName="basketCount" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Delivery days</mat-label>
+              <input matInput type="number" formControlName="deliveryDays" />
+            </mat-form-field>
+            <mat-checkbox formControlName="monthlyGraphUptrend">1-month graph trending up</mat-checkbox>
+          </div>
+
+          <div class="modal-actions">
+            <button mat-stroked-button type="button" (click)="facade.closeEditModal()">Cancel</button>
+            <button mat-flat-button color="primary" type="submit" [disabled]="facade.bulkEditing() || facade.editForm.invalid">
+              <mat-icon>save</mat-icon>
+              <span>{{ facade.bulkEditing() ? 'Saving' : 'Save Product' }}</span>
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  }
+
+  @if (facade.rejectModalOpen()) {
+    <div class="app-modal-backdrop" (click)="facade.closeRejectModal()">
+      <section class="app-modal delete-modal" (click)="$event.stopPropagation()">
+        <div class="app-modal__header">
+          <div>
+            <h2>Reject product</h2>
+            <p>Enter the rejection reason that should be shown to operations.</p>
+          </div>
+          <button mat-icon-button type="button" (click)="facade.closeRejectModal()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <form [formGroup]="facade.rejectForm" class="action-stack" (ngSubmit)="facade.confirmReject()">
+          <mat-form-field appearance="outline">
+            <mat-label>Rejection reason</mat-label>
+            <textarea matInput rows="4" formControlName="reason"></textarea>
+            @if (facade.rejectForm.controls.reason.touched && facade.rejectForm.controls.reason.invalid) {
+              <mat-error>Enter at least 3 characters.</mat-error>
+            }
+          </mat-form-field>
+
+          <div class="modal-actions">
+            <button mat-stroked-button type="button" (click)="facade.closeRejectModal()">Cancel</button>
+            <button mat-flat-button color="warn" type="submit" [disabled]="facade.deleting() || facade.rejectForm.invalid">
+              <mat-icon>block</mat-icon>
+              <span>{{ facade.deleting() ? 'Rejecting' : 'Reject Product' }}</span>
+            </button>
+          </div>
+        </form>
       </section>
     </div>
   }

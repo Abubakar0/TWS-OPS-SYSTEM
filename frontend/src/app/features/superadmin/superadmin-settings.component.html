@@ -232,6 +232,30 @@
     <article class="surface-card">
       <div class="surface-card__header">
         <div>
+          <h2>HR self-service</h2>
+          <p>Set one global rule for employee profile editing and HR review flow.</p>
+        </div>
+      </div>
+
+      <form class="form-grid" [formGroup]="hrSettingsForm" (ngSubmit)="saveHrSettings()">
+        <label class="toggle-row field-span-2">
+          <mat-checkbox formControlName="allowEmployeeProfileEditing">
+            Allow employees to edit their own profile
+          </mat-checkbox>
+        </label>
+
+        <div class="field-span-2 actions-row">
+          <button mat-flat-button color="primary" type="submit" [disabled]="saving()">
+            <mat-icon>badge</mat-icon>
+            <span>{{ saving() ? 'Saving' : 'Save HR Settings' }}</span>
+          </button>
+        </div>
+      </form>
+    </article>
+
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
           <h2>Listing accounts</h2>
           <p>Control which accounts are available to listers across the operation.</p>
         </div>

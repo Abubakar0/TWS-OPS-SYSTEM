@@ -20,6 +20,7 @@ router.get(
 );
 router.get('/assignments', requireRoles('admin', 'super_admin'), asyncHandler(usersController.listAssignments));
 router.get('/', requireRoles('admin', 'super_admin'), asyncHandler(usersController.listUsers));
+router.get('/:id/details', requireRoles('admin', 'super_admin'), asyncHandler(usersController.getUserDetails));
 router.post(
   '/bulk-import',
   requireRoles('admin', 'super_admin'),

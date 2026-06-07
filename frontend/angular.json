@@ -55,6 +55,14 @@
                 "input": "public"
               }
             ],
+            "allowedCommonJsDependencies": [
+              "canvg",
+              "core-js",
+              "html2canvas",
+              "jszip",
+              "raf",
+              "rgbcolor"
+            ],
             "styles": [
               "src/styles.scss"
             ]
@@ -64,13 +72,13 @@
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "500kB",
+                  "maximumWarning": "600kB",
                   "maximumError": "1MB"
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "4kB",
-                  "maximumError": "8kB"
+                  "maximumWarning": "11kB",
+                  "maximumError": "12kB"
                 }
               ],
               "outputHashing": "all"

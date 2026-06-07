@@ -270,20 +270,13 @@
   align-items: center;
   width: 100%;
   gap: 10px;
+  min-width: 0;
   justify-content: flex-start;
   padding: 10px 12px !important;
   border-radius: 16px !important;
   background: rgba(248, 250, 252, 0.88);
-  min-height: 68px;
+  min-height: 85px;
   border: 1px solid rgba(226, 232, 240, 0.86);
-}
-
-.sidebar-user {
-  display: flex !important;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  min-width: 0;
 }
 
 .sidebar-user.is-collapsed {
@@ -311,6 +304,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.sidebar-user__roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
 }
 
 .sidebar-user__meta strong {

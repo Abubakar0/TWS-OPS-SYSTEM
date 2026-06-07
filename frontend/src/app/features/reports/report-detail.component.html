@@ -1,0 +1,252 @@
+<section class="page-shell">
+  <header class="page-hero">
+    <div>
+      <div class="breadcrumbs">
+        <a [routerLink]="['../']">Reports</a>
+        <mat-icon>chevron_right</mat-icon>
+        <span>{{ pageTitle() }}</span>
+      </div>
+      <span class="kicker">{{ scope() | titlecase }}</span>
+      <h1>{{ pageTitle() }}</h1>
+      <p>{{ pageDescription() }}</p>
+    </div>
+
+    <div class="page-actions">
+      <button mat-flat-button color="primary" type="button" (click)="exportSection()" [disabled]="loading() || exporting()">
+        <mat-icon>download</mat-icon>
+        <span>{{ exporting() ? 'Exporting…' : 'Export' }}</span>
+      </button>
+    </div>
+  </header>
+
+  @if (error()) {
+    <div class="inline-state inline-state--error">{{ error() }}</div>
+  }
+
+  <article class="surface-card">
+    <app-filter-panel
+      title="Report Filters"
+      summary="Keep filters collapsed by default, then expand only when you need to refine the result set."
+      icon="tune"
+      [badge]="total() + ' rows'"
+      storageKey="tws_reports_detail_filters"
+    >
+      <form class="filters-grid" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
+        <mat-form-field appearance="outline">
+          <mat-label>Search</mat-label>
+          <input matInput formControlName="search" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>From</mat-label>
+          <input matInput type="date" formControlName="dateFrom" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>To</mat-label>
+          <input matInput type="date" formControlName="dateTo" />
+        </mat-form-field>
+
+        <app-searchable-select label="Role" [formControl]="filtersForm.controls.role" [options]="roleOptions()" />
+        <app-searchable-select label="Status" [formControl]="filtersForm.controls.status" [options]="statusOptions()" />
+        <app-searchable-select label="Team" [formControl]="filtersForm.controls.teamId" [options]="teamOptions()" />
+        <app-searchable-select label="User" [formControl]="filtersForm.controls.userId" [options]="userOptions()" />
+        <app-searchable-select label="Account" [formControl]="filtersForm.controls.accountId" [options]="accountOptions()" />
+        <app-searchable-select label="Marketplace" [formControl]="filtersForm.controls.marketplace" [options]="marketplaceOptions()" />
+        <app-searchable-select label="Country" [formControl]="filtersForm.controls.country" [options]="countryOptions()" />
+        <app-searchable-select label="Category" [formControl]="filtersForm.controls.category" [options]="categoryOptions()" />
+
+        <div class="grid-toolbar__actions">
+          <button mat-flat-button color="primary" type="submit" [disabled]="loading()">
+            <mat-icon>search</mat-icon>
+            <span>Apply</span>
+          </button>
+          <button mat-stroked-button type="button" (click)="resetFilters()" [disabled]="loading()">
+            <mat-icon>restart_alt</mat-icon>
+            <span>Reset</span>
+          </button>
+        </div>
+      </form>
+    </app-filter-panel>
+  </article>
+
+  @if (loading()) {
+    <article class="surface-card loading-state">
+      <mat-spinner diameter="24"></mat-spinner>
+      <span>Loading {{ pageTitle().toLowerCase() }}.</span>
+    </article>
+  } @else if (section() === 'executive' && executive()) {
+    <section class="stats-grid stats-grid--four">
+      @for (card of executive()!.summary | keyvalue; track card.key) {
+        <article class="stat-card">
+          <span>{{ card.key | titlecase }}</span>
+          <strong>{{ card.value }}</strong>
+        </article>
+      }
+    </section>
+
+    <section class="section-grid">
+      <article class="surface-card">
+        <div class="surface-card__header"><div><h2>Top Hunters</h2></div></div>
+        <div class="breakdown-list">
+          @for (row of executive()?.topHunters || []; track row.id) {
+            <button type="button" class="breakdown-row breakdown-row--button" (click)="openRow({ id: row.id, title: row.name, subtitle: row.email, cells: [], raw: row })">
+              <div>
+                <strong>{{ row.name }}</strong>
+                <span>{{ row.metrics.primaryLabel }} {{ row.metrics.primary }} | {{ row.metrics.secondaryLabel }} {{ row.metrics.secondary }}</span>
+              </div>
+              <strong class="breakdown-row__count">{{ row.metrics.profit | currency:'USD' }}</strong>
+            </button>
+          }
+        </div>
+      </article>
+
+      <article class="surface-card">
+        <div class="surface-card__header"><div><h2>Top Accounts</h2></div></div>
+        <div class="breakdown-list">
+          @for (row of executive()?.topAccounts || []; track row.id) {
+            <button type="button" class="breakdown-row breakdown-row--button" (click)="openRow({ id: row.id, title: row.name, subtitle: row.marketplace, cells: [], raw: row })">
+              <div>
+                <strong>{{ row.name }}</strong>
+                <span>{{ row.marketplace | titlecase }}{{ row.country ? ' | ' + row.country : '' }}</span>
+              </div>
+              <strong class="breakdown-row__count">{{ row.totalProfit | currency:'USD' }}</strong>
+            </button>
+          }
+        </div>
+      </article>
+    </section>
+  } @else {
+    @if (section() === 'activity' && activitySummary()) {
+      <section class="stats-grid">
+        <article class="stat-card">
+          <span>Total Events</span>
+          <strong>{{ activitySummary()?.totalEvents }}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Logins</span>
+          <strong>{{ activitySummary()?.logins }}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Exports</span>
+          <strong>{{ activitySummary()?.exports }}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Report Actions</span>
+          <strong>{{ activitySummary()?.reportActions }}</strong>
+        </article>
+      </section>
+    }
+
+    @if (section() === 'hr' && hrBundle()) {
+      <section class="stats-grid stats-grid--four">
+        <article class="stat-card">
+          <span>Total Employees</span>
+          <strong>{{ hrBundle()?.dashboard?.['totalEmployees'] || 0 }}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Active Employees</span>
+          <strong>{{ hrBundle()?.dashboard?.['activeEmployees'] || 0 }}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Present Today</span>
+          <strong>{{ hrBundle()?.dashboard?.['presentToday'] || 0 }}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Pending Leaves</span>
+          <strong>{{ hrBundle()?.dashboard?.['pendingLeaves'] || 0 }}</strong>
+        </article>
+      </section>
+    }
+
+    <section class="report-layout">
+      <article class="surface-card report-list">
+        <div class="surface-card__header">
+          <div>
+            <h2>{{ pageTitle() }}</h2>
+            <p>{{ total() }} rows in the current result set.</p>
+          </div>
+        </div>
+
+        @if (!displayRows().length) {
+          <div class="empty-state">No rows matched the current filters.</div>
+        } @else {
+          <div class="report-grid">
+            <div class="report-grid__header">
+              <span>Item</span>
+              @for (column of columns(); track column) {
+                <span>{{ column }}</span>
+              }
+            </div>
+
+            @for (row of displayRows(); track row.id) {
+              <button type="button" class="report-grid__row" (click)="openRow(row)">
+                <span class="report-grid__item">
+                  <strong>{{ row.title }}</strong>
+                  <small>{{ row.subtitle }}</small>
+                  @if (row.badges?.length) {
+                    <span class="report-grid__badges">
+                      @for (badge of row.badges || []; track badge) {
+                        <span class="status-badge">{{ badge }}</span>
+                      }
+                    </span>
+                  }
+                </span>
+                @for (cell of row.cells; track cell + $index) {
+                  <span>{{ cell }}</span>
+                }
+              </button>
+            }
+          </div>
+        }
+
+        <div class="table-footer">
+          <div class="table-footer__meta">Showing page {{ page() }} with {{ limit() }} rows.</div>
+          <div class="table-footer__controls">
+            <mat-form-field appearance="outline">
+              <mat-label>Rows</mat-label>
+              <select matNativeControl [value]="limit()" (change)="changeLimit($any($event.target).value)">
+                @for (size of pageSizes; track size) {
+                  <option [value]="size">{{ size }}</option>
+                }
+              </select>
+            </mat-form-field>
+            <button mat-stroked-button type="button" (click)="previousPage()" [disabled]="page() <= 1">Previous</button>
+            <button mat-stroked-button type="button" (click)="nextPage()" [disabled]="!hasMore()">Next</button>
+          </div>
+        </div>
+      </article>
+
+      <aside class="surface-card report-detail-pane">
+        @if (selectedDetail()) {
+          <div class="surface-card__header">
+            <div>
+              <h2>{{ selectedTitle() }}</h2>
+              <p>{{ selectedSubtitle() }}</p>
+            </div>
+          </div>
+
+          <div class="facts-grid">
+            @for (fact of facts(); track fact.label) {
+              <div class="fact-card">
+                <span>{{ fact.label }}</span>
+                <strong>{{ fact.value }}</strong>
+              </div>
+            }
+          </div>
+
+          @if (section() === 'activity' && selectedDetail()) {
+            <div class="detail-json">
+              <h3>Details</h3>
+              <pre>{{ ($any(selectedDetail())?.details || {}) | json }}</pre>
+            </div>
+          }
+        } @else {
+          <div class="empty-state empty-state--detail">
+            Select a row to open drill-down details next to the report.
+          </div>
+        }
+      </aside>
+    </section>
+  }
+</section>

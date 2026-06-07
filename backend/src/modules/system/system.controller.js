@@ -25,10 +25,16 @@ const updateAnnouncement = async (req, res) => {
   res.json({ announcementBar });
 };
 
+const updateHrSettings = async (req, res) => {
+  const hrSettings = await systemService.updateHrSettings(req.user, req.body);
+  res.json({ hrSettings });
+};
+
 module.exports = {
   getSettings,
   getAnnouncement,
   updateApiLimits,
   updateIpRestriction,
   updateAnnouncement,
+  updateHrSettings,
 };

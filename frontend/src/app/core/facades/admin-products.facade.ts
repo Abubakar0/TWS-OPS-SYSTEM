@@ -17,6 +17,7 @@ import { ReferenceDataService } from '../state/reference-data.service';
 import { WorkspaceSyncService } from '../state/workspace-sync.service';
 import { ConfirmService } from '../ui/confirm.service';
 import { ToastService } from '../ui/toast.service';
+import { userHasRole } from '../models/auth.models';
 
 @Injectable()
 export class AdminProductsFacade {
@@ -31,6 +32,8 @@ export class AdminProductsFacade {
   readonly pageSize = signal(30);
   readonly selectedIds = signal<string[]>([]);
   readonly detailProduct = signal<Product | null>(null);
+  readonly editModalOpen = signal(false);
+  readonly rejectModalOpen = signal(false);
   readonly deleteModalOpen = signal(false);
   readonly deleteMode = signal<'soft' | 'permanent'>('soft');
   readonly bulkEditModalOpen = signal(false);
@@ -38,6 +41,41 @@ export class AdminProductsFacade {
   readonly availableListers = signal<Array<{ id: string; name: string }>>([]);
   readonly availableAccounts = signal<Array<{ id: string; name: string }>>([]);
   readonly availableCategories = signal<ProductCategory[]>([]);
+  readonly availableHunterOptions = computed(() => [
+    { value: '', label: 'All hunters', description: 'Keep every hunter in scope.' },
+    ...this.availableHunters().map((hunter) => ({ value: hunter.id, label: hunter.name })),
+  ]);
+  readonly availableListerOptions = computed(() => [
+    { value: '', label: 'All listers', description: 'Keep every assigned lister in scope.' },
+    ...this.availableListers().map((lister) => ({ value: lister.id, label: lister.name })),
+  ]);
+  readonly availableAccountOptions = computed(() => [
+    { value: '', label: 'All accounts', description: 'Show products across every listing account.' },
+    ...this.availableAccounts().map((account) => ({ value: account.id, label: account.name })),
+  ]);
+  readonly availableCategoryOptions = computed(() => [
+    { value: '', label: 'All categories', description: 'Keep every category in the result set.' },
+    ...this.availableCategories().map((category) => ({ value: category.name, label: category.name })),
+  ]);
+  readonly statusOptions = [
+    { value: '', label: 'All statuses', description: 'Show approved, assigned, listed, and rejected products.' },
+    { value: 'approved', label: 'Approved' },
+    { value: 'assigned', label: 'Assigned' },
+    { value: 'listed', label: 'Listed' },
+    { value: 'rejected', label: 'Rejected' },
+  ] as const;
+  readonly qualityFilterOptions = [
+    { value: '', label: 'All quality', description: 'Show every quality band.' },
+    { value: 'Best Hunt', label: 'Best Hunt' },
+    { value: 'Good Hunt', label: 'Good Hunt' },
+    { value: 'Avg Hunt', label: 'Avg Hunt' },
+    { value: 'Rejected', label: 'Rejected' },
+  ] as const;
+  readonly deletedStateOptions = [
+    { value: 'active', label: 'Active only' },
+    { value: 'deleted', label: 'Deleted only' },
+    { value: 'all', label: 'All products' },
+  ] as const;
 
   readonly filters = new FormGroup({
     search: new FormControl('', { nonNullable: true }),
@@ -58,12 +96,37 @@ export class AdminProductsFacade {
       validators: [Validators.required, Validators.minLength(3)],
     }),
   });
+  readonly rejectForm = new FormGroup({
+    reason: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, Validators.minLength(3)],
+    }),
+  });
   readonly bulkEditForm = new FormGroup({
     title: new FormControl('', { nonNullable: true }),
     customLabel: new FormControl('', { nonNullable: true }),
     category: new FormControl('', { nonNullable: true }),
     amazonUrl: new FormControl('', { nonNullable: true }),
     ebayUrl: new FormControl('', { nonNullable: true }),
+  });
+  readonly editForm = new FormGroup({
+    title: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    category: new FormControl('', { nonNullable: true }),
+    customLabel: new FormControl('', { nonNullable: true }),
+    amazonUrl: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    amazonAltUrl: new FormControl('', { nonNullable: true }),
+    ebayUrl: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    amazonPrice: new FormControl<number | null>(null),
+    ebayPrice: new FormControl<number | null>(null),
+    amazonStockCount: new FormControl<number | null>(null),
+    alternateAmazonStockCount: new FormControl<number | null>(null),
+    soldCount: new FormControl<number | null>(null),
+    rating: new FormControl<number | null>(null),
+    productWatchers: new FormControl<number | null>(null),
+    salesLastTwoMonths: new FormControl<number | null>(null),
+    basketCount: new FormControl<number | null>(null),
+    deliveryDays: new FormControl<number | null>(null),
+    monthlyGraphUptrend: new FormControl(false, { nonNullable: true }),
   });
 
   readonly pageCount = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize())));
@@ -82,8 +145,22 @@ export class AdminProductsFacade {
   readonly someSelected = computed(
     () => this.selectedIds().length > 0 && this.selectedIds().length < this.products().length,
   );
-  readonly canRestore = computed(() => this.auth.currentUser()?.role === 'super_admin');
-  readonly canBulkEdit = computed(() => this.auth.currentUser()?.role === 'super_admin');
+  readonly canRestore = computed(() => {
+    const user = this.auth.currentUser();
+    return Boolean(user && userHasRole(user, 'super_admin'));
+  });
+  readonly canBulkEdit = computed(() => {
+    const user = this.auth.currentUser();
+    return Boolean(user && userHasRole(user, 'super_admin'));
+  });
+  readonly canEditProducts = computed(() => {
+    const user = this.auth.currentUser();
+    return Boolean(user && (userHasRole(user, 'admin') || userHasRole(user, 'super_admin')));
+  });
+  readonly canRejectProducts = computed(() => {
+    const user = this.auth.currentUser();
+    return Boolean(user && (userHasRole(user, 'admin') || userHasRole(user, 'super_admin')));
+  });
   readonly qualityOptions: ProductQualityLabel[] = [
     'Best Hunt',
     'Good Hunt',
@@ -212,6 +289,134 @@ export class AdminProductsFacade {
 
   closeDetail(): void {
     this.detailProduct.set(null);
+  }
+
+  openEditModal(product: Product): void {
+    if (!this.canEditProducts()) {
+      return;
+    }
+
+    this.detailProduct.set(product);
+    this.editForm.reset(
+      {
+        title: product.title || '',
+        category: product.category || '',
+        customLabel: product.customLabel || '',
+        amazonUrl: product.amazonUrl,
+        amazonAltUrl: product.amazonAltUrl || '',
+        ebayUrl: product.ebayUrl,
+        amazonPrice: product.amazonPrice,
+        ebayPrice: product.ebayPrice,
+        amazonStockCount: product.amazonStockCount,
+        alternateAmazonStockCount: product.alternateAmazonStockCount,
+        soldCount: product.soldCount,
+        rating: product.rating,
+        productWatchers: product.productWatchers,
+        salesLastTwoMonths: product.salesLastTwoMonths,
+        basketCount: product.basketCount || null,
+        deliveryDays: product.deliveryDays,
+        monthlyGraphUptrend: Boolean(product.monthlyGraphUptrend),
+      },
+      { emitEvent: false },
+    );
+    this.editModalOpen.set(true);
+  }
+
+  closeEditModal(force = false): void {
+    if (this.bulkEditing() && !force) {
+      return;
+    }
+
+    this.editModalOpen.set(false);
+  }
+
+  confirmEdit(): void {
+    const product = this.detailProduct();
+
+    if (!product || this.editForm.invalid || this.bulkEditing()) {
+      this.editForm.markAllAsTouched();
+      return;
+    }
+
+    this.bulkEditing.set(true);
+    this.error.set('');
+
+    const raw = this.editForm.getRawValue();
+    this.api
+      .updateProduct(product.id, {
+        title: raw.title.trim(),
+        category: raw.category || null,
+        customLabel: raw.customLabel.trim() || null,
+        amazonUrl: raw.amazonUrl.trim(),
+        amazonAltUrl: raw.amazonAltUrl.trim() || null,
+        ebayUrl: raw.ebayUrl.trim(),
+        amazonPrice: raw.amazonPrice,
+        ebayPrice: raw.ebayPrice,
+        amazonStockCount: raw.amazonStockCount,
+        alternateAmazonStockCount: raw.alternateAmazonStockCount,
+        soldCount: raw.soldCount,
+        rating: raw.rating,
+        productWatchers: raw.productWatchers,
+        salesLastTwoMonths: raw.salesLastTwoMonths,
+        basketCount: raw.basketCount,
+        deliveryDays: raw.deliveryDays,
+        monthlyGraphUptrend: raw.monthlyGraphUptrend,
+      })
+      .subscribe({
+        next: (updatedProduct) => {
+          this.applyProductUpdate(updatedProduct);
+          this.closeEditModal(true);
+          this.bulkEditing.set(false);
+          this.toast.success('Product updated.');
+        },
+        error: (error) => {
+          this.error.set(error?.error?.message || 'Could not update product.');
+          this.bulkEditing.set(false);
+        },
+      });
+  }
+
+  openRejectModal(product: Product): void {
+    if (!this.canRejectProducts()) {
+      return;
+    }
+
+    this.detailProduct.set(product);
+    this.rejectForm.reset({ reason: '' }, { emitEvent: false });
+    this.rejectModalOpen.set(true);
+  }
+
+  closeRejectModal(force = false): void {
+    if (this.deleting() && !force) {
+      return;
+    }
+
+    this.rejectModalOpen.set(false);
+  }
+
+  confirmReject(): void {
+    const product = this.detailProduct();
+
+    if (!product || this.rejectForm.invalid || this.deleting()) {
+      this.rejectForm.markAllAsTouched();
+      return;
+    }
+
+    this.deleting.set(true);
+    this.error.set('');
+
+    this.api.rejectProduct(product.id, this.rejectForm.controls.reason.value.trim()).subscribe({
+      next: (updatedProduct) => {
+        this.applyProductUpdate(updatedProduct);
+        this.closeRejectModal(true);
+        this.deleting.set(false);
+        this.toast.success('Product rejected.');
+      },
+      error: (error) => {
+        this.error.set(error?.error?.message || 'Could not reject product.');
+        this.deleting.set(false);
+      },
+    });
   }
 
   openDeleteModal(mode: 'soft' | 'permanent', productIds?: string[]): void {
@@ -433,5 +638,13 @@ export class AdminProductsFacade {
       page: this.pageIndex() + 1,
       limit: this.pageSize(),
     };
+  }
+
+  private applyProductUpdate(updatedProduct: Product): void {
+    this.products.update((products) =>
+      products.map((product) => (product.id === updatedProduct.id ? updatedProduct : product)),
+    );
+    this.detailProduct.set(updatedProduct);
+    this.workspaceSync.notifyProductsChanged();
   }
 }

@@ -24,6 +24,7 @@ import { ReferenceDataService } from '../../core/state/reference-data.service';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
 import { ToastService } from '../../core/ui/toast.service';
 import { FilterPanelComponent } from '../../shared/ui/filter-panel.component';
+import { SearchableSelectComponent } from '../../shared/ui/searchable-select.component';
 
 type ChangeRequestStatusFilter = '' | 'OPEN' | 'IN_PROGRESS' | 'FIXED' | 'REJECTED' | 'CLOSED';
 type IssueTypeFilter =
@@ -51,6 +52,7 @@ type IssueTypeFilter =
     MatProgressSpinnerModule,
     MatSelectModule,
     FilterPanelComponent,
+    SearchableSelectComponent,
   ],
   templateUrl: './admin-change-requests.component.html',
   styleUrl: './admin-change-requests.component.scss',
@@ -109,6 +111,18 @@ export class AdminChangeRequestsComponent {
   readonly selectedRequest = computed(
     () => this.requests().find((request) => request.id === this.selectedRequestId()) || null,
   );
+  readonly hunterFilterOptions = computed(() => [
+    { value: '', label: 'All hunters' },
+    ...this.hunters().map((hunter) => ({ value: hunter.id, label: hunter.name })),
+  ]);
+  readonly listerFilterOptions = computed(() => [
+    { value: '', label: 'All listers' },
+    ...this.listers().map((lister) => ({ value: lister.id, label: lister.name })),
+  ]);
+  readonly accountFilterOptions = computed(() => [
+    { value: '', label: 'All accounts' },
+    ...this.accounts().map((account) => ({ value: account.id, label: account.name })),
+  ]);
   readonly pageLabel = computed(() => {
     if (!this.total()) {
       return 'No change requests found';
@@ -359,5 +373,15 @@ export class AdminChangeRequestsComponent {
       this.reassignControl.setValue(requests[0].listerId || '');
       this.closeNotesControl.setValue(requests[0].notes || '');
     }
+  }
+
+  async copyValue(value: string | null | undefined, label: string): Promise<void> {
+    if (!value) {
+      this.toast.warning(`No ${label.toLowerCase()} available to copy.`);
+      return;
+    }
+
+    await navigator.clipboard.writeText(value);
+    this.toast.success(`${label} copied.`);
   }
 }

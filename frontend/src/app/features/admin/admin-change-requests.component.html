@@ -39,53 +39,15 @@
         </mat-form-field>
 
         <div class="grid-toolbar__actions grid-toolbar__actions--filters">
-          <mat-form-field appearance="outline">
-            <mat-label>Status</mat-label>
-            <mat-select formControlName="status">
-              @for (option of statusOptions; track option.value) {
-                <mat-option [value]="option.value">{{ option.label }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <app-searchable-select label="Status" [formControl]="filtersForm.controls.status" [options]="statusOptions" />
 
-          <mat-form-field appearance="outline">
-            <mat-label>Issue Type</mat-label>
-            <mat-select formControlName="issueType">
-              @for (option of issueTypeOptions; track option.value) {
-                <mat-option [value]="option.value">{{ option.label }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <app-searchable-select label="Issue Type" [formControl]="filtersForm.controls.issueType" [options]="issueTypeOptions" />
 
-          <mat-form-field appearance="outline">
-            <mat-label>Hunter</mat-label>
-            <mat-select formControlName="hunterId">
-              <mat-option value="">All hunters</mat-option>
-              @for (hunter of hunters(); track hunter.id) {
-                <mat-option [value]="hunter.id">{{ hunter.name }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <app-searchable-select label="Hunter" [formControl]="filtersForm.controls.hunterId" [options]="hunterFilterOptions()" />
 
-          <mat-form-field appearance="outline">
-            <mat-label>Lister</mat-label>
-            <mat-select formControlName="listerId">
-              <mat-option value="">All listers</mat-option>
-              @for (lister of listers(); track lister.id) {
-                <mat-option [value]="lister.id">{{ lister.name }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <app-searchable-select label="Lister" [formControl]="filtersForm.controls.listerId" [options]="listerFilterOptions()" />
 
-          <mat-form-field appearance="outline">
-            <mat-label>Account</mat-label>
-            <mat-select formControlName="accountId">
-              <mat-option value="">All accounts</mat-option>
-              @for (account of accounts(); track account.id) {
-                <mat-option [value]="account.id">{{ account.name }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <app-searchable-select label="Account" [formControl]="filtersForm.controls.accountId" [options]="accountFilterOptions()" />
 
           <mat-form-field appearance="outline">
             <mat-label>From date</mat-label>
@@ -195,24 +157,37 @@
 
           <div class="detail-stack">
             <div class="detail-row"><span>Product</span><strong>{{ request.productTitle || request.asin }}</strong></div>
+            <div class="detail-row detail-row--actions">
+              <span>ASIN</span>
+              <div class="link-actions">
+                <strong>{{ request.asin || 'No ASIN' }}</strong>
+                @if (request.asin) {
+                  <button mat-stroked-button type="button" (click)="copyValue(request.asin, 'ASIN')">Copy</button>
+                }
+              </div>
+            </div>
             <div class="detail-row"><span>Hunter</span><strong>{{ request.hunterName || 'No hunter' }}</strong></div>
             <div class="detail-row"><span>Current Lister</span><strong>{{ request.listerName || 'Not assigned' }}</strong></div>
             <div class="detail-row"><span>Issue Type</span><strong>{{ (request.issueType || 'OTHER').replaceAll('_', ' ') }}</strong></div>
             <div class="detail-row"><span>Issue Reason</span><strong>{{ request.issueReason || request.requestedChanges }}</strong></div>
-            <div class="detail-row detail-row--link"><span>Current Amazon Link</span><strong>{{ request.currentAmazonLink || 'Not Available' }}</strong></div>
-            <div class="detail-row detail-row--link"><span>Current eBay Link</span><strong>{{ request.currentEbayLink || request.listingUrl || 'Not Available' }}</strong></div>
+            <div class="detail-row detail-row--actions">
+              <span>Product Links</span>
+              <div class="link-actions">
+                @if (request.currentAmazonLink) {
+                  <a mat-stroked-button [href]="request.currentAmazonLink" target="_blank" rel="noreferrer">Amazon</a>
+                }
+                @if (request.currentEbayLink) {
+                  <a mat-stroked-button [href]="request.currentEbayLink" target="_blank" rel="noreferrer">eBay Source</a>
+                }
+                @if (request.listingUrl) {
+                  <a mat-stroked-button [href]="request.listingUrl" target="_blank" rel="noreferrer">Listed eBay</a>
+                }
+              </div>
+            </div>
           </div>
 
           <div class="detail-form">
-            <mat-form-field appearance="outline">
-              <mat-label>Reassign lister</mat-label>
-              <mat-select [formControl]="reassignControl">
-                <mat-option value="">Select lister</mat-option>
-                @for (lister of listers(); track lister.id) {
-                  <mat-option [value]="lister.id">{{ lister.name }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
+            <app-searchable-select label="Reassign lister" [formControl]="reassignControl" [options]="listerFilterOptions()" />
 
             <mat-form-field appearance="outline">
               <mat-label>Close notes</mat-label>

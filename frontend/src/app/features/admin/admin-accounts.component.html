@@ -63,7 +63,7 @@
 
     <app-filter-panel
       title="Filters"
-      summary="Find accounts by name, marketplace, or status."
+      summary="Find accounts by name, marketplace, country, assignment, or status."
       icon="filter_list"
       [badge]="filteredAccounts().length + ' accounts'"
       storageKey="tws_accounts_filters"
@@ -75,23 +75,29 @@
           <mat-icon matSuffix>search</mat-icon>
         </mat-form-field>
 
-        <mat-form-field appearance="outline">
-          <mat-label>Marketplace</mat-label>
-          <mat-select [formControl]="marketplaceControl">
-            <mat-option value="all">All marketplaces</mat-option>
-            <mat-option value="ebay">eBay</mat-option>
-            <mat-option value="amazon">Amazon</mat-option>
-          </mat-select>
-        </mat-form-field>
+        <app-searchable-select
+          label="Marketplace"
+          [formControl]="marketplaceControl"
+          [options]="marketplaceOptions"
+        />
 
-        <mat-form-field appearance="outline">
-          <mat-label>Status</mat-label>
-          <mat-select [formControl]="statusControl">
-            <mat-option value="all">All statuses</mat-option>
-            <mat-option value="active">Active</mat-option>
-            <mat-option value="disabled">Disabled</mat-option>
-          </mat-select>
-        </mat-form-field>
+        <app-searchable-select
+          label="Country"
+          [formControl]="countryControl"
+          [options]="countryOptions"
+        />
+
+        <app-searchable-select
+          label="Assignment"
+          [formControl]="assignmentControl"
+          [options]="assignmentOptions"
+        />
+
+        <app-searchable-select
+          label="Status"
+          [formControl]="statusControl"
+          [options]="statusOptions"
+        />
 
         <button mat-stroked-button type="button" (click)="resetFilters()">
           <mat-icon>restart_alt</mat-icon>
@@ -139,7 +145,9 @@
 
                 <div class="account-row__cell">
                   <strong>{{ account.marketplace | titlecase }}</strong>
-                  <span>{{ account.isActive ? 'Open for listing' : 'Temporarily disabled' }}</span>
+                  <span>
+                    {{ account.country || 'Global' }}{{ account.currency ? (' | ' + account.currency) : '' }}
+                  </span>
                 </div>
 
                 <div class="account-row__cell">
@@ -193,6 +201,10 @@
                   <mat-icon>group_add</mat-icon>
                   <span>Assign Listers</span>
                 </button>
+                <button mat-stroked-button type="button" (click)="openEditAccountModal(detail.account)">
+                  <mat-icon>edit</mat-icon>
+                  <span>Edit</span>
+                </button>
                 <button mat-stroked-button type="button" (click)="openInvoiceModal()">
                   <mat-icon>receipt_long</mat-icon>
                   <span>Generate Invoice</span>
@@ -205,6 +217,18 @@
             </div>
 
             <div class="detail-facts">
+              <div class="detail-fact">
+                <span>Marketplace</span>
+                <strong>{{ detail.account.marketplace | titlecase }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Country</span>
+                <strong>{{ detail.account.country || 'Not set' }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Currency</span>
+                <strong>{{ detail.account.currency || 'USD' }}</strong>
+              </div>
               <div class="detail-fact">
                 <span>Status</span>
                 <strong>{{ detail.account.isActive ? 'Active' : 'Disabled' }}</strong>
@@ -232,6 +256,14 @@
               <div class="detail-fact">
                 <span>Last Month Profit</span>
                 <strong>${{ detail.stats.lastMonthProfit | number: '1.2-2' }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Client %</span>
+                <strong>{{ detail.account.clientProfitPercentage ?? 0 | number: '1.0-2' }}%</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Company %</span>
+                <strong>{{ detail.account.companyProfitPercentage ?? 0 | number: '1.0-2' }}%</strong>
               </div>
               <div class="detail-fact">
                 <span>Open Issues</span>
@@ -307,26 +339,61 @@
     <section class="app-modal" (click)="$event.stopPropagation()">
       <div class="app-modal__header">
         <div>
-          <h2>Add account</h2>
-          <p>Create a listing account for the lister workflow.</p>
+          <h2>{{ editingAccount() ? 'Edit account' : 'Add account' }}</h2>
+          <p>
+            {{
+              editingAccount()
+                ? 'Update the account profile, availability, and profit split.'
+                : 'Create a listing account for the lister workflow.'
+            }}
+          </p>
         </div>
         <button mat-icon-button type="button" (click)="closeAccountModal()">
           <mat-icon>close</mat-icon>
         </button>
       </div>
 
-      <form class="form-grid" [formGroup]="accountForm" (ngSubmit)="createAccount()">
+      <form class="form-grid" [formGroup]="accountForm" (ngSubmit)="saveAccount()">
         <mat-form-field appearance="outline">
           <mat-label>Account name</mat-label>
           <input matInput formControlName="name" autocomplete="off" />
         </mat-form-field>
 
+        <app-searchable-select
+          label="Marketplace"
+          [formControl]="accountForm.controls.marketplace"
+          [options]="marketplaceOptions.slice(1)"
+        />
+
+        <app-searchable-select
+          label="Country"
+          [formControl]="accountForm.controls.country"
+          [options]="countryOptions.slice(1)"
+        />
+
         <mat-form-field appearance="outline">
-          <mat-label>Marketplace</mat-label>
-          <mat-select formControlName="marketplace">
-            <mat-option value="ebay">eBay</mat-option>
-            <mat-option value="amazon">Amazon</mat-option>
-          </mat-select>
+          <mat-label>Currency</mat-label>
+          <input matInput formControlName="currency" autocomplete="off" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Client Profit %</mat-label>
+          <input matInput type="number" formControlName="clientProfitPercentage" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Company Profit %</mat-label>
+          <input matInput type="number" formControlName="companyProfitPercentage" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Previous Order Count</mat-label>
+          <input matInput type="number" formControlName="previousOrderCount" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Last Month Profit</mat-label>
+          <input matInput type="number" formControlName="lastMonthProfit" />
         </mat-form-field>
 
         <label class="toggle-row field-span-2">
@@ -336,8 +403,8 @@
         <div class="field-span-2 app-modal__footer">
           <button mat-stroked-button type="button" (click)="closeAccountModal()">Cancel</button>
           <button mat-flat-button color="primary" type="submit" [disabled]="accountForm.invalid || saving()">
-            <mat-icon>add</mat-icon>
-            <span>{{ saving() ? 'Saving' : 'Create Account' }}</span>
+            <mat-icon>{{ editingAccount() ? 'save' : 'add' }}</mat-icon>
+            <span>{{ saving() ? 'Saving' : (editingAccount() ? 'Save Changes' : 'Create Account') }}</span>
           </button>
         </div>
       </form>

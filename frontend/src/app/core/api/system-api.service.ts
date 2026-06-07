@@ -7,6 +7,7 @@ import { CACHE_NAMESPACE, CACHE_TTL, makeCacheKey } from '../config/cache';
 import {
   AnnouncementBarSettings,
   ApiLimitSettings,
+  HrSettings,
   IpRestrictionSettings,
   SystemSettingsResponse,
 } from '../models/system.models';
@@ -77,6 +78,15 @@ export class SystemApiService {
       )
       .pipe(
         map((response) => response.announcementBar),
+        tap(() => this.requestCache.invalidatePrefix(CACHE_NAMESPACE.system)),
+      );
+  }
+
+  updateHrSettings(payload: HrSettings): Observable<HrSettings> {
+    return this.http
+      .put<{ hrSettings: HrSettings }>(`${environment.apiUrl}/system/hr-settings`, payload)
+      .pipe(
+        map((response) => response.hrSettings),
         tap(() => this.requestCache.invalidatePrefix(CACHE_NAMESPACE.system)),
       );
   }

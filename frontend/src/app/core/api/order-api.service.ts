@@ -4,7 +4,7 @@ import { map, Observable, tap } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { CACHE_NAMESPACE, CACHE_TTL, makeCacheKey } from '../config/cache';
-import { Order, OrderFilters, OrderIssueType, OrderProductMatch, OrderStats, OrderStatus, OrderUpsertPayload } from '../models/order.models';
+import { Order, OrderActivityEntry, OrderFilters, OrderIssueType, OrderProductMatch, OrderStats, OrderStatus, OrderUpsertPayload } from '../models/order.models';
 import { RequestCacheService } from '../state/request-cache.service';
 import { PageResult } from '../state/query-state.models';
 
@@ -59,6 +59,18 @@ export class OrderApiService {
         this.http
           .get<{ order: Order }>(`${environment.apiUrl}/orders/${id}`, { params })
           .pipe(map((response) => response.order)),
+    );
+  }
+
+  getOrderActivity(id: string, limit = 20): Observable<OrderActivityEntry[]> {
+    const params = new HttpParams().set('limit', String(limit));
+    return this.requestCache.getOrCreate(
+      makeCacheKey(CACHE_NAMESPACE.orders, { type: 'activity', id, limit }),
+      CACHE_TTL.short,
+      () =>
+        this.http
+          .get<{ activity: OrderActivityEntry[] }>(`${environment.apiUrl}/orders/${id}/activity`, { params })
+          .pipe(map((response) => response.activity)),
     );
   }
 
@@ -162,6 +174,18 @@ export class OrderApiService {
         map((response) => response.order),
         tap(() => this.invalidateOrderCaches()),
       );
+  }
+
+  bulkUpdateStatus(
+    ids: string[],
+    payload: Partial<OrderUpsertPayload> & { orderStatus: OrderStatus },
+  ): Observable<{ updated: Order[]; skipped: Array<{ id: string; message: string }>; requested: number }> {
+    return this.http
+      .post<{ updated: Order[]; skipped: Array<{ id: string; message: string }>; requested: number }>(
+        `${environment.apiUrl}/orders/bulk-status`,
+        { ids, ...payload },
+      )
+      .pipe(tap(() => this.invalidateOrderCaches()));
   }
 
   getStats(filters: OrderFilters = {}): Observable<OrderStats> {

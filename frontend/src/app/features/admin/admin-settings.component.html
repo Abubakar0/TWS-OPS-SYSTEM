@@ -219,6 +219,30 @@
         </form>
       </article>
 
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>HR self-service</h2>
+            <p>Control whether employees can update their own profile details before HR review.</p>
+          </div>
+        </div>
+
+        <form class="form-grid" [formGroup]="hrSettingsForm" (ngSubmit)="saveHrSettings()">
+          <label class="toggle-row field-span-2">
+            <mat-checkbox [formControl]="hrSettingsForm.controls.allowEmployeeProfileEditing">
+              Allow employees to edit their own profile
+            </mat-checkbox>
+          </label>
+
+          <div class="field-span-2 actions-row">
+            <button mat-flat-button color="primary" type="submit" [disabled]="categorySaving()">
+              <mat-icon>badge</mat-icon>
+              <span>{{ categorySaving() ? 'Saving' : 'Save HR Settings' }}</span>
+            </button>
+          </div>
+        </form>
+      </article>
+
       <article class="surface-card categories-card">
         <div class="surface-card__header">
           <div>

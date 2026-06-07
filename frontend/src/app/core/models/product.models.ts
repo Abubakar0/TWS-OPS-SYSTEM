@@ -75,11 +75,35 @@ export interface ProductCreatePayload {
   monthlyGraphUptrend?: boolean | null;
 }
 
+export interface ProductUpdatePayload {
+  title?: string | null;
+  category?: string | null;
+  customLabel?: string | null;
+  amazonUrl?: string;
+  amazonAltUrl?: string | null;
+  ebayUrl?: string;
+  amazonStockCount?: number | null;
+  alternateAmazonStockCount?: number | null;
+  soldCount?: number | null;
+  rating?: number | null;
+  productWatchers?: number | null;
+  salesLastTwoMonths?: number | null;
+  basketCount?: number | null;
+  amazonPrice?: number | null;
+  ebayPrice?: number | null;
+  deliveryDays?: number | null;
+  monthlyGraphUptrend?: boolean | null;
+}
+
 export interface Account {
   id: string;
   name: string;
   marketplace: string;
+  country?: string | null;
+  currency?: string | null;
   isActive: boolean;
+  clientProfitPercentage?: number | null;
+  companyProfitPercentage?: number | null;
   previousOrderCount?: number;
   lastMonthProfit?: number;
   totalProductsListed?: number;

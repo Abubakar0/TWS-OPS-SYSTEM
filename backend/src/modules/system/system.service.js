@@ -8,6 +8,7 @@ const SETTING_KEYS = {
   ipRestriction: 'ip_restriction',
   productCategories: 'product_categories',
   announcementBar: 'announcement_bar',
+  hrSettings: 'hr_settings',
 };
 
 const DEFAULT_API_LIMITS = {
@@ -63,6 +64,10 @@ const DEFAULT_ANNOUNCEMENT_BAR = {
   title: '',
   message: '',
   updatedAt: null,
+};
+
+const DEFAULT_HR_SETTINGS = {
+  allowEmployeeProfileEditing: true,
 };
 
 const settingsCache = new Map();
@@ -158,6 +163,15 @@ const normalizeSettingRow = (key, value) => {
 
   if (key === SETTING_KEYS.announcementBar) {
     return sanitizeAnnouncementBar(value);
+  }
+
+  if (key === SETTING_KEYS.hrSettings) {
+    return {
+      allowEmployeeProfileEditing:
+        value?.allowEmployeeProfileEditing !== undefined
+          ? Boolean(value.allowEmployeeProfileEditing)
+          : DEFAULT_HR_SETTINGS.allowEmployeeProfileEditing,
+    };
   }
 
   return value || {};
@@ -259,6 +273,8 @@ const getProductCategories = async ({ includeInactive = false } = {}) => {
 
 const getAnnouncementBar = async () =>
   getSetting(SETTING_KEYS.announcementBar, DEFAULT_ANNOUNCEMENT_BAR);
+
+const getHrSettings = async () => getSetting(SETTING_KEYS.hrSettings, DEFAULT_HR_SETTINGS);
 
 const createProductCategory = async (user, payload = {}) => {
   const name = String(payload.name || '')
@@ -421,6 +437,26 @@ const updateAnnouncementBar = async (user, payload = {}) => {
   return saved;
 };
 
+const updateHrSettings = async (user, payload = {}) => {
+  const next = {
+    allowEmployeeProfileEditing:
+      payload.allowEmployeeProfileEditing !== undefined
+        ? Boolean(payload.allowEmployeeProfileEditing)
+        : DEFAULT_HR_SETTINGS.allowEmployeeProfileEditing,
+  };
+  const saved = await saveSetting(user, SETTING_KEYS.hrSettings, next);
+
+  await writeAuditLog({
+    actorUserId: user.id,
+    action: 'settings.hr.update',
+    targetType: 'system',
+    targetId: user.id,
+    details: saved,
+  });
+
+  return saved;
+};
+
 const getCurrentRequestIp = (req) => {
   const forwarded = req.get('x-forwarded-for');
 
@@ -475,10 +511,11 @@ const assertIpAllowed = async (user, req) => {
 };
 
 const getSystemSettings = async (req) => {
-  const [apiLimits, ipRestriction, announcementBar] = await Promise.all([
+  const [apiLimits, ipRestriction, announcementBar, hrSettings] = await Promise.all([
     getApiLimits(),
     getIpRestriction(),
     getAnnouncementBar(),
+    getHrSettings(),
   ]);
   const currentIp = getCurrentRequestIp(req);
   const activeIps = ipRestriction.allowedIps.filter((entry) => entry.active);
@@ -487,6 +524,7 @@ const getSystemSettings = async (req) => {
     apiLimits,
     ipRestriction,
     announcementBar,
+    hrSettings,
     currentIp,
     ipRestrictionWarning:
       ipRestriction.enabled && activeIps.length === 0 ? 'No allowed IP configured. System currently open.' : '',
@@ -497,6 +535,7 @@ module.exports = {
   DEFAULT_API_LIMITS,
   DEFAULT_IP_RESTRICTION,
   DEFAULT_PRODUCT_CATEGORIES,
+  DEFAULT_HR_SETTINGS,
   getApiLimits,
   getConfiguredLimit,
   updateApiLimits,
@@ -504,6 +543,8 @@ module.exports = {
   updateIpRestriction,
   getAnnouncementBar,
   updateAnnouncementBar,
+  getHrSettings,
+  updateHrSettings,
   getProductCategories,
   createProductCategory,
   updateProductCategory,

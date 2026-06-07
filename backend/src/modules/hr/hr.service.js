@@ -2,7 +2,7 @@ const { randomUUID } = require('crypto');
 const { pool } = require('../../db/pool');
 const { AppError } = require('../../middleware/error');
 const { normalizePageRequest, buildPageMeta } = require('../../utils/pagination');
-const { getConfiguredLimit } = require('../system/system.service');
+const { getConfiguredLimit, getHrSettings } = require('../system/system.service');
 const { writeAuditLog } = require('../users/audit.service');
 const { ensureUserRoleSchema } = require('../users/user-schema.service');
 const { hasAnyRole, hasRole, normalizeRoles, resolvePrimaryRole } = require('../users/permissions');
@@ -126,6 +126,13 @@ const employeeSelect = `
   e.default_deductions AS "defaultDeductions",
   e.payment_method AS "paymentMethod",
   COALESCE(e.bank_details, '{}'::jsonb) AS "bankDetails",
+  e.profile_review_status AS "profileReviewStatus",
+  e.profile_review_notes AS "profileReviewNotes",
+  e.profile_locked AS "profileLocked",
+  e.profile_reviewed_at AS "profileReviewedAt",
+  e.profile_reviewed_by AS "profileReviewedBy",
+  profile_reviewer.name AS "profileReviewedByName",
+  e.self_edit_requested_at AS "selfEditRequestedAt",
   e.created_by AS "createdBy",
   e.updated_by AS "updatedBy",
   e.created_at AS "createdAt",
@@ -142,6 +149,7 @@ const employeeJoin = `
   FROM employee_profiles e
   JOIN users u ON u.id = e.user_id
   LEFT JOIN users manager ON manager.id = e.manager_user_id
+  LEFT JOIN users profile_reviewer ON profile_reviewer.id = e.profile_reviewed_by
 `;
 
 const ensureHrTables = async () => {
@@ -170,11 +178,27 @@ const ensureHrTables = async () => {
             default_deductions NUMERIC(10, 2) NOT NULL DEFAULT 0,
             payment_method TEXT,
             bank_details JSONB NOT NULL DEFAULT '{}'::jsonb,
+            profile_review_status TEXT NOT NULL DEFAULT 'APPROVED',
+            profile_review_notes TEXT,
+            profile_locked BOOLEAN NOT NULL DEFAULT FALSE,
+            profile_reviewed_at TIMESTAMPTZ,
+            profile_reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+            self_edit_requested_at TIMESTAMPTZ,
             created_by UUID REFERENCES users(id) ON DELETE SET NULL,
             updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
           )
+        `);
+
+        await pool.query(`
+          ALTER TABLE employee_profiles
+            ADD COLUMN IF NOT EXISTS profile_review_status TEXT NOT NULL DEFAULT 'APPROVED',
+            ADD COLUMN IF NOT EXISTS profile_review_notes TEXT,
+            ADD COLUMN IF NOT EXISTS profile_locked BOOLEAN NOT NULL DEFAULT FALSE,
+            ADD COLUMN IF NOT EXISTS profile_reviewed_at TIMESTAMPTZ,
+            ADD COLUMN IF NOT EXISTS profile_reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+            ADD COLUMN IF NOT EXISTS self_edit_requested_at TIMESTAMPTZ
         `);
 
         await pool.query(`
@@ -537,6 +561,9 @@ const updateEmployee = async (viewer, id, payload = {}) => {
   if (payload.defaultDeductions !== undefined) add('default_deductions', toMoney(payload.defaultDeductions, 0));
   if (payload.paymentMethod !== undefined) add('payment_method', toText(payload.paymentMethod));
   if (payload.bankDetails !== undefined) add('bank_details', JSON.stringify(payload.bankDetails || {}), '::jsonb');
+  if (payload.profileReviewStatus !== undefined) add('profile_review_status', toText(payload.profileReviewStatus));
+  if (payload.profileReviewNotes !== undefined) add('profile_review_notes', toText(payload.profileReviewNotes));
+  if (payload.profileLocked !== undefined) add('profile_locked', Boolean(payload.profileLocked));
 
   add('updated_by', viewer.id);
 
@@ -565,6 +592,150 @@ const updateEmployee = async (viewer, id, payload = {}) => {
       employeeCode: updated.employeeCode,
     },
   });
+  return updated;
+};
+
+const updateMyProfile = async (viewer, payload = {}) => {
+  await ensureHrTables();
+  const hrSettings = await getHrSettings();
+  const employee = await requireEmployeeForSelf(viewer);
+
+  if (!hrSettings.allowEmployeeProfileEditing) {
+    throw new AppError('Employee profile editing is currently disabled by HR.', 403);
+  }
+
+  if (employee.profileLocked) {
+    throw new AppError('Your employee profile is locked. Please contact HR.', 409);
+  }
+
+  const updates = [];
+  const params = [];
+  const add = (column, value, cast = '') => {
+    params.push(value);
+    updates.push(`${column} = $${params.length}${cast}`);
+  };
+
+  if (payload.phone !== undefined) add('phone', toText(payload.phone));
+  if (payload.nationalId !== undefined) add('national_id', toText(payload.nationalId));
+  if (payload.address !== undefined) add('address', toText(payload.address));
+  if (payload.emergencyContact !== undefined) add('emergency_contact', toText(payload.emergencyContact));
+  if (payload.paymentMethod !== undefined) add('payment_method', toText(payload.paymentMethod));
+  if (payload.bankDetails !== undefined) add('bank_details', JSON.stringify(payload.bankDetails || {}), '::jsonb');
+
+  add('profile_review_status', 'PENDING_REVIEW');
+  add('profile_review_notes', null);
+  add('self_edit_requested_at', new Date().toISOString());
+  add('profile_reviewed_at', null);
+  add('profile_reviewed_by', null);
+  add('updated_by', viewer.id);
+
+  params.push(employee.id);
+  await pool.query(
+    `
+      UPDATE employee_profiles
+      SET ${updates.join(', ')},
+          updated_at = NOW()
+      WHERE id = $${params.length}
+    `,
+    params,
+  );
+
+  const profile = await getMyHr(viewer);
+  await writeAuditLog({
+    actorUserId: viewer.id,
+    action: 'EMPLOYEE_PROFILE_UPDATED',
+    targetType: 'employee',
+    targetId: employee.id,
+    details: {
+      employeeCode: employee.employeeCode,
+      reviewStatus: 'PENDING_REVIEW',
+    },
+  });
+
+  return profile;
+};
+
+const reviewEmployeeProfile = async (viewer, id, payload = {}) => {
+  ensureHrManager(viewer);
+  const employee = await getEmployeeById(viewer, id);
+  const action = String(payload.action || '').trim().toUpperCase();
+  const notes = toText(payload.notes);
+
+  if (!['APPROVE', 'REQUEST_CHANGES', 'LOCK', 'UNLOCK'].includes(action)) {
+    throw new AppError('Review action is required.', 400);
+  }
+
+  const updates = ['updated_by = $1', 'updated_at = NOW()'];
+  const params = [viewer.id];
+
+  if (action === 'APPROVE') {
+    params.push('APPROVED');
+    updates.push(`profile_review_status = $${params.length}`);
+    params.push(notes);
+    updates.push(`profile_review_notes = $${params.length}`);
+    updates.push('profile_reviewed_at = NOW()');
+    params.push(viewer.id);
+    updates.push(`profile_reviewed_by = $${params.length}`);
+  } else if (action === 'REQUEST_CHANGES') {
+    params.push('CHANGES_REQUESTED');
+    updates.push(`profile_review_status = $${params.length}`);
+    params.push(notes || 'HR requested profile corrections.');
+    updates.push(`profile_review_notes = $${params.length}`);
+    updates.push('profile_reviewed_at = NOW()');
+    params.push(viewer.id);
+    updates.push(`profile_reviewed_by = $${params.length}`);
+  } else if (action === 'LOCK') {
+    params.push(true);
+    updates.push(`profile_locked = $${params.length}`);
+    updates.push('profile_reviewed_at = NOW()');
+    params.push(viewer.id);
+    updates.push(`profile_reviewed_by = $${params.length}`);
+    if (notes !== null) {
+      params.push(notes);
+      updates.push(`profile_review_notes = $${params.length}`);
+    }
+  } else if (action === 'UNLOCK') {
+    params.push(false);
+    updates.push(`profile_locked = $${params.length}`);
+    updates.push('profile_reviewed_at = NOW()');
+    params.push(viewer.id);
+    updates.push(`profile_reviewed_by = $${params.length}`);
+    if (notes !== null) {
+      params.push(notes);
+      updates.push(`profile_review_notes = $${params.length}`);
+    }
+  }
+
+  params.push(id);
+  await pool.query(
+    `
+      UPDATE employee_profiles
+      SET ${updates.join(', ')}
+      WHERE id = $${params.length}
+    `,
+    params,
+  );
+
+  const updated = await getEmployeeById(viewer, id);
+  const auditAction =
+    action === 'APPROVE'
+      ? 'EMPLOYEE_PROFILE_APPROVED'
+      : action === 'REQUEST_CHANGES'
+        ? 'EMPLOYEE_PROFILE_CHANGES_REQUESTED'
+        : action === 'LOCK'
+          ? 'EMPLOYEE_PROFILE_LOCKED'
+          : 'EMPLOYEE_PROFILE_UNLOCKED';
+  await writeAuditLog({
+    actorUserId: viewer.id,
+    action: auditAction,
+    targetType: 'employee',
+    targetId: id,
+    details: {
+      employeeCode: updated.employeeCode,
+      notes,
+    },
+  });
+
   return updated;
 };
 
@@ -1768,6 +1939,7 @@ const getPerformanceReport = async (viewer) => {
 const getMyHr = async (viewer) => {
   await ensureHrTables();
   const employee = await requireEmployeeForSelf(viewer);
+  const hrSettings = await getHrSettings();
   const [attendance, leaves, expenses, payroll, warnings] = await Promise.all([
     listAttendance(viewer, { limit: 12 }),
     listLeaves(viewer, { limit: 12 }),
@@ -1783,6 +1955,7 @@ const getMyHr = async (viewer) => {
     payroll: payroll.items || [],
     expenses: expenses.items,
     warnings: warnings.items,
+    allowEmployeeProfileEditing: hrSettings.allowEmployeeProfileEditing,
   };
 };
 
@@ -1803,6 +1976,8 @@ module.exports = {
   createEmployee,
   getEmployeeById,
   updateEmployee,
+  updateMyProfile,
+  reviewEmployeeProfile,
   listAttendance,
   upsertAttendance,
   updateAttendance,

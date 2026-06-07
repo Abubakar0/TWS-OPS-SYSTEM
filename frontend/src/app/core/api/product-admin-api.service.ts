@@ -4,7 +4,7 @@ import { Observable, map, tap } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { CACHE_NAMESPACE, CACHE_TTL, makeCacheKey } from '../config/cache';
-import { Product, ProductFilters } from '../models/product.models';
+import { Product, ProductFilters, ProductUpdatePayload } from '../models/product.models';
 import { RequestCacheService } from '../state/request-cache.service';
 import { PageResult } from '../state/query-state.models';
 
@@ -95,6 +95,24 @@ export class ProductAdminApiService {
   restoreProduct(id: string): Observable<Product> {
     return this.http
       .post<{ product: Product }>(`${environment.apiUrl}/products/${id}/restore`, {})
+      .pipe(
+        map((response) => response.product),
+        tap(() => this.requestCache.invalidatePrefix(CACHE_NAMESPACE.products)),
+      );
+  }
+
+  updateProduct(id: string, payload: ProductUpdatePayload): Observable<Product> {
+    return this.http
+      .patch<{ product: Product }>(`${environment.apiUrl}/products/${id}`, payload)
+      .pipe(
+        map((response) => response.product),
+        tap(() => this.requestCache.invalidatePrefix(CACHE_NAMESPACE.products)),
+      );
+  }
+
+  rejectProduct(id: string, rejectionReason: string): Observable<Product> {
+    return this.http
+      .patch<{ product: Product }>(`${environment.apiUrl}/products/${id}/reject`, { rejectionReason })
       .pipe(
         map((response) => response.product),
         tap(() => this.requestCache.invalidatePrefix(CACHE_NAMESPACE.products)),

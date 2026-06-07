@@ -24,7 +24,7 @@ import { AdminApiService } from '../../core/api/admin-api.service';
 import { ProductCategoryApiService } from '../../core/api/product-category-api.service';
 import { SystemApiService } from '../../core/api/system-api.service';
 import { HuntingCriteria, ProductCategory } from '../../core/models/product.models';
-import { AnnouncementBarSettings } from '../../core/models/system.models';
+import { AnnouncementBarSettings, HrSettings } from '../../core/models/system.models';
 import { ReferenceDataService } from '../../core/state/reference-data.service';
 import { SessionCacheService } from '../../core/state/session-cache.service';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
@@ -131,6 +131,9 @@ export class AdminSettingsComponent implements OnInit {
     title: new FormControl('', { nonNullable: true }),
     message: new FormControl('', { nonNullable: true }),
   });
+  readonly hrSettingsForm = new FormGroup({
+    allowEmployeeProfileEditing: new FormControl(true, { nonNullable: true }),
+  });
 
   readonly hasUnsavedChanges = computed(() => {
     this.formVersion();
@@ -229,6 +232,29 @@ export class AdminSettingsComponent implements OnInit {
         },
         error: (error) => {
           this.categoryError.set(error?.error?.message || 'Could not update announcement.');
+        },
+      });
+  }
+
+  saveHrSettings(): void {
+    if (this.categorySaving()) {
+      return;
+    }
+
+    this.categorySaving.set(true);
+    this.categoryError.set('');
+
+    this.systemApi
+      .updateHrSettings(this.hrSettingsForm.getRawValue() as HrSettings)
+      .pipe(finalize(() => this.categorySaving.set(false)))
+      .subscribe({
+        next: (settings) => {
+          this.hrSettingsForm.patchValue(settings, { emitEvent: false });
+          this.workspaceSync.notifySettingsChanged();
+          this.toast.success('HR settings updated.');
+        },
+        error: (error) => {
+          this.categoryError.set(error?.error?.message || 'Could not update HR settings.');
         },
       });
   }
@@ -422,6 +448,7 @@ export class AdminSettingsComponent implements OnInit {
       ]);
       this.categories.set(categories);
       this.announcementForm.patchValue(settings.announcementBar, { emitEvent: false });
+      this.hrSettingsForm.patchValue(settings.hrSettings, { emitEvent: false });
     } catch (error) {
       this.categoryError.set('Could not load product categories.');
     } finally {

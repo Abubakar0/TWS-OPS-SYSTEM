@@ -212,6 +212,41 @@
     }
   </section>
 
+  @if (hrSummaryCards().length) {
+    <article class="surface-card">
+      <div class="surface-card__header">
+        <div>
+          <h2>My HR snapshot</h2>
+          <p>Attendance, leave, payroll, and warning signals from your employee profile.</p>
+        </div>
+        <a mat-stroked-button routerLink="/my-hr">
+          <mat-icon>badge</mat-icon>
+          <span>Open My HR</span>
+        </a>
+      </div>
+
+      <section class="stats-grid stats-grid--four">
+        @for (card of hrSummaryCards(); track card.label) {
+          <article class="stat-card">
+            <div class="stat-card__header">
+              <div
+                class="stat-card__icon"
+                [class.stat-card__icon--success]="card.tone === 'stat-card__icon--success'"
+                [class.stat-card__icon--warning]="card.tone === 'stat-card__icon--warning'"
+                [class.stat-card__icon--danger]="card.tone === 'stat-card__icon--danger'"
+              >
+                <mat-icon>{{ card.icon }}</mat-icon>
+              </div>
+            </div>
+            <span>{{ card.label }}</span>
+            <strong>{{ card.value }}</strong>
+            <small>{{ card.detail }}</small>
+          </article>
+        }
+      </section>
+    </article>
+  }
+
     <section class="section-grid">
     <article class="surface-card">
       <div class="surface-card__header">

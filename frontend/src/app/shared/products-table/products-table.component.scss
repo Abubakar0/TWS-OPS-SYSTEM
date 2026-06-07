@@ -3,6 +3,7 @@
   border: 1px solid var(--tws-border);
   border-radius: 18px 18px 0 0;
   background: var(--tws-surface-strong);
+  margin-top: 15px;
 }
 
 .products-table {
@@ -170,6 +171,28 @@
   border-top: 0;
   border-radius: 0 0 18px 18px;
   background: var(--tws-surface-strong);
+}
+
+.table-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.table-icon-button {
+  border: 1px solid rgba(23, 40, 74, 0.12);
+  border-radius: 999px;
+  background: rgba(248, 250, 255, 0.92);
+  color: var(--tws-primary-strong);
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.table-icon-button:hover {
+  border-color: rgba(23, 40, 74, 0.24);
+  background: rgba(243, 247, 255, 1);
 }
 
 .empty-state {

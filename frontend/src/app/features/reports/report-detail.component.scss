@@ -1,0 +1,256 @@
+.page-shell {
+  display: grid;
+  gap: 18px;
+}
+
+.page-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.breadcrumbs {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  color: var(--tws-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.breadcrumbs a {
+  color: var(--tws-primary-strong);
+  text-decoration: none;
+}
+
+.kicker {
+  display: inline-block;
+  margin-bottom: 6px;
+  color: var(--tws-primary-strong);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.filters-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.grid-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+}
+
+.report-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(320px, 0.95fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.report-grid {
+  display: grid;
+}
+
+.report-grid__header,
+.report-grid__row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.35fr) repeat(4, minmax(120px, 1fr));
+  gap: 12px;
+  align-items: center;
+}
+
+.report-grid__header {
+  padding: 0 0 12px;
+  color: var(--tws-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.report-grid__row {
+  width: 100%;
+  padding: 14px 0;
+  border-top: 1px solid rgba(226, 232, 240, 0.96);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.report-grid__row:hover {
+  color: inherit;
+  background: rgba(59, 130, 246, 0.03);
+}
+
+.report-grid__item {
+  display: grid;
+  gap: 4px;
+}
+
+.report-grid__item small,
+.report-grid__row span:not(.report-grid__item):not(.status-badge) {
+  color: var(--tws-muted);
+  font-size: 0.82rem;
+}
+
+.report-grid__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.facts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.fact-card {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid rgba(226, 232, 240, 0.96);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.fact-card span {
+  color: var(--tws-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.detail-json {
+  margin-top: 16px;
+}
+
+.detail-json pre {
+  margin: 10px 0 0;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.04);
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(226, 232, 240, 0.96);
+}
+
+.table-footer__meta {
+  color: var(--tws-muted);
+  font-size: 0.82rem;
+}
+
+.table-footer__controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.loading-state {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.breakdown-list {
+  display: grid;
+  gap: 10px;
+}
+
+.breakdown-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid rgba(226, 232, 240, 0.96);
+  border-radius: 16px;
+}
+
+.breakdown-row--button {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.92);
+  text-align: left;
+}
+
+.breakdown-row__count {
+  font-size: 0.96rem;
+}
+
+.empty-state--detail {
+  min-height: 240px;
+  display: grid;
+  place-items: center;
+}
+
+@media (max-width: 1240px) {
+  .filters-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .report-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 920px) {
+  .page-hero,
+  .table-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filters-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .report-grid__header,
+  .report-grid__row {
+    grid-template-columns: minmax(220px, 1.2fr) repeat(2, minmax(120px, 1fr));
+  }
+
+  .report-grid__header span:nth-child(n + 4),
+  .report-grid__row span:nth-child(n + 4) {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .filters-grid,
+  .facts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .report-grid__header {
+    display: none;
+  }
+
+  .report-grid__row {
+    grid-template-columns: 1fr;
+    padding: 16px 0;
+  }
+}

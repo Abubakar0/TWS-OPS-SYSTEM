@@ -32,10 +32,15 @@ export interface AnnouncementBarSettings {
   updatedAt: string | null;
 }
 
+export interface HrSettings {
+  allowEmployeeProfileEditing: boolean;
+}
+
 export interface SystemSettingsResponse {
   apiLimits: ApiLimitSettings;
   ipRestriction: IpRestrictionSettings;
   announcementBar: AnnouncementBarSettings;
+  hrSettings: HrSettings;
   currentIp: string;
   ipRestrictionWarning: string;
 }

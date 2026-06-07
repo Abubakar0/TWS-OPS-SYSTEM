@@ -21,12 +21,120 @@ export class HunterRulesComponent implements OnInit {
   readonly loading = signal(true);
   readonly error = signal('');
   readonly criteria = signal<HuntingCriteria | null>(null);
+  readonly recommendedTools = [
+    {
+      name: 'eBay Sold History',
+      purpose: 'Check real sold demand before hunting.',
+      description: 'Review sold listings to confirm buyers are actively purchasing the same or very similar item.',
+      usage: 'Open sold history, compare sell-through, note title patterns, and confirm price consistency.',
+      link: 'https://www.ebay.com/sh/research',
+    },
+    {
+      name: 'eBay Image Downloader',
+      purpose: 'Verify listing image quality and reuse patterns.',
+      description: 'Pull listing imagery quickly so you can compare product matches and catch weak or duplicate source photos.',
+      usage: 'Use it when you need to compare the Amazon source item against existing eBay competitors.',
+      link: 'https://chromewebstore.google.com/',
+    },
+    {
+      name: 'Keepa',
+      purpose: 'Track Amazon pricing, stock swings, and demand history.',
+      description: 'Keepa helps confirm whether the current Amazon buy price and stock are stable enough to support a clean listing.',
+      usage: 'Check the buy box price, recent price spikes, stock dips, and offer consistency before you submit.',
+      link: 'https://keepa.com/',
+    },
+    {
+      name: 'Grabley',
+      purpose: 'Speed up product research and cross-platform checks.',
+      description: 'Use Grabley when you need faster sourcing comparisons or support material during the hunt.',
+      usage: 'Cross-check demand signals and save yourself manual comparison time.',
+      link: 'https://grabley.com/',
+    },
+    {
+      name: 'SellerSprite',
+      purpose: 'Validate competition and demand trends.',
+      description: 'SellerSprite is useful for deeper product intelligence, especially when you need extra confidence on demand.',
+      usage: 'Review search demand, related competition, and broader product movement before you submit borderline items.',
+      link: 'https://www.sellersprite.com/',
+    },
+  ];
   readonly basics = [
     'Start with ASIN verification before you fill the form.',
     'Use real Amazon and eBay product links only.',
     'Check stock, sold count, rating, and recent sales before you submit.',
     'Use up-trending products and realistic delivery timelines.',
     'Review your live products every Saturday before fresh hunting starts.',
+  ];
+  readonly documentationSections = [
+    {
+      title: 'Introduction',
+      items: [
+        'Always work from a real Amazon source item and a real comparable eBay market.',
+        'Do not submit a product just because it looks profitable on one screen. Verify every signal first.',
+      ],
+    },
+    {
+      title: 'Product Requirements',
+      items: [
+        'ASIN must be valid and should be checked for duplicates in the workspace.',
+        'Product title, links, and pricing should describe the same item across platforms.',
+        'Avoid mismatched variants, bundles, or ambiguous fitment listings.',
+      ],
+    },
+    {
+      title: 'Profit Rules',
+      items: [
+        'Minimum profit comes from the live admin settings.',
+        'Leave buffer for fees, stock movement, and normal market changes.',
+      ],
+    },
+    {
+      title: 'ROI Rules',
+      items: [
+        'Minimum ROI comes from the live admin settings.',
+        'Higher ROI products should still be checked for stock and demand stability before submission.',
+      ],
+    },
+    {
+      title: 'Stock Rules',
+      items: [
+        'Confirm Amazon stock meets the live minimum requirement.',
+        'Use alternate stock when available, but do not rely on weak or temporary stock signals.',
+      ],
+    },
+    {
+      title: 'Rating / Watcher / Sales Rules',
+      items: [
+        'Check rating quality, watchers, and recent sales together rather than in isolation.',
+        'A single strong metric does not rescue a weak product if the rest of the signals are poor.',
+      ],
+    },
+    {
+      title: 'Duplicate Rules',
+      items: [
+        'Never submit a duplicate ASIN already present in the system.',
+        'Watch for duplicate product matches created through slightly different titles or links.',
+      ],
+    },
+  ];
+  readonly rejectedReasons = [
+    'Profit below the minimum threshold.',
+    'ROI below the minimum threshold.',
+    'Stock too low or unstable.',
+    'Sales history too weak for safe listing.',
+    'Rating too low or product quality looks unreliable.',
+    'Duplicate ASIN already exists in the workspace.',
+    'Links do not point to the same real product.',
+    'Delivery timeline is too slow for approval.',
+  ];
+  readonly processSteps = [
+    'Search products with recent eBay sold demand, not just active listings.',
+    'Validate the exact Amazon source item and confirm ASIN, title, and fitment.',
+    'Check current Amazon price, stock, and price-history stability.',
+    'Confirm eBay demand using sold history, competition, and live listing quality.',
+    'Evaluate profit, ROI, and fee buffer against the live approval rules.',
+    'Reject the product yourself if it clearly fails demand, stock, or duplicate checks.',
+    'Submit only after every required field and every rule is satisfied.',
   ];
 
   readonly ruleRows = computed(() => {

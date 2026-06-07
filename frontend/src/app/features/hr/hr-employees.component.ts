@@ -16,6 +16,7 @@ import { ReferenceDataService } from '../../core/state/reference-data.service';
 import { ToastService } from '../../core/ui/toast.service';
 import { ErrorStateComponent } from '../../shared/error-state/error-state.component';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
+import { SearchableSelectComponent } from '../../shared/ui/searchable-select.component';
 
 @Component({
   selector: 'app-hr-employees',
@@ -31,6 +32,7 @@ import { EmptyStateComponent } from '../../shared/empty-state/empty-state.compon
     MatSelectModule,
     ErrorStateComponent,
     EmptyStateComponent,
+    SearchableSelectComponent,
   ],
   templateUrl: './hr-employees.component.html',
   styleUrl: './hr-shared.component.scss',
@@ -92,6 +94,37 @@ export class HrEmployeesComponent implements OnInit {
     const end = Math.min(total, start + this.employees().length - 1);
     return `Showing ${start}-${end} of ${total}`;
   });
+  readonly statusOptions = [
+    { value: '', label: 'All statuses' },
+    { value: 'ACTIVE', label: 'Active' },
+    { value: 'INACTIVE', label: 'Inactive' },
+    { value: 'PROBATION', label: 'Probation' },
+    { value: 'RESIGNED', label: 'Resigned' },
+    { value: 'TERMINATED', label: 'Terminated' },
+  ] as const;
+  readonly employeeStatusOptions = this.statusOptions.filter((option) => option.value !== '');
+  readonly employmentTypeOptions = [
+    { value: 'FULL_TIME', label: 'Full Time' },
+    { value: 'PART_TIME', label: 'Part Time' },
+    { value: 'CONTRACT', label: 'Contract' },
+    { value: 'INTERN', label: 'Intern' },
+    { value: 'REMOTE', label: 'Remote' },
+  ] as const;
+  readonly userSelectOptions = computed(() =>
+    this.availableUsers().map((user) => ({
+      value: user.id,
+      label: user.name,
+      description: user.email,
+    })),
+  );
+  readonly managerSelectOptions = computed(() => [
+    { value: '', label: 'No manager' },
+    ...this.users().map((user) => ({
+      value: user.id,
+      label: user.name,
+      description: user.email,
+    })),
+  ]);
 
   ngOnInit(): void {
     this.referenceData
@@ -164,6 +197,18 @@ export class HrEmployeesComponent implements OnInit {
     });
   }
 
+  readonly editorTitle = computed(() =>
+    this.selectedEmployee()
+      ? `Edit Employee: ${this.selectedEmployee()!.fullName}`
+      : 'Create Employee',
+  );
+
+  readonly editorDescription = computed(() =>
+    this.selectedEmployee()
+      ? 'Update the linked employee profile, salary defaults, and reporting line.'
+      : 'Choose an eligible user first, then create the HR profile in one pass.',
+  );
+
   resetForm(): void {
     this.selectedEmployee.set(null);
     this.employeeForm.reset({
@@ -222,6 +267,40 @@ export class HrEmployeesComponent implements OnInit {
       },
       error: (error) => {
         this.toast.error(error?.error?.message || 'Could not save employee profile.');
+        this.saving.set(false);
+      },
+    });
+  }
+
+  reviewProfile(action: 'APPROVE' | 'REQUEST_CHANGES' | 'LOCK' | 'UNLOCK'): void {
+    const employee = this.selectedEmployee();
+
+    if (!employee || this.saving()) {
+      return;
+    }
+
+    const notes = window.prompt(
+      action === 'REQUEST_CHANGES'
+        ? 'Add the change request note for the employee profile:'
+        : 'Optional note for HR audit:',
+      employee.profileReviewNotes || '',
+    );
+
+    if (action === 'REQUEST_CHANGES' && !String(notes || '').trim()) {
+      this.toast.error('A note is required when requesting profile changes.');
+      return;
+    }
+
+    this.saving.set(true);
+    this.hrApi.reviewEmployeeProfile(employee.id, { action, notes: String(notes || '').trim() || undefined }).subscribe({
+      next: (updated) => {
+        this.toast.success('Employee profile updated.');
+        this.saving.set(false);
+        this.loadEmployees(this.page());
+        this.selectEmployee(updated);
+      },
+      error: (error) => {
+        this.toast.error(error?.error?.message || 'Could not update employee review status.');
         this.saving.set(false);
       },
     });

@@ -203,6 +203,7 @@ const deleteTeam = async (user, id) => {
 };
 
 module.exports = {
+  ensureTeamTables,
   listTeams,
   saveTeam,
   deleteTeam,

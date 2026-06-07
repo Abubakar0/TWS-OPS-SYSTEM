@@ -7,7 +7,7 @@ import { AdminApiService } from '../api/admin-api.service';
 import { AuthService } from '../auth/auth.service';
 import { ADMIN_MANAGED_ROLES, SUPER_ADMIN_MANAGED_ROLES } from '../config/roles';
 import { SEARCH_DEBOUNCE_MS } from '../config/validation';
-import { User, UserPermissions, UserRole, userHasRole, userHasAnyRole } from '../models/auth.models';
+import { User, UserDetails, UserPermissions, UserRole, userHasRole, userHasAnyRole } from '../models/auth.models';
 import { ExportService } from '../services/export.service';
 import { mapUserRow } from '../mappers/user-row.mapper';
 import { ReferenceDataService } from '../state/reference-data.service';
@@ -53,6 +53,10 @@ export class AdminFacade {
   readonly editingUser = signal<User | null>(null);
   readonly passwordHidden = signal(true);
   readonly importingUsers = signal(false);
+  readonly userDetailsOpen = signal(false);
+  readonly userDetailsLoading = signal(false);
+  readonly userDetailsError = signal('');
+  readonly activeUserDetails = signal<UserDetails | null>(null);
 
   readonly searchControl = new FormControl('', { nonNullable: true });
   readonly userForm = createUserForm();
@@ -110,7 +114,7 @@ export class AdminFacade {
     });
   });
   readonly userRows = computed(() =>
-    this.filteredUsers().map((user) => mapUserRow(user, this.auth.currentUser()?.role)),
+    this.filteredUsers().map((user) => mapUserRow(user, this.auth.currentUser())),
   );
   readonly pagedUserRows = computed(() => paginateRecords(this.userRows(), this.pageIndex(), this.pageSize()));
   readonly pageCount = computed(() => Math.max(1, Math.ceil(this.userRows().length / this.pageSize())));
@@ -194,6 +198,31 @@ export class AdminFacade {
     this.userForm.controls.password.setValidators([Validators.required, Validators.minLength(8)]);
     this.userForm.controls.password.updateValueAndValidity({ emitEvent: false });
     this.userModalOpen.set(true);
+  }
+
+  openUserDetails(user: User): void {
+    this.userDetailsOpen.set(true);
+    this.userDetailsLoading.set(true);
+    this.userDetailsError.set('');
+    this.activeUserDetails.set(null);
+
+    this.adminApi.getUserDetails(user.id).subscribe({
+      next: (details) => {
+        this.activeUserDetails.set(details);
+        this.userDetailsLoading.set(false);
+      },
+      error: (error) => {
+        this.userDetailsError.set(error?.error?.message || 'Could not load user details.');
+        this.userDetailsLoading.set(false);
+      },
+    });
+  }
+
+  closeUserDetails(): void {
+    this.userDetailsOpen.set(false);
+    this.userDetailsLoading.set(false);
+    this.userDetailsError.set('');
+    this.activeUserDetails.set(null);
   }
 
   openEditModal(user: User): void {

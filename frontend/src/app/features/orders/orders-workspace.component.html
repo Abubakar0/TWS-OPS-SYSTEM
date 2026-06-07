@@ -91,7 +91,7 @@
         icon="filter_list"
         [badge]="facade.total() + ' orders'"
         [storageKey]="'tws_orders_filters_' + facade.mode()"
-        [defaultExpanded]="facade.mode() === 'processor'"
+        [defaultExpanded]="false"
       >
         <form class="filters-form" [formGroup]="facade.filters" (ngSubmit)="facade.applyFilters()">
           <div class="filters-grid">
@@ -236,8 +236,79 @@
     } @else {
       <section class="orders-layout">
         <article class="surface-card orders-main">
-          <div class="orders-table">
+          @if (facade.canWrite() && (facade.isAdminWorkspace() || facade.isProcessingWorkspace())) {
+            <div class="bulk-toolbar">
+              <div class="bulk-toolbar__summary">
+                <mat-icon>done_all</mat-icon>
+                <div>
+                  <strong>{{ facade.selectedOrderCount() }} selected</strong>
+                  <span>Use bulk actions to keep the queue moving without reloading the whole page.</span>
+                </div>
+              </div>
+
+              <div class="bulk-toolbar__controls">
+                <mat-form-field appearance="outline" class="bulk-toolbar__field">
+                  <mat-label>Bulk status</mat-label>
+                  <mat-select [formControl]="facade.bulkStatusControl">
+                    <mat-option value="">Select status</mat-option>
+                    @for (status of facade.bulkStatusOptions; track status) {
+                      <mat-option [value]="status">{{ status.replaceAll('_', ' ') }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+
+                <div class="grid-toolbar__actions">
+                  <button
+                    mat-flat-button
+                    color="primary"
+                    type="button"
+                    (click)="facade.applyBulkStatus()"
+                    [disabled]="!facade.bulkActionVm().canApply"
+                  >
+                    <mat-icon>published_with_changes</mat-icon>
+                    <span>Update Selected</span>
+                  </button>
+
+                  @if (facade.canExport()) {
+                    <button
+                      mat-stroked-button
+                      type="button"
+                      (click)="facade.exportSelectedOrders()"
+                      [disabled]="!facade.selectedOrderCount()"
+                    >
+                      <mat-icon>download</mat-icon>
+                      <span>Export Selected</span>
+                    </button>
+                  }
+
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    (click)="facade.clearSelectedOrders()"
+                    [disabled]="!facade.selectedOrderCount()"
+                  >
+                    <mat-icon>clear_all</mat-icon>
+                    <span>Clear</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          }
+
+          <div
+            class="orders-table"
+            [class.orders-table--selectable]="facade.canWrite() && (facade.isAdminWorkspace() || facade.isProcessingWorkspace())"
+          >
             <div class="orders-table__head">
+              @if (facade.canWrite() && (facade.isAdminWorkspace() || facade.isProcessingWorkspace())) {
+                <span class="orders-table__select">
+                  <mat-checkbox
+                    [checked]="facade.allVisibleOrdersSelected()"
+                    [indeterminate]="facade.selectedOrderCount() > 0 && !facade.allVisibleOrdersSelected()"
+                    (change)="facade.toggleSelectAllVisible($event.checked)"
+                  />
+                </span>
+              }
               <span>Order</span>
               <span>Product</span>
               <span>Hunter / Account</span>
@@ -247,48 +318,60 @@
             </div>
 
             @for (row of facade.orderRows(); track row.id) {
-              <button
-                type="button"
-                class="order-row"
-                [class.is-active]="facade.selectedOrderId() === row.id"
-                (click)="facade.selectOrder(row.id)"
-              >
-                <div class="order-row__cell order-row__summary">
-                  <strong>{{ row.orderCode }}</strong>
-                  <span>{{ row.ebayOrderId }}</span>
-                  <small>{{ row.dateLabel }}</small>
-                </div>
+              <div class="order-row-shell" [class.is-active]="facade.selectedOrderId() === row.id">
+                @if (facade.canWrite() && (facade.isAdminWorkspace() || facade.isProcessingWorkspace())) {
+                  <div class="order-row-shell__select">
+                    <mat-checkbox
+                      [checked]="facade.isOrderSelected(row.id)"
+                      (click)="$event.stopPropagation()"
+                      (change)="facade.toggleOrderSelection(row.id, $event.checked)"
+                    />
+                  </div>
+                }
 
-                <div class="order-row__cell">
-                  <strong [attr.title]="row.title">{{ row.title }}</strong>
-                  <span>{{ row.asin || 'Unmatched product' }}</span>
-                  <small>{{ row.matchedLabel }}</small>
-                </div>
+                <button
+                  type="button"
+                  class="order-row"
+                  [class.is-active]="facade.selectedOrderId() === row.id"
+                  (click)="facade.selectOrder(row.id)"
+                >
+                  <div class="order-row__cell order-row__summary">
+                    <strong>{{ row.orderCode }}</strong>
+                    <span>{{ row.ebayOrderId }}</span>
+                    <small>{{ row.dateLabel }}</small>
+                  </div>
 
-                <div class="order-row__cell">
-                  <strong>{{ row.hunterName || 'Manual order' }}</strong>
-                  <span>{{ row.accountName || 'Not Assigned' }}</span>
-                  @if (row.listerName) {
-                    <small>Lister: {{ row.listerName }}</small>
-                  }
-                </div>
+                  <div class="order-row__cell">
+                    <strong [attr.title]="row.title">{{ row.title }}</strong>
+                    <span>{{ row.asin || 'Unmatched product' }}</span>
+                    <small>{{ row.matchedLabel }}</small>
+                  </div>
 
-                <div class="order-row__cell order-row__financials">
-                  <strong [class.is-negative]="row.profit < 0">${{ row.profit | number: '1.2-2' }}</strong>
-                  <span>Sale ${{ row.salePrice | number: '1.2-2' }}</span>
-                  <small>ROI {{ row.roi | number: '1.0-2' }}%</small>
-                </div>
+                  <div class="order-row__cell">
+                    <strong>{{ row.hunterName || 'Manual order' }}</strong>
+                    <span>{{ row.accountName || 'Not Assigned' }}</span>
+                    @if (row.listerName) {
+                      <small>Lister: {{ row.listerName }}</small>
+                    }
+                  </div>
 
-                <div class="order-row__cell">
-                  <span class="status-badge" [ngClass]="row.placementTone">{{ row.placementLabel }}</span>
-                  <small>{{ row.amazonOrderId || row.amazonOrderLink || 'Awaiting supplier placement' }}</small>
-                </div>
+                  <div class="order-row__cell order-row__financials">
+                    <strong [class.is-negative]="row.profit < 0">${{ row.profit | number: '1.2-2' }}</strong>
+                    <span>Sale ${{ row.salePrice | number: '1.2-2' }}</span>
+                    <small>ROI {{ row.roi | number: '1.0-2' }}%</small>
+                  </div>
 
-                <div class="order-row__cell order-row__status">
-                  <span class="status-badge" [ngClass]="row.statusTone">{{ row.statusLabel }}</span>
-                  <span class="status-badge" [ngClass]="row.qualityTone">{{ row.qualityLabel }}</span>
-                </div>
-              </button>
+                  <div class="order-row__cell">
+                    <span class="status-badge" [ngClass]="row.placementTone">{{ row.placementLabel }}</span>
+                    <small>{{ row.amazonOrderId || row.amazonOrderLink || 'Awaiting supplier placement' }}</small>
+                  </div>
+
+                  <div class="order-row__cell order-row__status">
+                    <span class="status-badge" [ngClass]="row.statusTone">{{ row.statusLabel }}</span>
+                    <span class="status-badge" [ngClass]="row.qualityTone">{{ row.qualityLabel }}</span>
+                  </div>
+                </button>
+              </div>
             }
           </div>
 
@@ -386,6 +469,32 @@
               <div class="detail-fact">
                 <span>Buyer</span>
                 <strong>{{ order.buyerCountry || order.buyerName || 'Not captured' }}</strong>
+              </div>
+            </div>
+
+            <div class="detail-section">
+              <h3>Ownership</h3>
+              <div class="detail-stack">
+                <div class="detail-row">
+                  <span>Hunter</span>
+                  <strong>{{ order.hunterName || 'Manual order' }}</strong>
+                </div>
+                <div class="detail-row">
+                  <span>Lister</span>
+                  <strong>{{ order.listerName || 'Not Assigned' }}</strong>
+                </div>
+                <div class="detail-row">
+                  <span>Account</span>
+                  <strong>{{ order.accountName || 'Not Assigned' }}</strong>
+                </div>
+                <div class="detail-row">
+                  <span>Issue Status</span>
+                  <strong>{{ order.issueStatus ? order.issueStatus.replaceAll('_', ' ') : 'No open issue' }}</strong>
+                </div>
+                <div class="detail-row">
+                  <span>Refund Status</span>
+                  <strong>{{ order.orderStatus === 'REFUNDED' ? 'Refunded' : 'Not refunded' }}</strong>
+                </div>
               </div>
             </div>
 
@@ -494,6 +603,36 @@
                   </div>
                 }
               </div>
+            </div>
+
+            <div class="detail-section">
+              <div class="detail-section__header">
+                <div>
+                  <h3>Activity History</h3>
+                  <p>Latest actions tied to this order.</p>
+                </div>
+              </div>
+
+              @if (facade.orderActivityLoading()) {
+                <div class="loading-state loading-state--compact">
+                  <mat-spinner diameter="20"></mat-spinner>
+                  <span>Loading order activity.</span>
+                </div>
+              } @else if (facade.orderActivityVm().length) {
+                <div class="activity-list">
+                  @for (entry of facade.orderActivityVm(); track entry.id) {
+                    <div class="activity-item">
+                      <div class="activity-item__copy">
+                        <strong>{{ entry.actionLabel }}</strong>
+                        <span>{{ entry.actorLabel }}</span>
+                      </div>
+                      <small>{{ entry.createdAt | date: 'MMM d, y, h:mm a' }}</small>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <div class="empty-state empty-state--compact">No activity recorded for this order yet.</div>
+              }
             </div>
 
             @if (order.notes || order.issueReason) {

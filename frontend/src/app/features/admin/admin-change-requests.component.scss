@@ -109,6 +109,17 @@
   line-height: 1.38;
 }
 
+.detail-row--actions .link-actions {
+  margin-top: 8px;
+}
+
+.link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
 .detail-form {
   display: grid;
   gap: 10px;

@@ -10,6 +10,8 @@ import { RouterLink } from '@angular/router';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { OrderApiService } from '../../core/api/order-api.service';
+import { HrApiService } from '../../core/api/hr-api.service';
+import { MyHrProfile } from '../../core/models/hr.models';
 import { Order, OrderFilters, OrderStats } from '../../core/models/order.models';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 
@@ -56,12 +58,14 @@ const getErrorMessage = (error: unknown, fallback: string) => {
 })
 export class OrderProcessorDashboardComponent {
   private readonly orderApi = inject(OrderApiService);
+  private readonly hrApi = inject(HrApiService);
 
   readonly loading = signal(false);
   readonly error = signal('');
   readonly range = signal<DashboardRange>('today');
   readonly stats = signal<OrderStats | null>(null);
   readonly recentOrders = signal<Order[]>([]);
+  readonly myHrProfile = signal<MyHrProfile | null>(null);
 
   readonly customFrom = new FormControl(toDateInput(new Date()), { nonNullable: true });
   readonly customTo = new FormControl(toDateInput(new Date()), { nonNullable: true });
@@ -96,9 +100,52 @@ export class OrderProcessorDashboardComponent {
       createdAt: order.updatedAt || order.createdAt,
     })),
   );
+  readonly hrSummaryCards = computed(() => {
+    const profile = this.myHrProfile();
+
+    if (!profile) {
+      return [];
+    }
+
+    const latestAttendance = profile.attendance[0];
+    const pendingLeaves = profile.leaves.filter((leave) => leave.status === 'PENDING').length;
+    const pendingPayroll = profile.payroll.filter((entry) => entry.status !== 'PAID').length;
+
+    return [
+      {
+        label: 'Attendance Summary',
+        value: latestAttendance?.status || 'No Record',
+        detail: latestAttendance?.date ? `Latest entry ${latestAttendance.date}` : 'No attendance has been logged yet.',
+        icon: 'calendar_month',
+        tone: '',
+      },
+      {
+        label: 'Pending Leave Requests',
+        value: pendingLeaves,
+        detail: 'Leave requests still waiting for HR review.',
+        icon: 'event_busy',
+        tone: pendingLeaves ? 'status-badge--order-ready' : 'status-badge--order-new',
+      },
+      {
+        label: 'Upcoming Payroll',
+        value: pendingPayroll,
+        detail: 'Payroll entries that have not been paid yet.',
+        icon: 'payments',
+        tone: pendingPayroll ? 'status-badge--order-ready' : 'status-badge--order-delivered',
+      },
+      {
+        label: 'Warnings',
+        value: profile.warnings.length,
+        detail: 'Warnings visible on your employee record.',
+        icon: 'gpp_maybe',
+        tone: profile.warnings.length ? 'status-badge--order-issue' : 'status-badge--order-delivered',
+      },
+    ];
+  });
 
   constructor() {
     void this.loadDashboard();
+    void this.loadMyHrSummary();
   }
 
   setRange(range: DashboardRange): void {
@@ -145,6 +192,15 @@ export class OrderProcessorDashboardComponent {
       this.error.set(getErrorMessage(error, 'Could not load order processor dashboard.'));
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  private async loadMyHrSummary(): Promise<void> {
+    try {
+      const profile = await firstValueFrom(this.hrApi.getMyHr());
+      this.myHrProfile.set(profile);
+    } catch {
+      this.myHrProfile.set(null);
     }
   }
 

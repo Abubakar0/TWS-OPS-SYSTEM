@@ -26,6 +26,13 @@ export interface EmployeeProfile {
   roles: UserRole[];
   isActive: boolean;
   status: string;
+  profileReviewStatus?: 'APPROVED' | 'PENDING_REVIEW' | 'CHANGES_REQUESTED';
+  profileReviewNotes?: string | null;
+  profileLocked?: boolean;
+  profileReviewedAt?: string | null;
+  profileReviewedBy?: string | null;
+  profileReviewedByName?: string | null;
+  selfEditRequestedAt?: string | null;
 }
 
 export interface AttendanceEntry {
@@ -211,4 +218,5 @@ export interface MyHrProfile {
   payroll: PayrollRecord[];
   expenses: ExpenseRecord[];
   warnings: WarningRecord[];
+  allowEmployeeProfileEditing: boolean;
 }

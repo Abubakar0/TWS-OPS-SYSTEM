@@ -21,6 +21,11 @@ const getProductById = async (req, res) => {
   res.json({ product });
 };
 
+const updateProduct = async (req, res) => {
+  const product = await productsService.updateProduct(req.user, req.params.id, req.body);
+  res.json({ product });
+};
+
 const checkAsinAvailability = async (req, res) => {
   const result = await productsService.checkAsinAvailability(req.query.asin);
   res.json(result);
@@ -65,6 +70,7 @@ module.exports = {
   createProduct,
   listProducts,
   getProductById,
+  updateProduct,
   checkAsinAvailability,
   listAssignedHunters,
   markProductsListed,

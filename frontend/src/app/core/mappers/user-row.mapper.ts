@@ -1,4 +1,4 @@
-import { User, UserRole, userHasRole } from '../models/auth.models';
+import { User, userHasRole } from '../models/auth.models';
 
 export interface UserRowViewModel {
   id: string;
@@ -7,9 +7,14 @@ export interface UserRowViewModel {
   canEdit: boolean;
 }
 
-export const mapUserRow = (user: User, currentUserRole: UserRole | undefined): UserRowViewModel => ({
+export const mapUserRow = (
+  user: User,
+  currentUser: Pick<User, 'role' | 'roles'> | null | undefined,
+): UserRowViewModel => ({
   id: user.id,
   user,
   statusLabel: user.isActive ? 'active' : 'disabled',
-  canEdit: !userHasRole(user, 'admin') || currentUserRole === 'super_admin',
+  canEdit:
+    !userHasRole(user, 'super_admin') &&
+    (!userHasRole(user, 'admin') || userHasRole(currentUser, 'super_admin')),
 });

@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, Injector, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -22,6 +22,9 @@ import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
 import { ToastService } from '../../core/ui/toast.service';
 import { ProductsTableComponent } from '../../shared/products-table/products-table.component';
 import { FilterPanelComponent } from '../../shared/ui/filter-panel.component';
+import { SearchableSelectComponent } from '../../shared/ui/searchable-select.component';
+import { decimalMinValidator, decimalValidator } from '../../shared/validators/price.validator';
+import { marketplaceUrlValidator } from '../../shared/validators/listing-link.validator';
 
 @Component({
   selector: 'app-hunter-products',
@@ -38,6 +41,7 @@ import { FilterPanelComponent } from '../../shared/ui/filter-panel.component';
     ErrorStateComponent,
     ProductsTableComponent,
     FilterPanelComponent,
+    SearchableSelectComponent,
   ],
   templateUrl: './hunter-products.component.html',
   styleUrl: './hunter-products.component.scss',
@@ -52,7 +56,10 @@ export class HunterProductsComponent implements OnInit {
   readonly pageSize = signal(this.pageSizeOptions[1]);
   readonly loading = signal(false);
   readonly exporting = signal(false);
+  readonly saving = signal(false);
   readonly error = signal('');
+  readonly editModalOpen = signal(false);
+  readonly editingProduct = signal<Product | null>(null);
   readonly resultLabel = computed(() => {
     const count = this.total();
     return `${count} product${count === 1 ? '' : 's'}`;
@@ -93,6 +100,53 @@ export class HunterProductsComponent implements OnInit {
   );
   readonly listedCount = computed(() => this.products().filter((product) => product.status === 'listed').length);
   readonly rejectedCount = computed(() => this.products().filter((product) => product.status === 'rejected').length);
+  readonly categoryOptions = computed(() =>
+    this.categories().map((category) => ({
+      value: category.name,
+      label: category.name,
+    })),
+  );
+  readonly editForm = new FormGroup({
+    title: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    category: new FormControl('', { nonNullable: true }),
+    customLabel: new FormControl('', { nonNullable: true }),
+    amazonUrl: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, marketplaceUrlValidator('amazon')],
+    }),
+    amazonAltUrl: new FormControl('', {
+      nonNullable: true,
+      validators: [marketplaceUrlValidator('amazon')],
+    }),
+    ebayUrl: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, marketplaceUrlValidator('ebay')],
+    }),
+    amazonPrice: new FormControl('', {
+      nonNullable: true,
+      validators: [decimalValidator, decimalMinValidator(0)],
+    }),
+    ebayPrice: new FormControl('', {
+      nonNullable: true,
+      validators: [decimalValidator, decimalMinValidator(0)],
+    }),
+    amazonStockCount: new FormControl('', {
+      nonNullable: true,
+      validators: [decimalValidator, decimalMinValidator(0)],
+    }),
+    soldCount: new FormControl('', {
+      nonNullable: true,
+      validators: [decimalValidator, decimalMinValidator(0)],
+    }),
+    rating: new FormControl('', {
+      nonNullable: true,
+      validators: [decimalValidator, decimalMinValidator(0)],
+    }),
+    productWatchers: new FormControl('', {
+      nonNullable: true,
+      validators: [decimalValidator, decimalMinValidator(0)],
+    }),
+  });
 
   constructor(
     private readonly productsApi: ProductService,
@@ -176,6 +230,79 @@ export class HunterProductsComponent implements OnInit {
 
   exportProducts(): void {
     void this.exportAllProducts();
+  }
+
+  openEditModal(product: Product): void {
+    this.editingProduct.set(product);
+    this.editForm.reset(
+      {
+        title: product.title || '',
+        category: product.category || '',
+        customLabel: product.customLabel || '',
+        amazonUrl: product.amazonUrl || '',
+        amazonAltUrl: product.amazonAltUrl || '',
+        ebayUrl: product.ebayUrl || '',
+        amazonPrice: product.amazonPrice === null ? '' : String(product.amazonPrice),
+        ebayPrice: product.ebayPrice === null ? '' : String(product.ebayPrice),
+        amazonStockCount: product.amazonStockCount === null ? '' : String(product.amazonStockCount),
+        soldCount: String(product.soldCount || 0),
+        rating: product.rating === null ? '' : String(product.rating),
+        productWatchers: product.productWatchers === null ? '' : String(product.productWatchers),
+      },
+      { emitEvent: false },
+    );
+    this.editModalOpen.set(true);
+  }
+
+  closeEditModal(force = false): void {
+    if (this.saving() && !force) {
+      return;
+    }
+
+    this.editModalOpen.set(false);
+    this.editingProduct.set(null);
+  }
+
+  saveProductEdit(): void {
+    const product = this.editingProduct();
+
+    if (!product || this.editForm.invalid || this.saving()) {
+      this.editForm.markAllAsTouched();
+      return;
+    }
+
+    const raw = this.editForm.getRawValue();
+    this.saving.set(true);
+
+    this.productsApi
+      .updateProduct(product.id, {
+        title: raw.title.trim(),
+        category: raw.category.trim() || null,
+        customLabel: raw.customLabel.trim() || null,
+        amazonUrl: raw.amazonUrl.trim(),
+        amazonAltUrl: raw.amazonAltUrl.trim() || null,
+        ebayUrl: raw.ebayUrl.trim(),
+        amazonPrice: raw.amazonPrice.trim() ? Number(raw.amazonPrice) : null,
+        ebayPrice: raw.ebayPrice.trim() ? Number(raw.ebayPrice) : null,
+        amazonStockCount: raw.amazonStockCount.trim() ? Number(raw.amazonStockCount) : null,
+        soldCount: raw.soldCount.trim() ? Number(raw.soldCount) : null,
+        rating: raw.rating.trim() ? Number(raw.rating) : null,
+        productWatchers: raw.productWatchers.trim() ? Number(raw.productWatchers) : null,
+      })
+      .pipe(finalize(() => this.saving.set(false)))
+      .subscribe({
+        next: (updatedProduct) => {
+          this.products.update((products) =>
+            products.map((entry) => (entry.id === updatedProduct.id ? updatedProduct : entry)),
+          );
+          this.workspaceSync.notifyProductsChanged();
+          this.toast.success('Product updated. Validation was re-run with the latest rules.');
+          this.closeEditModal(true);
+        },
+        error: (error) => {
+          this.toast.error(error?.error?.message || 'Could not update this product.');
+        },
+      });
   }
 
   loadProducts(): void {

@@ -53,6 +53,31 @@
       }
     </section>
 
+    @if (hrSummaryCards().length) {
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>My HR snapshot</h2>
+            <p>Attendance, leave, payroll, and warning signals from your employee profile.</p>
+          </div>
+          <a mat-stroked-button routerLink="/my-hr">
+            <mat-icon>badge</mat-icon>
+            <span>Open My HR</span>
+          </a>
+        </div>
+
+        <section class="processor-dashboard__cards">
+          @for (card of hrSummaryCards(); track card.label) {
+            <article class="surface-card processor-card">
+              <span class="status-badge" [ngClass]="card.tone">{{ card.label }}</span>
+              <strong>{{ card.value }}</strong>
+              <small>{{ card.detail }}</small>
+            </article>
+          }
+        </section>
+      </article>
+    }
+
     <section class="processor-dashboard__layout">
       <article class="surface-card">
         <div class="surface-card__header">

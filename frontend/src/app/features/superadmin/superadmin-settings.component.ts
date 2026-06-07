@@ -11,7 +11,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 
 import { Account, HuntingCriteria } from '../../core/models/product.models';
-import { AnnouncementBarSettings, ApiLimitSettings } from '../../core/models/system.models';
+import { AnnouncementBarSettings, ApiLimitSettings, HrSettings } from '../../core/models/system.models';
 import { AccountApiService } from '../../core/api/account-api.service';
 import { AdminApiService } from '../../core/api/admin-api.service';
 import { SystemApiService } from '../../core/api/system-api.service';
@@ -95,6 +95,9 @@ export class SuperAdminSettingsComponent implements OnInit {
     title: new FormControl('', { nonNullable: true }),
     message: new FormControl('', { nonNullable: true }),
   });
+  readonly hrSettingsForm = new FormGroup({
+    allowEmployeeProfileEditing: new FormControl(true, { nonNullable: true }),
+  });
 
   constructor(
     private readonly adminApi: AdminApiService,
@@ -143,6 +146,7 @@ export class SuperAdminSettingsComponent implements OnInit {
       next: (settings) => {
         this.apiLimitsForm.patchValue(settings.apiLimits);
         this.announcementForm.patchValue(settings.announcementBar, { emitEvent: false });
+        this.hrSettingsForm.patchValue(settings.hrSettings, { emitEvent: false });
       },
       error: (error) => this.error.set(error?.error?.message || 'Could not load system limits.'),
     });
@@ -260,6 +264,30 @@ export class SuperAdminSettingsComponent implements OnInit {
         },
         error: (error) => {
           this.error.set(error?.error?.message || 'Could not save announcement.');
+          this.saving.set(false);
+        },
+        complete: () => this.saving.set(false),
+      });
+  }
+
+  saveHrSettings(): void {
+    if (this.saving()) {
+      return;
+    }
+
+    this.saving.set(true);
+    this.error.set('');
+
+    this.systemApi
+      .updateHrSettings(this.hrSettingsForm.getRawValue() as HrSettings)
+      .subscribe({
+        next: (settings) => {
+          this.hrSettingsForm.patchValue(settings, { emitEvent: false });
+          this.workspaceSync.notifySettingsChanged();
+          this.toast.success('HR settings updated.');
+        },
+        error: (error) => {
+          this.error.set(error?.error?.message || 'Could not save HR settings.');
           this.saving.set(false);
         },
         complete: () => this.saving.set(false),

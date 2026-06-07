@@ -641,7 +641,7 @@ textarea.mat-mdc-input-element {
 .simple-table__header,
 .simple-table__row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 90px 90px;
+  grid-template-columns: minmax(0, 1fr) 180px 180px;
   gap: 12px;
   align-items: center;
 }
@@ -708,6 +708,7 @@ textarea.mat-mdc-input-element {
   border: 1px solid rgba(81, 146, 229, 0.14);
   background: rgba(81, 146, 229, 0.08);
   color: var(--tws-primary-strong);
+  margin-bottom: 10px;
 }
 
 .inline-state strong {
@@ -945,7 +946,7 @@ textarea.mat-mdc-input-element {
 .app-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: 999;
   display: grid;
   place-items: center;
   padding: 24px;
