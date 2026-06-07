@@ -15,7 +15,6 @@ import {
 import { ExportService } from '../services/export.service';
 import { ReferenceDataService } from '../state/reference-data.service';
 import { WorkspaceSyncService } from '../state/workspace-sync.service';
-import { ConfirmService } from '../ui/confirm.service';
 import { ToastService } from '../ui/toast.service';
 import { userHasRole } from '../models/auth.models';
 
@@ -176,7 +175,6 @@ export class AdminProductsFacade {
     private readonly exportService: ExportService,
     private readonly referenceData: ReferenceDataService,
     private readonly workspaceSync: WorkspaceSyncService,
-    private readonly confirm: ConfirmService,
     private readonly toast: ToastService,
   ) {
     this.referenceData
@@ -521,28 +519,15 @@ export class AdminProductsFacade {
     });
   }
 
-  async confirmDelete(): Promise<void> {
+  confirmDelete(): void {
     if (this.deleteForm.invalid || this.deleting()) {
       this.deleteForm.markAllAsTouched();
       return;
     }
 
-    const permanent = this.deleteMode() === 'permanent';
-    const confirmed = await this.confirm.ask({
-      title: permanent ? 'Permanently delete products?' : 'Soft delete products?',
-      message: permanent
-        ? 'This action cannot be undone.'
-        : 'Deleted products will be hidden from active workflows until restored.',
-      confirmText: permanent ? 'Delete forever' : 'Delete',
-      tone: 'danger',
-    });
-
-    if (!confirmed) {
-      return;
-    }
-
     this.deleting.set(true);
     this.error.set('');
+    const permanent = this.deleteMode() === 'permanent';
     const action = permanent ? this.api.permanentlyDeleteProducts : this.api.softDeleteProducts;
 
     action

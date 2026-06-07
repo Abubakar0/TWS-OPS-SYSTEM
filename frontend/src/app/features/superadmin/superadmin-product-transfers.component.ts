@@ -93,6 +93,9 @@ import { EmptyStateComponent } from '../../shared/empty-state/empty-state.compon
               <div class="detail-fact"><span>Listed</span><strong>{{ summary.summary.listed }}</strong></div>
               <div class="detail-fact"><span>Rejected</span><strong>{{ summary.summary.rejected }}</strong></div>
             </div>
+            @if (summary.warning) {
+              <div class="inline-state inline-state--warning">{{ summary.warning }}</div>
+            }
           </article>
 
           <article class="surface-card">
@@ -117,6 +120,31 @@ import { EmptyStateComponent } from '../../shared/empty-state/empty-state.compon
                 <span>{{ saving() ? 'Transferring' : 'Transfer Products' }}</span>
               </button>
             </div>
+          </article>
+
+          <article class="surface-card">
+            <div class="surface-card__header">
+              <div>
+                <h2>Recent Transfer History</h2>
+                <p>Latest ownership changes touching this hunter.</p>
+              </div>
+            </div>
+
+            @if (summary.recentTransfers?.length) {
+              <div class="simple-table">
+                @for (item of summary.recentTransfers || []; track item.id) {
+                  <div class="simple-table__row simple-table__row--two">
+                    <div>
+                      <strong>{{ item.sourceHunterName }} to {{ item.targetHunterName }}</strong>
+                      <small>{{ item.transferredByName }} | {{ item.transferredAt | date: 'MMM d, y, h:mm a' }}</small>
+                    </div>
+                    <span class="status-badge">Transfer</span>
+                  </div>
+                }
+              </div>
+            } @else {
+              <div class="inline-state">No transfer history yet for this hunter.</div>
+            }
           </article>
         </section>
       } @else {
@@ -194,8 +222,8 @@ export class SuperadminProductTransfersComponent implements OnInit {
     this.api.transferProductOwnership(this.form.getRawValue()).subscribe({
       next: (result) => {
         this.toast.success(`Transferred ${result.transferred} product(s).`);
-        this.summary.set(null);
         this.saving.set(false);
+        this.loadSummary();
       },
       error: (error) => {
         this.error.set(error?.error?.message || 'Could not transfer product ownership.');

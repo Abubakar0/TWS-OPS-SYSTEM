@@ -157,10 +157,17 @@ export class ProductAdminApiService {
     productIds?: string[];
   }): Observable<{ transferred: number; sourceHunterId: string; targetHunterId: string }> {
     return this.http
-      .post<{ transferred: number; sourceHunterId: string; targetHunterId: string }>(
+      .post<{ transferred?: number; transferredCount?: number; sourceHunterId: string; targetHunterId?: string; targetHunter?: { id: string } }>(
         `${environment.apiUrl}/products/ownership-transfer`,
         payload,
       )
-      .pipe(tap(() => this.requestCache.invalidatePrefix(CACHE_NAMESPACE.products)));
+      .pipe(
+        map((response) => ({
+          transferred: response.transferred ?? response.transferredCount ?? 0,
+          sourceHunterId: response.sourceHunterId,
+          targetHunterId: response.targetHunterId ?? response.targetHunter?.id ?? payload.targetHunterId,
+        })),
+        tap(() => this.requestCache.invalidatePrefix(CACHE_NAMESPACE.products)),
+      );
   }
 }

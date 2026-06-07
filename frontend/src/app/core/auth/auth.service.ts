@@ -166,7 +166,7 @@ export class AuthService {
     }
 
     if (path.startsWith('/hr')) {
-      return userHasRole(user, 'hr') || userHasRole(user, 'admin');
+      return userHasRole(user, 'hr') || userHasRole(user, 'super_admin');
     }
 
     if (path.startsWith('/order-processor')) {

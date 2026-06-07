@@ -932,6 +932,7 @@ textarea.mat-mdc-input-element {
 .app-sheet__body,
 .app-modal__body {
   overflow: auto;
+  min-height: 0;
   padding-right: 4px;
 }
 
@@ -959,11 +960,26 @@ textarea.mat-mdc-input-element {
   max-height: min(90vh, 760px);
   display: grid;
   grid-template-rows: auto 1fr auto;
+  overflow: hidden;
   padding: 20px;
   border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.98);
   box-shadow: var(--tws-shadow-lg);
+}
+
+.mat-icon,
+.material-icons,
+.mat-ligature-font {
+  font-family: 'Material Icons' !important;
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
 }
 
 .invoice-preview {

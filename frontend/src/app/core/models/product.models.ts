@@ -259,6 +259,18 @@ export interface ProductOwnershipTransferSummary {
     listed: number;
     rejected: number;
   };
+  warning?: string | null;
+  recentTransfers?: Array<{
+    id: string;
+    productId: string;
+    sourceHunterId: string;
+    sourceHunterName: string;
+    targetHunterId: string;
+    targetHunterName: string;
+    transferredBy: string;
+    transferredByName: string;
+    transferredAt: string;
+  }>;
 }
 
 export interface ChangeRequest {

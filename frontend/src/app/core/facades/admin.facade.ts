@@ -380,9 +380,24 @@ export class AdminFacade {
     const user = row.user;
 
     if (user.isActive) {
+      let warning = `${user.name} will no longer be able to sign in until re-enabled.`;
+
+      if (userHasRole(user, 'hunter')) {
+        try {
+          const details = await firstValueFrom(this.adminApi.getUserDetails(user.id));
+          const ownedProducts = details.stats.hunter?.currentOwnedProducts ?? 0;
+
+          if (ownedProducts > 0) {
+            warning = `${user.name} currently owns ${ownedProducts} active product${ownedProducts === 1 ? '' : 's'}. Disable the hunter only after ownership is transferred or you will strand those products in active workflows.`;
+          }
+        } catch {
+          warning = `${warning} Product ownership details could not be loaded right now.`;
+        }
+      }
+
       const confirmed = await this.confirm.ask({
         title: 'Disable user?',
-        message: `${user.name} will no longer be able to sign in until re-enabled.`,
+        message: warning,
         confirmText: 'Disable',
         tone: 'danger',
       });

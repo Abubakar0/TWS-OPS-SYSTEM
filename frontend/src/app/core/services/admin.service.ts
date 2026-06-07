@@ -4,7 +4,7 @@ import { map, tap } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { CACHE_NAMESPACE, CACHE_TTL, makeCacheKey } from '../config/cache';
-import { HunterAssignment, LoginResponse, User, UserPermissions, UserRole } from '../models/auth.models';
+import { HunterAssignment, LoginResponse, User, UserDetails, UserPermissions, UserRole } from '../models/auth.models';
 import { OrderStats } from '../models/order.models';
 import { Account, HuntingCriteria } from '../models/product.models';
 import { RequestCacheService } from '../state/request-cache.service';
@@ -171,6 +171,14 @@ export class AdminService {
         map((response) => response.user),
         tap(() => this.invalidateUserCaches()),
       );
+  }
+
+  getUserDetails(id: string) {
+    return this.requestCache.getOrCreate(
+      makeCacheKey(CACHE_NAMESPACE.users, { details: id, legacy: true }),
+      CACHE_TTL.short,
+      () => this.http.get<UserDetails>(`${environment.apiUrl}/users/${id}/details`),
+    );
   }
 
   impersonateUser(id: string) {

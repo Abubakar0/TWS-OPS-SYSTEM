@@ -484,7 +484,7 @@ export const routes: Routes = [
       {
         path: 'hr',
         canActivate: [roleGuard],
-        data: { roles: ['admin', 'hr', 'super_admin'] },
+        data: { roles: ['hr', 'super_admin'] },
         children: [
           {
             path: '',

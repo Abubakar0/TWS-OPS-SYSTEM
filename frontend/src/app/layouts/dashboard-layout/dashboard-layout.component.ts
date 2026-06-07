@@ -212,7 +212,7 @@ export class DashboardLayoutComponent {
       sections.push({ label: 'Admin', items: adminItems });
     }
 
-    if (userHasRole(user, 'admin') || userHasRole(user, 'hr') || userHasRole(user, 'super_admin')) {
+    if (userHasRole(user, 'hr') || userHasRole(user, 'super_admin')) {
       sections.push({ label: 'HR', items: [...this.hrTabs] });
     }
 

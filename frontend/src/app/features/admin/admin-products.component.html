@@ -180,9 +180,17 @@
         </div>
 
         @for (product of facade.products(); track product.id) {
-          <div class="products-grid__row">
+          <div
+            class="products-grid__row"
+            role="button"
+            tabindex="0"
+            (click)="facade.openDetail(product)"
+            (keydown.enter)="facade.openDetail(product)"
+            (keydown.space)="facade.openDetail(product); $event.preventDefault()"
+          >
             <mat-checkbox
               [checked]="facade.selectedIds().includes(product.id)"
+              (click)="$event.stopPropagation()"
               (change)="facade.toggleSelection(product.id, $event.checked)"
             />
             <div class="product-cell">
@@ -193,16 +201,16 @@
               <small>{{ product.category || 'Not Assigned' }}</small>
               <div class="product-links">
                 @if (product.amazonUrl) {
-                  <a class="status-badge" [href]="product.amazonUrl" target="_blank" rel="noopener">Amazon</a>
+                  <a class="status-badge" [href]="product.amazonUrl" target="_blank" rel="noopener" (click)="$event.stopPropagation()">Amazon</a>
                 }
                 @if (product.amazonAltUrl) {
-                  <a class="status-badge" [href]="product.amazonAltUrl" target="_blank" rel="noopener">Amazon Alt</a>
+                  <a class="status-badge" [href]="product.amazonAltUrl" target="_blank" rel="noopener" (click)="$event.stopPropagation()">Amazon Alt</a>
                 }
                 @if (product.ebayUrl) {
-                  <a class="status-badge" [href]="product.ebayUrl" target="_blank" rel="noopener">Source eBay</a>
+                  <a class="status-badge" [href]="product.ebayUrl" target="_blank" rel="noopener" (click)="$event.stopPropagation()">Source eBay</a>
                 }
                 @if (product.listingUrl) {
-                  <a class="status-badge" [href]="product.listingUrl" target="_blank" rel="noopener">Listed eBay</a>
+                  <a class="status-badge" [href]="product.listingUrl" target="_blank" rel="noopener" (click)="$event.stopPropagation()">Listed eBay</a>
                 }
               </div>
             </div>
@@ -231,23 +239,23 @@
               <small>{{ product.deletedAt ? 'Deleted' : 'Active' }}</small>
             </div>
             <div class="row-actions">
-              <button mat-icon-button type="button" (click)="facade.openDetail(product)" matTooltip="View details">
+              <button mat-icon-button type="button" (click)="$event.stopPropagation(); facade.openDetail(product)" matTooltip="View details">
                 <mat-icon>visibility</mat-icon>
               </button>
               @if (facade.canEditProducts()) {
-                <button mat-icon-button type="button" (click)="facade.openEditModal(product)" matTooltip="Edit product">
+                <button mat-icon-button type="button" (click)="$event.stopPropagation(); facade.openEditModal(product)" matTooltip="Edit product">
                   <mat-icon>edit</mat-icon>
                 </button>
               }
               @if (facade.canRejectProducts() && product.status !== 'rejected') {
-                <button mat-icon-button type="button" (click)="facade.openRejectModal(product)" matTooltip="Reject product">
+                <button mat-icon-button type="button" (click)="$event.stopPropagation(); facade.openRejectModal(product)" matTooltip="Reject product">
                   <mat-icon>block</mat-icon>
                 </button>
               }
               <button
                 mat-icon-button
                 type="button"
-                (click)="facade.openDeleteModal('soft', [product.id])"
+                (click)="$event.stopPropagation(); facade.openDeleteModal('soft', [product.id])"
                 matTooltip="Soft delete"
               >
                 <mat-icon>delete_outline</mat-icon>
@@ -255,13 +263,13 @@
               <button
                 mat-icon-button
                 type="button"
-                (click)="facade.openDeleteModal('permanent', [product.id])"
+                (click)="$event.stopPropagation(); facade.openDeleteModal('permanent', [product.id])"
                 matTooltip="Permanent delete"
               >
                 <mat-icon>delete_forever</mat-icon>
               </button>
               @if (product.deletedAt && facade.canRestore()) {
-                <button mat-icon-button type="button" (click)="facade.restoreProduct(product)">
+                <button mat-icon-button type="button" (click)="$event.stopPropagation(); facade.restoreProduct(product)">
                   <mat-icon>restore</mat-icon>
                 </button>
               }

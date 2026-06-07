@@ -115,7 +115,8 @@ test('admin settings load shared rules and product categories', async ({ page })
   await expectHeading(page, 'Settings');
   await expect(page.getByText(/Loading settings\./i)).toHaveCount(0);
   await expect(page.getByText(/Loading product categories\./i)).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: /Approval rules/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Active Hunter Rules/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Training Hunter Rules/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: /Product categories/i })).toBeVisible();
 });
 

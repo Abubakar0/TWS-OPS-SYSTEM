@@ -118,6 +118,9 @@ export interface HunterUserStats {
   productsSubmitted: number;
   approvedProducts: number;
   rejectedProducts: number;
+  currentOwnedProducts?: number;
+  listedOwnedProducts?: number;
+  pendingOwnedProducts?: number;
   excellentProducts: number;
   goodProducts: number;
   averageProducts: number;

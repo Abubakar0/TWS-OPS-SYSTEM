@@ -1,6 +1,6 @@
 import { computed, DestroyRef, effect, inject, Injectable, Injector, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { firstValueFrom, forkJoin, debounceTime, distinctUntilChanged, merge } from 'rxjs';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { firstValueFrom, forkJoin, debounceTime, distinctUntilChanged, merge, startWith } from 'rxjs';
 import { FormControl } from '@angular/forms';
 import { Router } from '@angular/router';
 
@@ -253,6 +253,10 @@ export class OrderManagementFacade {
   readonly orderForm = createOrderForm();
   readonly deleteReasonControl = new FormControl('', { nonNullable: true });
   readonly bulkStatusControl = new FormControl<OrderStatus | ''>('', { nonNullable: true });
+  readonly bulkStatusValue = toSignal(
+    this.bulkStatusControl.valueChanges.pipe(startWith(this.bulkStatusControl.getRawValue())),
+    { initialValue: this.bulkStatusControl.getRawValue() },
+  );
 
   readonly currentUser = this.auth.currentUser;
   readonly currentRole = computed(() => this.currentUser()?.role || 'hunter');
@@ -622,7 +626,7 @@ export class OrderManagementFacade {
     };
   });
   readonly bulkActionVm = computed(() => {
-    const status = this.bulkStatusControl.value;
+    const status = this.bulkStatusValue();
     const selectedCount = this.selectedOrderCount();
 
     return {
@@ -1086,7 +1090,7 @@ export class OrderManagementFacade {
   }
 
   async applyBulkStatus(): Promise<void> {
-    const status = this.bulkStatusControl.value;
+    const status = this.bulkStatusValue();
     const ids = this.selectedOrderIds();
 
     if (!status || !ids.length || !this.bulkActionVm().canApply) {

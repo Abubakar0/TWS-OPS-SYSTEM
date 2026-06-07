@@ -1427,15 +1427,46 @@ const getOwnershipTransferSummary = async (user, sourceHunterId) => {
     [sourceHunterId],
   );
 
+  const history = await pool.query(
+    `
+      SELECT
+        transfer.id,
+        transfer.product_id AS "productId",
+        transfer.source_hunter_id AS "sourceHunterId",
+        source_hunter.name AS "sourceHunterName",
+        transfer.target_hunter_id AS "targetHunterId",
+        target_hunter.name AS "targetHunterName",
+        transfer.transferred_by AS "transferredBy",
+        actor.name AS "transferredByName",
+        transfer.transferred_at AS "transferredAt"
+      FROM product_ownership_transfers transfer
+      JOIN users source_hunter ON source_hunter.id = transfer.source_hunter_id
+      JOIN users target_hunter ON target_hunter.id = transfer.target_hunter_id
+      JOIN users actor ON actor.id = transfer.transferred_by
+      WHERE transfer.source_hunter_id = $1
+         OR transfer.target_hunter_id = $1
+      ORDER BY transfer.transferred_at DESC
+      LIMIT 12
+    `,
+    [sourceHunterId],
+  );
+
+  const totals = summary.rows[0] || {
+    total: 0,
+    readyForListing: 0,
+    listedNeedsReview: 0,
+    listed: 0,
+    rejected: 0,
+  };
+
   return {
     hunter: hunterResult.rows[0],
-    summary: summary.rows[0] || {
-      total: 0,
-      readyForListing: 0,
-      listedNeedsReview: 0,
-      listed: 0,
-      rejected: 0,
-    },
+    summary: totals,
+    warning:
+      totals.total > 0
+        ? `${hunterResult.rows[0].name} currently owns ${totals.total} active product${totals.total === 1 ? "" : "s"}. Transfer these before disabling the hunter.`
+        : null,
+    recentTransfers: history.rows,
   };
 };
 

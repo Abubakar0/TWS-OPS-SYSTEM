@@ -7,10 +7,12 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { forkJoin } from 'rxjs';
+import { forkJoin, of } from 'rxjs';
 
 import { ChangeRequestApiService } from '../../core/api/change-request-api.service';
 import { HrApiService } from '../../core/api/hr-api.service';
+import { AuthService } from '../../core/auth/auth.service';
+import { userHasRole } from '../../core/models/auth.models';
 import { HrDashboardStats } from '../../core/models/hr.models';
 import { AdminService, AdminStats, AuditLogEntry } from '../../core/services/admin.service';
 import { ChangeRequestSummary } from '../../core/models/product.models';
@@ -48,6 +50,11 @@ export class AdminDashboardComponent implements OnInit {
   readonly loading = signal(false);
   readonly error = signal('');
   readonly hrStats = signal<HrDashboardStats | null>(null);
+  readonly canOpenHr = computed(
+    () =>
+      userHasRole(this.auth.currentUser(), 'hr') ||
+      userHasRole(this.auth.currentUser(), 'super_admin'),
+  );
 
   readonly filtersForm = new FormGroup({
     from: new FormControl('', { nonNullable: true }),
@@ -180,6 +187,7 @@ export class AdminDashboardComponent implements OnInit {
     private readonly adminApi: AdminService,
     private readonly changeRequestApi: ChangeRequestApiService,
     private readonly hrApi: HrApiService,
+    private readonly auth: AuthService,
   ) {}
 
   ngOnInit(): void {
@@ -205,12 +213,11 @@ export class AdminDashboardComponent implements OnInit {
       from: from || undefined,
       to: to || undefined,
     };
-
     forkJoin({
       stats: this.adminApi.getAdminStats(filters),
       logs: this.adminApi.listAuditLogs(filters),
       changeRequests: this.changeRequestApi.getSummary(),
-      hr: this.hrApi.getDashboard(filters),
+      hr: this.canOpenHr() ? this.hrApi.getDashboard(filters) : of(null),
     }).subscribe({
       next: ({ stats, logs, changeRequests, hr }) => {
         this.stats.set(stats);

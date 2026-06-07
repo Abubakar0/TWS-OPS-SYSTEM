@@ -65,8 +65,8 @@ const toUpperEnum = (value, allowed, fallback = null) => {
   return normalized;
 };
 
-const hasHrAccess = (user) => hasAnyRole(user, ['admin', 'hr', 'super_admin']);
-const hasPayrollAccess = (user) => hasAnyRole(user, ['admin', 'hr', 'super_admin']);
+const hasHrAccess = (user) => hasAnyRole(user, ['hr', 'super_admin']);
+const hasPayrollAccess = (user) => hasAnyRole(user, ['hr', 'super_admin']);
 
 const ensureHrManager = (user, message = 'You do not have access to HR management.') => {
   if (!hasHrAccess(user)) {
@@ -2033,7 +2033,7 @@ const getMyHr = async (viewer) => {
   const birthdayToday =
     employee.dateOfBirth &&
     employee.dateOfBirth.slice(5, 10) === new Date().toISOString().slice(5, 10);
-  const [attendance, leaves, expenses, payroll, warnings] = await Promise.all([
+  const [attendance, leaves, payroll, expenses, warnings] = await Promise.all([
     listAttendance(viewer, { limit: 12 }),
     listLeaves(viewer, { limit: 12 }),
     hasPayrollAccess(viewer) ? listPayroll(viewer, { employeeId: employee.id, limit: 12 }) : Promise.resolve({ items: [] }),

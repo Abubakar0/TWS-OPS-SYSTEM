@@ -8,7 +8,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { debounceTime, distinctUntilChanged } from 'rxjs';
+import { debounceTime, distinctUntilChanged, firstValueFrom } from 'rxjs';
 
 import { User, userHasRole } from '../../core/models/auth.models';
 import { AdminService } from '../../core/services/admin.service';
@@ -102,9 +102,24 @@ export class SuperAdminUsersComponent implements OnInit {
     }
 
     if (user.isActive) {
+      let warning = `${user.name} will not be able to sign in until unlocked.`;
+
+      if (userHasRole(user, 'hunter')) {
+        try {
+          const details = await firstValueFrom(this.adminApi.getUserDetails(user.id));
+          const ownedProducts = details.stats.hunter?.currentOwnedProducts ?? 0;
+
+          if (ownedProducts > 0) {
+            warning = `${user.name} currently owns ${ownedProducts} active product${ownedProducts === 1 ? '' : 's'}. Transfer ownership before disabling this hunter to avoid blocking product workflows.`;
+          }
+        } catch {
+          warning = `${warning} Product ownership details could not be loaded right now.`;
+        }
+      }
+
       const confirmed = await this.confirm.ask({
         title: 'Disable user?',
-        message: `${user.name} will not be able to sign in until unlocked.`,
+        message: warning,
         confirmText: 'Disable',
         tone: 'danger',
       });
