@@ -1,5 +1,15 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, Injector, OnInit, computed, effect, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  Injector,
+  OnInit,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -10,9 +20,23 @@ import { PageEvent } from '@angular/material/paginator';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { RouterLink } from '@angular/router';
-import { firstValueFrom, Subject, catchError, debounceTime, distinctUntilChanged, finalize, of, switchMap } from 'rxjs';
+import {
+  firstValueFrom,
+  Subject,
+  catchError,
+  debounceTime,
+  distinctUntilChanged,
+  finalize,
+  of,
+  switchMap,
+} from 'rxjs';
 
-import { Product, ProductCategory, ProductFilters, ProductStatus } from '../../core/models/product.models';
+import {
+  Product,
+  ProductCategory,
+  ProductFilters,
+  ProductStatus,
+} from '../../core/models/product.models';
 import { ExportService } from '../../core/services/export.service';
 import { ProductService } from '../../core/services/product.service';
 import { PageResult } from '../../core/state/query-state.models';
@@ -96,10 +120,17 @@ export class HunterProductsComponent implements OnInit {
   });
 
   readonly readyCount = computed(
-    () => this.products().filter((product) => product.status === 'approved' || product.status === 'assigned').length,
+    () =>
+      this.products().filter(
+        (product) => product.status === 'approved' || product.status === 'assigned',
+      ).length,
   );
-  readonly listedCount = computed(() => this.products().filter((product) => product.status === 'listed').length);
-  readonly rejectedCount = computed(() => this.products().filter((product) => product.status === 'rejected').length);
+  readonly listedCount = computed(
+    () => this.products().filter((product) => product.status === 'listed').length,
+  );
+  readonly rejectedCount = computed(
+    () => this.products().filter((product) => product.status === 'rejected').length,
+  );
   readonly categoryOptions = computed(() =>
     this.categories().map((category) => ({
       value: category.name,
@@ -359,8 +390,7 @@ export class HunterProductsComponent implements OnInit {
         rows.push(...nextPage.items);
       }
 
-      const dateStamp = new Date().toISOString().slice(0, 10);
-
+      const dateStamp = new Date().toLocaleDateString('en-CA');
       this.exportService.exportAsExcelTable({
         filename: `hunter-products-${dateStamp}.xlsx`,
         sheetName: 'Hunter Products',
@@ -380,7 +410,10 @@ export class HunterProductsComponent implements OnInit {
           { header: 'Profit', value: (product) => product.profit },
           { header: 'ROI', value: (product) => product.roi },
           { header: 'Fees', value: (product) => product.fees },
-          { header: 'Lister', value: (product) => product.listedByName || product.assignedListerName || '' },
+          {
+            header: 'Lister',
+            value: (product) => product.listedByName || product.assignedListerName || '',
+          },
           { header: 'Account', value: (product) => product.accountName || '' },
           { header: 'Listed At', value: (product) => this.formatDateTime(product.listedAt) },
           { header: 'Submitted At', value: (product) => this.formatDateTime(product.createdAt) },

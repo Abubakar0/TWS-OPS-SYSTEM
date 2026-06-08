@@ -62,6 +62,7 @@
 
 .hr-block {
   display: grid;
+  grid-auto-rows: max-content;
   gap: 14px;
 }
 

@@ -1,5 +1,13 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
@@ -55,12 +63,16 @@ export class HrAttendanceComponent implements OnInit {
   readonly search = new FormControl('', { nonNullable: true });
   readonly employeeId = new FormControl('', { nonNullable: true });
   readonly status = new FormControl('', { nonNullable: true });
-  readonly dateFrom = new FormControl(new Date().toISOString().slice(0, 10), { nonNullable: true });
-  readonly dateTo = new FormControl(new Date().toISOString().slice(0, 10), { nonNullable: true });
-
+  readonly dateFrom = new FormControl(new Date().toLocaleDateString('en-CA'), {
+    nonNullable: true,
+  });
+  readonly dateTo = new FormControl(new Date().toLocaleDateString('en-CA'), { nonNullable: true });
   readonly attendanceForm = new FormGroup({
     employeeId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-    date: new FormControl(new Date().toISOString().slice(0, 10), { nonNullable: true, validators: [Validators.required] }),
+    date: new FormControl(new Date().toLocaleDateString('en-CA'), {
+      nonNullable: true,
+      validators: [Validators.required],
+    }),
     status: new FormControl('PRESENT', { nonNullable: true, validators: [Validators.required] }),
     checkInTime: new FormControl('', { nonNullable: true }),
     checkOutTime: new FormControl('', { nonNullable: true }),
@@ -68,7 +80,7 @@ export class HrAttendanceComponent implements OnInit {
     notes: new FormControl('', { nonNullable: true }),
   });
   readonly bulkAttendanceForm = new FormGroup({
-    date: new FormControl(new Date().toISOString().slice(0, 10), {
+    date: new FormControl(new Date().toLocaleDateString('en-CA'), {
       nonNullable: true,
       validators: [Validators.required],
     }),
@@ -82,7 +94,9 @@ export class HrAttendanceComponent implements OnInit {
     notes: new FormControl('', { nonNullable: true }),
   });
   readonly allEmployeesSelected = computed(
-    () => this.employees().length > 0 && this.bulkSelectedEmployeeIds().length === this.employees().length,
+    () =>
+      this.employees().length > 0 &&
+      this.bulkSelectedEmployeeIds().length === this.employees().length,
   );
 
   readonly pageLabel = computed(() => {
@@ -159,7 +173,7 @@ export class HrAttendanceComponent implements OnInit {
     this.selectedRow.set(null);
     this.attendanceForm.reset({
       employeeId: '',
-      date: new Date().toISOString().slice(0, 10),
+      date: new Date().toLocaleDateString('en-CA'),
       status: 'PRESENT',
       checkInTime: '',
       checkOutTime: '',
@@ -181,7 +195,9 @@ export class HrAttendanceComponent implements OnInit {
   }
 
   toggleAllEmployees(checked: boolean): void {
-    this.bulkSelectedEmployeeIds.set(checked ? this.employees().map((employee) => employee.id) : []);
+    this.bulkSelectedEmployeeIds.set(
+      checked ? this.employees().map((employee) => employee.id) : [],
+    );
   }
 
   clearBulkSelection(): void {
@@ -189,7 +205,11 @@ export class HrAttendanceComponent implements OnInit {
   }
 
   saveBulkAttendance(): void {
-    if (this.bulkAttendanceForm.invalid || this.saving() || !this.bulkSelectedEmployeeIds().length) {
+    if (
+      this.bulkAttendanceForm.invalid ||
+      this.saving() ||
+      !this.bulkSelectedEmployeeIds().length
+    ) {
       this.bulkAttendanceForm.markAllAsTouched();
       return;
     }

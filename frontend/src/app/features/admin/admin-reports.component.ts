@@ -1,7 +1,21 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, ValidatorFn } from '@angular/forms';
+import {
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  ValidationErrors,
+  ValidatorFn,
+} from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -221,18 +235,48 @@ export class AdminReportsComponent implements OnInit {
       return;
     }
 
-    const dateStamp = new Date().toISOString().slice(0, 10);
+    const dateStamp = new Date().toLocaleDateString('en-CA');
     const rows = [
       { section: 'Summary', name: 'Hunted', hunted: stats.hunted, listed: '', extra: '' },
       { section: 'Summary', name: 'Ready', hunted: stats.ready, listed: '', extra: '' },
       { section: 'Summary', name: 'Rejected', hunted: stats.rejected, listed: '', extra: '' },
       { section: 'Summary', name: 'Listed', hunted: stats.listed, listed: '', extra: '' },
       { section: 'Summary', name: 'Hunters', hunted: stats.byHunter.length, listed: '', extra: '' },
-      { section: 'Summary', name: 'Accounts Used', hunted: stats.byAccount.length, listed: '', extra: '' },
-      { section: 'Orders', name: 'Total Orders', hunted: this.orderReports()?.totalOrders ?? 0, listed: '', extra: '' },
-      { section: 'Orders', name: 'Revenue', hunted: this.orderReports()?.totalRevenue ?? 0, listed: '', extra: '' },
-      { section: 'Orders', name: 'Profit', hunted: this.orderReports()?.totalProfit ?? 0, listed: '', extra: '' },
-      { section: 'Orders', name: 'Average ROI', hunted: this.orderReports()?.averageRoi ?? 0, listed: '', extra: '' },
+      {
+        section: 'Summary',
+        name: 'Accounts Used',
+        hunted: stats.byAccount.length,
+        listed: '',
+        extra: '',
+      },
+      {
+        section: 'Orders',
+        name: 'Total Orders',
+        hunted: this.orderReports()?.totalOrders ?? 0,
+        listed: '',
+        extra: '',
+      },
+      {
+        section: 'Orders',
+        name: 'Revenue',
+        hunted: this.orderReports()?.totalRevenue ?? 0,
+        listed: '',
+        extra: '',
+      },
+      {
+        section: 'Orders',
+        name: 'Profit',
+        hunted: this.orderReports()?.totalProfit ?? 0,
+        listed: '',
+        extra: '',
+      },
+      {
+        section: 'Orders',
+        name: 'Average ROI',
+        hunted: this.orderReports()?.averageRoi ?? 0,
+        listed: '',
+        extra: '',
+      },
       ...stats.byHunter.map((row) => ({
         section: 'Hunter',
         name: row.name,
@@ -332,7 +376,9 @@ export class AdminReportsComponent implements OnInit {
   }
 
   private buildApiFilters(dateFilters: { from?: string; to?: string }) {
-    const selectedUser = this.reportUsers().find((user) => user.id === this.filtersForm.controls.userId.value);
+    const selectedUser = this.reportUsers().find(
+      (user) => user.id === this.filtersForm.controls.userId.value,
+    );
     return {
       from: dateFilters.from,
       to: dateFilters.to,
@@ -342,7 +388,10 @@ export class AdminReportsComponent implements OnInit {
     };
   }
 
-  private getPresetFilters(range: Exclude<ReportRangePreset, 'custom'>): { from: string; to: string } {
+  private getPresetFilters(range: Exclude<ReportRangePreset, 'custom'>): {
+    from: string;
+    to: string;
+  } {
     const today = new Date();
 
     switch (range) {

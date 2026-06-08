@@ -18,15 +18,30 @@
           <mat-icon>table_view</mat-icon>
           <span>User Template</span>
         </button>
-        <button mat-stroked-button type="button" (click)="userImportInput.click()" [disabled]="facade.importingUsers()">
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="userImportInput.click()"
+          [disabled]="facade.importingUsers()"
+        >
           <mat-icon>upload_file</mat-icon>
           <span>{{ facade.importingUsers() ? 'Importing' : 'Import Users' }}</span>
         </button>
-        <button mat-stroked-button type="button" (click)="facade.exportUsers()" [disabled]="!facade.userRows().length">
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="facade.exportUsers()"
+          [disabled]="!facade.userRows().length"
+        >
           <mat-icon>download</mat-icon>
           <span>Export</span>
         </button>
-        <button mat-stroked-button type="button" (click)="facade.loadUsers()" [disabled]="facade.loading()">
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="facade.loadUsers()"
+          [disabled]="facade.loading()"
+        >
           <mat-icon>refresh</mat-icon>
           <span>Refresh</span>
         </button>
@@ -42,11 +57,11 @@
 
     <details class="filter-panel">
       <summary>
-         <div class="filter-panel__title">
+        <div class="filter-panel__title">
           <mat-icon>filter_list</mat-icon>
           <div>
-          <h2>Filters</h2>
-          <p>Search by name or email, then narrow by role and status.</p>
+            <h2>Filters</h2>
+            <p>Search by name or email, then narrow by role and status.</p>
           </div>
         </div>
         <div class="filter-panel__meta">
@@ -119,35 +134,73 @@
                 <td>
                   <div class="table-primary">
                     <strong>{{ row.user.name }}</strong>
-                    <span>{{ row.user.createdAt ? ('Created ' + (row.user.createdAt | date: 'MMM d, y')) : 'Workspace user' }}</span>
+                    <span>{{
+                      row.user.createdAt
+                        ? 'Created ' + (row.user.createdAt | date: 'MMM d, y')
+                        : 'Workspace user'
+                    }}</span>
                   </div>
                 </td>
                 <td>{{ row.user.email }}</td>
                 <td>
                   <div class="badge-list">
-                    @for (role of row.user.roles.length ? row.user.roles : [row.user.role]; track role) {
+                    @for (
+                      role of row.user.roles.length ? row.user.roles : [row.user.role];
+                      track role
+                    ) {
                       <span class="status-badge status-badge--neutral">{{ roleLabels[role] }}</span>
                     }
                   </div>
                 </td>
                 <td>
-                  <span class="status-badge" [class.status-badge--success]="row.statusLabel === 'active'" [class.status-badge--danger]="row.statusLabel === 'disabled'">
+                  <span
+                    class="status-badge"
+                    [class.status-badge--success]="row.statusLabel === 'active'"
+                    [class.status-badge--danger]="row.statusLabel === 'disabled'"
+                  >
                     {{ row.statusLabel | titlecase }}
                   </span>
                 </td>
-                <td>{{ row.user.lastLogin ? (row.user.lastLogin | date: 'MMM d, y, h:mm a') : 'No login yet' }}</td>
+                <td>
+                  {{
+                    row.user.lastLogin
+                      ? (row.user.lastLogin | date: 'MMM d, y, h:mm a')
+                      : 'No login yet'
+                  }}
+                </td>
                 <td class="actions-col">
                   <div class="table-actions">
-                    <button mat-icon-button type="button" (click)="facade.openEditModal(row.user)" [disabled]="!row.canEdit" matTooltip="Edit user">
+                    <button
+                      mat-icon-button
+                      type="button"
+                      (click)="facade.openEditModal(row.user)"
+                      [disabled]="!row.canEdit"
+                      matTooltip="Edit user"
+                    >
                       <mat-icon>edit</mat-icon>
                     </button>
-                    <button mat-icon-button type="button" (click)="facade.openUserDetails(row.user)" matTooltip="View details">
+                    <button
+                      mat-icon-button
+                      type="button"
+                      (click)="facade.openUserDetails(row.user)"
+                      matTooltip="View details"
+                    >
                       <mat-icon>visibility</mat-icon>
                     </button>
-                    <button mat-icon-button type="button" (click)="facade.toggleUser(row)" matTooltip="{{ row.user.isActive ? 'Disable user' : 'Enable user' }}">
+                    <button
+                      mat-icon-button
+                      type="button"
+                      (click)="facade.toggleUser(row)"
+                      matTooltip="{{ row.user.isActive ? 'Disable user' : 'Enable user' }}"
+                    >
                       <mat-icon>{{ row.user.isActive ? 'block' : 'check_circle' }}</mat-icon>
                     </button>
-                    <button mat-icon-button type="button" (click)="facade.resetPassword(row)" matTooltip="Reset password">
+                    <button
+                      mat-icon-button
+                      type="button"
+                      (click)="facade.resetPassword(row)"
+                      matTooltip="Reset password"
+                    >
                       <mat-icon>password</mat-icon>
                     </button>
                   </div>
@@ -162,11 +215,21 @@
         <span class="grid-pager__status">{{ facade.pageLabel() }}</span>
 
         <div class="grid-toolbar__actions">
-          <button mat-stroked-button type="button" (click)="facade.previousPage()" [disabled]="facade.pageIndex() === 0">
+          <button
+            mat-stroked-button
+            type="button"
+            (click)="facade.previousPage()"
+            [disabled]="facade.pageIndex() === 0"
+          >
             <mat-icon>chevron_left</mat-icon>
             <span>Previous</span>
           </button>
-          <button mat-stroked-button type="button" (click)="facade.nextPage()" [disabled]="facade.pageIndex() >= facade.pageCount() - 1">
+          <button
+            mat-stroked-button
+            type="button"
+            (click)="facade.nextPage()"
+            [disabled]="facade.pageIndex() >= facade.pageCount() - 1"
+          >
             <span>Next</span>
             <mat-icon>chevron_right</mat-icon>
           </button>
@@ -182,7 +245,13 @@
       <div class="surface-card__header">
         <div>
           <h2>{{ facade.isEditing() ? 'Edit user' : 'Add user' }}</h2>
-          <p>{{ facade.isEditing() ? 'Update account details and access.' : 'Create a new workspace user.' }}</p>
+          <p>
+            {{
+              facade.isEditing()
+                ? 'Update account details and access.'
+                : 'Create a new workspace user.'
+            }}
+          </p>
         </div>
         <button mat-icon-button type="button" (click)="facade.closeUserModal()">
           <mat-icon>close</mat-icon>
@@ -208,7 +277,12 @@
 
         <mat-form-field appearance="outline">
           <mat-label>{{ facade.isEditing() ? 'New password' : 'Password' }}</mat-label>
-          <input matInput [type]="facade.passwordHidden() ? 'password' : 'text'" formControlName="password" autocomplete="new-password" />
+          <input
+            matInput
+            [type]="facade.passwordHidden() ? 'password' : 'text'"
+            formControlName="password"
+            autocomplete="new-password"
+          />
           <button
             mat-icon-button
             matSuffix
@@ -218,7 +292,7 @@
           >
             <mat-icon>{{ facade.passwordHidden() ? 'visibility' : 'visibility_off' }}</mat-icon>
           </button>
-          <mat-hint>{{ facade.isEditing() ? 'Leave blank to keep the current password.' : 'Minimum 8 characters.' }}</mat-hint>
+          <mat-hint>{{ facade.isEditing() ? '' : 'Minimum 8 characters.' }}</mat-hint>
           @if (facade.formErrors().password) {
             <mat-error>{{ facade.formErrors().password }}</mat-error>
           }
@@ -257,16 +331,21 @@
         </label>
 
         <label class="toggle-row field-span-2">
-          <mat-checkbox formControlName="canViewAllOrders">
-            Allow viewing all orders
-          </mat-checkbox>
+          <mat-checkbox formControlName="canViewAllOrders"> Allow viewing all orders </mat-checkbox>
         </label>
 
         <div class="field-span-2 modal-actions">
           <button mat-stroked-button type="button" (click)="facade.closeUserModal()">Cancel</button>
-          <button mat-flat-button color="primary" type="submit" [disabled]="facade.saving() || facade.userForm.invalid">
+          <button
+            mat-flat-button
+            color="primary"
+            type="submit"
+            [disabled]="facade.saving() || facade.userForm.invalid"
+          >
             <mat-icon>{{ facade.isEditing() ? 'save' : 'person_add' }}</mat-icon>
-            <span>{{ facade.saving() ? 'Saving' : (facade.isEditing() ? 'Save Changes' : 'Create User') }}</span>
+            <span>{{
+              facade.saving() ? 'Saving' : facade.isEditing() ? 'Save Changes' : 'Create User'
+            }}</span>
           </button>
         </div>
       </form>
@@ -318,18 +397,27 @@
           </div>
           <div class="detail-fact">
             <span>Created</span>
-            <strong>{{ details.user.createdAt ? (details.user.createdAt | date: 'MMM d, y') : 'Unknown' }}</strong>
+            <strong>{{
+              details.user.createdAt ? (details.user.createdAt | date: 'MMM d, y') : 'Unknown'
+            }}</strong>
           </div>
           <div class="detail-fact">
             <span>Last Login</span>
-            <strong>{{ details.user.lastLogin ? (details.user.lastLogin | date: 'MMM d, y, h:mm a') : 'No login yet' }}</strong>
+            <strong>{{
+              details.user.lastLogin
+                ? (details.user.lastLogin | date: 'MMM d, y, h:mm a')
+                : 'No login yet'
+            }}</strong>
           </div>
         </div>
 
         <section class="detail-section">
           <h3>Roles</h3>
           <div class="badge-list">
-            @for (role of details.user.roles.length ? details.user.roles : [details.user.role]; track role) {
+            @for (
+              role of details.user.roles.length ? details.user.roles : [details.user.role];
+              track role
+            ) {
               <span class="status-badge status-badge--neutral">{{ roleLabels[role] }}</span>
             }
           </div>
@@ -343,9 +431,16 @@
                 <div class="detail-row">
                   <div>
                     <strong>{{ account.name }}</strong>
-                    <span>{{ account.marketplace | titlecase }}{{ account.country ? (' | ' + account.country) : '' }}</span>
+                    <span
+                      >{{ account.marketplace | titlecase
+                      }}{{ account.country ? ' | ' + account.country : '' }}</span
+                    >
                   </div>
-                  <span class="status-badge" [class.status-badge--success]="account.isActive" [class.status-badge--danger]="!account.isActive">
+                  <span
+                    class="status-badge"
+                    [class.status-badge--success]="account.isActive"
+                    [class.status-badge--danger]="!account.isActive"
+                  >
                     {{ account.isActive ? 'Active' : 'Disabled' }}
                   </span>
                 </div>
@@ -390,17 +485,41 @@
           <section class="detail-section">
             <h3>Hunter Stats</h3>
             <div class="detail-facts">
-              <div class="detail-fact"><span>Submitted</span><strong>{{ hunterStats.productsSubmitted }}</strong></div>
-              <div class="detail-fact"><span>Approved</span><strong>{{ hunterStats.approvedProducts }}</strong></div>
-              <div class="detail-fact"><span>Rejected</span><strong>{{ hunterStats.rejectedProducts }}</strong></div>
-              <div class="detail-fact"><span>Best Hunt</span><strong>{{ hunterStats.excellentProducts }}</strong></div>
-              <div class="detail-fact"><span>Good Hunt</span><strong>{{ hunterStats.goodProducts }}</strong></div>
-              <div class="detail-fact"><span>Avg Hunt</span><strong>{{ hunterStats.averageProducts }}</strong></div>
-              <div class="detail-fact"><span>Listed</span><strong>{{ hunterStats.listedProducts }}</strong></div>
-              <div class="detail-fact"><span>Orders</span><strong>{{ hunterStats.ordersReceived }}</strong></div>
-              <div class="detail-fact"><span>Issues</span><strong>{{ hunterStats.orderIssues }}</strong></div>
-              <div class="detail-fact"><span>Total Profit</span><strong>${{ hunterStats.totalProfit | number: '1.2-2' }}</strong></div>
-              <div class="detail-fact"><span>Average ROI</span><strong>{{ hunterStats.averageRoi | number: '1.2-2' }}%</strong></div>
+              <div class="detail-fact">
+                <span>Submitted</span><strong>{{ hunterStats.productsSubmitted }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Approved</span><strong>{{ hunterStats.approvedProducts }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Rejected</span><strong>{{ hunterStats.rejectedProducts }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Best Hunt</span><strong>{{ hunterStats.excellentProducts }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Good Hunt</span><strong>{{ hunterStats.goodProducts }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Avg Hunt</span><strong>{{ hunterStats.averageProducts }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Listed</span><strong>{{ hunterStats.listedProducts }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Orders</span><strong>{{ hunterStats.ordersReceived }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Issues</span><strong>{{ hunterStats.orderIssues }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Total Profit</span
+                ><strong>${{ hunterStats.totalProfit | number: '1.2-2' }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Average ROI</span
+                ><strong>{{ hunterStats.averageRoi | number: '1.2-2' }}%</strong>
+              </div>
             </div>
           </section>
         }
@@ -409,14 +528,30 @@
           <section class="detail-section">
             <h3>Lister Stats</h3>
             <div class="detail-facts">
-              <div class="detail-fact"><span>Listed</span><strong>{{ listerStats.productsListed }}</strong></div>
-              <div class="detail-fact"><span>Rejected</span><strong>{{ listerStats.rejectedProducts }}</strong></div>
-              <div class="detail-fact"><span>Assigned Hunters</span><strong>{{ listerStats.assignedHunters }}</strong></div>
-              <div class="detail-fact"><span>Change Requests</span><strong>{{ listerStats.changeRequests }}</strong></div>
-              <div class="detail-fact"><span>Pending</span><strong>{{ listerStats.pendingChangeRequests }}</strong></div>
-              <div class="detail-fact"><span>Fixed</span><strong>{{ listerStats.fixedChangeRequests }}</strong></div>
-              <div class="detail-fact"><span>Accounts Used</span><strong>{{ listerStats.listingAccountsUsed }}</strong></div>
-              <div class="detail-fact"><span>Total Listings</span><strong>{{ listerStats.totalListingsByDate }}</strong></div>
+              <div class="detail-fact">
+                <span>Listed</span><strong>{{ listerStats.productsListed }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Rejected</span><strong>{{ listerStats.rejectedProducts }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Assigned Hunters</span><strong>{{ listerStats.assignedHunters }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Change Requests</span><strong>{{ listerStats.changeRequests }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Pending</span><strong>{{ listerStats.pendingChangeRequests }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Fixed</span><strong>{{ listerStats.fixedChangeRequests }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Accounts Used</span><strong>{{ listerStats.listingAccountsUsed }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Total Listings</span><strong>{{ listerStats.totalListingsByDate }}</strong>
+              </div>
             </div>
           </section>
         }
@@ -425,12 +560,24 @@
           <section class="detail-section">
             <h3>Order Processor Stats</h3>
             <div class="detail-facts">
-              <div class="detail-fact"><span>Orders Added</span><strong>{{ processorStats.ordersAdded }}</strong></div>
-              <div class="detail-fact"><span>Placed</span><strong>{{ processorStats.ordersPlaced }}</strong></div>
-              <div class="detail-fact"><span>Shipped</span><strong>{{ processorStats.shippedOrders }}</strong></div>
-              <div class="detail-fact"><span>Issues</span><strong>{{ processorStats.issueOrders }}</strong></div>
-              <div class="detail-fact"><span>Loss</span><strong>{{ processorStats.lossOrders }}</strong></div>
-              <div class="detail-fact"><span>Unmatched</span><strong>{{ processorStats.unmatchedOrders }}</strong></div>
+              <div class="detail-fact">
+                <span>Orders Added</span><strong>{{ processorStats.ordersAdded }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Placed</span><strong>{{ processorStats.ordersPlaced }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Shipped</span><strong>{{ processorStats.shippedOrders }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Issues</span><strong>{{ processorStats.issueOrders }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Loss</span><strong>{{ processorStats.lossOrders }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Unmatched</span><strong>{{ processorStats.unmatchedOrders }}</strong>
+              </div>
             </div>
           </section>
         }
@@ -439,13 +586,27 @@
           <section class="detail-section">
             <h3>HR Stats</h3>
             <div class="detail-facts">
-              <div class="detail-fact"><span>Employees Managed</span><strong>{{ hrStats.employeesManaged }}</strong></div>
-              <div class="detail-fact"><span>Attendance Actions</span><strong>{{ hrStats.attendanceActions }}</strong></div>
-              <div class="detail-fact"><span>Leaves Approved</span><strong>{{ hrStats.leavesApproved }}</strong></div>
-              <div class="detail-fact"><span>Leaves Rejected</span><strong>{{ hrStats.leavesRejected }}</strong></div>
-              <div class="detail-fact"><span>Expenses Approved</span><strong>{{ hrStats.expensesApproved }}</strong></div>
-              <div class="detail-fact"><span>Expenses Rejected</span><strong>{{ hrStats.expensesRejected }}</strong></div>
-              <div class="detail-fact"><span>Payroll Actions</span><strong>{{ hrStats.payrollActions }}</strong></div>
+              <div class="detail-fact">
+                <span>Employees Managed</span><strong>{{ hrStats.employeesManaged }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Attendance Actions</span><strong>{{ hrStats.attendanceActions }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Leaves Approved</span><strong>{{ hrStats.leavesApproved }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Leaves Rejected</span><strong>{{ hrStats.leavesRejected }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Expenses Approved</span><strong>{{ hrStats.expensesApproved }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Expenses Rejected</span><strong>{{ hrStats.expensesRejected }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Payroll Actions</span><strong>{{ hrStats.payrollActions }}</strong>
+              </div>
             </div>
           </section>
         }
@@ -454,12 +615,24 @@
           <section class="detail-section">
             <h3>Admin Stats</h3>
             <div class="detail-facts">
-              <div class="detail-fact"><span>Users Created</span><strong>{{ adminStats.usersCreated }}</strong></div>
-              <div class="detail-fact"><span>Products Edited</span><strong>{{ adminStats.productsEdited }}</strong></div>
-              <div class="detail-fact"><span>Products Rejected</span><strong>{{ adminStats.productsRejected }}</strong></div>
-              <div class="detail-fact"><span>Accounts Managed</span><strong>{{ adminStats.accountsManaged }}</strong></div>
-              <div class="detail-fact"><span>Reports Exported</span><strong>{{ adminStats.reportsExported }}</strong></div>
-              <div class="detail-fact"><span>Activity Actions</span><strong>{{ adminStats.activityFeedActions }}</strong></div>
+              <div class="detail-fact">
+                <span>Users Created</span><strong>{{ adminStats.usersCreated }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Products Edited</span><strong>{{ adminStats.productsEdited }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Products Rejected</span><strong>{{ adminStats.productsRejected }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Accounts Managed</span><strong>{{ adminStats.accountsManaged }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Reports Exported</span><strong>{{ adminStats.reportsExported }}</strong>
+              </div>
+              <div class="detail-fact">
+                <span>Activity Actions</span><strong>{{ adminStats.activityFeedActions }}</strong>
+              </div>
             </div>
           </section>
         }
