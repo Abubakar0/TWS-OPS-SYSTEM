@@ -1,7 +1,16 @@
 import { computed, DestroyRef, effect, inject, Injectable, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, FormRecord, Validators } from '@angular/forms';
-import { catchError, debounceTime, distinctUntilChanged, finalize, firstValueFrom, of, Subject, switchMap } from 'rxjs';
+import {
+  catchError,
+  debounceTime,
+  distinctUntilChanged,
+  finalize,
+  firstValueFrom,
+  of,
+  Subject,
+  switchMap,
+} from 'rxjs';
 
 import { ChangeRequestApiService } from '../api/change-request-api.service';
 import { ListerApiService } from '../api/lister-api.service';
@@ -146,7 +155,9 @@ export class ListerFacade {
   });
   readonly currentListingLinkControl = computed(() => {
     const product = this.selectedProduct();
-    return product ? ((this.listingLinkControls.get(product.id) as FormControl<string> | null) ?? null) : null;
+    return product
+      ? ((this.listingLinkControls.get(product.id) as FormControl<string> | null) ?? null)
+      : null;
   });
   readonly currentRejectionReasonControl = computed(() => {
     const product = this.selectedProduct();
@@ -229,7 +240,9 @@ export class ListerFacade {
     }
 
     if (!this.canMarkListed(product)) {
-      return product.status === 'listed' ? 'This product is already listed.' : 'This product cannot be listed from this queue.';
+      return product.status === 'listed'
+        ? 'This product is already listed.'
+        : 'This product cannot be listed from this queue.';
     }
 
     if (!this.selectedAccountId()) {
@@ -454,7 +467,8 @@ export class ListerFacade {
           this.workspaceSync.notifyProductsChanged();
           this.toast.success('Product listed.');
         },
-        error: (error) => this.error.set(error?.error?.message || 'Could not mark product as listed.'),
+        error: (error) =>
+          this.error.set(error?.error?.message || 'Could not mark product as listed.'),
       });
   }
 
@@ -521,7 +535,11 @@ export class ListerFacade {
     });
 
     this.filters.controls.search.valueChanges
-      .pipe(debounceTime(SEARCH_DEBOUNCE_MS), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
+      .pipe(
+        debounceTime(SEARCH_DEBOUNCE_MS),
+        distinctUntilChanged(),
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe(() => {
         this.pageIndex.set(0);
         this.loadProducts();
@@ -708,11 +726,17 @@ export class ListerFacade {
   private syncAccountControls(accounts: Account[]): void {
     const allowedIds = new Set(accounts.map((account) => account.id));
 
-    if (this.filters.controls.accountId.value && !allowedIds.has(this.filters.controls.accountId.value)) {
+    if (
+      this.filters.controls.accountId.value &&
+      !allowedIds.has(this.filters.controls.accountId.value)
+    ) {
       this.filters.controls.accountId.setValue('', { emitEvent: false });
     }
 
-    if (this.actionForm.controls.accountId.value && !allowedIds.has(this.actionForm.controls.accountId.value)) {
+    if (
+      this.actionForm.controls.accountId.value &&
+      !allowedIds.has(this.actionForm.controls.accountId.value)
+    ) {
       this.actionForm.controls.accountId.setValue('', { emitEvent: false });
     }
 
@@ -743,7 +767,11 @@ export class ListerFacade {
           listedAt,
         };
       })
-      .filter((product) => product.id !== productId || this.shouldKeepListedProduct(product, activeFilters, accountId));
+      .filter(
+        (product) =>
+          product.id !== productId ||
+          this.shouldKeepListedProduct(product, activeFilters, accountId),
+      );
 
     const removedFromPage = !updatedProducts.some((product) => product.id === productId);
     this.products.set(updatedProducts);
@@ -761,8 +789,13 @@ export class ListerFacade {
     const activeFilters = this.buildFilters();
 
     const updatedProducts = this.products()
-      .map((product) => (product.id === rejectedProduct.id ? { ...product, ...rejectedProduct } : product))
-      .filter((product) => product.id !== rejectedProduct.id || this.shouldKeepRejectedProduct(activeFilters));
+      .map((product) =>
+        product.id === rejectedProduct.id ? { ...product, ...rejectedProduct } : product,
+      )
+      .filter(
+        (product) =>
+          product.id !== rejectedProduct.id || this.shouldKeepRejectedProduct(activeFilters),
+      );
 
     const removedFromPage = !updatedProducts.some((product) => product.id === rejectedProduct.id);
     this.products.set(updatedProducts);
@@ -776,8 +809,16 @@ export class ListerFacade {
     }
   }
 
-  private shouldKeepListedProduct(product: Product, filters: ProductFilters, accountId: string): boolean {
-    if (filters.status === 'assigned' || filters.status === 'approved' || filters.status === 'rejected') {
+  private shouldKeepListedProduct(
+    product: Product,
+    filters: ProductFilters,
+    accountId: string,
+  ): boolean {
+    if (
+      filters.status === 'assigned' ||
+      filters.status === 'approved' ||
+      filters.status === 'rejected'
+    ) {
       return false;
     }
 
@@ -789,7 +830,9 @@ export class ListerFacade {
   }
 
   private shouldKeepRejectedProduct(filters: ProductFilters): boolean {
-    return filters.status !== 'assigned' && filters.status !== 'approved' && filters.status !== 'listed';
+    return (
+      filters.status !== 'assigned' && filters.status !== 'approved' && filters.status !== 'listed'
+    );
   }
 
   private bumpHunterMetrics(action: 'listed' | 'rejected'): void {
@@ -847,9 +890,9 @@ export class ListerFacade {
   }
 
   private async exportAllProducts(): Promise<void> {
-    const hunterName = this.hunters().find((hunter) => hunter.id === this.selectedHunterId())?.name || 'hunter';
-    const dateStamp = new Date().toISOString().slice(0, 10);
-
+    const hunterName =
+      this.hunters().find((hunter) => hunter.id === this.selectedHunterId())?.name || 'hunter';
+    const dateStamp = new Date().toLocaleDateString('en-CA');
     try {
       const filters = {
         ...this.buildFilters(),

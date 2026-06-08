@@ -284,7 +284,13 @@ export class AdminProductsFacade {
       ebayUrl: raw.ebayUrl.trim() || undefined,
     };
 
-    if (!payload.title && !payload.customLabel && !payload.category && !payload.amazonUrl && !payload.ebayUrl) {
+    if (
+      !payload.title &&
+      !payload.customLabel &&
+      !payload.category &&
+      !payload.amazonUrl &&
+      !payload.ebayUrl
+    ) {
       this.toast.warning('Add at least one field to apply.');
       return;
     }
@@ -391,7 +397,7 @@ export class AdminProductsFacade {
         rows.push(...nextPage.items);
       }
 
-      const dateStamp = new Date().toISOString().slice(0, 10);
+      const dateStamp = new Date().toLocaleDateString('en-CA');
       this.exportService.exportAsExcelTable({
         filename: `admin-products-${dateStamp}.xlsx`,
         sheetName: 'Products',

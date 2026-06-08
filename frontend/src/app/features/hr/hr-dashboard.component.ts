@@ -38,8 +38,10 @@ export class HrDashboardComponent implements OnInit {
   readonly loading = signal(false);
   readonly error = signal('');
   readonly stats = signal<HrDashboardStats | null>(null);
-  readonly dateFrom = new FormControl(new Date().toISOString().slice(0, 10), { nonNullable: true });
-  readonly dateTo = new FormControl(new Date().toISOString().slice(0, 10), { nonNullable: true });
+  readonly dateFrom = new FormControl(new Date().toLocaleDateString('en-CA'), {
+    nonNullable: true,
+  });
+  readonly dateTo = new FormControl(new Date().toLocaleDateString('en-CA'), { nonNullable: true });
 
   ngOnInit(): void {
     this.load();
@@ -67,16 +69,16 @@ export class HrDashboardComponent implements OnInit {
 
   applyPreset(range: 'today' | 'week' | 'month'): void {
     const now = new Date();
-    const to = now.toISOString().slice(0, 10);
+    const to = now.toLocaleDateString('en-CA');
     let from = to;
 
     if (range === 'week') {
       const start = new Date(now);
       start.setDate(now.getDate() - 6);
-      from = start.toISOString().slice(0, 10);
+      from = start.toLocaleDateString('en-CA');
     } else if (range === 'month') {
       const start = new Date(now.getFullYear(), now.getMonth(), 1);
-      from = start.toISOString().slice(0, 10);
+      from = start.toLocaleDateString('en-CA');
     }
 
     this.dateFrom.setValue(from);

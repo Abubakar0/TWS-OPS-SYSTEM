@@ -1,27 +1,70 @@
-const { randomUUID } = require('crypto');
-const { pool } = require('../../db/pool');
-const { AppError } = require('../../middleware/error');
-const { normalizePageRequest, buildPageMeta } = require('../../utils/pagination');
-const { getConfiguredLimit } = require('../system/system.service');
-const { writeAuditLog } = require('../users/audit.service');
-const { ensureUserRoleSchema } = require('../users/user-schema.service');
-const { hasAnyRole, hasRole, normalizeRoles, resolvePrimaryRole } = require('../users/permissions');
+const { randomUUID } = require("crypto");
+const { pool } = require("../../db/pool");
+const { AppError } = require("../../middleware/error");
+const {
+  normalizePageRequest,
+  buildPageMeta,
+} = require("../../utils/pagination");
+const { getConfiguredLimit } = require("../system/system.service");
+const { writeAuditLog } = require("../users/audit.service");
+const { ensureUserRoleSchema } = require("../users/user-schema.service");
+const {
+  hasAnyRole,
+  hasRole,
+  normalizeRoles,
+  resolvePrimaryRole,
+} = require("../users/permissions");
 
-const EMPLOYMENT_TYPES = ['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN', 'REMOTE'];
-const EMPLOYMENT_STATUSES = ['ACTIVE', 'INACTIVE', 'PROBATION', 'RESIGNED', 'TERMINATED'];
-const ATTENDANCE_STATUSES = ['PRESENT', 'ABSENT', 'LATE', 'HALF_DAY', 'ON_LEAVE', 'WORK_FROM_HOME'];
-const LEAVE_TYPES = ['ANNUAL', 'SICK', 'CASUAL', 'EMERGENCY', 'UNPAID'];
-const LEAVE_STATUSES = ['PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'];
-const PAYROLL_STATUSES = ['DRAFT', 'APPROVED', 'PAID'];
-const EXPENSE_CATEGORIES = ['INTERNET', 'FUEL', 'SOFTWARE', 'EQUIPMENT', 'TRAVEL', 'OFFICE', 'MISC'];
-const EXPENSE_STATUSES = ['SUBMITTED', 'APPROVED', 'REJECTED', 'PAID'];
-const WARNING_TYPES = ['VERBAL', 'WRITTEN', 'FINAL'];
-const DOCUMENT_TYPES = ['CV', 'CNIC', 'OFFER_LETTER', 'CONTRACT', 'CERTIFICATE', 'POLICY', 'OTHER'];
+const EMPLOYMENT_TYPES = [
+  "FULL_TIME",
+  "PART_TIME",
+  "CONTRACT",
+  "INTERN",
+  "REMOTE",
+];
+const EMPLOYMENT_STATUSES = [
+  "ACTIVE",
+  "INACTIVE",
+  "PROBATION",
+  "RESIGNED",
+  "TERMINATED",
+];
+const ATTENDANCE_STATUSES = [
+  "PRESENT",
+  "ABSENT",
+  "LATE",
+  "HALF_DAY",
+  "ON_LEAVE",
+  "WORK_FROM_HOME",
+];
+const LEAVE_TYPES = ["ANNUAL", "SICK", "CASUAL", "EMERGENCY", "UNPAID"];
+const LEAVE_STATUSES = ["PENDING", "APPROVED", "REJECTED", "CANCELLED"];
+const PAYROLL_STATUSES = ["DRAFT", "APPROVED", "PAID"];
+const EXPENSE_CATEGORIES = [
+  "INTERNET",
+  "FUEL",
+  "SOFTWARE",
+  "EQUIPMENT",
+  "TRAVEL",
+  "OFFICE",
+  "MISC",
+];
+const EXPENSE_STATUSES = ["SUBMITTED", "APPROVED", "REJECTED", "PAID"];
+const WARNING_TYPES = ["VERBAL", "WRITTEN", "FINAL"];
+const DOCUMENT_TYPES = [
+  "CV",
+  "CNIC",
+  "OFFER_LETTER",
+  "CONTRACT",
+  "CERTIFICATE",
+  "POLICY",
+  "OTHER",
+];
 
 let ensureHrTablesPromise = null;
 
 const toText = (value) => {
-  const normalized = String(value ?? '').trim();
+  const normalized = String(value ?? "").trim();
   return normalized || null;
 };
 
@@ -31,7 +74,7 @@ const toDate = (value) => {
 };
 
 const toMoney = (value, fallback = 0) => {
-  if (value === null || value === undefined || value === '') {
+  if (value === null || value === undefined || value === "") {
     return fallback;
   }
 
@@ -40,7 +83,7 @@ const toMoney = (value, fallback = 0) => {
 };
 
 const toInteger = (value, fallback = 0) => {
-  if (value === null || value === undefined || value === '') {
+  if (value === null || value === undefined || value === "") {
     return fallback;
   }
 
@@ -49,10 +92,10 @@ const toInteger = (value, fallback = 0) => {
 };
 
 const toUpperEnum = (value, allowed, fallback = null) => {
-  const normalized = String(value ?? '')
+  const normalized = String(value ?? "")
     .trim()
     .toUpperCase()
-    .replace(/[\s-]+/g, '_');
+    .replace(/[\s-]+/g, "_");
 
   if (!normalized) {
     return fallback;
@@ -65,16 +108,23 @@ const toUpperEnum = (value, allowed, fallback = null) => {
   return normalized;
 };
 
-const hasHrAccess = (user) => hasAnyRole(user, ['admin', 'hr', 'super_admin']);
-const hasPayrollAccess = (user) => hasAnyRole(user, ['admin', 'hr', 'super_admin']);
+const hasHrAccess = (user) => hasAnyRole(user, ["admin", "hr", "super_admin"]);
+const hasPayrollAccess = (user) =>
+  hasAnyRole(user, ["admin", "hr", "super_admin"]);
 
-const ensureHrManager = (user, message = 'You do not have access to HR management.') => {
+const ensureHrManager = (
+  user,
+  message = "You do not have access to HR management.",
+) => {
   if (!hasHrAccess(user)) {
     throw new AppError(message, 403);
   }
 };
 
-const ensurePayrollManager = (user, message = 'You do not have access to payroll data.') => {
+const ensurePayrollManager = (
+  user,
+  message = "You do not have access to payroll data.",
+) => {
   if (!hasPayrollAccess(user)) {
     throw new AppError(message, 403);
   }
@@ -82,8 +132,8 @@ const ensurePayrollManager = (user, message = 'You do not have access to payroll
 
 const mapEmployeeRow = (row) => ({
   ...row,
-  roles: normalizeRoles(row.roles || row.role, row.role || 'hunter'),
-  role: resolvePrimaryRole(row.roles || row.role, row.role || 'hunter'),
+  roles: normalizeRoles(row.roles || row.role, row.role || "hunter"),
+  role: resolvePrimaryRole(row.roles || row.role, row.role || "hunter"),
   basicSalary: Number(row.basicSalary || 0),
   allowances: Number(row.allowances || 0),
   defaultDeductions: Number(row.defaultDeductions || 0),
@@ -336,11 +386,11 @@ const getEmployeeById = async (viewer, id) => {
   const employee = result.rows[0] ? mapEmployeeRow(result.rows[0]) : null;
 
   if (!employee) {
-    throw new AppError('Employee not found.', 404);
+    throw new AppError("Employee not found.", 404);
   }
 
   if (!hasHrAccess(viewer) && employee.userId !== viewer.id) {
-    throw new AppError('You do not have access to this employee record.', 403);
+    throw new AppError("You do not have access to this employee record.", 403);
   }
 
   return employee;
@@ -350,7 +400,7 @@ const requireEmployeeForSelf = async (user) => {
   const employee = await getOwnEmployeeProfile(user);
 
   if (!employee) {
-    throw new AppError('Employee profile not found for this user.', 404);
+    throw new AppError("Employee profile not found for this user.", 404);
   }
 
   return employee;
@@ -384,12 +434,14 @@ const buildEmployeeFilters = (query = {}) => {
 
   if (query.role) {
     params.push(JSON.stringify([String(query.role).trim().toLowerCase()]));
-    where.push(`COALESCE(u.roles, jsonb_build_array(u.role::text)) @> $${params.length}::jsonb`);
+    where.push(
+      `COALESCE(u.roles, jsonb_build_array(u.role::text)) @> $${params.length}::jsonb`,
+    );
   }
 
   return {
     params,
-    whereSql: where.length ? `WHERE ${where.join(' AND ')}` : '',
+    whereSql: where.length ? `WHERE ${where.join(" AND ")}` : "",
   };
 };
 
@@ -397,7 +449,7 @@ const listEmployees = async (viewer, query = {}) => {
   ensureHrManager(viewer);
   await ensureHrTables();
   const filters = buildEmployeeFilters(query);
-  const defaultLimit = await getConfiguredLimit('users', query.limit);
+  const defaultLimit = await getConfiguredLimit("users", query.limit);
   const pageRequest = normalizePageRequest(query, defaultLimit);
   const result = await pool.query(
     `
@@ -413,7 +465,11 @@ const listEmployees = async (viewer, query = {}) => {
 
   return {
     items: result.rows.map(mapEmployeeRow),
-    ...buildPageMeta(pageRequest.page, pageRequest.limit, result.rows[0]?.totalCount || 0),
+    ...buildPageMeta(
+      pageRequest.page,
+      pageRequest.limit,
+      result.rows[0]?.totalCount || 0,
+    ),
   };
 };
 
@@ -422,10 +478,12 @@ const createEmployee = async (viewer, payload = {}) => {
   await ensureHrTables();
 
   const userId = toText(payload.userId);
-  const employeeCode = toText(payload.employeeCode) || `EMP-${randomUUID().slice(0, 8).toUpperCase()}`;
+  const employeeCode =
+    toText(payload.employeeCode) ||
+    `EMP-${randomUUID().slice(0, 8).toUpperCase()}`;
 
   if (!userId) {
-    throw new AppError('User is required for employee creation.', 400);
+    throw new AppError("User is required for employee creation.", 400);
   }
 
   const userResult = await pool.query(
@@ -434,12 +492,15 @@ const createEmployee = async (viewer, payload = {}) => {
   );
 
   if (!userResult.rows[0] || userResult.rows[0].deletedAt) {
-    throw new AppError('Linked user account was not found.', 404);
+    throw new AppError("Linked user account was not found.", 404);
   }
 
-  const existing = await pool.query(`SELECT id FROM employee_profiles WHERE user_id = $1 LIMIT 1`, [userId]);
+  const existing = await pool.query(
+    `SELECT id FROM employee_profiles WHERE user_id = $1 LIMIT 1`,
+    [userId],
+  );
   if (existing.rowCount > 0) {
-    throw new AppError('This user already has an employee profile.', 409);
+    throw new AppError("This user already has an employee profile.", 409);
   }
 
   await pool.query(
@@ -481,8 +542,8 @@ const createEmployee = async (viewer, payload = {}) => {
       toText(payload.designation),
       toText(payload.managerUserId),
       toDate(payload.joiningDate),
-      toUpperEnum(payload.employmentType, EMPLOYMENT_TYPES, 'FULL_TIME'),
-      toUpperEnum(payload.employmentStatus, EMPLOYMENT_STATUSES, 'ACTIVE'),
+      toUpperEnum(payload.employmentType, EMPLOYMENT_TYPES, "FULL_TIME"),
+      toUpperEnum(payload.employmentStatus, EMPLOYMENT_STATUSES, "ACTIVE"),
       toMoney(payload.basicSalary, 0),
       toMoney(payload.allowances, 0),
       toMoney(payload.defaultDeductions, 0),
@@ -499,8 +560,8 @@ const createEmployee = async (viewer, payload = {}) => {
 
   await writeAuditLog({
     actorUserId: viewer.id,
-    action: 'EMPLOYEE_CREATED',
-    targetType: 'employee',
+    action: "EMPLOYEE_CREATED",
+    targetType: "employee",
     targetId: employee.rows[0]?.id || null,
     details: {
       employeeCode,
@@ -516,29 +577,49 @@ const updateEmployee = async (viewer, id, payload = {}) => {
   const employee = await getEmployeeById(viewer, id);
   const updates = [];
   const params = [];
-  const add = (column, value, cast = '') => {
+  const add = (column, value, cast = "") => {
     params.push(value);
     updates.push(`${column} = $${params.length}${cast}`);
   };
 
-  if (payload.employeeCode !== undefined) add('employee_code', toText(payload.employeeCode));
-  if (payload.phone !== undefined) add('phone', toText(payload.phone));
-  if (payload.nationalId !== undefined) add('national_id', toText(payload.nationalId));
-  if (payload.address !== undefined) add('address', toText(payload.address));
-  if (payload.emergencyContact !== undefined) add('emergency_contact', toText(payload.emergencyContact));
-  if (payload.department !== undefined) add('department', toText(payload.department));
-  if (payload.designation !== undefined) add('designation', toText(payload.designation));
-  if (payload.managerUserId !== undefined) add('manager_user_id', toText(payload.managerUserId));
-  if (payload.joiningDate !== undefined) add('joining_date', toDate(payload.joiningDate));
-  if (payload.employmentType !== undefined) add('employment_type', toUpperEnum(payload.employmentType, EMPLOYMENT_TYPES, null));
-  if (payload.employmentStatus !== undefined) add('employment_status', toUpperEnum(payload.employmentStatus, EMPLOYMENT_STATUSES, null));
-  if (payload.basicSalary !== undefined) add('basic_salary', toMoney(payload.basicSalary, 0));
-  if (payload.allowances !== undefined) add('allowances', toMoney(payload.allowances, 0));
-  if (payload.defaultDeductions !== undefined) add('default_deductions', toMoney(payload.defaultDeductions, 0));
-  if (payload.paymentMethod !== undefined) add('payment_method', toText(payload.paymentMethod));
-  if (payload.bankDetails !== undefined) add('bank_details', JSON.stringify(payload.bankDetails || {}), '::jsonb');
+  if (payload.employeeCode !== undefined)
+    add("employee_code", toText(payload.employeeCode));
+  if (payload.phone !== undefined) add("phone", toText(payload.phone));
+  if (payload.nationalId !== undefined)
+    add("national_id", toText(payload.nationalId));
+  if (payload.address !== undefined) add("address", toText(payload.address));
+  if (payload.emergencyContact !== undefined)
+    add("emergency_contact", toText(payload.emergencyContact));
+  if (payload.department !== undefined)
+    add("department", toText(payload.department));
+  if (payload.designation !== undefined)
+    add("designation", toText(payload.designation));
+  if (payload.managerUserId !== undefined)
+    add("manager_user_id", toText(payload.managerUserId));
+  if (payload.joiningDate !== undefined)
+    add("joining_date", toDate(payload.joiningDate));
+  if (payload.employmentType !== undefined)
+    add(
+      "employment_type",
+      toUpperEnum(payload.employmentType, EMPLOYMENT_TYPES, null),
+    );
+  if (payload.employmentStatus !== undefined)
+    add(
+      "employment_status",
+      toUpperEnum(payload.employmentStatus, EMPLOYMENT_STATUSES, null),
+    );
+  if (payload.basicSalary !== undefined)
+    add("basic_salary", toMoney(payload.basicSalary, 0));
+  if (payload.allowances !== undefined)
+    add("allowances", toMoney(payload.allowances, 0));
+  if (payload.defaultDeductions !== undefined)
+    add("default_deductions", toMoney(payload.defaultDeductions, 0));
+  if (payload.paymentMethod !== undefined)
+    add("payment_method", toText(payload.paymentMethod));
+  if (payload.bankDetails !== undefined)
+    add("bank_details", JSON.stringify(payload.bankDetails || {}), "::jsonb");
 
-  add('updated_by', viewer.id);
+  add("updated_by", viewer.id);
 
   if (updates.length === 1) {
     return employee;
@@ -548,7 +629,7 @@ const updateEmployee = async (viewer, id, payload = {}) => {
   await pool.query(
     `
       UPDATE employee_profiles
-      SET ${updates.join(', ')},
+      SET ${updates.join(", ")},
           updated_at = NOW()
       WHERE id = $${params.length}
     `,
@@ -558,8 +639,8 @@ const updateEmployee = async (viewer, id, payload = {}) => {
   const updated = await getEmployeeById(viewer, id);
   await writeAuditLog({
     actorUserId: viewer.id,
-    action: 'EMPLOYEE_UPDATED',
-    targetType: 'employee',
+    action: "EMPLOYEE_UPDATED",
+    targetType: "employee",
     targetId: id,
     details: {
       employeeCode: updated.employeeCode,
@@ -600,10 +681,12 @@ const listAttendance = async (viewer, query = {}) => {
   if (query.search) {
     params.push(`%${String(query.search).trim()}%`);
     const index = params.length;
-    where.push(`(u.name ILIKE $${index} OR u.email ILIKE $${index} OR COALESCE(e.employee_code, '') ILIKE $${index})`);
+    where.push(
+      `(u.name ILIKE $${index} OR u.email ILIKE $${index} OR COALESCE(e.employee_code, '') ILIKE $${index})`,
+    );
   }
 
-  const defaultLimit = await getConfiguredLimit('users', query.limit);
+  const defaultLimit = await getConfiguredLimit("users", query.limit);
   const pageRequest = normalizePageRequest(query, defaultLimit);
   const result = await pool.query(
     `
@@ -628,7 +711,7 @@ const listAttendance = async (viewer, query = {}) => {
       JOIN employee_profiles e ON e.id = a.employee_profile_id
       JOIN users u ON u.id = e.user_id
       LEFT JOIN users marker ON marker.id = a.marked_by
-      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
       ORDER BY a.attendance_date DESC, u.name
       LIMIT $${params.length + 1}
       OFFSET $${params.length + 2}
@@ -638,12 +721,16 @@ const listAttendance = async (viewer, query = {}) => {
 
   return {
     items: result.rows,
-    ...buildPageMeta(pageRequest.page, pageRequest.limit, result.rows[0]?.totalCount || 0),
+    ...buildPageMeta(
+      pageRequest.page,
+      pageRequest.limit,
+      result.rows[0]?.totalCount || 0,
+    ),
   };
 };
 
 const upsertAttendance = async (viewer, payload = {}) => {
-  ensureHrManager(viewer, 'You do not have permission to mark attendance.');
+  ensureHrManager(viewer, "You do not have permission to mark attendance.");
   await ensureHrTables();
 
   const employeeId = toText(payload.employeeId);
@@ -651,7 +738,7 @@ const upsertAttendance = async (viewer, payload = {}) => {
   const status = toUpperEnum(payload.status, ATTENDANCE_STATUSES, null);
 
   if (!employeeId || !date || !status) {
-    throw new AppError('Employee, date, and status are required.', 400);
+    throw new AppError("Employee, date, and status are required.", 400);
   }
 
   await pool.query(
@@ -691,8 +778,8 @@ const upsertAttendance = async (viewer, payload = {}) => {
 
   await writeAuditLog({
     actorUserId: viewer.id,
-    action: 'ATTENDANCE_MARKED',
-    targetType: 'attendance',
+    action: "ATTENDANCE_MARKED",
+    targetType: "attendance",
     details: {
       employeeId,
       date,
@@ -702,9 +789,12 @@ const upsertAttendance = async (viewer, payload = {}) => {
 };
 
 const updateAttendance = async (viewer, id, payload = {}) => {
-  ensureHrManager(viewer, 'You do not have permission to edit attendance.');
+  ensureHrManager(viewer, "You do not have permission to edit attendance.");
   await ensureHrTables();
-  const status = payload.status !== undefined ? toUpperEnum(payload.status, ATTENDANCE_STATUSES, null) : null;
+  const status =
+    payload.status !== undefined
+      ? toUpperEnum(payload.status, ATTENDANCE_STATUSES, null)
+      : null;
   const result = await pool.query(
     `
       UPDATE hr_attendance
@@ -723,20 +813,22 @@ const updateAttendance = async (viewer, id, payload = {}) => {
       toText(payload.checkInTime),
       toText(payload.checkOutTime),
       status,
-      payload.lateMinutes !== undefined ? toInteger(payload.lateMinutes, 0) : null,
+      payload.lateMinutes !== undefined
+        ? toInteger(payload.lateMinutes, 0)
+        : null,
       toText(payload.notes),
       viewer.id,
     ],
   );
 
   if (!result.rows[0]) {
-    throw new AppError('Attendance entry not found.', 404);
+    throw new AppError("Attendance entry not found.", 404);
   }
 
   await writeAuditLog({
     actorUserId: viewer.id,
-    action: 'ATTENDANCE_MARKED',
-    targetType: 'attendance',
+    action: "ATTENDANCE_MARKED",
+    targetType: "attendance",
     targetId: id,
     details: result.rows[0],
   });
@@ -745,9 +837,12 @@ const updateAttendance = async (viewer, id, payload = {}) => {
 };
 
 const bulkMarkAttendance = async (viewer, rows = []) => {
-  ensureHrManager(viewer, 'You do not have permission to bulk mark attendance.');
+  ensureHrManager(
+    viewer,
+    "You do not have permission to bulk mark attendance.",
+  );
   if (!Array.isArray(rows) || rows.length === 0) {
-    throw new AppError('Add at least one attendance row.', 400);
+    throw new AppError("Add at least one attendance row.", 400);
   }
 
   for (const row of rows) {
@@ -763,7 +858,10 @@ const getLeaveDays = (startDate, endDate) => {
   const diff = end.getTime() - start.getTime();
 
   if (!Number.isFinite(diff) || diff < 0) {
-    throw new AppError('Leave end date must be on or after the start date.', 400);
+    throw new AppError(
+      "Leave end date must be on or after the start date.",
+      400,
+    );
   }
 
   return Math.floor(diff / 86400000) + 1;
@@ -803,7 +901,7 @@ const listLeaves = async (viewer, query = {}) => {
     where.push(`l.end_date <= $${params.length}`);
   }
 
-  const defaultLimit = await getConfiguredLimit('users', query.limit);
+  const defaultLimit = await getConfiguredLimit("users", query.limit);
   const pageRequest = normalizePageRequest(query, defaultLimit);
   const result = await pool.query(
     `
@@ -830,7 +928,7 @@ const listLeaves = async (viewer, query = {}) => {
       JOIN employee_profiles e ON e.id = l.employee_profile_id
       JOIN users u ON u.id = e.user_id
       LEFT JOIN users approver ON approver.id = l.approved_by
-      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
       ORDER BY l.created_at DESC
       LIMIT $${params.length + 1}
       OFFSET $${params.length + 2}
@@ -839,20 +937,33 @@ const listLeaves = async (viewer, query = {}) => {
   );
 
   return {
-    items: result.rows.map((row) => ({ ...row, totalDays: Number(row.totalDays || 0) })),
-    ...buildPageMeta(pageRequest.page, pageRequest.limit, result.rows[0]?.totalCount || 0),
+    items: result.rows.map((row) => ({
+      ...row,
+      totalDays: Number(row.totalDays || 0),
+    })),
+    ...buildPageMeta(
+      pageRequest.page,
+      pageRequest.limit,
+      result.rows[0]?.totalCount || 0,
+    ),
   };
 };
 
 const createLeave = async (viewer, payload = {}) => {
   await ensureHrTables();
-  const employee = hasHrAccess(viewer) && payload.employeeId ? await getEmployeeById(viewer, payload.employeeId) : await requireEmployeeForSelf(viewer);
+  const employee =
+    hasHrAccess(viewer) && payload.employeeId
+      ? await getEmployeeById(viewer, payload.employeeId)
+      : await requireEmployeeForSelf(viewer);
   const leaveType = toUpperEnum(payload.leaveType, LEAVE_TYPES, null);
   const startDate = toDate(payload.startDate);
   const endDate = toDate(payload.endDate);
 
   if (!leaveType || !startDate || !endDate) {
-    throw new AppError('Leave type, start date, and end date are required.', 400);
+    throw new AppError(
+      "Leave type, start date, and end date are required.",
+      400,
+    );
   }
 
   const totalDays = getLeaveDays(startDate, endDate);
@@ -870,13 +981,20 @@ const createLeave = async (viewer, payload = {}) => {
       VALUES ($1, $2, $3, $4, $5, 'PENDING', $6)
       RETURNING id
     `,
-    [employee.id, leaveType, startDate, endDate, totalDays, toText(payload.reason)],
+    [
+      employee.id,
+      leaveType,
+      startDate,
+      endDate,
+      totalDays,
+      toText(payload.reason),
+    ],
   );
 
   await writeAuditLog({
     actorUserId: viewer.id,
-    action: 'LEAVE_REQUESTED',
-    targetType: 'leave',
+    action: "LEAVE_REQUESTED",
+    targetType: "leave",
     targetId: result.rows[0]?.id || null,
     details: {
       employeeId: employee.id,
@@ -887,7 +1005,10 @@ const createLeave = async (viewer, payload = {}) => {
 };
 
 const updateLeaveStatus = async (viewer, id, status, reviewNotes = null) => {
-  ensureHrManager(viewer, 'You do not have permission to review leave requests.');
+  ensureHrManager(
+    viewer,
+    "You do not have permission to review leave requests.",
+  );
   const result = await pool.query(
     `
       UPDATE hr_leave_requests
@@ -903,13 +1024,13 @@ const updateLeaveStatus = async (viewer, id, status, reviewNotes = null) => {
   );
 
   if (!result.rows[0]) {
-    throw new AppError('Leave request not found.', 404);
+    throw new AppError("Leave request not found.", 404);
   }
 
   await writeAuditLog({
     actorUserId: viewer.id,
-    action: status === 'APPROVED' ? 'LEAVE_APPROVED' : 'LEAVE_REJECTED',
-    targetType: 'leave',
+    action: status === "APPROVED" ? "LEAVE_APPROVED" : "LEAVE_REJECTED",
+    targetType: "leave",
     targetId: id,
     details: result.rows[0],
   });
@@ -934,7 +1055,7 @@ const cancelLeave = async (viewer, id) => {
   );
 
   if (!result.rows[0]) {
-    throw new AppError('Leave request not found or cannot be cancelled.', 404);
+    throw new AppError("Leave request not found or cannot be cancelled.", 404);
   }
 
   return { cancelled: true };
@@ -951,7 +1072,10 @@ const computeNetSalary = (payload = {}) =>
 
 const listPayroll = async (viewer, query = {}) => {
   await ensureHrTables();
-  ensurePayrollManager(viewer, 'You do not have permission to view payroll data.');
+  ensurePayrollManager(
+    viewer,
+    "You do not have permission to view payroll data.",
+  );
 
   const params = [];
   const where = [];
@@ -972,10 +1096,12 @@ const listPayroll = async (viewer, query = {}) => {
 
   if (query.payrollMonth) {
     params.push(query.payrollMonth);
-    where.push(`date_trunc('month', p.payroll_month) = date_trunc('month', $${params.length}::date)`);
+    where.push(
+      `date_trunc('month', p.payroll_month) = date_trunc('month', $${params.length}::date)`,
+    );
   }
 
-  const defaultLimit = await getConfiguredLimit('reports', query.limit);
+  const defaultLimit = await getConfiguredLimit("reports", query.limit);
   const pageRequest = normalizePageRequest(query, defaultLimit);
   const result = await pool.query(
     `
@@ -1006,7 +1132,7 @@ const listPayroll = async (viewer, query = {}) => {
       JOIN employee_profiles e ON e.id = p.employee_profile_id
       JOIN users u ON u.id = e.user_id
       LEFT JOIN users approver ON approver.id = p.approved_by
-      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
       ORDER BY p.payroll_month DESC, u.name
       LIMIT $${params.length + 1}
       OFFSET $${params.length + 2}
@@ -1016,7 +1142,11 @@ const listPayroll = async (viewer, query = {}) => {
 
   return {
     items: result.rows.map(mapPayrollRow),
-    ...buildPageMeta(pageRequest.page, pageRequest.limit, result.rows[0]?.totalCount || 0),
+    ...buildPageMeta(
+      pageRequest.page,
+      pageRequest.limit,
+      result.rows[0]?.totalCount || 0,
+    ),
   };
 };
 
@@ -1026,7 +1156,7 @@ const generatePayroll = async (viewer, payload = {}) => {
   const payrollMonth = toDate(payload.payrollMonth);
 
   if (!payrollMonth) {
-    throw new AppError('Payroll month is required.', 400);
+    throw new AppError("Payroll month is required.", 400);
   }
 
   const computed = {
@@ -1088,8 +1218,8 @@ const generatePayroll = async (viewer, payload = {}) => {
 
   await writeAuditLog({
     actorUserId: viewer.id,
-    action: 'PAYROLL_GENERATED',
-    targetType: 'payroll',
+    action: "PAYROLL_GENERATED",
+    targetType: "payroll",
     targetId: result.rows[0]?.id || null,
     details: {
       employeeId: employee.id,
@@ -1101,10 +1231,13 @@ const generatePayroll = async (viewer, payload = {}) => {
 
 const updatePayroll = async (viewer, id, payload = {}) => {
   ensurePayrollManager(viewer);
-  const current = await pool.query(`SELECT * FROM hr_payroll WHERE id = $1 LIMIT 1`, [id]);
+  const current = await pool.query(
+    `SELECT * FROM hr_payroll WHERE id = $1 LIMIT 1`,
+    [id],
+  );
 
   if (!current.rows[0]) {
-    throw new AppError('Payroll record not found.', 404);
+    throw new AppError("Payroll record not found.", 404);
   }
 
   const next = {
@@ -1113,7 +1246,8 @@ const updatePayroll = async (viewer, id, payload = {}) => {
     bonuses: payload.bonuses ?? current.rows[0].bonuses,
     deductions: payload.deductions ?? current.rows[0].deductions,
     advances: payload.advances ?? current.rows[0].advances,
-    unpaidLeaveDeduction: payload.unpaidLeaveDeduction ?? current.rows[0].unpaid_leave_deduction,
+    unpaidLeaveDeduction:
+      payload.unpaidLeaveDeduction ?? current.rows[0].unpaid_leave_deduction,
     lateDeduction: payload.lateDeduction ?? current.rows[0].late_deduction,
   };
   const netSalary = computeNetSalary(next);
@@ -1166,13 +1300,13 @@ const setPayrollStatus = async (viewer, id, status) => {
   );
 
   if (!result.rows[0]) {
-    throw new AppError('Payroll record not found.', 404);
+    throw new AppError("Payroll record not found.", 404);
   }
 
   await writeAuditLog({
     actorUserId: viewer.id,
-    action: status === 'APPROVED' ? 'PAYROLL_APPROVED' : 'PAYROLL_PAID',
-    targetType: 'payroll',
+    action: status === "APPROVED" ? "PAYROLL_APPROVED" : "PAYROLL_PAID",
+    targetType: "payroll",
     targetId: id,
     details: result.rows[0],
   });
@@ -1202,7 +1336,7 @@ const listExpenses = async (viewer, query = {}) => {
     where.push(`x.category = $${params.length}`);
   }
 
-  const defaultLimit = await getConfiguredLimit('users', query.limit);
+  const defaultLimit = await getConfiguredLimit("users", query.limit);
   const pageRequest = normalizePageRequest(query, defaultLimit);
   const result = await pool.query(
     `
@@ -1230,7 +1364,7 @@ const listExpenses = async (viewer, query = {}) => {
       JOIN employee_profiles e ON e.id = x.employee_profile_id
       JOIN users u ON u.id = e.user_id
       LEFT JOIN users approver ON approver.id = x.approved_by
-      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
       ORDER BY x.created_at DESC
       LIMIT $${params.length + 1}
       OFFSET $${params.length + 2}
@@ -1240,20 +1374,30 @@ const listExpenses = async (viewer, query = {}) => {
 
   return {
     items: result.rows.map(mapExpenseRow),
-    ...buildPageMeta(pageRequest.page, pageRequest.limit, result.rows[0]?.totalCount || 0),
+    ...buildPageMeta(
+      pageRequest.page,
+      pageRequest.limit,
+      result.rows[0]?.totalCount || 0,
+    ),
   };
 };
 
 const createExpense = async (viewer, payload = {}) => {
   await ensureHrTables();
-  const employee = hasHrAccess(viewer) && payload.employeeId ? await getEmployeeById(viewer, payload.employeeId) : await requireEmployeeForSelf(viewer);
+  const employee =
+    hasHrAccess(viewer) && payload.employeeId
+      ? await getEmployeeById(viewer, payload.employeeId)
+      : await requireEmployeeForSelf(viewer);
   const category = toUpperEnum(payload.category, EXPENSE_CATEGORIES, null);
   const title = toText(payload.title);
   const amount = toMoney(payload.amount, 0);
   const expenseDate = toDate(payload.expenseDate);
 
   if (!category || !title || amount <= 0 || !expenseDate) {
-    throw new AppError('Category, title, amount, and expense date are required.', 400);
+    throw new AppError(
+      "Category, title, amount, and expense date are required.",
+      400,
+    );
   }
 
   const result = await pool.query(
@@ -1271,13 +1415,21 @@ const createExpense = async (viewer, payload = {}) => {
       VALUES ($1, $2, $3, $4, $5, $6, 'SUBMITTED', $7)
       RETURNING id
     `,
-    [employee.id, category, title, toText(payload.description), amount, expenseDate, toText(payload.receiptUrl)],
+    [
+      employee.id,
+      category,
+      title,
+      toText(payload.description),
+      amount,
+      expenseDate,
+      toText(payload.receiptUrl),
+    ],
   );
 
   await writeAuditLog({
     actorUserId: viewer.id,
-    action: 'EXPENSE_SUBMITTED',
-    targetType: 'expense',
+    action: "EXPENSE_SUBMITTED",
+    targetType: "expense",
     targetId: result.rows[0]?.id || null,
     details: {
       employeeId: employee.id,
@@ -1288,7 +1440,7 @@ const createExpense = async (viewer, payload = {}) => {
 };
 
 const setExpenseStatus = async (viewer, id, status) => {
-  ensureHrManager(viewer, 'You do not have permission to review expenses.');
+  ensureHrManager(viewer, "You do not have permission to review expenses.");
   const result = await pool.query(
     `
       UPDATE hr_expenses
@@ -1304,18 +1456,18 @@ const setExpenseStatus = async (viewer, id, status) => {
   );
 
   if (!result.rows[0]) {
-    throw new AppError('Expense record not found.', 404);
+    throw new AppError("Expense record not found.", 404);
   }
 
   await writeAuditLog({
     actorUserId: viewer.id,
     action:
-      status === 'APPROVED'
-        ? 'EXPENSE_APPROVED'
-        : status === 'REJECTED'
-          ? 'EXPENSE_REJECTED'
-          : 'EXPENSE_APPROVED',
-    targetType: 'expense',
+      status === "APPROVED"
+        ? "EXPENSE_APPROVED"
+        : status === "REJECTED"
+          ? "EXPENSE_REJECTED"
+          : "EXPENSE_APPROVED",
+    targetType: "expense",
     targetId: id,
     details: result.rows[0],
   });
@@ -1335,7 +1487,7 @@ const listWarnings = async (viewer, query = {}) => {
     where.push(`w.employee_profile_id = $${params.length}`);
   }
 
-  const defaultLimit = await getConfiguredLimit('users', query.limit);
+  const defaultLimit = await getConfiguredLimit("users", query.limit);
   const pageRequest = normalizePageRequest(query, defaultLimit);
   const result = await pool.query(
     `
@@ -1359,7 +1511,7 @@ const listWarnings = async (viewer, query = {}) => {
       JOIN employee_profiles e ON e.id = w.employee_profile_id
       JOIN users u ON u.id = e.user_id
       LEFT JOIN users issuer ON issuer.id = w.issued_by
-      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
       ORDER BY w.issued_at DESC
       LIMIT $${params.length + 1}
       OFFSET $${params.length + 2}
@@ -1369,18 +1521,22 @@ const listWarnings = async (viewer, query = {}) => {
 
   return {
     items: result.rows,
-    ...buildPageMeta(pageRequest.page, pageRequest.limit, result.rows[0]?.totalCount || 0),
+    ...buildPageMeta(
+      pageRequest.page,
+      pageRequest.limit,
+      result.rows[0]?.totalCount || 0,
+    ),
   };
 };
 
 const createWarning = async (viewer, payload = {}) => {
-  ensureHrManager(viewer, 'You do not have permission to issue warnings.');
+  ensureHrManager(viewer, "You do not have permission to issue warnings.");
   const employee = await getEmployeeById(viewer, payload.employeeId);
   const warningType = toUpperEnum(payload.warningType, WARNING_TYPES, null);
   const reason = toText(payload.reason);
 
   if (!warningType || !reason) {
-    throw new AppError('Warning type and reason are required.', 400);
+    throw new AppError("Warning type and reason are required.", 400);
   }
 
   const result = await pool.query(
@@ -1410,8 +1566,8 @@ const createWarning = async (viewer, payload = {}) => {
 
   await writeAuditLog({
     actorUserId: viewer.id,
-    action: 'WARNING_ISSUED',
-    targetType: 'warning',
+    action: "WARNING_ISSUED",
+    targetType: "warning",
     targetId: result.rows[0]?.id || null,
     details: {
       employeeId: employee.id,
@@ -1439,7 +1595,7 @@ const listDocuments = async (viewer, query = {}) => {
     where.push(`d.document_type = $${params.length}`);
   }
 
-  const defaultLimit = await getConfiguredLimit('users', query.limit);
+  const defaultLimit = await getConfiguredLimit("users", query.limit);
   const pageRequest = normalizePageRequest(query, defaultLimit);
   const result = await pool.query(
     `
@@ -1462,7 +1618,7 @@ const listDocuments = async (viewer, query = {}) => {
       JOIN employee_profiles e ON e.id = d.employee_profile_id
       JOIN users u ON u.id = e.user_id
       LEFT JOIN users uploader ON uploader.id = d.uploaded_by
-      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
       ORDER BY d.created_at DESC
       LIMIT $${params.length + 1}
       OFFSET $${params.length + 2}
@@ -1472,18 +1628,25 @@ const listDocuments = async (viewer, query = {}) => {
 
   return {
     items: result.rows,
-    ...buildPageMeta(pageRequest.page, pageRequest.limit, result.rows[0]?.totalCount || 0),
+    ...buildPageMeta(
+      pageRequest.page,
+      pageRequest.limit,
+      result.rows[0]?.totalCount || 0,
+    ),
   };
 };
 
 const uploadDocument = async (viewer, payload = {}) => {
-  ensureHrManager(viewer, 'You do not have permission to manage employee documents.');
+  ensureHrManager(
+    viewer,
+    "You do not have permission to manage employee documents.",
+  );
   const employee = await getEmployeeById(viewer, payload.employeeId);
   const documentType = toUpperEnum(payload.documentType, DOCUMENT_TYPES, null);
   const title = toText(payload.title);
 
   if (!documentType || !title) {
-    throw new AppError('Document type and title are required.', 400);
+    throw new AppError("Document type and title are required.", 400);
   }
 
   const result = await pool.query(
@@ -1513,8 +1676,8 @@ const uploadDocument = async (viewer, payload = {}) => {
 
   await writeAuditLog({
     actorUserId: viewer.id,
-    action: 'DOCUMENT_UPLOADED',
-    targetType: 'document',
+    action: "DOCUMENT_UPLOADED",
+    targetType: "document",
     targetId: result.rows[0]?.id || null,
     details: {
       employeeId: employee.id,
@@ -1525,23 +1688,36 @@ const uploadDocument = async (viewer, payload = {}) => {
 };
 
 const deleteDocument = async (viewer, id) => {
-  ensureHrManager(viewer, 'You do not have permission to delete employee documents.');
-  const result = await pool.query(`DELETE FROM hr_employee_documents WHERE id = $1 RETURNING id`, [id]);
+  ensureHrManager(
+    viewer,
+    "You do not have permission to delete employee documents.",
+  );
+  const result = await pool.query(
+    `DELETE FROM hr_employee_documents WHERE id = $1 RETURNING id`,
+    [id],
+  );
 
   if (!result.rows[0]) {
-    throw new AppError('Document not found.', 404);
+    throw new AppError("Document not found.", 404);
   }
 
   return { deleted: true };
 };
 
 const getHrDashboard = async (viewer, query = {}) => {
-  ensureHrManager(viewer, 'You do not have access to the HR dashboard.');
+  ensureHrManager(viewer, "You do not have access to the HR dashboard.");
   await ensureHrTables();
-  const dateFrom = toDate(query.dateFrom) || new Date().toISOString().slice(0, 10);
+  const dateFrom =
+    toDate(query.dateFrom) || new Date().toLocaleDateString("en-CA");
   const dateTo = toDate(query.dateTo) || dateFrom;
-
-  const [summary, attendanceTrend, pendingLeaves, pendingExpenses, upcomingLeaves, recentActivity] = await Promise.all([
+  const [
+    summary,
+    attendanceTrend,
+    pendingLeaves,
+    pendingExpenses,
+    upcomingLeaves,
+    recentActivity,
+  ] = await Promise.all([
     pool.query(
       `
         SELECT
@@ -1650,7 +1826,10 @@ const getHrDashboard = async (viewer, query = {}) => {
 const getAttendanceReport = async (viewer, query = {}) => {
   ensureHrManager(viewer);
   await ensureHrTables();
-  const list = await listAttendance(viewer, { ...query, limit: query.limit || 100 });
+  const list = await listAttendance(viewer, {
+    ...query,
+    limit: query.limit || 100,
+  });
   const summary = await pool.query(
     `
       SELECT
@@ -1672,7 +1851,10 @@ const getAttendanceReport = async (viewer, query = {}) => {
 
 const getPayrollReport = async (viewer, query = {}) => {
   ensurePayrollManager(viewer);
-  const list = await listPayroll(viewer, { ...query, limit: query.limit || 100 });
+  const list = await listPayroll(viewer, {
+    ...query,
+    limit: query.limit || 100,
+  });
   const summary = await pool.query(
     `
       SELECT
@@ -1694,7 +1876,10 @@ const getPayrollReport = async (viewer, query = {}) => {
 
 const getExpenseReport = async (viewer, query = {}) => {
   ensureHrManager(viewer);
-  const list = await listExpenses(viewer, { ...query, limit: query.limit || 100 });
+  const list = await listExpenses(viewer, {
+    ...query,
+    limit: query.limit || 100,
+  });
   const summary = await pool.query(
     `
       SELECT
@@ -1759,8 +1944,8 @@ const getPerformanceReport = async (viewer) => {
 
   return result.rows.map((row) => ({
     ...row,
-    roles: normalizeRoles(row.roles || row.role, row.role || 'hunter'),
-    role: resolvePrimaryRole(row.roles || row.role, row.role || 'hunter'),
+    roles: normalizeRoles(row.roles || row.role, row.role || "hunter"),
+    role: resolvePrimaryRole(row.roles || row.role, row.role || "hunter"),
     profitGenerated: Number(row.profitGenerated || 0),
   }));
 };
@@ -1771,7 +1956,9 @@ const getMyHr = async (viewer) => {
   const [attendance, leaves, expenses, payroll, warnings] = await Promise.all([
     listAttendance(viewer, { limit: 12 }),
     listLeaves(viewer, { limit: 12 }),
-    hasPayrollAccess(viewer) ? listPayroll(viewer, { employeeId: employee.id, limit: 12 }) : Promise.resolve({ items: [] }),
+    hasPayrollAccess(viewer)
+      ? listPayroll(viewer, { employeeId: employee.id, limit: 12 })
+      : Promise.resolve({ items: [] }),
     listExpenses(viewer, { limit: 12 }),
     listWarnings(viewer, { limit: 12 }),
   ]);

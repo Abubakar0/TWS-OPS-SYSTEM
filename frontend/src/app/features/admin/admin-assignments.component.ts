@@ -1,5 +1,13 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -51,11 +59,17 @@ export class AdminAssignmentsComponent implements OnInit {
   readonly pageSize = signal(this.pageSizeOptions[1]);
 
   readonly searchControl = new FormControl('', { nonNullable: true });
-  readonly statusFilter = new FormControl<'all' | 'assigned' | 'unassigned'>('all', { nonNullable: true });
+  readonly statusFilter = new FormControl<'all' | 'assigned' | 'unassigned'>('all', {
+    nonNullable: true,
+  });
   readonly listerFilter = new FormControl('', { nonNullable: true });
 
-  readonly assignedCount = computed(() => this.assignments().filter((assignment) => Boolean(assignment.listerId)).length);
-  readonly unassignedCount = computed(() => this.assignments().filter((assignment) => !assignment.listerId).length);
+  readonly assignedCount = computed(
+    () => this.assignments().filter((assignment) => Boolean(assignment.listerId)).length,
+  );
+  readonly unassignedCount = computed(
+    () => this.assignments().filter((assignment) => !assignment.listerId).length,
+  );
   readonly sortedAssignments = computed(() =>
     sortRecords(this.assignments(), this.sortState(), (assignment, key) => {
       switch (key) {
@@ -251,8 +265,7 @@ export class AdminAssignmentsComponent implements OnInit {
         rows.push(...nextPage.items);
       }
 
-      const dateStamp = new Date().toISOString().slice(0, 10);
-
+      const dateStamp = new Date().toLocaleDateString('en-CA');
       this.exportService.exportAsExcelTable({
         filename: `assignments-${dateStamp}.xlsx`,
         sheetName: 'Assignments',
@@ -260,10 +273,16 @@ export class AdminAssignmentsComponent implements OnInit {
         columns: [
           { header: 'Hunter Name', value: (assignment) => assignment.hunterName },
           { header: 'Hunter Email', value: (assignment) => assignment.hunterEmail },
-          { header: 'Hunter Status', value: (assignment) => (assignment.hunterActive ? 'Enabled' : 'Disabled') },
+          {
+            header: 'Hunter Status',
+            value: (assignment) => (assignment.hunterActive ? 'Enabled' : 'Disabled'),
+          },
           { header: 'Lister Name', value: (assignment) => assignment.listerName || 'Unassigned' },
           { header: 'Lister Email', value: (assignment) => assignment.listerEmail || '' },
-          { header: 'Lister Status', value: (assignment) => (assignment.listerActive ? 'Enabled' : 'Disabled') },
+          {
+            header: 'Lister Status',
+            value: (assignment) => (assignment.listerActive ? 'Enabled' : 'Disabled'),
+          },
         ],
       });
       this.toast.success('Assignments exported.');

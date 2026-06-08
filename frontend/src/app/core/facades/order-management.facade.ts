@@ -432,69 +432,66 @@ export class OrderManagementFacade {
       return this.isCreateOrderReady();
     }
 
-    return (
-      this.orderForm.valid &&
-      !this.saving()
-    );
+    return this.orderForm.valid && !this.saving();
   });
   readonly orderFormErrors = computed(() => {
     this.orderFormVersion();
 
     return {
-    ebayOrderId: this.messages.orderFieldError(
-      this.orderForm.controls.ebayOrderId,
-      'ebayOrderId',
-      this.orderForm.controls.ebayOrderId.touched || this.orderForm.controls.ebayOrderId.dirty,
-    ),
-    ebayListingUrl: this.messages.orderFieldError(
-      this.orderForm.controls.ebayListingUrl,
-      'ebayListingUrl',
-      this.orderForm.controls.ebayListingUrl.touched ||
-        this.orderForm.controls.ebayListingUrl.dirty,
-    ),
-    orderDate: this.messages.orderFieldError(
-      this.orderForm.controls.orderDate,
-      'orderDate',
-      this.orderForm.controls.orderDate.touched || this.orderForm.controls.orderDate.dirty,
-    ),
-    quantity: this.messages.orderFieldError(
-      this.orderForm.controls.quantity,
-      'quantity',
-      this.orderForm.controls.quantity.touched || this.orderForm.controls.quantity.dirty,
-    ),
-    salePrice: this.messages.orderFieldError(
-      this.orderForm.controls.salePrice,
-      'salePrice',
-      this.orderForm.controls.salePrice.touched || this.orderForm.controls.salePrice.dirty,
-    ),
-    accountId: this.messages.orderFieldError(
-      this.orderForm.controls.accountId,
-      'accountId',
-      this.orderForm.controls.accountId.touched || this.orderForm.controls.accountId.dirty,
-    ),
-    asin: this.messages.orderFieldError(
-      this.orderForm.controls.asin,
-      'asin',
-      this.orderForm.controls.asin.touched || this.orderForm.controls.asin.dirty,
-    ),
-    amazonOrderId: this.messages.orderFieldError(
-      this.orderForm.controls.amazonOrderId,
-      'amazonOrderId',
-      this.orderForm.controls.amazonOrderId.touched ||
-        this.orderForm.controls.amazonOrderId.dirty,
-    ),
-    amazonOrderLink: this.messages.orderFieldError(
-      this.orderForm.controls.amazonOrderLink,
-      'amazonOrderLink',
-      this.orderForm.controls.amazonOrderLink.touched ||
-        this.orderForm.controls.amazonOrderLink.dirty,
-    ),
-    amazonBuyingPrice: this.messages.orderFieldError(
-      this.orderForm.controls.amazonBuyingPrice,
-      'amazonBuyingPrice',
-      this.orderForm.controls.amazonBuyingPrice.touched ||
-        this.orderForm.controls.amazonBuyingPrice.dirty,
-    ),
+      ebayOrderId: this.messages.orderFieldError(
+        this.orderForm.controls.ebayOrderId,
+        'ebayOrderId',
+        this.orderForm.controls.ebayOrderId.touched || this.orderForm.controls.ebayOrderId.dirty,
+      ),
+      ebayListingUrl: this.messages.orderFieldError(
+        this.orderForm.controls.ebayListingUrl,
+        'ebayListingUrl',
+        this.orderForm.controls.ebayListingUrl.touched ||
+          this.orderForm.controls.ebayListingUrl.dirty,
+      ),
+      orderDate: this.messages.orderFieldError(
+        this.orderForm.controls.orderDate,
+        'orderDate',
+        this.orderForm.controls.orderDate.touched || this.orderForm.controls.orderDate.dirty,
+      ),
+      quantity: this.messages.orderFieldError(
+        this.orderForm.controls.quantity,
+        'quantity',
+        this.orderForm.controls.quantity.touched || this.orderForm.controls.quantity.dirty,
+      ),
+      salePrice: this.messages.orderFieldError(
+        this.orderForm.controls.salePrice,
+        'salePrice',
+        this.orderForm.controls.salePrice.touched || this.orderForm.controls.salePrice.dirty,
+      ),
+      accountId: this.messages.orderFieldError(
+        this.orderForm.controls.accountId,
+        'accountId',
+        this.orderForm.controls.accountId.touched || this.orderForm.controls.accountId.dirty,
+      ),
+      asin: this.messages.orderFieldError(
+        this.orderForm.controls.asin,
+        'asin',
+        this.orderForm.controls.asin.touched || this.orderForm.controls.asin.dirty,
+      ),
+      amazonOrderId: this.messages.orderFieldError(
+        this.orderForm.controls.amazonOrderId,
+        'amazonOrderId',
+        this.orderForm.controls.amazonOrderId.touched ||
+          this.orderForm.controls.amazonOrderId.dirty,
+      ),
+      amazonOrderLink: this.messages.orderFieldError(
+        this.orderForm.controls.amazonOrderLink,
+        'amazonOrderLink',
+        this.orderForm.controls.amazonOrderLink.touched ||
+          this.orderForm.controls.amazonOrderLink.dirty,
+      ),
+      amazonBuyingPrice: this.messages.orderFieldError(
+        this.orderForm.controls.amazonBuyingPrice,
+        'amazonBuyingPrice',
+        this.orderForm.controls.amazonBuyingPrice.touched ||
+          this.orderForm.controls.amazonBuyingPrice.dirty,
+      ),
     };
   });
   readonly matchingSummary = computed(() => {
@@ -770,7 +767,7 @@ export class OrderManagementFacade {
         ebayOrderId: '',
         ebayItemId: '',
         ebayListingUrl: '',
-        orderDate: toDisplayDate(new Date().toISOString()),
+        orderDate: toDisplayDate(new Date().toLocaleDateString('en-CA')),
         quantity: 1,
         salePrice: '',
         buyerCountry: '',
@@ -872,8 +869,7 @@ export class OrderManagementFacade {
       return;
     }
 
-    const shouldExitProcessorNew =
-      this.mode() === 'processor' && this.processorView() === 'new';
+    const shouldExitProcessorNew = this.mode() === 'processor' && this.processorView() === 'new';
 
     if (shouldExitProcessorNew) {
       this.suppressProcessorNewAutoOpen.set(true);
@@ -914,7 +910,8 @@ export class OrderManagementFacade {
       this.workspaceSync.notifyOrdersChanged();
       this.toast.success(this.modalState().mode === 'create' ? 'Order created.' : 'Order updated.');
     } catch (error: unknown) {
-      const status = error && typeof error === 'object' ? (error as { status?: number }).status : undefined;
+      const status =
+        error && typeof error === 'object' ? (error as { status?: number }).status : undefined;
       if (status === 409) {
         this.duplicateState.set('duplicate');
         this.duplicateMessage.set('This eBay order already exists.');
@@ -1161,7 +1158,13 @@ export class OrderManagementFacade {
     const orderImpact = this.orderForm.controls.orderImpact.value;
     const issueReason = this.orderForm.controls.issueReason.value.trim();
 
-    if (!order || !this.processingActionsVm().canMarkIssue || !issueType || !orderImpact || !issueReason) {
+    if (
+      !order ||
+      !this.processingActionsVm().canMarkIssue ||
+      !issueType ||
+      !orderImpact ||
+      !issueReason
+    ) {
       this.orderForm.controls.issueType.markAsTouched();
       this.orderForm.controls.orderImpact.markAsTouched();
       this.orderForm.controls.issueReason.markAsTouched();
@@ -1170,7 +1173,9 @@ export class OrderManagementFacade {
     }
 
     this.saving.set(true);
-    firstValueFrom(this.orderApi.markIssueWithType(order.id, { issueType, issueReason, orderImpact }))
+    firstValueFrom(
+      this.orderApi.markIssueWithType(order.id, { issueType, issueReason, orderImpact }),
+    )
       .then((updated) => {
         this.upsertLocalOrder(updated, false);
         this.refreshStatsOnly();
@@ -1312,7 +1317,7 @@ export class OrderManagementFacade {
       ebayOrderId: raw.ebayOrderId.trim(),
       ebayItemId: raw.ebayItemId.trim() || null,
       ebayListingUrl: raw.ebayListingUrl.trim() || null,
-      orderDate: raw.orderDate || new Date().toISOString().slice(0, 10),
+      orderDate: raw.orderDate || new Date().toLocaleDateString('en-CA'),
       quantity: raw.quantity || 1,
       salePrice: raw.salePrice.trim(),
       buyerCountry: raw.buyerCountry.trim() || null,
@@ -1542,7 +1547,7 @@ export class OrderManagementFacade {
         rows.push(...nextPage.items);
       }
 
-      const dateStamp = new Date().toISOString().slice(0, 10);
+      const dateStamp = new Date().toLocaleDateString('en-CA');
       this.exportService.exportAsExcelTable({
         filename: `orders-${this.mode()}-${dateStamp}.xlsx`,
         sheetName: 'Orders',
