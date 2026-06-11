@@ -42,24 +42,17 @@
         </mat-form-field>
 
         <div class="grid-toolbar__actions grid-toolbar__actions--filters">
-          <mat-form-field appearance="outline">
-            <mat-label>Hunter</mat-label>
-            <mat-select formControlName="hunterId">
-              <mat-option value="">All hunters</mat-option>
-              @for (hunter of hunters(); track hunter.id) {
-                <mat-option [value]="hunter.id">{{ hunter.name }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+              <app-searchable-select
+                label="Hunter"
+                [formControl]="filtersForm.controls.hunterId"
+                [options]="hunterFilterOptions()"
+              />
 
-          <mat-form-field appearance="outline">
-            <mat-label>Status</mat-label>
-            <mat-select formControlName="status">
-              @for (option of statusOptions; track option.value) {
-                <mat-option [value]="option.value">{{ option.label }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+              <app-searchable-select
+                label="Status"
+                [formControl]="filtersForm.controls.status"
+                [options]="statusOptions"
+              />
 
           <mat-form-field appearance="outline">
             <mat-label>Issue Type</mat-label>
@@ -151,6 +144,13 @@
               <span>Product</span>
               <strong>{{ request.productTitle || request.asin }}</strong>
             </div>
+            <div class="detail-row detail-row--actions">
+              <span>ASIN</span>
+              <div class="link-actions">
+                <strong>{{ request.asin }}</strong>
+                <button mat-stroked-button type="button" (click)="copyValue(request.asin, 'ASIN')">Copy</button>
+              </div>
+            </div>
             <div class="detail-row">
               <span>Hunter</span>
               <strong>{{ request.hunterName }}</strong>
@@ -162,6 +162,20 @@
             <div class="detail-row">
               <span>Issue</span>
               <strong>{{ (request.issueType || 'OTHER').replaceAll('_', ' ') }}</strong>
+            </div>
+            <div class="detail-row detail-row--actions">
+              <span>Product Links</span>
+              <div class="link-actions">
+                @if (request.currentAmazonLink) {
+                  <a mat-stroked-button [href]="request.currentAmazonLink" target="_blank" rel="noreferrer">Amazon</a>
+                }
+                @if (request.currentEbayLink) {
+                  <a mat-stroked-button [href]="request.currentEbayLink" target="_blank" rel="noreferrer">eBay Source</a>
+                }
+                @if (request.listingUrl) {
+                  <a mat-stroked-button [href]="request.listingUrl" target="_blank" rel="noreferrer">Listed eBay</a>
+                }
+              </div>
             </div>
           </div>
 

@@ -219,9 +219,18 @@ export const routes: Routes = [
           {
             path: 'reports',
             loadComponent: () =>
-              import('./features/admin/admin-reports.component').then(
-                (m) => m.AdminReportsComponent,
+              import('./features/reports/reports-hub.component').then(
+                (m) => m.ReportsHubComponent,
               ),
+            data: { reportScope: 'admin' },
+          },
+          {
+            path: 'reports/:section',
+            loadComponent: () =>
+              import('./features/reports/report-detail.component').then(
+                (m) => m.ReportDetailComponent,
+              ),
+            data: { reportScope: 'admin' },
           },
           {
             path: 'accounts',
@@ -243,6 +252,13 @@ export const routes: Routes = [
         path: 'team',
         loadComponent: () =>
           import('./features/team/team-directory.component').then((m) => m.TeamDirectoryComponent),
+      },
+      {
+        path: 'account/change-password',
+        loadComponent: () =>
+          import('./features/account/change-password.component').then(
+            (m) => m.ChangePasswordComponent,
+          ),
       },
       {
         path: 'my-hr',
@@ -332,16 +348,32 @@ export const routes: Routes = [
           {
             path: 'users',
             loadComponent: () =>
-              import('./features/superadmin/superadmin-users.component').then(
-                (m) => m.SuperAdminUsersComponent,
+              import('./features/admin/admin-users.component').then(
+                (m) => m.AdminUsersComponent,
+              ),
+          },
+          {
+            path: 'products',
+            loadComponent: () =>
+              import('./features/admin/admin-products.component').then(
+                (m) => m.AdminProductsComponent,
               ),
           },
           {
             path: 'reports',
             loadComponent: () =>
-              import('./features/superadmin/superadmin-reports.component').then(
-                (m) => m.SuperAdminReportsComponent,
+              import('./features/reports/reports-hub.component').then(
+                (m) => m.ReportsHubComponent,
               ),
+            data: { reportScope: 'superadmin' },
+          },
+          {
+            path: 'reports/:section',
+            loadComponent: () =>
+              import('./features/reports/report-detail.component').then(
+                (m) => m.ReportDetailComponent,
+              ),
+            data: { reportScope: 'superadmin' },
           },
           {
             path: 'orders',
@@ -383,7 +415,7 @@ export const routes: Routes = [
       {
         path: 'hr',
         canActivate: [roleGuard],
-        data: { roles: ['hr', 'super_admin'] },
+        data: { roles: ['admin', 'hr', 'super_admin'] },
         children: [
           {
             path: '',
@@ -438,7 +470,18 @@ export const routes: Routes = [
           {
             path: 'reports',
             loadComponent: () =>
-              import('./features/hr/hr-reports.component').then((m) => m.HrReportsComponent),
+              import('./features/reports/reports-hub.component').then(
+                (m) => m.ReportsHubComponent,
+              ),
+            data: { reportScope: 'hr' },
+          },
+          {
+            path: 'reports/:section',
+            loadComponent: () =>
+              import('./features/reports/report-detail.component').then(
+                (m) => m.ReportDetailComponent,
+              ),
+            data: { reportScope: 'hr' },
           },
         ],
       },

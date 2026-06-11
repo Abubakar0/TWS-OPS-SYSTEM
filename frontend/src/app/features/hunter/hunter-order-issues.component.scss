@@ -43,6 +43,7 @@
 .issues-table {
   display: grid;
   gap: 10px;
+  overflow: auto;
 }
 
 .issues-table__head,
@@ -115,6 +116,17 @@
   border: 1px solid rgba(226, 232, 240, 0.9);
   border-radius: 14px;
   background: rgba(248, 250, 252, 0.85);
+}
+
+.detail-row--actions .link-actions {
+  margin-top: 8px;
+}
+
+.link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
 }
 
 .is-negative {

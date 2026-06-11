@@ -16,6 +16,7 @@ const listerRoutes = require('./modules/lister/lister.routes');
 const orderIssueRoutes = require('./modules/order-issues/order-issues.routes');
 const productCategoryRoutes = require('./modules/product-categories/product-categories.routes');
 const hrRoutes = require('./modules/hr/hr.routes');
+const reportRoutes = require('./modules/reports/reports.routes');
 const { notFound, errorHandler } = require('./middleware/error');
 
 const app = express();
@@ -46,6 +47,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/order-issues', orderIssueRoutes);
 app.use('/api/product-categories', productCategoryRoutes);
 app.use('/api/hr', hrRoutes);
+app.use('/api/reports', reportRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

@@ -44,9 +44,20 @@ import {
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../shared/error-state/error-state.component';
 import { FilterPanelComponent } from '../../shared/ui/filter-panel.component';
+import { SearchableSelectComponent } from '../../shared/ui/searchable-select.component';
 
 type AccountStatusFilter = 'all' | 'active' | 'disabled';
-type MarketplaceFilter = 'all' | 'amazon' | 'ebay';
+type MarketplaceFilter =
+  | 'all'
+  | 'amazon'
+  | 'ebay'
+  | 'walmart'
+  | 'tiktok_shop'
+  | 'noon'
+  | 'woocommerce'
+  | 'shopify';
+type CountryFilter = 'all' | 'USA' | 'UK' | 'Canada' | 'UAE' | 'Pakistan' | 'Other';
+type AssignmentFilter = 'all' | 'assigned' | 'unassigned';
 
 interface InvoicePreviewVm {
   accountName: string;
@@ -94,6 +105,7 @@ interface InvoicePreviewVm {
     EmptyStateComponent,
     ErrorStateComponent,
     FilterPanelComponent,
+    SearchableSelectComponent,
   ],
   templateUrl: './admin-accounts.component.html',
   styleUrl: './admin-accounts.component.scss',
@@ -114,6 +126,7 @@ export class AdminAccountsComponent implements OnInit {
   readonly listerModalOpen = signal(false);
   readonly invoiceModalOpen = signal(false);
   readonly invoiceSaving = signal(false);
+  readonly editingAccount = signal<Account | null>(null);
   readonly activeAccount = signal<Account | null>(null);
   readonly activeAccountSummary = signal<AccountSummary | null>(null);
   readonly selectedListerIds = signal<string[]>([]);
@@ -121,6 +134,8 @@ export class AdminAccountsComponent implements OnInit {
   readonly selectedListerIdSet = computed(() => new Set(this.selectedListerIds()));
   readonly searchControl = new FormControl('', { nonNullable: true });
   readonly marketplaceControl = new FormControl<MarketplaceFilter>('all', { nonNullable: true });
+  readonly countryControl = new FormControl<CountryFilter>('all', { nonNullable: true });
+  readonly assignmentControl = new FormControl<AssignmentFilter>('all', { nonNullable: true });
   readonly statusControl = new FormControl<AccountStatusFilter>('all', { nonNullable: true });
   readonly searchTerm = signal('');
   readonly pageError = computed(() => !this.loading() && this.error());
@@ -131,32 +146,77 @@ export class AdminAccountsComponent implements OnInit {
   readonly filteredAccounts = computed(() => {
     const term = this.searchTerm();
     const marketplace = this.marketplaceControl.value;
+    const country = this.countryControl.value;
+    const assignment = this.assignmentControl.value;
     const status = this.statusControl.value;
 
     return this.accounts().filter((account) => {
       const matchesMarketplace = marketplace === 'all' ? true : account.marketplace === marketplace;
+      const matchesCountry = country === 'all' ? true : (account.country || 'Other') === country;
+      const assigned = Boolean(account.assignedListers?.length);
+      const matchesAssignment =
+        assignment === 'all'
+          ? true
+          : assignment === 'assigned'
+            ? assigned
+            : !assigned;
       const matchesStatus =
         status === 'all' ? true : status === 'active' ? account.isActive : !account.isActive;
       const matchesSearch = !term
         ? true
-        : [account.name, account.marketplace]
+        : [account.name, account.marketplace, account.country || '', account.currency || '']
             .filter(Boolean)
             .some((value) => value.toLowerCase().includes(term));
 
-      return matchesMarketplace && matchesStatus && matchesSearch;
+      return matchesMarketplace && matchesCountry && matchesAssignment && matchesStatus && matchesSearch;
     });
   });
+  readonly marketplaceOptions = [
+    { value: 'all', label: 'All marketplaces' },
+    { value: 'amazon', label: 'Amazon' },
+    { value: 'ebay', label: 'eBay' },
+    { value: 'walmart', label: 'Walmart' },
+    { value: 'tiktok_shop', label: 'TikTok Shop' },
+    { value: 'noon', label: 'Noon' },
+    { value: 'woocommerce', label: 'WooCommerce' },
+    { value: 'shopify', label: 'Shopify' },
+  ] as const;
+  readonly countryOptions = [
+    { value: 'all', label: 'All countries' },
+    { value: 'USA', label: 'USA' },
+    { value: 'UK', label: 'UK' },
+    { value: 'Canada', label: 'Canada' },
+    { value: 'UAE', label: 'UAE' },
+    { value: 'Pakistan', label: 'Pakistan' },
+    { value: 'Other', label: 'Other' },
+  ] as const;
+  readonly assignmentOptions = [
+    { value: 'all', label: 'All assignments' },
+    { value: 'assigned', label: 'Assigned' },
+    { value: 'unassigned', label: 'Unassigned' },
+  ] as const;
+  readonly statusOptions = [
+    { value: 'all', label: 'All statuses' },
+    { value: 'active', label: 'Active' },
+    { value: 'disabled', label: 'Disabled' },
+  ] as const;
 
   readonly accountForm = new FormGroup({
     name: new FormControl('', {
       nonNullable: true,
       validators: [Validators.required],
     }),
-    marketplace: new FormControl<'ebay' | 'amazon'>('ebay', {
+    marketplace: new FormControl<Exclude<MarketplaceFilter, 'all'>>('ebay', {
       nonNullable: true,
       validators: [Validators.required],
     }),
+    country: new FormControl('', { nonNullable: true }),
+    currency: new FormControl('USD', { nonNullable: true, validators: [Validators.required] }),
     isActive: new FormControl(true, { nonNullable: true }),
+    clientProfitPercentage: new FormControl<number | null>(null),
+    companyProfitPercentage: new FormControl<number | null>(null),
+    previousOrderCount: new FormControl(0, { nonNullable: true }),
+    lastMonthProfit: new FormControl(0, { nonNullable: true }),
   });
 
   private readonly destroyRef = inject(DestroyRef);
@@ -174,6 +234,16 @@ export class AdminAccountsComponent implements OnInit {
     this.searchControl.valueChanges
       .pipe(debounceTime(250), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
       .subscribe((value) => this.searchTerm.set(value.trim().toLowerCase()));
+
+    this.accountForm.controls.country.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((country) => {
+        const inferredCurrency = this.inferCurrency(country);
+
+        if (inferredCurrency) {
+          this.accountForm.controls.currency.setValue(inferredCurrency, { emitEvent: false });
+        }
+      });
 
     this.invoiceForm.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -268,11 +338,40 @@ export class AdminAccountsComponent implements OnInit {
   resetFilters(): void {
     this.searchControl.setValue('', { emitEvent: true });
     this.marketplaceControl.setValue('all');
+    this.countryControl.setValue('all');
+    this.assignmentControl.setValue('all');
     this.statusControl.setValue('all');
   }
 
   openAccountModal(): void {
-    this.accountForm.reset({ name: '', marketplace: 'ebay', isActive: true });
+    this.editingAccount.set(null);
+    this.accountForm.reset({
+      name: '',
+      marketplace: 'ebay',
+      country: 'USA',
+      currency: 'USD',
+      isActive: true,
+      clientProfitPercentage: 50,
+      companyProfitPercentage: 50,
+      previousOrderCount: 0,
+      lastMonthProfit: 0,
+    });
+    this.accountModalOpen.set(true);
+  }
+
+  openEditAccountModal(account: Account): void {
+    this.editingAccount.set(account);
+    this.accountForm.reset({
+      name: account.name,
+      marketplace: account.marketplace as Exclude<MarketplaceFilter, 'all'>,
+      country: account.country || '',
+      currency: account.currency || this.inferCurrency(account.country) || 'USD',
+      isActive: account.isActive,
+      clientProfitPercentage: account.clientProfitPercentage ?? null,
+      companyProfitPercentage: account.companyProfitPercentage ?? null,
+      previousOrderCount: account.previousOrderCount || 0,
+      lastMonthProfit: account.lastMonthProfit || 0,
+    });
     this.accountModalOpen.set(true);
   }
 
@@ -282,6 +381,7 @@ export class AdminAccountsComponent implements OnInit {
     }
 
     this.accountModalOpen.set(false);
+    this.editingAccount.set(null);
   }
 
   openListerModal(account?: Account): void {
@@ -317,7 +417,7 @@ export class AdminAccountsComponent implements OnInit {
     this.selectedListerIds.set([...next]);
   }
 
-  createAccount(): void {
+  saveAccount(): void {
     if (this.accountForm.invalid || this.saving()) {
       this.accountForm.markAllAsTouched();
       return;
@@ -325,19 +425,29 @@ export class AdminAccountsComponent implements OnInit {
 
     this.saving.set(true);
     this.error.set('');
+    const raw = this.accountForm.getRawValue();
+    const request$ = this.editingAccount()
+      ? this.accountApi.updateAccount(this.editingAccount()!.id, raw)
+      : this.accountApi.createAccount(raw);
 
-    this.accountApi
-      .createAccount(this.accountForm.getRawValue())
+    request$
       .pipe(finalize(() => this.saving.set(false)))
       .subscribe({
-        next: () => {
+        next: (account) => {
           this.referenceData.refreshAccounts();
           this.workspaceSync.notifySettingsChanged();
-          this.toast.success('Account created.');
+          this.toast.success(this.editingAccount() ? 'Account updated.' : 'Account created.');
           this.closeAccountModal(true);
+
+          if (account) {
+            this.selectAccount(account, true);
+          }
         },
         error: (error) => {
-          this.error.set(error?.error?.message || 'Could not create account.');
+          this.error.set(
+            error?.error?.message ||
+              (this.editingAccount() ? 'Could not update account.' : 'Could not create account.'),
+          );
         },
       });
   }
@@ -350,7 +460,11 @@ export class AdminAccountsComponent implements OnInit {
       columns: [
         { header: 'Account Name', value: () => '' },
         { header: 'Marketplace', value: () => '' },
+        { header: 'Country', value: () => '' },
+        { header: 'Currency', value: () => '' },
         { header: 'Active', value: () => '' },
+        { header: 'Client Profit Percentage', value: () => '' },
+        { header: 'Company Profit Percentage', value: () => '' },
         { header: 'Previous Order Count', value: () => '' },
         { header: 'Last Month Profit', value: () => '' },
       ],
@@ -573,12 +687,16 @@ export class AdminAccountsComponent implements OnInit {
     }
 
     const totalProfit = Number(summary?.stats.totalProfit || 0);
+    const clientPercentage = Number(activeAccount.clientProfitPercentage ?? 50);
+    const companyPercentage = Number(activeAccount.companyProfitPercentage ?? 50);
+    const companyProfit = Number(((totalProfit * companyPercentage) / 100).toFixed(2));
+    const clientProfit = Number(((totalProfit * clientPercentage) / 100).toFixed(2));
 
     this.invoiceForm.reset({
       billToName: activeAccount.name,
       invoiceMonth: buildInvoiceMonthValue(),
       invoiceDate: buildInvoiceDateValue(),
-      currency: 'USD',
+      currency: activeAccount.currency || this.inferCurrency(activeAccount.country) || 'USD',
       primaryPayment: DEFAULT_PRIMARY_PAYMENT,
       alternatePayment: DEFAULT_ALTERNATE_PAYMENT,
       notes: '',
@@ -586,8 +704,8 @@ export class AdminAccountsComponent implements OnInit {
 
     const defaults = [
       { ...DEFAULT_INVOICE_LINE_ITEMS[0], amount: totalProfit },
-      { ...DEFAULT_INVOICE_LINE_ITEMS[1], amount: 0 },
-      { ...DEFAULT_INVOICE_LINE_ITEMS[2], amount: totalProfit },
+      { ...DEFAULT_INVOICE_LINE_ITEMS[1], amount: companyProfit },
+      { ...DEFAULT_INVOICE_LINE_ITEMS[2], amount: clientProfit },
       { ...DEFAULT_INVOICE_LINE_ITEMS[3], amount: 0 },
     ];
 
@@ -750,5 +868,22 @@ export class AdminAccountsComponent implements OnInit {
       month: 'long',
       year: 'numeric',
     }).format(invoiceDate);
+  }
+
+  private inferCurrency(country?: string | null): string | null {
+    switch (country) {
+      case 'USA':
+        return 'USD';
+      case 'UK':
+        return 'GBP';
+      case 'UAE':
+        return 'AED';
+      case 'Pakistan':
+        return 'PKR';
+      case 'Canada':
+        return 'CAD';
+      default:
+        return null;
+    }
   }
 }

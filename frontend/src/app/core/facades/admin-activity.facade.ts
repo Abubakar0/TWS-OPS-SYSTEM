@@ -89,7 +89,7 @@ export class AdminActivityFacade {
   }
 
   resetFilters(): void {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date().toLocaleDateString('en-CA');
     this.filters.reset(
       {
         search: '',
@@ -121,8 +121,7 @@ export class AdminActivityFacade {
       .subscribe({
         next: (users) => this.users.set(users),
       });
-
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date().toLocaleDateString('en-CA');
     this.filters.patchValue({ from: today, to: today }, { emitEvent: false });
     this.loadLogs();
   }

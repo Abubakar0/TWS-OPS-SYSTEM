@@ -83,6 +83,93 @@
           }
         </div>
       </article>
+
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Training guide</h2>
+            <p>Step-by-step guardrails for sourcing, validation, and duplicate control.</p>
+          </div>
+        </div>
+
+        <div class="rules-sections">
+          @for (section of documentationSections; track section.title) {
+            <section class="rules-section">
+              <h3>{{ section.title }}</h3>
+              <ul>
+                @for (item of section.items; track item) {
+                  <li>{{ item }}</li>
+                }
+              </ul>
+            </section>
+          }
+        </div>
+      </article>
+
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Recommended tools</h2>
+            <p>Use these tools to validate demand, price history, and competition faster.</p>
+          </div>
+        </div>
+
+        <div class="tool-grid">
+          @for (tool of recommendedTools; track tool.name) {
+            <article class="tool-card">
+              <div>
+                <h3>{{ tool.name }}</h3>
+                <p>{{ tool.description }}</p>
+              </div>
+              <div class="tool-card__facts">
+                <div><span>Purpose</span><strong>{{ tool.purpose }}</strong></div>
+                <div><span>How hunters use it</span><strong>{{ tool.usage }}</strong></div>
+              </div>
+              <a mat-stroked-button [href]="tool.link" target="_blank" rel="noopener">
+                <mat-icon>open_in_new</mat-icon>
+                <span>Open</span>
+              </a>
+            </article>
+          }
+        </div>
+      </article>
+
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Hunting process</h2>
+            <p>Use this sequence every time you move from search to submission.</p>
+          </div>
+        </div>
+
+        <div class="breakdown-list">
+          @for (step of processSteps; track step; let index = $index) {
+            <div class="breakdown-row">
+              <div>
+                <strong>Step {{ index + 1 }}</strong>
+                <span>{{ step }}</span>
+              </div>
+            </div>
+          }
+        </div>
+      </article>
+
+      <article class="surface-card">
+        <div class="surface-card__header">
+          <div>
+            <h2>Common rejection reasons</h2>
+            <p>These are the most common reasons products fail review.</p>
+          </div>
+        </div>
+
+        <div class="simple-table">
+          @for (reason of rejectedReasons; track reason) {
+            <div class="simple-table__row">
+              <strong>{{ reason }}</strong>
+            </div>
+          }
+        </div>
+      </article>
     </section>
   }
 </section>

@@ -18,7 +18,8 @@ router.patch('/bulk-delete', requireRoles('admin', 'super_admin'), asyncHandler(
 router.patch('/bulk-update', requireRoles('super_admin'), asyncHandler(productsController.bulkUpdateProducts));
 router.delete('/bulk-delete', requireRoles('admin', 'super_admin'), asyncHandler(productsController.permanentlyDeleteProducts));
 router.patch('/bulk-listed', requireRoles('lister', 'admin'), asyncHandler(productsController.markProductsListed));
-router.patch('/:id/reject', requireRoles('lister', 'admin'), asyncHandler(productsController.rejectProduct));
+router.patch('/:id/reject', requireRoles('lister', 'admin', 'super_admin'), asyncHandler(productsController.rejectProduct));
+router.patch('/:id', requireRoles('hunter', 'admin', 'super_admin'), asyncHandler(productsController.updateProduct));
 router.post('/:id/restore', requireRoles('super_admin'), asyncHandler(productsController.restoreProduct));
 router.get('/:id', asyncHandler(productsController.getProductById));
 

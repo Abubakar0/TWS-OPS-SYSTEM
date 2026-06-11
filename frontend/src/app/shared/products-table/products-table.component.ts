@@ -28,9 +28,15 @@ export class ProductsTableComponent implements AfterViewInit {
   @Input() pageSize = 10;
   @Input() pageLabel = '';
   @Input() pageSizeOptions = [10, 25, 50];
+  @Input() showEditAction = false;
   @Output() readonly pageChange = new EventEmitter<PageEvent>();
+  @Output() readonly editProduct = new EventEmitter<Product>();
 
-  readonly columns = ['product', 'links', 'numbers', 'status', 'listing', 'created'];
+  get columns(): string[] {
+    return this.showEditAction
+      ? ['product', 'links', 'numbers', 'status', 'listing', 'created', 'actions']
+      : ['product', 'links', 'numbers', 'status', 'listing', 'created'];
+  }
 
   get dataSource(): MatTableDataSource<Product> {
     return this.data;

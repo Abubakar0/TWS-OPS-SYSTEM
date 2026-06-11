@@ -1,8 +1,11 @@
 <section class="page-shell hr-page">
   <header class="page-hero">
     <div>
-      <h1>My HR</h1>
-      <p>Review your profile, attendance, leave history, expense submissions, payroll visibility, and warnings.</p>
+      <h1>My Profile</h1>
+      <p>
+        Review your profile, attendance, leave history, expense submissions, payroll visibility, and
+        warnings.
+      </p>
     </div>
 
     <div class="hr-actions">
@@ -24,11 +27,21 @@
     </article>
   } @else if (profile(); as profile) {
     <section class="hr-kpis">
-      <article class="hr-kpi"><span>Employment</span><strong>{{ profile.employee.employmentStatus }}</strong></article>
-      <article class="hr-kpi"><span>Department</span><strong>{{ profile.employee.department || 'Not set' }}</strong></article>
-      <article class="hr-kpi"><span>Leaves</span><strong>{{ profile.leaves.length }}</strong></article>
-      <article class="hr-kpi"><span>Expenses</span><strong>{{ profile.expenses.length }}</strong></article>
-      <article class="hr-kpi"><span>Warnings</span><strong>{{ profile.warnings.length }}</strong></article>
+      <article class="hr-kpi">
+        <span>Employment</span><strong>{{ profile.employee.employmentStatus }}</strong>
+      </article>
+      <article class="hr-kpi">
+        <span>Department</span><strong>{{ profile.employee.department || 'Not set' }}</strong>
+      </article>
+      <article class="hr-kpi">
+        <span>Leaves</span><strong>{{ profile.leaves.length }}</strong>
+      </article>
+      <article class="hr-kpi">
+        <span>Expenses</span><strong>{{ profile.expenses.length }}</strong>
+      </article>
+      <article class="hr-kpi">
+        <span>Warnings</span><strong>{{ profile.warnings.length }}</strong>
+      </article>
     </section>
 
     <section class="hr-layout">
@@ -38,11 +51,98 @@
           <p>{{ profile.employee.fullName }} | {{ profile.employee.email }}</p>
         </div>
 
+        <div class="hr-badges">
+          <span class="status-badge status-badge--neutral">{{
+            profile.employee.profileReviewStatus || 'APPROVED'
+          }}</span>
+          <span
+            class="status-badge"
+            [class.status-badge--danger]="profile.employee.profileLocked"
+            [class.status-badge--success]="!profile.employee.profileLocked"
+          >
+            {{ profile.employee.profileLocked ? 'Locked' : 'Unlocked' }}
+          </span>
+          <span
+            class="status-badge status-badge--warning"
+            [class.status-badge--neutral]="profile.allowEmployeeProfileEditing"
+          >
+            {{ profile.allowEmployeeProfileEditing ? 'Self-edit enabled' : 'Self-edit disabled' }}
+          </span>
+        </div>
+
+        @if (profile.employee.profileReviewNotes) {
+          <div class="inline-state inline-state--warning">
+            <mat-icon>feedback</mat-icon>
+            <div class="inline-state__content">
+              <strong>HR review note</strong>
+              <span>{{ profile.employee.profileReviewNotes }}</span>
+            </div>
+          </div>
+        }
+
         <div class="hr-meta-grid">
-          <article class="hr-meta-card"><span>Employee ID</span><strong>{{ profile.employee.employeeCode || 'Not set' }}</strong></article>
-          <article class="hr-meta-card"><span>Designation</span><strong>{{ profile.employee.designation || 'Not set' }}</strong></article>
-          <article class="hr-meta-card"><span>Manager</span><strong>{{ profile.employee.managerName || 'Not assigned' }}</strong></article>
-          <article class="hr-meta-card"><span>Joining Date</span><strong>{{ profile.employee.joiningDate | date: 'MMM d, y' }}</strong></article>
+          <article class="hr-meta-card">
+            <span>Employee ID</span
+            ><strong>{{ profile.employee.employeeCode || 'Not set' }}</strong>
+          </article>
+          <article class="hr-meta-card">
+            <span>Designation</span><strong>{{ profile.employee.designation || 'Not set' }}</strong>
+          </article>
+          <article class="hr-meta-card">
+            <span>Manager</span
+            ><strong>{{ profile.employee.managerName || 'Not assigned' }}</strong>
+          </article>
+          <article class="hr-meta-card">
+            <span>Joining Date</span
+            ><strong>{{ profile.employee.joiningDate | date: 'MMM d, y' }}</strong>
+          </article>
+        </div>
+
+        <div class="hr-block">
+          <div class="surface-card__header">
+            <div>
+              <h3>Personal details</h3>
+              <p>Keep your contact and payment details current for HR review.</p>
+            </div>
+          </div>
+
+          <form class="hr-form-grid" [formGroup]="profileForm" (ngSubmit)="saveProfile()">
+            <mat-form-field appearance="outline">
+              <mat-label>Phone</mat-label>
+              <input matInput formControlName="phone" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>National ID</mat-label>
+              <input matInput formControlName="nationalId" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="hr-form-grid--wide">
+              <mat-label>Address</mat-label>
+              <input matInput formControlName="address" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Emergency Contact</mat-label>
+              <input matInput formControlName="emergencyContact" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Payment Method</mat-label>
+              <input matInput formControlName="paymentMethod" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Bank Name</mat-label>
+              <input matInput formControlName="bankName" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Bank Account</mat-label>
+              <input matInput formControlName="bankAccount" />
+            </mat-form-field>
+
+            <div class="hr-form-grid--wide hr-inline-actions">
+              <button mat-flat-button color="primary" type="submit" [disabled]="!canEditProfile()">
+                <mat-icon>save</mat-icon>
+                <span>{{ savingProfile() ? 'Submitting' : 'Update Profile' }}</span>
+              </button>
+            </div>
+          </form>
         </div>
 
         <div class="hr-block">
@@ -52,7 +152,10 @@
               @for (row of profile.attendance; track row.id) {
                 <div class="hr-list-card">
                   <strong>{{ row.date | date: 'MMM d, y' }}</strong>
-                  <small>{{ row.status }} | {{ row.checkInTime || 'No check in' }} - {{ row.checkOutTime || 'No check out' }}</small>
+                  <small
+                    >{{ row.status }} | {{ row.checkInTime || 'No check in' }} -
+                    {{ row.checkOutTime || 'No check out' }}</small
+                  >
                 </div>
               }
             </div>
@@ -106,7 +209,12 @@
             </mat-form-field>
 
             <div class="hr-form-grid--wide hr-inline-actions">
-              <button mat-flat-button color="primary" type="submit" [disabled]="leaveForm.invalid || savingLeave()">
+              <button
+                mat-flat-button
+                color="primary"
+                type="submit"
+                [disabled]="leaveForm.invalid || savingLeave()"
+              >
                 <mat-icon>send</mat-icon>
                 <span>{{ savingLeave() ? 'Submitting' : 'Submit Leave' }}</span>
               </button>
@@ -151,7 +259,12 @@
             </mat-form-field>
 
             <div class="hr-form-grid--wide hr-inline-actions">
-              <button mat-flat-button color="primary" type="submit" [disabled]="expenseForm.invalid || savingExpense()">
+              <button
+                mat-flat-button
+                color="primary"
+                type="submit"
+                [disabled]="expenseForm.invalid || savingExpense()"
+              >
                 <mat-icon>send</mat-icon>
                 <span>{{ savingExpense() ? 'Submitting' : 'Submit Expense' }}</span>
               </button>
@@ -161,6 +274,10 @@
       </div>
     </section>
   } @else {
-    <app-empty-state title="No HR profile linked yet" message="Once HR links your user account to an employee profile, your self-service workspace will appear here." icon="badge" />
+    <app-empty-state
+      title="No HR profile linked yet"
+      message="Once HR links your user account to an employee profile, your self-service workspace will appear here."
+      icon="badge"
+    />
   }
 </section>

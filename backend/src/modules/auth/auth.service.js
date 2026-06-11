@@ -159,8 +159,72 @@ const getUserById = async (id) => {
   return buildProfile(user);
 };
 
+const changePassword = async (user, payload = {}) => {
+  await ensureUserRoleSchema();
+  const currentPassword = String(payload.currentPassword || '').trim();
+  const newPassword = String(payload.newPassword || '').trim();
+
+  if (!currentPassword || !newPassword) {
+    throw new AppError('Current password and new password are required.', 400);
+  }
+
+  if (newPassword.length < 8) {
+    throw new AppError('New password must be at least 8 characters.', 400);
+  }
+
+  const result = await pool.query(
+    `
+      SELECT id, email, password_hash
+      FROM users
+      WHERE id = $1
+        AND deleted_at IS NULL
+      LIMIT 1
+    `,
+    [user.id],
+  );
+
+  const existingUser = result.rows[0];
+
+  if (!existingUser) {
+    throw new AppError('User not found.', 404);
+  }
+
+  const matchesCurrentPassword = await bcrypt.compare(currentPassword, existingUser.password_hash);
+
+  if (!matchesCurrentPassword) {
+    throw new AppError('Current password is incorrect.', 400);
+  }
+
+  const reusingPassword = await bcrypt.compare(newPassword, existingUser.password_hash);
+
+  if (reusingPassword) {
+    throw new AppError('New password must be different from the current password.', 400);
+  }
+
+  await pool.query(
+    `
+      UPDATE users
+      SET password_hash = $2,
+          updated_at = NOW()
+      WHERE id = $1
+    `,
+    [user.id, await bcrypt.hash(newPassword, 10)],
+  );
+
+  await writeAuditLog({
+    actorUserId: user.id,
+    action: 'USER_PASSWORD_CHANGED',
+    targetType: 'user',
+    targetId: user.id,
+    details: {
+      email: existingUser.email,
+    },
+  });
+};
+
 module.exports = {
   login,
   getUserById,
+  changePassword,
   signToken,
 };

@@ -5,6 +5,7 @@ import { catchError, map, of, tap } from 'rxjs';
 import { APP_ROUTES } from '../config/routes';
 import { LoginResponse, User, UserRole, normalizeUserRoles, userHasAnyRole, userHasRole } from '../models/auth.models';
 import { AuthApiService } from '../api/auth-api.service';
+import { RequestCacheService } from '../state/request-cache.service';
 
 interface JwtPayload {
   exp?: number;
@@ -13,6 +14,7 @@ interface JwtPayload {
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly router = inject(Router);
+  private readonly requestCache = inject(RequestCacheService);
   private readonly tokenKey = 'tws_ops_token';
   private readonly userKey = 'tws_ops_user';
   private readonly tokenSignal = signal<string | null>(this.readStoredToken());
@@ -138,7 +140,7 @@ export class AuthService {
     }
 
     if (path.startsWith('/hr')) {
-      return userHasRole(user, 'hr');
+      return userHasRole(user, 'hr') || userHasRole(user, 'admin');
     }
 
     if (path.startsWith('/order-processor')) {
@@ -230,6 +232,7 @@ export class AuthService {
       roles: normalizeUserRoles(user),
     };
 
+    this.requestCache.clear();
     localStorage.setItem(this.tokenKey, token);
     localStorage.setItem(this.userKey, JSON.stringify(normalizedUser));
     this.tokenSignal.set(token);
@@ -238,6 +241,7 @@ export class AuthService {
   }
 
   private clearSession(): void {
+    this.requestCache.clear();
     localStorage.removeItem(this.tokenKey);
     localStorage.removeItem(this.userKey);
     this.tokenSignal.set(null);

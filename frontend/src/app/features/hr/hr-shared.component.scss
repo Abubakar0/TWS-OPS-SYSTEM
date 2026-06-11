@@ -62,7 +62,12 @@
 
 .hr-block {
   display: grid;
+  grid-auto-rows: max-content;
   gap: 14px;
+}
+
+.hr-bulk-card {
+  margin-top: 16px;
 }
 
 .hr-block h3,
@@ -80,6 +85,11 @@
   flex-wrap: wrap;
   gap: 10px;
   justify-content: flex-end;
+}
+
+.hr-inline-actions--spread {
+  align-items: center;
+  justify-content: space-between;
 }
 
 .hr-meta-grid {
@@ -114,6 +124,27 @@
 .hr-list {
   display: grid;
   gap: 12px;
+}
+
+.hr-selection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 20px 0px;
+}
+
+.hr-selection-card {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  background: rgba(248, 250, 252, 0.82);
+}
+
+.hr-selection-card small {
+  color: var(--tws-muted);
+  margin-left: 34px;
 }
 
 .hr-list-card {

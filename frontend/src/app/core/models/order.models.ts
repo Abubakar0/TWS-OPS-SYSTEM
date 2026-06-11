@@ -276,3 +276,15 @@ export interface OrderIssue {
   changeRequestId: string | null;
   changeRequestStatus: string | null;
 }
+
+export interface OrderActivityEntry {
+  id: string;
+  action: string;
+  targetId: string | null;
+  createdAt: string;
+  actorUserId: string | null;
+  actorName: string | null;
+  actorEmail: string | null;
+  actorRole?: string | null;
+  details?: Record<string, unknown> | null;
+}

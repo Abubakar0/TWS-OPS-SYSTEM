@@ -4,7 +4,13 @@ import { Observable, map, tap } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { CACHE_NAMESPACE, CACHE_TTL, makeCacheKey } from '../config/cache';
-import { ApiLimitSettings, IpRestrictionSettings, SystemSettingsResponse } from '../models/system.models';
+import {
+  AnnouncementBarSettings,
+  ApiLimitSettings,
+  HrSettings,
+  IpRestrictionSettings,
+  SystemSettingsResponse,
+} from '../models/system.models';
 import { RequestCacheService } from '../state/request-cache.service';
 
 @Injectable({ providedIn: 'root' })
@@ -43,6 +49,44 @@ export class SystemApiService {
       .put<{ ipRestriction: IpRestrictionSettings }>(`${environment.apiUrl}/system/ip-restriction`, payload)
       .pipe(
         map((response) => response.ipRestriction),
+        tap(() => this.requestCache.invalidatePrefix(CACHE_NAMESPACE.system)),
+      );
+  }
+
+  getAnnouncement(bypassCache = false): Observable<AnnouncementBarSettings> {
+    const request$ = this.http
+      .get<{ announcementBar: AnnouncementBarSettings }>(`${environment.apiUrl}/system/announcement`)
+      .pipe(map((response) => response.announcementBar));
+
+    if (bypassCache) {
+      this.requestCache.invalidatePrefix(CACHE_NAMESPACE.system);
+      return request$;
+    }
+
+    return this.requestCache.getOrCreate(
+      makeCacheKey(CACHE_NAMESPACE.system, 'announcement'),
+      CACHE_TTL.short,
+      () => request$,
+    );
+  }
+
+  updateAnnouncement(payload: AnnouncementBarSettings): Observable<AnnouncementBarSettings> {
+    return this.http
+      .put<{ announcementBar: AnnouncementBarSettings }>(
+        `${environment.apiUrl}/system/announcement`,
+        payload,
+      )
+      .pipe(
+        map((response) => response.announcementBar),
+        tap(() => this.requestCache.invalidatePrefix(CACHE_NAMESPACE.system)),
+      );
+  }
+
+  updateHrSettings(payload: HrSettings): Observable<HrSettings> {
+    return this.http
+      .put<{ hrSettings: HrSettings }>(`${environment.apiUrl}/system/hr-settings`, payload)
+      .pipe(
+        map((response) => response.hrSettings),
         tap(() => this.requestCache.invalidatePrefix(CACHE_NAMESPACE.system)),
       );
   }

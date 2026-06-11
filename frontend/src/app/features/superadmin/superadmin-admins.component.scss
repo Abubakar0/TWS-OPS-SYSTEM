@@ -10,7 +10,7 @@
 .actions-row,
 .row-actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(150px, max-content));
+  grid-template-columns: repeat(auto-fit, minmax(150px, max-content));
   gap: 12px;
 }
 
@@ -37,6 +37,12 @@
 .list-row__content {
   display: grid;
   gap: 4px;
+}
+
+.list-row__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .list-row__content span,

@@ -38,6 +38,10 @@
   padding-bottom: 10px;
 }
 
+.hunter-edit-modal {
+  width: min(100%, 860px);
+}
+
 @media (max-width: 1080px) {
   .filters-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -106,9 +106,98 @@
         [pageSize]="pageSize()"
         [pageSizeOptions]="pageSizeOptions"
         [pageLabel]="pageLabel()"
+        [showEditAction]="true"
         emptyText="No product submissions found."
         (pageChange)="onPageChange($event)"
+        (editProduct)="openEditModal($event)"
       />
     }
   </article>
 </section>
+
+@if (editModalOpen()) {
+  <div class="app-modal-backdrop" (click)="closeEditModal()">
+    <section class="app-modal hunter-edit-modal" (click)="$event.stopPropagation()">
+      <div class="app-modal__header">
+        <div>
+          <h2>Edit Product</h2>
+          <p>Update your product details and rerun the latest approval checks.</p>
+        </div>
+        <button mat-icon-button type="button" (click)="closeEditModal()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <form class="form-grid" [formGroup]="editForm" (ngSubmit)="saveProductEdit()">
+        <mat-form-field appearance="outline" class="field-span-2">
+          <mat-label>Product title</mat-label>
+          <input matInput formControlName="title" autocomplete="off" />
+        </mat-form-field>
+
+        <app-searchable-select
+          label="Category"
+          [formControl]="editForm.controls.category"
+          [options]="categoryOptions()"
+        />
+
+        <mat-form-field appearance="outline">
+          <mat-label>Custom label</mat-label>
+          <input matInput formControlName="customLabel" autocomplete="off" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="field-span-2">
+          <mat-label>Amazon link</mat-label>
+          <input matInput formControlName="amazonUrl" autocomplete="off" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="field-span-2">
+          <mat-label>Alternate Amazon link</mat-label>
+          <input matInput formControlName="amazonAltUrl" autocomplete="off" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="field-span-2">
+          <mat-label>eBay source link</mat-label>
+          <input matInput formControlName="ebayUrl" autocomplete="off" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Amazon price</mat-label>
+          <input matInput formControlName="amazonPrice" autocomplete="off" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>eBay price</mat-label>
+          <input matInput formControlName="ebayPrice" autocomplete="off" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Amazon stock count</mat-label>
+          <input matInput formControlName="amazonStockCount" autocomplete="off" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Sold count</mat-label>
+          <input matInput formControlName="soldCount" autocomplete="off" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Rating</mat-label>
+          <input matInput formControlName="rating" autocomplete="off" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Product watchers</mat-label>
+          <input matInput formControlName="productWatchers" autocomplete="off" />
+        </mat-form-field>
+
+        <div class="field-span-2 app-modal__footer">
+          <button mat-stroked-button type="button" (click)="closeEditModal()" [disabled]="saving()">Cancel</button>
+          <button mat-flat-button color="primary" type="submit" [disabled]="editForm.invalid || saving()">
+            <mat-icon>{{ saving() ? 'hourglass_top' : 'save' }}</mat-icon>
+            <span>{{ saving() ? 'Saving' : 'Save Changes' }}</span>
+          </button>
+        </div>
+      </form>
+    </section>
+  </div>
+}

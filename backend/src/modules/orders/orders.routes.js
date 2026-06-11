@@ -46,6 +46,12 @@ router.get(
   asyncHandler(controller.matchByAsin),
 );
 router.post(
+  '/bulk-status',
+  requireRoles('admin', 'super_admin', 'order_processor'),
+  requirePermissions('canProcessOrders'),
+  asyncHandler(controller.bulkUpdateStatus),
+);
+router.post(
   '/:id/restore',
   requireRoles('super_admin'),
   asyncHandler(controller.restoreOrder),
@@ -79,6 +85,11 @@ router.patch(
   requireRoles('admin', 'super_admin', 'order_processor'),
   requirePermissions('canProcessOrders'),
   asyncHandler(controller.updateOrderStatus),
+);
+router.get(
+  '/:id/activity',
+  requireRoles('hunter', 'lister', 'admin', 'super_admin', 'order_processor'),
+  asyncHandler(controller.getOrderActivity),
 );
 router.get(
   '/:id',

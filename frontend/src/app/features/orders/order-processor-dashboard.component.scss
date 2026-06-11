@@ -47,6 +47,36 @@
   font-weight: 700;
 }
 
+.status-badge--order-new {
+  background: rgba(81, 146, 229, 0.12);
+  color: var(--tws-primary-strong);
+}
+
+.status-badge--order-ready {
+  background: rgba(124, 58, 237, 0.12);
+  color: var(--tws-accent);
+}
+
+.status-badge--order-placed {
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--tws-primary-strong);
+}
+
+.status-badge--order-issue {
+  background: var(--tws-warning-soft);
+  color: #9a3412;
+}
+
+.status-badge--order-muted {
+  background: rgba(224, 90, 90, 0.12);
+  color: #b42318;
+}
+
+.status-badge--order-delivered {
+  background: var(--tws-success-soft);
+  color: var(--tws-success);
+}
+
 .processor-dashboard__chips {
   align-self: start;
 }

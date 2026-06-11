@@ -1,5 +1,8 @@
 export const APP_ROUTES = {
   login: '/login',
+  account: {
+    changePassword: '/account/change-password',
+  },
   hunter: {
     dashboard: '/hunter/dashboard',
     submission: '/hunter/submission',

@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -9,10 +16,15 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { Meta } from '@angular/platform-browser';
 import { filter, map, startWith } from 'rxjs';
 
+import { SystemApiService } from '../../core/api/system-api.service';
+import { TeamApiService } from '../../core/api/team-api.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { BRANDING } from '../../core/config/branding';
+import { AnnouncementBarSettings } from '../../core/models/system.models';
+import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
 import { ConfirmService } from '../../core/ui/confirm.service';
 import { userHasRole } from '../../core/models/auth.models';
+import { Title } from '@angular/platform-browser';
 
 interface NavItem {
   label: string;
@@ -48,7 +60,7 @@ const ORDER_PROCESSOR_ISSUES_ITEM: NavItem = {
 };
 
 const MY_HR_ITEM: NavItem = {
-  label: 'My HR',
+  label: 'My Profile',
   route: '/my-hr',
   exact: true,
   icon: 'badge',
@@ -77,6 +89,10 @@ export class DashboardLayoutComponent {
   private readonly confirm = inject(ConfirmService);
   private readonly router = inject(Router);
   private readonly meta = inject(Meta);
+  private readonly title = inject(Title);
+  private readonly systemApi = inject(SystemApiService);
+  private readonly teamApi = inject(TeamApiService);
+  private readonly workspaceSync = inject(WorkspaceSyncService);
   readonly currentUrl = toSignal(
     this.router.events.pipe(
       filter((event): event is NavigationEnd => event instanceof NavigationEnd),
@@ -87,6 +103,8 @@ export class DashboardLayoutComponent {
   );
 
   readonly user = this.auth.currentUser;
+  readonly announcement = signal<AnnouncementBarSettings | null>(null);
+  readonly teamName = signal('');
   readonly sidebarOpen = signal(false);
   readonly sidebarCollapsed = signal(this.readSidebarCollapsed());
   readonly branding = BRANDING;
@@ -151,6 +169,7 @@ export class DashboardLayoutComponent {
     { label: 'Dashboard', route: '/superadmin/dashboard', exact: true, icon: 'monitoring' },
     { label: 'Admins', route: '/superadmin/admins', exact: true, icon: 'shield_person' },
     { label: 'Users', route: '/superadmin/users', exact: true, icon: 'manage_accounts' },
+    { label: 'Products', route: '/superadmin/products', exact: true, icon: 'inventory_2' },
     { label: 'Reports', route: '/superadmin/reports', exact: true, icon: 'query_stats' },
     { label: 'Orders', route: '/superadmin/orders', exact: true, icon: 'receipt_long' },
     { label: 'Settings', route: '/superadmin/settings', exact: true, icon: 'settings' },
@@ -188,7 +207,7 @@ export class DashboardLayoutComponent {
       sections.push({ label: 'Admin', items: adminItems });
     }
 
-    if (userHasRole(user, 'hr')) {
+    if (userHasRole(user, 'admin') || userHasRole(user, 'hr') || userHasRole(user, 'super_admin')) {
       sections.push({ label: 'HR', items: [...this.hrTabs] });
     }
 
@@ -230,9 +249,9 @@ export class DashboardLayoutComponent {
       ? 'Super Admin'
       : role === 'hr'
         ? 'HR'
-      : role === 'order_processor'
-        ? 'Order Processor'
-        : role.charAt(0).toUpperCase() + role.slice(1);
+        : role === 'order_processor'
+          ? 'Order Processor'
+          : role.charAt(0).toUpperCase() + role.slice(1);
   });
   readonly userInitials = computed(() => {
     const name = this.user()?.name?.trim();
@@ -261,6 +280,8 @@ export class DashboardLayoutComponent {
       userEmail: user?.email || 'workspace@trendwavesolutions.com',
       roleLabel,
       userInitials: this.userInitials(),
+      teamName: this.teamName(),
+      roleBadges: user?.roles?.length ? user.roles : user?.role ? [user.role] : [],
       footerPlatforms: this.footerPlatforms,
       version: this.branding.version,
       environmentLabel: this.branding.environmentLabel,
@@ -270,6 +291,41 @@ export class DashboardLayoutComponent {
 
   constructor() {
     this.meta.updateTag({ name: 'robots', content: 'noindex, nofollow' });
+    this.loadAnnouncement();
+
+    effect(() => {
+      const version = this.workspaceSync.settingsVersion();
+
+      if (version > 0) {
+        this.loadAnnouncement(true);
+      }
+    });
+
+    effect(() => {
+      const currentUrl = this.currentUrl();
+      this.title.setTitle(`${this.resolvePageTitle(currentUrl)} | ${this.branding.productName}`);
+    });
+
+    effect(() => {
+      const user = this.user();
+
+      if (!user) {
+        this.teamName.set('');
+        return;
+      }
+
+      this.teamApi.listTeams().subscribe({
+        next: (teams) => {
+          const currentTeam = teams.find((team) =>
+            team.members.some((member) => member.id === user.id),
+          );
+          this.teamName.set(currentTeam?.name || '');
+        },
+        error: () => {
+          this.teamName.set('');
+        },
+      });
+    });
   }
 
   private homeRouteForRole(role?: string): string {
@@ -328,5 +384,43 @@ export class DashboardLayoutComponent {
     } catch (error) {
       return false;
     }
+  }
+
+  private loadAnnouncement(bypassCache = false): void {
+    this.systemApi.getAnnouncement(bypassCache).subscribe({
+      next: (announcement) => {
+        this.announcement.set(announcement.enabled && announcement.message ? announcement : null);
+      },
+      error: () => {
+        this.announcement.set(null);
+      },
+    });
+  }
+
+  private resolvePageTitle(url: string): string {
+    const path = (url || '').split('?')[0];
+    const navTitle =
+      this.sidebarSections()
+        .flatMap((section) => section.items)
+        .find((item) => (item.exact ? item.route === path : path.startsWith(item.route)))?.label ||
+      '';
+
+    if (navTitle) {
+      return navTitle;
+    }
+
+    if (path.startsWith('/my-hr')) {
+      return 'My HR';
+    }
+
+    if (path.startsWith('/team')) {
+      return 'Team';
+    }
+
+    if (path.startsWith('/login')) {
+      return 'Sign In';
+    }
+
+    return 'Workspace';
   }
 }

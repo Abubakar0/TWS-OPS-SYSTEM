@@ -48,6 +48,12 @@ export class HrApiService {
       .pipe(map((response) => response.profile));
   }
 
+  updateMyProfile(payload: Partial<EmployeeProfile>): Observable<MyHrProfile> {
+    return this.http
+      .patch<{ profile: MyHrProfile }>(`${environment.apiUrl}/hr/me/profile`, payload)
+      .pipe(map((response) => response.profile));
+  }
+
   listEmployees(filters: Record<string, unknown> = {}): Observable<PageResult<EmployeeProfile>> {
     return this.http
       .get<{ employees: EmployeeProfile[]; page: number; limit: number; total: number; hasMore: boolean }>(
@@ -74,6 +80,15 @@ export class HrApiService {
   updateEmployee(id: string, payload: Partial<EmployeeProfile>): Observable<EmployeeProfile> {
     return this.http
       .patch<{ employee: EmployeeProfile }>(`${environment.apiUrl}/hr/employees/${id}`, payload)
+      .pipe(map((response) => response.employee));
+  }
+
+  reviewEmployeeProfile(
+    id: string,
+    payload: { action: 'APPROVE' | 'REQUEST_CHANGES' | 'LOCK' | 'UNLOCK'; notes?: string },
+  ): Observable<EmployeeProfile> {
+    return this.http
+      .patch<{ employee: EmployeeProfile }>(`${environment.apiUrl}/hr/employees/${id}/profile-review`, payload)
       .pipe(map((response) => response.employee));
   }
 

@@ -11,6 +11,7 @@ import {
   Product,
   ProductCreatePayload,
   ProductFilters,
+  ProductUpdatePayload,
 } from '../models/product.models';
 import { PageResult } from '../state/query-state.models';
 import { RequestCacheService } from '../state/request-cache.service';
@@ -60,6 +61,15 @@ export class ProductService {
       .pipe(
         map((response) => response.product),
         tap(() => this.requestCache.invalidatePrefix(CACHE_NAMESPACE.products)),
+      );
+  }
+
+  updateProduct(id: string, payload: ProductUpdatePayload) {
+    return this.http
+      .patch<{ product: Product }>(`${environment.apiUrl}/products/${id}`, payload)
+      .pipe(
+        map((response) => response.product),
+        tap(() => this.invalidateProductCaches()),
       );
   }
 

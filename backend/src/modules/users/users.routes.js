@@ -9,12 +9,18 @@ router.use(authenticate);
 
 router.get('/audit', requireRoles('admin', 'super_admin'), asyncHandler(usersController.listAuditLogs));
 router.get(
+  '/reference',
+  requireRoles('admin', 'super_admin', 'hr'),
+  asyncHandler(usersController.listUserReference),
+);
+router.get(
   '/permissions/matrix',
   requireRoles('super_admin'),
   asyncHandler(usersController.getPermissionsMatrix),
 );
 router.get('/assignments', requireRoles('admin', 'super_admin'), asyncHandler(usersController.listAssignments));
 router.get('/', requireRoles('admin', 'super_admin'), asyncHandler(usersController.listUsers));
+router.get('/:id/details', requireRoles('admin', 'super_admin'), asyncHandler(usersController.getUserDetails));
 router.post(
   '/bulk-import',
   requireRoles('admin', 'super_admin'),

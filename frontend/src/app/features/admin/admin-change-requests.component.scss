@@ -27,6 +27,7 @@
 .requests-table {
   display: grid;
   gap: 10px;
+  overflow: auto;
 }
 
 .requests-table__head,
@@ -107,6 +108,17 @@
   padding-right: 2px;
   word-break: break-all;
   line-height: 1.38;
+}
+
+.detail-row--actions .link-actions {
+  margin-top: 8px;
+}
+
+.link-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
 }
 
 .detail-form {

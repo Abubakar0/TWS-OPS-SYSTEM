@@ -1,7 +1,21 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, ValidatorFn } from '@angular/forms';
+import {
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  ValidationErrors,
+  ValidatorFn,
+} from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -19,8 +33,20 @@ import { ExportService } from '../../core/services/export.service';
 import { ReferenceDataService } from '../../core/state/reference-data.service';
 import { ToastService } from '../../core/ui/toast.service';
 import { FilterPanelComponent } from '../../shared/ui/filter-panel.component';
+import {
+  SearchableSelectComponent,
+  SearchableSelectOption,
+} from '../../shared/ui/searchable-select.component';
 
 type ReportRangePreset = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom';
+type AdminReportSection =
+  | 'daily'
+  | 'account'
+  | 'hunter'
+  | 'lister'
+  | 'order-hunter'
+  | 'hunter-account'
+  | 'order-account';
 
 const customDateRangeValidator: ValidatorFn = (control): ValidationErrors | null => {
   const from = control.get('from')?.value as string;
@@ -53,6 +79,7 @@ const customDateRangeValidator: ValidatorFn = (control): ValidationErrors | null
     MatProgressSpinnerModule,
     MatSelectModule,
     FilterPanelComponent,
+    SearchableSelectComponent,
   ],
   templateUrl: './admin-reports.component.html',
   styleUrl: './admin-reports.component.scss',
@@ -66,10 +93,42 @@ export class AdminReportsComponent implements OnInit {
   readonly loading = signal(false);
   readonly error = signal('');
   readonly selectedRange = signal<ReportRangePreset>('monthly');
+  readonly activeSection = signal<AdminReportSection>('daily');
   readonly activeDateFilters = signal<{ from?: string; to?: string }>({});
   private readonly destroyRef = inject(DestroyRef);
 
   readonly reportUsers = computed(() => this.users().filter((user) => !userHasRole(user, 'admin')));
+  readonly userOptions = computed<readonly SearchableSelectOption<string>[]>(() => [
+    { value: '', label: 'All hunters and listers', description: 'Show every report operator in this view.' },
+    ...this.reportUsers().map((user) => ({
+      value: user.id,
+      label: user.name,
+      description: user.roles.join(', '),
+    })),
+  ]);
+  readonly categoryOptions = computed<readonly SearchableSelectOption<string>[]>(() => [
+    { value: '', label: 'All categories', description: 'Keep every product category in scope.' },
+    ...this.categories().map((category) => ({
+      value: category.name,
+      label: category.name,
+    })),
+  ]);
+  readonly sectionOptions: Array<{ id: AdminReportSection; label: string; hint: string }> = [
+    { id: 'daily', label: 'Daily summary', hint: 'Daily hunted, listed, and rejected output.' },
+    { id: 'account', label: 'Products by account', hint: 'Listing distribution by account.' },
+    { id: 'hunter', label: 'By hunter', hint: 'Hunter hunted versus listed output.' },
+    { id: 'lister', label: 'By lister', hint: 'Lister coverage and listing volume.' },
+    { id: 'order-hunter', label: 'Orders by hunter', hint: 'Order volume, revenue, and profit by hunter.' },
+    { id: 'hunter-account', label: 'Hunter listings by account', hint: 'Where hunter products are landing.' },
+    { id: 'order-account', label: 'Orders by account', hint: 'Revenue and profit split by account.' },
+  ];
+  readonly activeSectionMeta = computed(() => {
+    const section = this.sectionOptions.find((option) => option.id === this.activeSection()) || this.sectionOptions[0];
+    return {
+      ...section,
+      count: this.sectionCount(section.id),
+    };
+  });
 
   readonly filtersForm = new FormGroup({
     userId: new FormControl('', { nonNullable: true }),
@@ -176,18 +235,48 @@ export class AdminReportsComponent implements OnInit {
       return;
     }
 
-    const dateStamp = new Date().toISOString().slice(0, 10);
+    const dateStamp = new Date().toLocaleDateString('en-CA');
     const rows = [
       { section: 'Summary', name: 'Hunted', hunted: stats.hunted, listed: '', extra: '' },
       { section: 'Summary', name: 'Ready', hunted: stats.ready, listed: '', extra: '' },
       { section: 'Summary', name: 'Rejected', hunted: stats.rejected, listed: '', extra: '' },
       { section: 'Summary', name: 'Listed', hunted: stats.listed, listed: '', extra: '' },
       { section: 'Summary', name: 'Hunters', hunted: stats.byHunter.length, listed: '', extra: '' },
-      { section: 'Summary', name: 'Accounts Used', hunted: stats.byAccount.length, listed: '', extra: '' },
-      { section: 'Orders', name: 'Total Orders', hunted: this.orderReports()?.totalOrders ?? 0, listed: '', extra: '' },
-      { section: 'Orders', name: 'Revenue', hunted: this.orderReports()?.totalRevenue ?? 0, listed: '', extra: '' },
-      { section: 'Orders', name: 'Profit', hunted: this.orderReports()?.totalProfit ?? 0, listed: '', extra: '' },
-      { section: 'Orders', name: 'Average ROI', hunted: this.orderReports()?.averageRoi ?? 0, listed: '', extra: '' },
+      {
+        section: 'Summary',
+        name: 'Accounts Used',
+        hunted: stats.byAccount.length,
+        listed: '',
+        extra: '',
+      },
+      {
+        section: 'Orders',
+        name: 'Total Orders',
+        hunted: this.orderReports()?.totalOrders ?? 0,
+        listed: '',
+        extra: '',
+      },
+      {
+        section: 'Orders',
+        name: 'Revenue',
+        hunted: this.orderReports()?.totalRevenue ?? 0,
+        listed: '',
+        extra: '',
+      },
+      {
+        section: 'Orders',
+        name: 'Profit',
+        hunted: this.orderReports()?.totalProfit ?? 0,
+        listed: '',
+        extra: '',
+      },
+      {
+        section: 'Orders',
+        name: 'Average ROI',
+        hunted: this.orderReports()?.averageRoi ?? 0,
+        listed: '',
+        extra: '',
+      },
       ...stats.byHunter.map((row) => ({
         section: 'Hunter',
         name: row.name,
@@ -251,6 +340,20 @@ export class AdminReportsComponent implements OnInit {
     return '';
   }
 
+  focusSection(section: AdminReportSection): void {
+    this.activeSection.set(section);
+    queueMicrotask(() => {
+      document.getElementById(this.sectionDomId(section))?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
+  }
+
+  isSectionFocused(section: AdminReportSection): boolean {
+    return this.activeSection() === section;
+  }
+
   private loadStats(dateFilters: { from?: string; to?: string }): void {
     this.loading.set(true);
     this.error.set('');
@@ -273,7 +376,9 @@ export class AdminReportsComponent implements OnInit {
   }
 
   private buildApiFilters(dateFilters: { from?: string; to?: string }) {
-    const selectedUser = this.reportUsers().find((user) => user.id === this.filtersForm.controls.userId.value);
+    const selectedUser = this.reportUsers().find(
+      (user) => user.id === this.filtersForm.controls.userId.value,
+    );
     return {
       from: dateFilters.from,
       to: dateFilters.to,
@@ -283,7 +388,10 @@ export class AdminReportsComponent implements OnInit {
     };
   }
 
-  private getPresetFilters(range: Exclude<ReportRangePreset, 'custom'>): { from: string; to: string } {
+  private getPresetFilters(range: Exclude<ReportRangePreset, 'custom'>): {
+    from: string;
+    to: string;
+  } {
     const today = new Date();
 
     switch (range) {
@@ -310,5 +418,28 @@ export class AdminReportsComponent implements OnInit {
     const month = String(value.getMonth() + 1).padStart(2, '0');
     const day = String(value.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  }
+
+  private sectionDomId(section: AdminReportSection): string {
+    return `admin-report-${section}`;
+  }
+
+  private sectionCount(section: AdminReportSection): number {
+    switch (section) {
+      case 'daily':
+        return this.stats()?.daily?.length || 0;
+      case 'account':
+        return this.stats()?.byAccount?.length || 0;
+      case 'hunter':
+        return this.stats()?.byHunter?.length || 0;
+      case 'lister':
+        return this.stats()?.byLister?.length || 0;
+      case 'order-hunter':
+        return this.orderReports()?.byHunter?.length || 0;
+      case 'hunter-account':
+        return this.stats()?.byHunterAccount?.length || 0;
+      case 'order-account':
+        return this.orderReports()?.byAccount?.length || 0;
+    }
   }
 }

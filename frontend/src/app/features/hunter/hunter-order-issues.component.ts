@@ -22,7 +22,9 @@ import { OrderIssueApiService } from '../../core/api/order-issue-api.service';
 import { OrderIssue } from '../../core/models/order.models';
 import { OrderIssueStatus, OrderIssueType } from '../../core/models/order.models';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
+import { ToastService } from '../../core/ui/toast.service';
 import { FilterPanelComponent } from '../../shared/ui/filter-panel.component';
+import { SearchableSelectComponent } from '../../shared/ui/searchable-select.component';
 
 type IssueTypeFilter = '' | OrderIssueType;
 type IssueStatusFilter = '' | OrderIssueStatus;
@@ -40,6 +42,7 @@ type IssueStatusFilter = '' | OrderIssueStatus;
     MatProgressSpinnerModule,
     MatSelectModule,
     FilterPanelComponent,
+    SearchableSelectComponent,
   ],
   templateUrl: './hunter-order-issues.component.html',
   styleUrl: './hunter-order-issues.component.scss',
@@ -106,11 +109,22 @@ export class HunterOrderIssuesComponent {
     }
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
   });
+  readonly listerFilterOptions = computed(() => [
+    { value: '', label: 'All listers' },
+    ...this.listerOptions().map((lister) => ({ value: lister.id, label: lister.name })),
+  ]);
+  readonly accountFilterOptions = computed(() => [
+    { value: '', label: 'All accounts' },
+    ...this.accountOptions().map((account) => ({ value: account.id, label: account.name })),
+  ]);
 
   private readonly destroyRef = inject(DestroyRef);
   private readonly workspaceSync = inject(WorkspaceSyncService);
 
-  constructor(private readonly orderIssueApi: OrderIssueApiService) {
+  constructor(
+    private readonly orderIssueApi: OrderIssueApiService,
+    private readonly toast: ToastService,
+  ) {
     effect(() => {
       const ordersVersion = this.workspaceSync.ordersVersion();
       const requestsVersion = this.workspaceSync.changeRequestsVersion();
@@ -199,5 +213,15 @@ export class HunterOrderIssuesComponent {
     if (!issues.some((issue) => issue.id === this.selectedIssueId())) {
       this.selectedIssueId.set(issues[0].id);
     }
+  }
+
+  async copyValue(value: string | null | undefined, label: string): Promise<void> {
+    if (!value) {
+      this.toast.warning(`No ${label.toLowerCase()} available to copy.`);
+      return;
+    }
+
+    await navigator.clipboard.writeText(value);
+    this.toast.success(`${label} copied.`);
   }
 }

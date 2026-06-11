@@ -17,11 +17,14 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSelectModule } from '@angular/material/select';
 import { finalize, firstValueFrom } from 'rxjs';
 
 import { AdminApiService } from '../../core/api/admin-api.service';
 import { ProductCategoryApiService } from '../../core/api/product-category-api.service';
+import { SystemApiService } from '../../core/api/system-api.service';
 import { HuntingCriteria, ProductCategory } from '../../core/models/product.models';
+import { AnnouncementBarSettings, HrSettings } from '../../core/models/system.models';
 import { ReferenceDataService } from '../../core/state/reference-data.service';
 import { SessionCacheService } from '../../core/state/session-cache.service';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
@@ -42,6 +45,7 @@ import { ErrorStateComponent } from '../../shared/error-state/error-state.compon
     MatIconModule,
     MatInputModule,
     MatProgressSpinnerModule,
+    MatSelectModule,
     EmptyStateComponent,
     ErrorStateComponent,
   ],
@@ -119,6 +123,17 @@ export class AdminSettingsComponent implements OnInit {
     deliveryDaysRequired: new FormControl(false, { nonNullable: true }),
     monthlyGraphRequired: new FormControl(false, { nonNullable: true }),
   });
+  readonly announcementForm = new FormGroup({
+    enabled: new FormControl(false, { nonNullable: true }),
+    tone: new FormControl<'info' | 'success' | 'warning' | 'danger'>('info', {
+      nonNullable: true,
+    }),
+    title: new FormControl('', { nonNullable: true }),
+    message: new FormControl('', { nonNullable: true }),
+  });
+  readonly hrSettingsForm = new FormGroup({
+    allowEmployeeProfileEditing: new FormControl(true, { nonNullable: true }),
+  });
 
   readonly hasUnsavedChanges = computed(() => {
     this.formVersion();
@@ -146,6 +161,7 @@ export class AdminSettingsComponent implements OnInit {
   constructor(
     private readonly adminApi: AdminApiService,
     private readonly productCategoryApi: ProductCategoryApiService,
+    private readonly systemApi: SystemApiService,
     private readonly referenceData: ReferenceDataService,
     private readonly sessionCache: SessionCacheService,
     private readonly workspaceSync: WorkspaceSyncService,
@@ -191,6 +207,54 @@ export class AdminSettingsComponent implements OnInit {
         },
         error: (error) => {
           this.error.set(error?.error?.message || 'Could not save settings.');
+        },
+      });
+  }
+
+  saveAnnouncement(): void {
+    if (this.categorySaving()) {
+      return;
+    }
+
+    this.categorySaving.set(true);
+    this.categoryError.set('');
+
+    const payload = this.announcementForm.getRawValue() as AnnouncementBarSettings;
+
+    this.systemApi
+      .updateAnnouncement(payload)
+      .pipe(finalize(() => this.categorySaving.set(false)))
+      .subscribe({
+        next: (announcement) => {
+          this.announcementForm.patchValue(announcement, { emitEvent: false });
+          this.workspaceSync.notifySettingsChanged();
+          this.toast.success('Announcement updated.');
+        },
+        error: (error) => {
+          this.categoryError.set(error?.error?.message || 'Could not update announcement.');
+        },
+      });
+  }
+
+  saveHrSettings(): void {
+    if (this.categorySaving()) {
+      return;
+    }
+
+    this.categorySaving.set(true);
+    this.categoryError.set('');
+
+    this.systemApi
+      .updateHrSettings(this.hrSettingsForm.getRawValue() as HrSettings)
+      .pipe(finalize(() => this.categorySaving.set(false)))
+      .subscribe({
+        next: (settings) => {
+          this.hrSettingsForm.patchValue(settings, { emitEvent: false });
+          this.workspaceSync.notifySettingsChanged();
+          this.toast.success('HR settings updated.');
+        },
+        error: (error) => {
+          this.categoryError.set(error?.error?.message || 'Could not update HR settings.');
         },
       });
   }
@@ -355,7 +419,7 @@ export class AdminSettingsComponent implements OnInit {
     this.error.set('');
 
     this.adminApi
-      .getCriteria()
+      .getCriteria(true)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
       )
@@ -378,8 +442,13 @@ export class AdminSettingsComponent implements OnInit {
     this.categoryError.set('');
 
     try {
-      const categories = await firstValueFrom(this.referenceData.loadProductCategoriesOnce(true));
+      const [categories, settings] = await Promise.all([
+        firstValueFrom(this.productCategoryApi.listCategories(true, true)),
+        firstValueFrom(this.systemApi.getSettings(true)),
+      ]);
       this.categories.set(categories);
+      this.announcementForm.patchValue(settings.announcementBar, { emitEvent: false });
+      this.hrSettingsForm.patchValue(settings.hrSettings, { emitEvent: false });
     } catch (error) {
       this.categoryError.set('Could not load product categories.');
     } finally {

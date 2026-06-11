@@ -18,6 +18,7 @@ import {
   ValidationErrors,
   ValidatorFn,
 } from '@angular/forms';
+import { firstValueFrom } from 'rxjs';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -26,6 +27,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 import { ChangeRequestApiService } from '../../core/api/change-request-api.service';
+import { HrApiService } from '../../core/api/hr-api.service';
 import { WeeklyReviewApiService } from '../../core/api/weekly-review-api.service';
 import {
   DashboardService,
@@ -37,6 +39,7 @@ import {
   HuntingCriteria,
   WeeklyReviewStatus,
 } from '../../core/models/product.models';
+import { MyHrProfile } from '../../core/models/hr.models';
 import { ReferenceDataService } from '../../core/state/reference-data.service';
 import { SessionCacheService } from '../../core/state/session-cache.service';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
@@ -101,6 +104,7 @@ export class HunterDashboardComponent implements OnInit {
     monthlyGraphRequired: false,
   });
   readonly weeklyReviewStatus = signal<WeeklyReviewStatus | null>(null);
+  readonly myHrProfile = signal<MyHrProfile | null>(null);
   readonly changeRequestSummary = signal<ChangeRequestSummary>({
     total: 0,
     pending: 0,
@@ -203,6 +207,48 @@ export class HunterDashboardComponent implements OnInit {
   ]);
   readonly showReviewBanner = computed(() => this.weeklyReviewStatus()?.required === true);
   readonly showChangeBanner = computed(() => (this.changeRequestSummary().pending || 0) > 0);
+  readonly hrSummaryCards = computed(() => {
+    const profile = this.myHrProfile();
+
+    if (!profile) {
+      return [];
+    }
+
+    const latestAttendance = profile.attendance[0];
+    const pendingLeaves = profile.leaves.filter((leave) => leave.status === 'PENDING').length;
+    const pendingPayroll = profile.payroll.filter((entry) => entry.status !== 'PAID').length;
+
+    return [
+      {
+        label: 'Attendance Summary',
+        value: latestAttendance?.status || 'No Record',
+        detail: latestAttendance?.date ? `Latest entry ${latestAttendance.date}` : 'No attendance has been logged yet.',
+        icon: 'calendar_month',
+        tone: '',
+      },
+      {
+        label: 'Pending Leave Requests',
+        value: pendingLeaves,
+        detail: 'Leave requests still waiting for HR review.',
+        icon: 'event_busy',
+        tone: pendingLeaves ? 'stat-card__icon--warning' : '',
+      },
+      {
+        label: 'Upcoming Payroll',
+        value: pendingPayroll,
+        detail: 'Payroll entries that have not been paid yet.',
+        icon: 'payments',
+        tone: pendingPayroll ? 'stat-card__icon--warning' : 'stat-card__icon--success',
+      },
+      {
+        label: 'Warnings',
+        value: profile.warnings.length,
+        detail: 'Warnings visible on your employee record.',
+        icon: 'gpp_maybe',
+        tone: profile.warnings.length ? 'stat-card__icon--danger' : 'stat-card__icon--success',
+      },
+    ];
+  });
 
   private readonly destroyRef = inject(DestroyRef);
   private readonly sessionCache = inject(SessionCacheService);
@@ -214,6 +260,7 @@ export class HunterDashboardComponent implements OnInit {
     private readonly referenceData: ReferenceDataService,
     private readonly changeRequestApi: ChangeRequestApiService,
     private readonly weeklyReviewApi: WeeklyReviewApiService,
+    private readonly hrApi: HrApiService,
   ) {}
 
   ngOnInit(): void {
@@ -240,6 +287,7 @@ export class HunterDashboardComponent implements OnInit {
 
     this.applyPreset(initialRange);
     this.loadDashboardSignals();
+    void this.loadMyHrSummary();
 
     effect(
       () => {
@@ -340,6 +388,15 @@ export class HunterDashboardComponent implements OnInit {
       .subscribe({
         next: (status) => this.weeklyReviewStatus.set(status),
       });
+  }
+
+  private async loadMyHrSummary(): Promise<void> {
+    try {
+      const profile = await firstValueFrom(this.hrApi.getMyHr());
+      this.myHrProfile.set(profile);
+    } catch {
+      this.myHrProfile.set(null);
+    }
   }
 
   private getPresetFilters(range: Exclude<RangePreset, 'custom'>): HunterDashboardFilters {

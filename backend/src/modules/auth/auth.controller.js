@@ -10,7 +10,13 @@ const me = async (req, res) => {
   res.json({ user });
 };
 
+const changePassword = async (req, res) => {
+  await authService.changePassword(req.user, req.body);
+  res.json({ success: true });
+};
+
 module.exports = {
   login,
   me,
+  changePassword,
 };

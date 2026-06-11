@@ -24,9 +24,23 @@ export interface IpRestrictionSettings {
   allowedIps: AllowedIpEntry[];
 }
 
+export interface AnnouncementBarSettings {
+  enabled: boolean;
+  tone: 'info' | 'success' | 'warning' | 'danger';
+  title: string;
+  message: string;
+  updatedAt: string | null;
+}
+
+export interface HrSettings {
+  allowEmployeeProfileEditing: boolean;
+}
+
 export interface SystemSettingsResponse {
   apiLimits: ApiLimitSettings;
   ipRestriction: IpRestrictionSettings;
+  announcementBar: AnnouncementBarSettings;
+  hrSettings: HrSettings;
   currentIp: string;
   ipRestrictionWarning: string;
 }

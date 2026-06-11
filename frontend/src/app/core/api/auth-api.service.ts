@@ -21,4 +21,13 @@ export class AuthApiService {
       })
       .pipe(map((response) => response.user));
   }
+
+  changePassword(currentPassword: string, newPassword: string): Observable<boolean> {
+    return this.http
+      .post<{ success: boolean }>(`${environment.apiUrl}/auth/change-password`, {
+        currentPassword,
+        newPassword,
+      })
+      .pipe(map((response) => response.success === true));
+  }
 }

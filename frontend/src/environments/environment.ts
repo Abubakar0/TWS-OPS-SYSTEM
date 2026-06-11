@@ -1,3 +1,3 @@
 export const environment = {
-  apiUrl: 'http://localhost:4000/api',
+  apiUrl: 'https://tws-ops-system-backend-staging.up.railway.app/api',
 };

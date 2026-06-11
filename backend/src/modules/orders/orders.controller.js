@@ -18,6 +18,11 @@ const getOrderById = async (req, res) => {
   res.json({ order });
 };
 
+const getOrderActivity = async (req, res) => {
+  const activity = await ordersService.listOrderActivity(req.user, req.params.id, req.query);
+  res.json({ activity });
+};
+
 const createOrder = async (req, res) => {
   const order = await ordersService.createOrder(req.user, req.body);
   res.status(201).json({ order });
@@ -31,6 +36,11 @@ const updateOrder = async (req, res) => {
 const updateOrderStatus = async (req, res) => {
   const order = await ordersService.updateOrderStatus(req.user, req.params.id, req.body);
   res.json({ order });
+};
+
+const bulkUpdateStatus = async (req, res) => {
+  const result = await ordersService.bulkUpdateOrderStatus(req.user, req.body);
+  res.json(result);
 };
 
 const deleteOrder = async (req, res) => {
@@ -110,9 +120,11 @@ const matchByAsin = async (req, res) => {
 module.exports = {
   listOrders,
   getOrderById,
+  getOrderActivity,
   createOrder,
   updateOrder,
   updateOrderStatus,
+  bulkUpdateStatus,
   deleteOrder,
   restoreOrder,
   markPlaced,

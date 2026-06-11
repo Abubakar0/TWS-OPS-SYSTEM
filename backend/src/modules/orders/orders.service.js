@@ -99,6 +99,8 @@ const isPlacedOrder = (order) =>
       order.placedDate),
   );
 
+const SIMPLE_ORDER_STATUSES = ['NEW', 'READY_TO_PLACE', 'ON_HOLD', 'CANCELLED', 'REFUNDED'];
+
 const isValidHttpUrl = (value, marketplace = null) => {
   if (!value) {
     return true;
@@ -849,6 +851,37 @@ const getOrderById = async (user, id, { includeDeleted = false } = {}) => {
   return mapOrderRow(result.rows[0]);
 };
 
+const listOrderActivity = async (user, id, { limit = 20 } = {}) => {
+  await getOrderById(user, id, { includeDeleted: true });
+  const safeLimit = Math.min(Math.max(Number(limit) || 20, 5), 100);
+  const result = await pool.query(
+    `
+      SELECT
+        log.id::text AS id,
+        log.action,
+        log.target_id AS "targetId",
+        log.details,
+        log.created_at AS "createdAt",
+        actor.id AS "actorUserId",
+        actor.name AS "actorName",
+        actor.email AS "actorEmail",
+        actor.role AS "actorRole"
+      FROM audit_logs log
+      LEFT JOIN users actor ON actor.id = log.actor_user_id
+      WHERE log.target_type = 'order'
+        AND log.target_id = $1
+      ORDER BY log.created_at DESC
+      LIMIT $2
+    `,
+    [id, safeLimit],
+  );
+
+  return result.rows.map((row) => ({
+    ...row,
+    details: row.details && typeof row.details === 'string' ? JSON.parse(row.details) : row.details,
+  }));
+};
+
 const createOrder = async (user, payload = {}) => {
   await ensureOrdersTable();
 
@@ -1232,7 +1265,7 @@ const markOrderPlaced = async (user, id, payload = {}) => {
   const updated = await getOrderById(user, id);
   await writeAuditLog({
     actorUserId: user.id,
-    action: 'order.placed',
+    action: 'ORDER_PLACED',
     targetType: 'order',
     targetId: id,
     details: {
@@ -1295,7 +1328,7 @@ const markOrderShipped = async (user, id, payload = {}) => {
   const updated = await getOrderById(user, id);
   await writeAuditLog({
     actorUserId: user.id,
-    action: 'order.shipped',
+    action: 'ORDER_SHIPPED',
     targetType: 'order',
     targetId: id,
     details: {
@@ -1347,7 +1380,7 @@ const markOrderDelivered = async (user, id, payload = {}) => {
   const updated = await getOrderById(user, id);
   await writeAuditLog({
     actorUserId: user.id,
-    action: 'order.delivered',
+    action: 'ORDER_DELIVERED',
     targetType: 'order',
     targetId: id,
     details: {
@@ -1362,7 +1395,7 @@ const updateOrderStatus = async (user, id, payload = {}) => {
     throw new AppError('You do not have permission to update order status.', 403);
   }
 
-  const nextStatus = toBooleanText(payload.orderStatus, ['NEW', 'PLACED', 'SHIPPED', 'DELIVERED', 'ISSUE', 'CANCELLED'], null);
+  const nextStatus = toBooleanText(payload.orderStatus, ORDER_STATUSES, null);
 
   if (!nextStatus) {
     throw new AppError('Order status is required.', 400);
@@ -1378,29 +1411,80 @@ const updateOrderStatus = async (user, id, payload = {}) => {
     case 'ISSUE':
       return markOrderIssue(user, id, payload);
     case 'NEW':
+    case 'READY_TO_PLACE':
+    case 'ON_HOLD':
     case 'CANCELLED':
+    case 'REFUNDED':
       break;
     default:
       throw new AppError('Unsupported order status transition.', 400);
   }
 
-  await getOrderById(user, id, { includeDeleted: true });
+  const existingOrder = await getOrderById(user, id, { includeDeleted: true });
+
+  if (existingOrder.deletedAt) {
+    throw new AppError('Deleted orders cannot be updated.', 409);
+  }
+
+  if (existingOrder.orderStatus === nextStatus) {
+    throw new AppError(`This order is already marked as ${nextStatus.replaceAll('_', ' ').toLowerCase()}.`, 409);
+  }
+
+  if (nextStatus === 'NEW' && !['ON_HOLD', 'READY_TO_PLACE', 'ISSUE'].includes(existingOrder.orderStatus)) {
+    throw new AppError('Only on-hold, ready-to-place, or issue orders can be reset to new.', 409);
+  }
+
+  if (nextStatus === 'READY_TO_PLACE' && (isClosedOrderStatus(existingOrder.orderStatus) || isPlacedOrder(existingOrder))) {
+    throw new AppError('Only active unplaced orders can move to ready-to-place.', 409);
+  }
+
+  if (nextStatus === 'ON_HOLD' && (isClosedOrderStatus(existingOrder.orderStatus) || existingOrder.orderStatus === 'DELIVERED')) {
+    throw new AppError('Delivered, cancelled, or refunded orders cannot be placed on hold.', 409);
+  }
+
+  if (nextStatus === 'CANCELLED' && (isClosedOrderStatus(existingOrder.orderStatus) || existingOrder.orderStatus === 'DELIVERED')) {
+    throw new AppError('Delivered or already closed orders cannot be cancelled.', 409);
+  }
+
+  if (nextStatus === 'REFUNDED' && !['DELIVERED', 'CANCELLED', 'ISSUE'].includes(existingOrder.orderStatus)) {
+    throw new AppError('Only delivered, cancelled, or issue orders can be refunded.', 409);
+  }
+
+  const nextPlacementStatus =
+    nextStatus === 'CANCELLED'
+      ? 'CANCELLED'
+      : nextStatus === 'NEW' || nextStatus === 'READY_TO_PLACE' || nextStatus === 'ON_HOLD'
+        ? existingOrder.placementStatus === 'CANCELLED'
+          ? 'NOT_PLACED'
+          : existingOrder.placementStatus
+        : existingOrder.placementStatus;
+  const nextPaymentStatus = nextStatus === 'REFUNDED' ? 'REFUNDED' : existingOrder.paymentStatus;
+
   await pool.query(
     `
       UPDATE orders
       SET order_status = $1,
-          updated_by = $2,
+          placement_status = $2,
+          payment_status = $3,
+          updated_by = $4,
           updated_at = NOW()
-      WHERE id = $3
+      WHERE id = $5
         AND deleted_at IS NULL
     `,
-    [nextStatus, user.id, id],
+    [nextStatus, nextPlacementStatus, nextPaymentStatus, user.id, id],
   );
 
   const updated = await getOrderById(user, id);
   await writeAuditLog({
     actorUserId: user.id,
-    action: nextStatus === 'CANCELLED' ? 'order.cancelled' : 'order.status',
+    action:
+      nextStatus === 'CANCELLED'
+        ? 'ORDER_CANCELLED'
+        : nextStatus === 'REFUNDED'
+          ? 'ORDER_REFUNDED'
+          : nextStatus === 'ON_HOLD'
+            ? 'ORDER_ON_HOLD'
+            : 'ORDER_STATUS_UPDATED',
     targetType: 'order',
     targetId: id,
     details: {
@@ -1409,6 +1493,60 @@ const updateOrderStatus = async (user, id, payload = {}) => {
     },
   });
   return updated;
+};
+
+const bulkUpdateOrderStatus = async (user, payload = {}) => {
+  if (!hasOrderWriteAccess(user)) {
+    throw new AppError('You do not have permission to bulk update orders.', 403);
+  }
+
+  const ids = Array.from(
+    new Set((Array.isArray(payload.ids) ? payload.ids : []).map((entry) => String(entry || '').trim()).filter(Boolean)),
+  );
+  if (!ids.length) {
+    throw new AppError('Select at least one order.', 400);
+  }
+
+  const orderStatus = toBooleanText(payload.orderStatus, [...SIMPLE_ORDER_STATUSES, 'DELIVERED'], null);
+  if (!orderStatus) {
+    throw new AppError('Bulk status is required.', 400);
+  }
+
+  const updated = [];
+  const skipped = [];
+
+  for (const orderId of ids) {
+    try {
+      const order =
+        orderStatus === 'DELIVERED'
+          ? await markOrderDelivered(user, orderId, payload)
+          : await updateOrderStatus(user, orderId, { orderStatus });
+      updated.push(order);
+    } catch (error) {
+      skipped.push({
+        id: orderId,
+        message: error?.message || 'Could not update order.',
+      });
+    }
+  }
+
+  await writeAuditLog({
+    actorUserId: user.id,
+    action: 'ORDER_BULK_UPDATED',
+    targetType: 'order',
+    details: {
+      ids,
+      orderStatus,
+      updatedCount: updated.length,
+      skippedCount: skipped.length,
+    },
+  });
+
+  return {
+    updated,
+    skipped,
+    requested: ids.length,
+  };
 };
 
 const markOrderIssue = async (user, id, payload = {}) => {
@@ -1751,11 +1889,13 @@ module.exports = {
   hasGlobalOrderReadAccess,
   listOrders,
   getOrderById,
+  listOrderActivity,
   createOrder,
   updateOrder,
   deleteOrder,
   restoreOrder,
   updateOrderStatus,
+  bulkUpdateOrderStatus,
   markOrderPlaced,
   markOrderShipped,
   markOrderDelivered,

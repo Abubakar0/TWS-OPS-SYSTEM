@@ -23,6 +23,7 @@ import { ChangeRequest, ChangeRequestSummary } from '../../core/models/product.m
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
 import { ToastService } from '../../core/ui/toast.service';
 import { FilterPanelComponent } from '../../shared/ui/filter-panel.component';
+import { SearchableSelectComponent } from '../../shared/ui/searchable-select.component';
 import { decimalMinValidator, decimalValidator } from '../../shared/validators/price.validator';
 import { marketplaceUrlValidator } from '../../shared/validators/listing-link.validator';
 
@@ -40,6 +41,7 @@ type ChangeRequestStatusFilter = '' | 'OPEN' | 'IN_PROGRESS' | 'FIXED' | 'REJECT
     MatProgressSpinnerModule,
     MatSelectModule,
     FilterPanelComponent,
+    SearchableSelectComponent,
   ],
   templateUrl: './lister-changes.component.html',
   styleUrl: './lister-changes.component.scss',
@@ -75,6 +77,10 @@ export class ListerChangesComponent {
     { value: 'REJECTED', label: 'Rejected' },
     { value: 'CLOSED', label: 'Closed' },
   ];
+  readonly hunterFilterOptions = computed(() => [
+    { value: '', label: 'All hunters' },
+    ...this.hunters().map((hunter) => ({ value: hunter.id, label: hunter.name })),
+  ]);
 
   readonly filtersForm = new FormGroup({
     status: new FormControl<ChangeRequestStatusFilter>('OPEN', { nonNullable: true }),
@@ -326,6 +332,16 @@ export class ListerChangesComponent {
       default:
         return 'status-badge--warning';
     }
+  }
+
+  async copyValue(value: string | null | undefined, label: string): Promise<void> {
+    if (!value) {
+      this.toast.warning(`No ${label.toLowerCase()} available to copy.`);
+      return;
+    }
+
+    await navigator.clipboard.writeText(value);
+    this.toast.success(`${label} copied.`);
   }
 
   private syncSelectedRequest(requests: ChangeRequest[]): void {

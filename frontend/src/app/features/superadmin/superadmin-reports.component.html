@@ -58,25 +58,17 @@
         </div>
 
         <form class="report-controls" [formGroup]="filtersForm" (ngSubmit)="applyUserFilter()">
-          <mat-form-field appearance="outline">
-            <mat-label>User</mat-label>
-            <mat-select formControlName="userId">
-              <mat-option value="">All operators</mat-option>
-              @for (user of reportUsers(); track user.id) {
-                <mat-option [value]="user.id">{{ user.name }} ({{ user.roles.join(', ') }})</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <app-searchable-select
+            label="User"
+            [formControl]="filtersForm.controls.userId"
+            [options]="userOptions()"
+          />
 
-          <mat-form-field appearance="outline">
-            <mat-label>Category</mat-label>
-            <mat-select formControlName="category">
-              <mat-option value="">All categories</mat-option>
-              @for (category of categories(); track category.id) {
-                <mat-option [value]="category.name">{{ category.name }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
+          <app-searchable-select
+            label="Category"
+            [formControl]="filtersForm.controls.category"
+            [options]="categoryOptions()"
+          />
 
           <div class="grid-toolbar__actions">
             <button mat-flat-button color="primary" type="submit" [disabled]="loading()">
@@ -121,32 +113,32 @@
   </article>
 
   <section class="stats-grid">
-    <article class="stat-card">
+    <article class="stat-card stat-card--interactive" (click)="focusSection('hunter')">
       <span>Hunted</span>
       <strong>{{ stats()?.hunted || 0 }}</strong>
       <small>Products created in the current reporting window.</small>
     </article>
-    <article class="stat-card">
+    <article class="stat-card stat-card--interactive" (click)="focusSection('lister')">
       <span>Ready</span>
       <strong>{{ stats()?.ready || 0 }}</strong>
       <small>Approved or assigned products in the current view.</small>
     </article>
-    <article class="stat-card">
+    <article class="stat-card stat-card--interactive" (click)="focusSection('account')">
       <span>Listed</span>
       <strong>{{ stats()?.listed || 0 }}</strong>
       <small>Products listed in the current reporting window.</small>
     </article>
-    <article class="stat-card">
+    <article class="stat-card stat-card--interactive" (click)="focusSection('hunter')">
       <span>Rejected</span>
       <strong>{{ stats()?.rejected || 0 }}</strong>
       <small>Rejected products in the current reporting window.</small>
     </article>
-    <article class="stat-card">
+    <article class="stat-card stat-card--interactive" (click)="focusSection('hunter')">
       <span>Hunters</span>
       <strong>{{ stats()?.byHunter?.length || 0 }}</strong>
       <small>Hunters in the current view.</small>
     </article>
-    <article class="stat-card">
+    <article class="stat-card stat-card--interactive" (click)="focusSection('account')">
       <span>Accounts Used</span>
       <strong>{{ stats()?.byAccount?.length || 0 }}</strong>
       <small>Accounts with listing activity.</small>
@@ -154,30 +146,51 @@
   </section>
 
   <section class="stats-grid stats-grid--four">
-    <article class="stat-card">
+    <article class="stat-card stat-card--interactive" (click)="focusSection('order-hunter')">
       <span>Total Orders</span>
       <strong>{{ orderReports()?.totalOrders || 0 }}</strong>
       <small>All orders in the current filter.</small>
     </article>
-    <article class="stat-card">
+    <article class="stat-card stat-card--interactive" (click)="focusSection('order-account')">
       <span>Revenue</span>
       <strong>${{ (orderReports()?.totalRevenue || 0) | number: '1.2-2' }}</strong>
       <small>Gross order revenue.</small>
     </article>
-    <article class="stat-card">
+    <article class="stat-card stat-card--interactive" (click)="focusSection('order-account')">
       <span>Profit</span>
       <strong>${{ (orderReports()?.totalProfit || 0) | number: '1.2-2' }}</strong>
       <small>Order profit in range.</small>
     </article>
-    <article class="stat-card">
+    <article class="stat-card stat-card--interactive" (click)="focusSection('order-hunter')">
       <span>Average ROI</span>
       <strong>{{ (orderReports()?.averageRoi || 0) | number: '1.2-2' }}%</strong>
       <small>Average ROI from linked orders.</small>
     </article>
   </section>
 
+  <article class="surface-card report-focus-card">
+    <div>
+      <h2>{{ activeSectionMeta().label }}</h2>
+      <p>{{ activeSectionMeta().hint }}</p>
+    </div>
+    <div class="report-focus-card__actions">
+      <span class="status-badge">{{ activeSectionMeta().count }} rows</span>
+      @for (section of sectionOptions; track section.id) {
+        <button
+          mat-stroked-button
+          type="button"
+          class="report-focus-chip"
+          [class.report-focus-chip--active]="isSectionFocused(section.id)"
+          (click)="focusSection(section.id)"
+        >
+          {{ section.label }}
+        </button>
+      }
+    </div>
+  </article>
+
   <section class="section-grid section-grid--three">
-    <article class="surface-card">
+    <article class="surface-card" id="superadmin-report-hunter" [class.surface-card--focus]="isSectionFocused('hunter')">
       <div class="surface-card__header">
         <div>
           <h2>By hunter</h2>
@@ -206,7 +219,7 @@
       }
     </article>
 
-    <article class="surface-card">
+    <article class="surface-card" id="superadmin-report-lister" [class.surface-card--focus]="isSectionFocused('lister')">
       <div class="surface-card__header">
         <div>
           <h2>By lister</h2>
@@ -238,7 +251,7 @@
       }
     </article>
 
-    <article class="surface-card">
+    <article class="surface-card" id="superadmin-report-account" [class.surface-card--focus]="isSectionFocused('account')">
       <div class="surface-card__header">
         <div>
           <h2>By account</h2>
@@ -270,7 +283,7 @@
   </section>
 
   <section class="section-grid">
-    <article class="surface-card">
+    <article class="surface-card" id="superadmin-report-hunter-account" [class.surface-card--focus]="isSectionFocused('hunter-account')">
       <div class="surface-card__header">
         <div>
           <h2>Hunter listings by account</h2>
@@ -304,7 +317,7 @@
       }
     </article>
 
-    <article class="surface-card">
+    <article class="surface-card" id="superadmin-report-order-hunter" [class.surface-card--focus]="isSectionFocused('order-hunter')">
       <div class="surface-card__header">
         <div>
           <h2>Orders by hunter</h2>
@@ -342,7 +355,7 @@
       }
     </article>
 
-    <article class="surface-card">
+    <article class="surface-card" id="superadmin-report-order-account" [class.surface-card--focus]="isSectionFocused('order-account')">
       <div class="surface-card__header">
         <div>
           <h2>Orders by account</h2>

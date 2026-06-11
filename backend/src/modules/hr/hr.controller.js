@@ -212,13 +212,25 @@ const getMyHr = async (req, res) => {
   res.json({ profile });
 };
 
+const updateMyProfile = async (req, res) => {
+  const profile = await hrService.updateMyProfile(req.user, req.body);
+  res.json({ profile });
+};
+
+const reviewEmployeeProfile = async (req, res) => {
+  const employee = await hrService.reviewEmployeeProfile(req.user, req.params.id, req.body);
+  res.json({ employee });
+};
+
 module.exports = {
   getDashboard,
   getMyHr,
+  updateMyProfile,
   listEmployees,
   createEmployee,
   getEmployee,
   updateEmployee,
+  reviewEmployeeProfile,
   listAttendance,
   createAttendance,
   updateAttendance,

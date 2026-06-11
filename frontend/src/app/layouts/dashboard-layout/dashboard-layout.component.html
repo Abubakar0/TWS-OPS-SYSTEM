@@ -82,6 +82,11 @@
           <span class="sidebar-user__meta" [class.is-hidden]="vm.sidebarCollapsed">
             <strong>{{ vm.userName }}</strong>
             <small>{{ vm.userEmail }}</small>
+            <span class="sidebar-user__roles">
+              @if (vm.teamName) {
+                <span class="sidebar-user__role">{{ vm.teamName }}</span>
+              }
+            </span>
           </span>
           <mat-icon [class.is-hidden]="vm.sidebarCollapsed">expand_more</mat-icon>
         </button>
@@ -99,6 +104,31 @@
         <mat-icon>menu</mat-icon>
       </button>
       <main class="app-main">
+        @if (announcement(); as announcementBar) {
+          <section
+            class="workspace-announcement"
+            [class.workspace-announcement--info]="announcementBar.tone === 'info'"
+            [class.workspace-announcement--success]="announcementBar.tone === 'success'"
+            [class.workspace-announcement--warning]="announcementBar.tone === 'warning'"
+            [class.workspace-announcement--danger]="announcementBar.tone === 'danger'"
+          >
+            <mat-icon>{{
+              announcementBar.tone === 'success'
+                ? 'campaign'
+                : announcementBar.tone === 'warning'
+                  ? 'warning_amber'
+                  : announcementBar.tone === 'danger'
+                    ? 'priority_high'
+                    : 'info'
+            }}</mat-icon>
+            <div>
+              @if (announcementBar.title) {
+                <strong>{{ announcementBar.title }}</strong>
+              }
+              <span>{{ announcementBar.message }}</span>
+            </div>
+          </section>
+        }
         <router-outlet />
       </main>
     </div>
@@ -106,6 +136,10 @@
 
   <mat-menu #userMenu="matMenu" xPosition="before" class="tw-menu">
     <div class="menu-panel">
+      <button mat-menu-item type="button" [routerLink]="'/account/change-password'">
+        <mat-icon>lock_reset</mat-icon>
+        <p>Change Password</p>
+      </button>
       <button mat-menu-item type="button" (click)="logout()">
         <mat-icon>logout</mat-icon>
         <p>Log out</p>

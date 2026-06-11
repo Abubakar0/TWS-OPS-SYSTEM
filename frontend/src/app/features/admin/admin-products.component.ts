@@ -8,11 +8,13 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { AdminProductsFacade } from '../../core/facades/admin-products.facade';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../shared/error-state/error-state.component';
 import { FilterPanelComponent } from '../../shared/ui/filter-panel.component';
+import { SearchableSelectComponent } from '../../shared/ui/searchable-select.component';
 
 @Component({
   selector: 'app-admin-products',
@@ -26,9 +28,11 @@ import { FilterPanelComponent } from '../../shared/ui/filter-panel.component';
     MatInputModule,
     MatProgressSpinnerModule,
     MatSelectModule,
+    MatTooltipModule,
     EmptyStateComponent,
     ErrorStateComponent,
     FilterPanelComponent,
+    SearchableSelectComponent,
   ],
   templateUrl: './admin-products.component.html',
   styleUrl: './admin-products.component.scss',

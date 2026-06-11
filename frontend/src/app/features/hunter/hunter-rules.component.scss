@@ -5,3 +5,69 @@
 .simple-table__row--two {
   grid-template-columns: minmax(0, 1fr) auto;
 }
+
+.rules-sections,
+.tool-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.rules-section {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  border-radius: 18px;
+  background: rgba(249, 251, 255, 0.88);
+}
+
+.rules-section h3,
+.tool-card h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.rules-section ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+}
+
+.tool-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.tool-card p {
+  margin: 6px 0 0;
+  color: var(--tws-muted);
+}
+
+.tool-card__facts {
+  display: grid;
+  gap: 10px;
+}
+
+.tool-card__facts div {
+  display: grid;
+  gap: 4px;
+}
+
+.tool-card__facts span {
+  color: var(--tws-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+@media (min-width: 1100px) {
+  .tool-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

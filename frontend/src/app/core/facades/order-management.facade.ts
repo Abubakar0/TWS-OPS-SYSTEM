@@ -9,6 +9,7 @@ import { AuthService } from '../auth/auth.service';
 import { User } from '../models/auth.models';
 import {
   Order,
+  OrderActivityEntry,
   OrderFilters,
   OrderImpact,
   OrderIssueType,
@@ -52,6 +53,15 @@ const ORDER_STATUS_OPTIONS: OrderStatus[] = [
   'REFUNDED',
   'ISSUE',
   'ON_HOLD',
+];
+
+const BULK_STATUS_OPTIONS: OrderStatus[] = [
+  'NEW',
+  'READY_TO_PLACE',
+  'ON_HOLD',
+  'CANCELLED',
+  'REFUNDED',
+  'DELIVERED',
 ];
 
 const PLACEMENT_STATUS_OPTIONS: PlacementStatus[] = ['NOT_PLACED', 'PLACED', 'FAILED', 'CANCELLED'];
@@ -222,9 +232,12 @@ export class OrderManagementFacade {
   readonly matchLoading = signal(false);
   readonly error = signal('');
   readonly orders = signal<Order[]>([]);
+  readonly orderActivity = signal<OrderActivityEntry[]>([]);
+  readonly orderActivityLoading = signal(false);
   readonly total = signal(0);
   readonly stats = signal<OrderStats | null>(null);
   readonly selectedOrderId = signal('');
+  readonly selectedOrderIds = signal<string[]>([]);
   readonly pageIndex = signal(0);
   readonly pageSize = signal(this.pageSizeOptions[0]);
   readonly filtersCollapsed = signal(false);
@@ -246,6 +259,7 @@ export class OrderManagementFacade {
   readonly filters = createOrderFilterForm();
   readonly orderForm = createOrderForm();
   readonly deleteReasonControl = new FormControl('', { nonNullable: true });
+  readonly bulkStatusControl = new FormControl<OrderStatus | ''>('', { nonNullable: true });
 
   readonly currentUser = this.auth.currentUser;
   readonly currentRole = computed(() => this.currentUser()?.role || 'hunter');
@@ -298,7 +312,13 @@ export class OrderManagementFacade {
     const end = Math.min(this.total(), start + this.orders().length - 1);
     return `Showing ${start}-${end} of ${this.total()}`;
   });
+  readonly selectedOrderCount = computed(() => this.selectedOrderIds().length);
+  readonly allVisibleOrdersSelected = computed(() => {
+    const visibleIds = this.orders().map((order) => order.id);
+    return visibleIds.length > 0 && visibleIds.every((id) => this.selectedOrderIds().includes(id));
+  });
   readonly orderStatusOptions = ORDER_STATUS_OPTIONS;
+  readonly bulkStatusOptions = BULK_STATUS_OPTIONS;
   readonly placementStatusOptions = PLACEMENT_STATUS_OPTIONS;
   readonly paymentStatusOptions = PAYMENT_STATUS_OPTIONS;
   readonly issueTypeOptions = ISSUE_TYPE_OPTIONS;
@@ -432,69 +452,66 @@ export class OrderManagementFacade {
       return this.isCreateOrderReady();
     }
 
-    return (
-      this.orderForm.valid &&
-      !this.saving()
-    );
+    return this.orderForm.valid && !this.saving();
   });
   readonly orderFormErrors = computed(() => {
     this.orderFormVersion();
 
     return {
-    ebayOrderId: this.messages.orderFieldError(
-      this.orderForm.controls.ebayOrderId,
-      'ebayOrderId',
-      this.orderForm.controls.ebayOrderId.touched || this.orderForm.controls.ebayOrderId.dirty,
-    ),
-    ebayListingUrl: this.messages.orderFieldError(
-      this.orderForm.controls.ebayListingUrl,
-      'ebayListingUrl',
-      this.orderForm.controls.ebayListingUrl.touched ||
-        this.orderForm.controls.ebayListingUrl.dirty,
-    ),
-    orderDate: this.messages.orderFieldError(
-      this.orderForm.controls.orderDate,
-      'orderDate',
-      this.orderForm.controls.orderDate.touched || this.orderForm.controls.orderDate.dirty,
-    ),
-    quantity: this.messages.orderFieldError(
-      this.orderForm.controls.quantity,
-      'quantity',
-      this.orderForm.controls.quantity.touched || this.orderForm.controls.quantity.dirty,
-    ),
-    salePrice: this.messages.orderFieldError(
-      this.orderForm.controls.salePrice,
-      'salePrice',
-      this.orderForm.controls.salePrice.touched || this.orderForm.controls.salePrice.dirty,
-    ),
-    accountId: this.messages.orderFieldError(
-      this.orderForm.controls.accountId,
-      'accountId',
-      this.orderForm.controls.accountId.touched || this.orderForm.controls.accountId.dirty,
-    ),
-    asin: this.messages.orderFieldError(
-      this.orderForm.controls.asin,
-      'asin',
-      this.orderForm.controls.asin.touched || this.orderForm.controls.asin.dirty,
-    ),
-    amazonOrderId: this.messages.orderFieldError(
-      this.orderForm.controls.amazonOrderId,
-      'amazonOrderId',
-      this.orderForm.controls.amazonOrderId.touched ||
-        this.orderForm.controls.amazonOrderId.dirty,
-    ),
-    amazonOrderLink: this.messages.orderFieldError(
-      this.orderForm.controls.amazonOrderLink,
-      'amazonOrderLink',
-      this.orderForm.controls.amazonOrderLink.touched ||
-        this.orderForm.controls.amazonOrderLink.dirty,
-    ),
-    amazonBuyingPrice: this.messages.orderFieldError(
-      this.orderForm.controls.amazonBuyingPrice,
-      'amazonBuyingPrice',
-      this.orderForm.controls.amazonBuyingPrice.touched ||
-        this.orderForm.controls.amazonBuyingPrice.dirty,
-    ),
+      ebayOrderId: this.messages.orderFieldError(
+        this.orderForm.controls.ebayOrderId,
+        'ebayOrderId',
+        this.orderForm.controls.ebayOrderId.touched || this.orderForm.controls.ebayOrderId.dirty,
+      ),
+      ebayListingUrl: this.messages.orderFieldError(
+        this.orderForm.controls.ebayListingUrl,
+        'ebayListingUrl',
+        this.orderForm.controls.ebayListingUrl.touched ||
+          this.orderForm.controls.ebayListingUrl.dirty,
+      ),
+      orderDate: this.messages.orderFieldError(
+        this.orderForm.controls.orderDate,
+        'orderDate',
+        this.orderForm.controls.orderDate.touched || this.orderForm.controls.orderDate.dirty,
+      ),
+      quantity: this.messages.orderFieldError(
+        this.orderForm.controls.quantity,
+        'quantity',
+        this.orderForm.controls.quantity.touched || this.orderForm.controls.quantity.dirty,
+      ),
+      salePrice: this.messages.orderFieldError(
+        this.orderForm.controls.salePrice,
+        'salePrice',
+        this.orderForm.controls.salePrice.touched || this.orderForm.controls.salePrice.dirty,
+      ),
+      accountId: this.messages.orderFieldError(
+        this.orderForm.controls.accountId,
+        'accountId',
+        this.orderForm.controls.accountId.touched || this.orderForm.controls.accountId.dirty,
+      ),
+      asin: this.messages.orderFieldError(
+        this.orderForm.controls.asin,
+        'asin',
+        this.orderForm.controls.asin.touched || this.orderForm.controls.asin.dirty,
+      ),
+      amazonOrderId: this.messages.orderFieldError(
+        this.orderForm.controls.amazonOrderId,
+        'amazonOrderId',
+        this.orderForm.controls.amazonOrderId.touched ||
+          this.orderForm.controls.amazonOrderId.dirty,
+      ),
+      amazonOrderLink: this.messages.orderFieldError(
+        this.orderForm.controls.amazonOrderLink,
+        'amazonOrderLink',
+        this.orderForm.controls.amazonOrderLink.touched ||
+          this.orderForm.controls.amazonOrderLink.dirty,
+      ),
+      amazonBuyingPrice: this.messages.orderFieldError(
+        this.orderForm.controls.amazonBuyingPrice,
+        'amazonBuyingPrice',
+        this.orderForm.controls.amazonBuyingPrice.touched ||
+          this.orderForm.controls.amazonBuyingPrice.dirty,
+      ),
     };
   });
   readonly matchingSummary = computed(() => {
@@ -608,6 +625,27 @@ export class OrderManagementFacade {
         !this.saving(),
     };
   });
+  readonly bulkActionVm = computed(() => {
+    const status = this.bulkStatusControl.value;
+    const selectedCount = this.selectedOrderCount();
+
+    return {
+      selectedCount,
+      canApply:
+        this.canWrite() &&
+        (this.isAdminWorkspace() || this.isProcessingWorkspace()) &&
+        selectedCount > 0 &&
+        Boolean(status) &&
+        !this.saving(),
+    };
+  });
+  readonly orderActivityVm = computed(() =>
+    this.orderActivity().map((entry) => ({
+      ...entry,
+      actionLabel: formatStatusLabel(entry.action),
+      actorLabel: entry.actorName || entry.actorEmail || 'System',
+    })),
+  );
 
   private readonly destroyRef = inject(DestroyRef);
   private readonly injector = inject(Injector);
@@ -683,6 +721,8 @@ export class OrderManagementFacade {
           this.orders.set(orders.items);
           this.total.set(orders.total);
           this.stats.set(stats);
+          const visibleIds = new Set(orders.items.map((order) => order.id));
+          this.selectedOrderIds.update((ids) => ids.filter((id) => visibleIds.has(id)));
           this.syncSelectedOrder(orders.items);
           this.ensureFocusedOrderLoaded();
           this.loading.set(false);
@@ -703,6 +743,42 @@ export class OrderManagementFacade {
     if (order && !this.modalState().open) {
       this.patchFormFromOrder(order);
     }
+  }
+
+  isOrderSelected(id: string): boolean {
+    return this.selectedOrderIds().includes(id);
+  }
+
+  toggleOrderSelection(id: string, checked: boolean): void {
+    this.selectedOrderIds.update((current) => {
+      const next = new Set(current);
+      if (checked) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return Array.from(next);
+    });
+  }
+
+  toggleSelectAllVisible(checked: boolean): void {
+    const visibleIds = this.orders().map((order) => order.id);
+    this.selectedOrderIds.update((current) => {
+      const next = new Set(current);
+      for (const id of visibleIds) {
+        if (checked) {
+          next.add(id);
+        } else {
+          next.delete(id);
+        }
+      }
+      return Array.from(next);
+    });
+  }
+
+  clearSelectedOrders(): void {
+    this.selectedOrderIds.set([]);
+    this.bulkStatusControl.setValue('', { emitEvent: false });
   }
 
   toggleFiltersCollapsed(): void {
@@ -872,8 +948,7 @@ export class OrderManagementFacade {
       return;
     }
 
-    const shouldExitProcessorNew =
-      this.mode() === 'processor' && this.processorView() === 'new';
+    const shouldExitProcessorNew = this.mode() === 'processor' && this.processorView() === 'new';
 
     if (shouldExitProcessorNew) {
       this.suppressProcessorNewAutoOpen.set(true);
@@ -914,7 +989,8 @@ export class OrderManagementFacade {
       this.workspaceSync.notifyOrdersChanged();
       this.toast.success(this.modalState().mode === 'create' ? 'Order created.' : 'Order updated.');
     } catch (error: unknown) {
-      const status = error && typeof error === 'object' ? (error as { status?: number }).status : undefined;
+      const status =
+        error && typeof error === 'object' ? (error as { status?: number }).status : undefined;
       if (status === 409) {
         this.duplicateState.set('duplicate');
         this.duplicateMessage.set('This eBay order already exists.');
@@ -1009,6 +1085,48 @@ export class OrderManagementFacade {
       })
       .catch((error: unknown) => {
         this.error.set(getErrorMessage(error, 'Could not restore the order.'));
+      })
+      .finally(() => this.saving.set(false));
+  }
+
+  async applyBulkStatus(): Promise<void> {
+    const status = this.bulkStatusControl.value;
+    const ids = this.selectedOrderIds();
+
+    if (!status || !ids.length || !this.bulkActionVm().canApply) {
+      return;
+    }
+
+    const confirmed = await this.confirm.ask({
+      title: `Apply ${formatStatusLabel(status)} to selected orders?`,
+      message: `${ids.length} selected order${ids.length === 1 ? '' : 's'} will be updated.`,
+      confirmText: 'Update Orders',
+      tone: status === 'CANCELLED' || status === 'REFUNDED' ? 'danger' : 'default',
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    this.saving.set(true);
+    this.error.set('');
+    firstValueFrom(this.orderApi.bulkUpdateStatus(ids, { orderStatus: status }))
+      .then((result) => {
+        for (const order of result.updated) {
+          this.upsertLocalOrder(order, false);
+        }
+        this.refreshStatsOnly();
+        this.ignoreNextOrdersSync.set(true);
+        this.workspaceSync.notifyOrdersChanged();
+        this.clearSelectedOrders();
+        this.toast.success(
+          result.skipped.length
+            ? `${result.updated.length} order(s) updated. ${result.skipped.length} skipped.`
+            : `${result.updated.length} order(s) updated.`,
+        );
+      })
+      .catch((error: unknown) => {
+        this.error.set(getErrorMessage(error, 'Could not bulk update the selected orders.'));
       })
       .finally(() => this.saving.set(false));
   }
@@ -1161,7 +1279,13 @@ export class OrderManagementFacade {
     const orderImpact = this.orderForm.controls.orderImpact.value;
     const issueReason = this.orderForm.controls.issueReason.value.trim();
 
-    if (!order || !this.processingActionsVm().canMarkIssue || !issueType || !orderImpact || !issueReason) {
+    if (
+      !order ||
+      !this.processingActionsVm().canMarkIssue ||
+      !issueType ||
+      !orderImpact ||
+      !issueReason
+    ) {
       this.orderForm.controls.issueType.markAsTouched();
       this.orderForm.controls.orderImpact.markAsTouched();
       this.orderForm.controls.issueReason.markAsTouched();
@@ -1170,7 +1294,9 @@ export class OrderManagementFacade {
     }
 
     this.saving.set(true);
-    firstValueFrom(this.orderApi.markIssueWithType(order.id, { issueType, issueReason, orderImpact }))
+    firstValueFrom(
+      this.orderApi.markIssueWithType(order.id, { issueType, issueReason, orderImpact }),
+    )
       .then((updated) => {
         this.upsertLocalOrder(updated, false);
         this.refreshStatsOnly();
@@ -1187,6 +1313,22 @@ export class OrderManagementFacade {
 
   exportOrders(): void {
     void this.exportAllOrders();
+  }
+
+  exportSelectedOrders(): void {
+    const selectedIds = new Set(this.selectedOrderIds());
+    const rows = this.orders().filter((order) => selectedIds.has(order.id));
+
+    if (!rows.length) {
+      this.toast.warning('Select one or more orders to export.');
+      return;
+    }
+
+    this.downloadOrderWorkbook(
+      rows,
+      `orders-selected-${new Date().toISOString().slice(0, 10)}.xlsx`,
+    );
+    this.toast.success('Selected orders exported.');
   }
 
   private initialize(): void {
@@ -1234,6 +1376,19 @@ export class OrderManagementFacade {
           }
 
           this.refresh();
+        }
+      },
+      { allowSignalWrites: true, injector: this.injector },
+    );
+
+    effect(
+      () => {
+        const selectedId = this.selectedOrderId();
+
+        if (selectedId) {
+          void this.loadOrderActivity(selectedId);
+        } else {
+          this.orderActivity.set([]);
         }
       },
       { allowSignalWrites: true, injector: this.injector },
@@ -1305,14 +1460,13 @@ export class OrderManagementFacade {
     delete filters.limit;
     return filters;
   }
-
   private buildOrderPayload(): OrderUpsertPayload {
     const raw = this.orderForm.getRawValue();
     return {
       ebayOrderId: raw.ebayOrderId.trim(),
       ebayItemId: raw.ebayItemId.trim() || null,
       ebayListingUrl: raw.ebayListingUrl.trim() || null,
-      orderDate: raw.orderDate || new Date().toISOString().slice(0, 10),
+      orderDate: raw.orderDate || new Date().toLocaleDateString('en-CA'),
       quantity: raw.quantity || 1,
       salePrice: raw.salePrice.trim(),
       buyerCountry: raw.buyerCountry.trim() || null,
@@ -1542,31 +1696,8 @@ export class OrderManagementFacade {
         rows.push(...nextPage.items);
       }
 
-      const dateStamp = new Date().toISOString().slice(0, 10);
-      this.exportService.exportAsExcelTable({
-        filename: `orders-${this.mode()}-${dateStamp}.xlsx`,
-        sheetName: 'Orders',
-        rows,
-        columns: [
-          { header: 'Order Code', value: (row) => row.orderCode },
-          { header: 'eBay Order ID', value: (row) => row.ebayOrderId },
-          { header: 'Product', value: (row) => row.productTitle || '' },
-          { header: 'ASIN', value: (row) => row.asin || '' },
-          { header: 'Category', value: (row) => row.productCategory || '' },
-          { header: 'Hunter', value: (row) => row.hunterName || '' },
-          { header: 'Lister', value: (row) => row.listerName || '' },
-          { header: 'Account', value: (row) => row.accountName || '' },
-          { header: 'Quantity', value: (row) => row.quantity },
-          { header: 'Sale Price', value: (row) => row.salePrice },
-          { header: 'Total Cost', value: (row) => row.totalCost },
-          { header: 'Profit', value: (row) => row.profit },
-          { header: 'ROI', value: (row) => row.roi },
-          { header: 'Order Status', value: (row) => row.orderStatus },
-          { header: 'Placement Status', value: (row) => row.placementStatus },
-          { header: 'Order Date', value: (row) => row.orderDate },
-          { header: 'Tracking Number', value: (row) => row.trackingNumber || '' },
-        ],
-      });
+      const dateStamp = new Date().toLocaleDateString('en-CA');
+      this.downloadOrderWorkbook(rows, `orders-${this.mode()}-${dateStamp}.xlsx`);
       this.toast.success('Orders exported.');
     } catch (error) {
       this.error.set('Could not export orders.');
@@ -1598,6 +1729,52 @@ export class OrderManagementFacade {
         }
       })
       .catch(() => {});
+  }
+
+  private downloadOrderWorkbook(rows: Order[], filename: string): void {
+    this.exportService.exportAsExcelTable({
+      filename,
+      sheetName: 'Orders',
+      rows,
+      columns: [
+        { header: 'Order Code', value: (row) => row.orderCode },
+        { header: 'eBay Order ID', value: (row) => row.ebayOrderId },
+        { header: 'Product', value: (row) => row.productTitle || '' },
+        { header: 'ASIN', value: (row) => row.asin || '' },
+        { header: 'Category', value: (row) => row.productCategory || '' },
+        { header: 'Hunter', value: (row) => row.hunterName || '' },
+        { header: 'Lister', value: (row) => row.listerName || '' },
+        { header: 'Account', value: (row) => row.accountName || '' },
+        { header: 'Quantity', value: (row) => row.quantity },
+        { header: 'Sale Price', value: (row) => row.salePrice },
+        { header: 'Total Cost', value: (row) => row.totalCost },
+        { header: 'Profit', value: (row) => row.profit },
+        { header: 'ROI', value: (row) => row.roi },
+        { header: 'Order Status', value: (row) => row.orderStatus },
+        { header: 'Placement Status', value: (row) => row.placementStatus },
+        { header: 'Issue Status', value: (row) => row.issueStatus || '' },
+        { header: 'Order Date', value: (row) => row.orderDate },
+        { header: 'Tracking Number', value: (row) => row.trackingNumber || '' },
+      ],
+    });
+  }
+
+  private async loadOrderActivity(id: string): Promise<void> {
+    this.orderActivityLoading.set(true);
+    try {
+      const activity = await firstValueFrom(this.orderApi.getOrderActivity(id));
+      if (this.selectedOrderId() === id) {
+        this.orderActivity.set(activity);
+      }
+    } catch (error: unknown) {
+      if (this.selectedOrderId() === id) {
+        this.orderActivity.set([]);
+      }
+    } finally {
+      if (this.selectedOrderId() === id) {
+        this.orderActivityLoading.set(false);
+      }
+    }
   }
 
   private refreshStatsOnly(): void {

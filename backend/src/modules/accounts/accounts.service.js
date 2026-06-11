@@ -7,6 +7,30 @@ const { ensureOrdersTable } = require('../orders/orders.service');
 const { ensureChangeRequestTable } = require('../change-requests/change-requests.service');
 
 const DEFAULT_INVOICE_CURRENCY = 'USD';
+const MARKETPLACE_OPTIONS = [
+  'amazon',
+  'ebay',
+  'walmart',
+  'tiktok_shop',
+  'noon',
+  'woocommerce',
+  'shopify',
+];
+const COUNTRY_LABELS = {
+  usa: 'USA',
+  uk: 'UK',
+  canada: 'Canada',
+  uae: 'UAE',
+  pakistan: 'Pakistan',
+  other: 'Other',
+};
+const COUNTRY_CURRENCY_MAP = {
+  USA: 'USD',
+  UK: 'GBP',
+  Canada: 'CAD',
+  UAE: 'AED',
+  Pakistan: 'PKR',
+};
 const DEFAULT_PRIMARY_PAYMENT = {
   title: 'Primary Account',
   bankName: 'Trend Wave Solutions | Bank Alfalah (BAF)',
@@ -29,7 +53,11 @@ const accountSelect = `
   accounts.id,
   accounts.name,
   accounts.marketplace,
+  accounts.country,
+  accounts.currency,
   accounts.is_active AS "isActive",
+  accounts.client_profit_percentage AS "clientProfitPercentage",
+  accounts.company_profit_percentage AS "companyProfitPercentage",
   accounts.previous_order_count AS "previousOrderCount",
   accounts.last_month_profit AS "lastMonthProfit",
   COALESCE(listed_totals."totalProductsListed", 0)::int AS "totalProductsListed",
@@ -67,6 +95,14 @@ const monthFormatter = new Intl.DateTimeFormat('en-US', {
 
 const accountFromRow = (row) => ({
   ...row,
+  clientProfitPercentage:
+    row.clientProfitPercentage === null || row.clientProfitPercentage === undefined
+      ? null
+      : Number(row.clientProfitPercentage),
+  companyProfitPercentage:
+    row.companyProfitPercentage === null || row.companyProfitPercentage === undefined
+      ? null
+      : Number(row.companyProfitPercentage),
   previousOrderCount: Number(row.previousOrderCount || 0),
   lastMonthProfit: Number(row.lastMonthProfit || 0),
   assignedListers: Array.isArray(row.assignedListers) ? row.assignedListers : [],
@@ -153,15 +189,85 @@ const normalizeMarketplace = (value, fallback = 'ebay') => {
     return fallback;
   }
 
-  if (['ebay', 'e-bay'].includes(normalized)) {
+  const canonical = normalized.replace(/[\s-]+/g, '_');
+
+  if (['ebay', 'e_bay'].includes(canonical)) {
     return 'ebay';
   }
 
-  if (normalized === 'amazon') {
-    return 'amazon';
+  if (['tiktok', 'tiktok_shop'].includes(canonical)) {
+    return 'tiktok_shop';
   }
 
-  throw new AppError('Marketplace must be eBay or Amazon.', 400);
+  if (!MARKETPLACE_OPTIONS.includes(canonical)) {
+    throw new AppError(
+      'Marketplace must be Amazon, eBay, Walmart, TikTok Shop, Noon, WooCommerce, or Shopify.',
+      400,
+    );
+  }
+
+  return canonical;
+};
+
+const normalizeCountry = (value) => {
+  const normalized = String(value ?? '').trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const key = normalized.toLowerCase().replace(/[^a-z]/g, '');
+  return COUNTRY_LABELS[key] || normalized;
+};
+
+const inferCurrencyFromCountry = (country) => {
+  if (!country) {
+    return null;
+  }
+
+  return COUNTRY_CURRENCY_MAP[country] || null;
+};
+
+const normalizeCurrency = (value, country, fallback = DEFAULT_INVOICE_CURRENCY) => {
+  const normalized = String(value ?? '').trim().toUpperCase();
+
+  if (normalized) {
+    return normalized;
+  }
+
+  return inferCurrencyFromCountry(country) || fallback;
+};
+
+const normalizeProfitPercentage = (value, label) => {
+  if (value === undefined) {
+    return null;
+  }
+
+  if (value === null || value === '') {
+    return null;
+  }
+
+  const parsed = Number.parseFloat(String(value));
+
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+    throw new AppError(`${label} must be between 0 and 100.`, 400);
+  }
+
+  return Number(parsed.toFixed(2));
+};
+
+const assertValidProfitSplit = (clientProfitPercentage, companyProfitPercentage) => {
+  if (clientProfitPercentage === null && companyProfitPercentage === null) {
+    return;
+  }
+
+  if (clientProfitPercentage === null || companyProfitPercentage === null) {
+    throw new AppError('Client and company profit percentages must both be set.', 400);
+  }
+
+  if (Math.abs(clientProfitPercentage + companyProfitPercentage - 100) > 0.01) {
+    throw new AppError('Client and company profit percentages must total 100.', 400);
+  }
 };
 
 const toDateOnly = (value) => {
@@ -335,7 +441,11 @@ const ensureAccountColumns = async () => {
       await pool.query(`
         ALTER TABLE accounts
           ADD COLUMN IF NOT EXISTS previous_order_count INTEGER NOT NULL DEFAULT 0,
-          ADD COLUMN IF NOT EXISTS last_month_profit NUMERIC(10, 2) NOT NULL DEFAULT 0
+          ADD COLUMN IF NOT EXISTS last_month_profit NUMERIC(10, 2) NOT NULL DEFAULT 0,
+          ADD COLUMN IF NOT EXISTS country TEXT,
+          ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'USD',
+          ADD COLUMN IF NOT EXISTS client_profit_percentage NUMERIC(6, 2),
+          ADD COLUMN IF NOT EXISTS company_profit_percentage NUMERIC(6, 2)
       `);
     })().catch((error) => {
       ensureAccountColumnsPromise = null;
@@ -427,7 +537,7 @@ const ensureAccountSummaryDependencies = async () => {
 const listAccounts = async (user, query = {}) => {
   await ensureAccountColumns();
 
-  const { includeInactive, marketplace, status, search } = query;
+  const { includeInactive, marketplace, country, assignment, status, search } = query;
   const params = [];
   const where = [];
 
@@ -446,8 +556,27 @@ const listAccounts = async (user, query = {}) => {
   }
 
   if (marketplace) {
-    params.push(marketplace);
+    params.push(normalizeMarketplace(marketplace));
     where.push(`accounts.marketplace = $${params.length}`);
+  }
+
+  if (country) {
+    params.push(normalizeCountry(country));
+    where.push(`accounts.country = $${params.length}`);
+  }
+
+  if (assignment === 'assigned') {
+    where.push(`EXISTS (
+      SELECT 1
+      FROM lister_account_assignments assignment
+      WHERE assignment.account_id = accounts.id
+    )`);
+  } else if (assignment === 'unassigned') {
+    where.push(`NOT EXISTS (
+      SELECT 1
+      FROM lister_account_assignments assignment
+      WHERE assignment.account_id = accounts.id
+    )`);
   }
 
   if (status === 'active') {
@@ -692,7 +821,17 @@ const createAccountRecord = async (payload) => {
   }
 
   const marketplace = normalizeMarketplace(payload.marketplace, 'ebay');
+  const country = normalizeCountry(payload.country);
+  const currency = normalizeCurrency(payload.currency, country);
   const isActive = payload.isActive ?? true;
+  const clientProfitPercentage = normalizeProfitPercentage(
+    payload.clientProfitPercentage,
+    'Client profit percentage',
+  );
+  const companyProfitPercentage = normalizeProfitPercentage(
+    payload.companyProfitPercentage,
+    'Company profit percentage',
+  );
   const previousOrderCount =
     payload.previousOrderCount === undefined
       ? 0
@@ -710,19 +849,55 @@ const createAccountRecord = async (payload) => {
     throw new AppError('Last month profit must be a valid number.', 400);
   }
 
+  assertValidProfitSplit(clientProfitPercentage, companyProfitPercentage);
+
   const result = await pool.query(
     `
-      INSERT INTO accounts (name, marketplace, is_active, previous_order_count, last_month_profit)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO accounts (
+        name,
+        marketplace,
+        country,
+        currency,
+        is_active,
+        client_profit_percentage,
+        company_profit_percentage,
+        previous_order_count,
+        last_month_profit
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING id
     `,
-    [normalizedName, marketplace, isActive, previousOrderCount, lastMonthProfit],
+    [
+      normalizedName,
+      marketplace,
+      country,
+      currency,
+      isActive,
+      clientProfitPercentage,
+      companyProfitPercentage,
+      previousOrderCount,
+      lastMonthProfit,
+    ],
   );
 
   return getAccountById(result.rows[0].id);
 };
 
 const updateAccountRecord = async (id, payload) => {
+  const country =
+    payload.country === undefined ? null : normalizeCountry(payload.country);
+  const currency =
+    payload.currency === undefined && payload.country === undefined
+      ? null
+      : normalizeCurrency(payload.currency, country);
+  const clientProfitPercentage = normalizeProfitPercentage(
+    payload.clientProfitPercentage,
+    'Client profit percentage',
+  );
+  const companyProfitPercentage = normalizeProfitPercentage(
+    payload.companyProfitPercentage,
+    'Company profit percentage',
+  );
   const previousOrderCount =
     payload.previousOrderCount === undefined
       ? null
@@ -740,22 +915,41 @@ const updateAccountRecord = async (id, payload) => {
     throw new AppError('Last month profit must be a valid number.', 400);
   }
 
+  if (
+    payload.clientProfitPercentage !== undefined ||
+    payload.companyProfitPercentage !== undefined
+  ) {
+    const existing = await getAccountById(id);
+    assertValidProfitSplit(
+      clientProfitPercentage ?? existing.clientProfitPercentage ?? null,
+      companyProfitPercentage ?? existing.companyProfitPercentage ?? null,
+    );
+  }
+
   const result = await pool.query(
     `
       UPDATE accounts
       SET name = COALESCE($1, name),
           marketplace = COALESCE($2, marketplace),
-          is_active = COALESCE($3, is_active),
-          previous_order_count = COALESCE($4, previous_order_count),
-          last_month_profit = COALESCE($5, last_month_profit),
+          country = COALESCE($3, country),
+          currency = COALESCE($4, currency),
+          is_active = COALESCE($5, is_active),
+          client_profit_percentage = COALESCE($6, client_profit_percentage),
+          company_profit_percentage = COALESCE($7, company_profit_percentage),
+          previous_order_count = COALESCE($8, previous_order_count),
+          last_month_profit = COALESCE($9, last_month_profit),
           updated_at = NOW()
-      WHERE id = $6
+      WHERE id = $10
       RETURNING id
     `,
     [
       payload.name === undefined ? null : String(payload.name).trim(),
       payload.marketplace === undefined ? null : normalizeMarketplace(payload.marketplace),
+      payload.country === undefined ? null : country,
+      payload.currency === undefined && payload.country === undefined ? null : currency,
       payload.isActive === undefined ? null : Boolean(payload.isActive),
+      clientProfitPercentage,
+      companyProfitPercentage,
       previousOrderCount,
       lastMonthProfit,
       id,
@@ -849,9 +1043,23 @@ const bulkImportAccounts = async (actorUserId, rows = []) => {
     const lookup = buildImportLookup(row);
     const name = String(readImportValue(lookup, 'name', 'account name') ?? '').trim();
     const marketplace = readImportValue(lookup, 'marketplace');
+    const country = readImportValue(lookup, 'country', 'account country');
+    const currency = readImportValue(lookup, 'currency');
     const isActive = normalizeImportBoolean(
       readImportValue(lookup, 'isActive', 'active', 'enabled', 'status'),
       true,
+    );
+    const clientProfitPercentage = readImportValue(
+      lookup,
+      'client profit percentage',
+      'client percentage',
+      'client share',
+    );
+    const companyProfitPercentage = readImportValue(
+      lookup,
+      'company profit percentage',
+      'company percentage',
+      'company share',
     );
     const previousOrderValue = readImportValue(
       lookup,
@@ -891,7 +1099,11 @@ const bulkImportAccounts = async (actorUserId, rows = []) => {
       const payload = {
         name,
         marketplace,
+        country,
+        currency,
         isActive,
+        clientProfitPercentage,
+        companyProfitPercentage,
         previousOrderCount,
         lastMonthProfit,
       };

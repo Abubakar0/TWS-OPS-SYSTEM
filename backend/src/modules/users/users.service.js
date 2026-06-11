@@ -18,6 +18,9 @@ const {
 const { listAuditLogs, writeAuditLog } = require('./audit.service');
 const { getConfiguredLimit } = require('../system/system.service');
 const { ensureUserRoleSchema } = require('./user-schema.service');
+const { ensureTeamTables } = require('../teams/teams.service');
+const { ensureHrTables } = require('../hr/hr.service');
+const { getCriteria } = require('../criteria/criteria.service');
 
 const VALID_USER_STATUSES = ['active', 'disabled', 'locked', 'deleted'];
 
@@ -154,6 +157,39 @@ const deriveNameFromEmail = (email) => {
     .join(' ');
 };
 
+const buildQualityCaseSql = (criteria) => {
+  const excellentRoi = Math.max(criteria.minRoi + 15, criteria.minRoi * 1.35, 35);
+  const excellentProfit = Math.max(criteria.minProfit + 5, criteria.minProfit * 1.5, 5);
+  const excellentSales = Math.max(
+    criteria.minSalesLastTwoMonths + 12,
+    criteria.minSalesLastTwoMonths * 1.4,
+    12,
+  );
+  const excellentStock = Math.max(criteria.minStockCount + 4, criteria.minStockCount * 1.3, 12);
+  const excellentRating = Math.max(criteria.minRating + 0.5, 4.2);
+
+  return `
+    CASE
+      WHEN p.status = 'rejected' THEN 'Rejected'
+      WHEN (
+        (CASE WHEN COALESCE(p.roi, 0) >= ${excellentRoi} THEN 1 ELSE 0 END) +
+        (CASE WHEN COALESCE(p.profit, 0) >= ${excellentProfit} THEN 1 ELSE 0 END) +
+        (CASE WHEN COALESCE(p.sales_last_two_months, 0) >= ${excellentSales} THEN 1 ELSE 0 END) +
+        (CASE WHEN COALESCE(p.stock_quantity, 0) >= ${excellentStock} THEN 1 ELSE 0 END) +
+        (CASE WHEN COALESCE(p.rating, 0) >= ${excellentRating} THEN 1 ELSE 0 END)
+      ) >= 4 THEN 'Best Hunt'
+      WHEN (
+        (CASE WHEN COALESCE(p.roi, 0) >= ${excellentRoi} THEN 1 ELSE 0 END) +
+        (CASE WHEN COALESCE(p.profit, 0) >= ${excellentProfit} THEN 1 ELSE 0 END) +
+        (CASE WHEN COALESCE(p.sales_last_two_months, 0) >= ${excellentSales} THEN 1 ELSE 0 END) +
+        (CASE WHEN COALESCE(p.stock_quantity, 0) >= ${excellentStock} THEN 1 ELSE 0 END) +
+        (CASE WHEN COALESCE(p.rating, 0) >= ${excellentRating} THEN 1 ELSE 0 END)
+      ) >= 2 THEN 'Good Hunt'
+      ELSE 'Avg Hunt'
+    END
+  `;
+};
+
 const assertValidRole = (role) => {
   if (!VALID_ROLES.includes(role)) {
     throw new AppError('Invalid user role.', 400);
@@ -267,13 +303,10 @@ const buildVisibilityFilters = (actor, query) => {
   const clauses = [];
   const params = [];
 
-  if (hasRole(actor, 'admin') && !hasRole(actor, 'super_admin')) {
-    clauses.push(`(
-      COALESCE(roles, jsonb_build_array(role::text)) @> '["hunter"]'::jsonb
-      OR COALESCE(roles, jsonb_build_array(role::text)) @> '["lister"]'::jsonb
-      OR COALESCE(roles, jsonb_build_array(role::text)) @> '["order_processor"]'::jsonb
-      OR COALESCE(roles, jsonb_build_array(role::text)) @> '["hr"]'::jsonb
-    )`);
+  if (hasRole(actor, 'hr') && !hasAnyRole(actor, ['admin', 'super_admin'])) {
+    clauses.push(
+      `NOT (COALESCE(roles, jsonb_build_array(role::text)) @> '["super_admin"]'::jsonb)`,
+    );
   }
 
   if (!query.includeDeleted) {
@@ -282,10 +315,6 @@ const buildVisibilityFilters = (actor, query) => {
 
   if (query.role) {
     assertValidRole(query.role);
-
-    if (hasRole(actor, 'admin') && !hasRole(actor, 'super_admin') && !['hunter', 'lister', 'order_processor', 'hr'].includes(query.role)) {
-      throw new AppError('Admins can only access hunter, lister, order processor, and HR records.', 403);
-    }
 
     params.push(JSON.stringify([query.role]));
     clauses.push(`COALESCE(roles, jsonb_build_array(role::text)) @> $${params.length}::jsonb`);
@@ -312,6 +341,22 @@ const buildVisibilityFilters = (actor, query) => {
     whereSql: clauses.length ? `WHERE ${clauses.join(' AND ')}` : '',
     params,
   };
+};
+
+const listUserReference = async (actor, query = {}) => {
+  await ensureUserRoleSchema();
+  const filters = buildVisibilityFilters(actor, { ...query, includeDeleted: false });
+  const result = await pool.query(
+    `
+      SELECT ${userSelect}
+      FROM users
+      ${filters.whereSql}
+      ORDER BY name
+    `,
+    filters.params,
+  );
+
+  return result.rows.map(normalizeUser);
 };
 
 const listUsers = async (actor, query = {}) => {
@@ -345,6 +390,180 @@ const listUsers = async (actor, query = {}) => {
   return {
     items,
     ...buildPageMeta(pageRequest.page, pageRequest.limit, total),
+  };
+};
+
+const getUserDetails = async (actor, id) => {
+  await ensureUserRoleSchema();
+  await ensureTeamTables();
+  await ensureHrTables();
+
+  if (!hasAnyRole(actor, ['admin', 'super_admin'])) {
+    throw new AppError('You do not have access to user details.', 403);
+  }
+
+  const user = await getUserById(id, { includeDeleted: true });
+  const criteria = await getCriteria();
+  const qualityCase = buildQualityCaseSql(criteria);
+
+  const [
+    teamResult,
+    assignedAccountsResult,
+    assignedHuntersResult,
+    assignedListersResult,
+    hunterStatsResult,
+    listerStatsResult,
+    orderProcessorStatsResult,
+    hrStatsResult,
+    adminStatsResult,
+  ] = await Promise.all([
+    pool.query(
+      `
+        SELECT team.id::text AS id, team.name
+        FROM teams team
+        JOIN team_members member ON member.team_id = team.id
+        WHERE member.user_id = $1
+        ORDER BY team.name
+        LIMIT 1
+      `,
+      [id],
+    ),
+    pool.query(
+      `
+        SELECT
+          account.id::text AS id,
+          account.name,
+          account.marketplace,
+          COALESCE(account.country, NULL) AS country,
+          account.is_active AS "isActive"
+        FROM lister_account_assignments assignment
+        JOIN accounts account ON account.id = assignment.account_id
+        WHERE assignment.lister_id = $1
+        ORDER BY account.name
+      `,
+      [id],
+    ),
+    pool.query(
+      `
+        SELECT hunter.id::text AS id, hunter.name, hunter.email
+        FROM hunter_lister_assignments assignment
+        JOIN users hunter ON hunter.id = assignment.hunter_id
+        WHERE assignment.lister_id = $1
+          AND hunter.deleted_at IS NULL
+        ORDER BY hunter.name
+      `,
+      [id],
+    ),
+    pool.query(
+      `
+        SELECT lister.id::text AS id, lister.name, lister.email
+        FROM hunter_lister_assignments assignment
+        JOIN users lister ON lister.id = assignment.lister_id
+        WHERE assignment.hunter_id = $1
+          AND lister.deleted_at IS NULL
+        ORDER BY lister.name
+      `,
+      [id],
+    ),
+    pool.query(
+      `
+        WITH product_quality AS (
+          SELECT
+            p.status,
+            ${qualityCase} AS quality
+          FROM products p
+          WHERE p.hunter_id = $1
+            AND p.deleted_at IS NULL
+        )
+        SELECT
+          (SELECT COUNT(*)::int FROM products p WHERE p.hunter_id = $1 AND p.deleted_at IS NULL) AS "productsSubmitted",
+          (SELECT COUNT(*)::int FROM products p WHERE p.hunter_id = $1 AND p.deleted_at IS NULL AND p.status IN ('approved', 'assigned')) AS "approvedProducts",
+          (SELECT COUNT(*)::int FROM products p WHERE p.hunter_id = $1 AND p.deleted_at IS NULL AND p.status = 'rejected') AS "rejectedProducts",
+          COUNT(*) FILTER (WHERE quality = 'Best Hunt')::int AS "excellentProducts",
+          COUNT(*) FILTER (WHERE quality = 'Good Hunt')::int AS "goodProducts",
+          COUNT(*) FILTER (WHERE quality = 'Avg Hunt')::int AS "averageProducts",
+          (SELECT COUNT(*)::int FROM products p WHERE p.hunter_id = $1 AND p.deleted_at IS NULL AND p.status = 'listed') AS "listedProducts",
+          (SELECT COUNT(*)::int FROM orders o WHERE o.hunter_id = $1 AND o.deleted_at IS NULL) AS "ordersReceived",
+          (SELECT COUNT(*)::int FROM orders o WHERE o.hunter_id = $1 AND o.deleted_at IS NULL AND (o.order_status = 'ISSUE' OR COALESCE(o.issue_status, '') IN ('OPEN', 'IN_REVIEW'))) AS "orderIssues",
+          COALESCE((SELECT SUM(o.profit) FROM orders o WHERE o.hunter_id = $1 AND o.deleted_at IS NULL), 0)::numeric(10, 2) AS "totalProfit",
+          COALESCE((SELECT AVG(o.roi) FROM orders o WHERE o.hunter_id = $1 AND o.deleted_at IS NULL), 0)::numeric(10, 2) AS "averageRoi"
+        FROM product_quality
+      `,
+      [id],
+    ),
+    pool.query(
+      `
+        SELECT
+          (SELECT COUNT(*)::int FROM products p WHERE p.listed_by = $1 AND p.deleted_at IS NULL AND p.status = 'listed') AS "productsListed",
+          (SELECT COUNT(*)::int FROM products p WHERE p.assigned_lister_id = $1 AND p.deleted_at IS NULL AND p.status = 'rejected') AS "rejectedProducts",
+          (SELECT COUNT(*)::int FROM hunter_lister_assignments assignment WHERE assignment.lister_id = $1) AS "assignedHunters",
+          (SELECT COUNT(*)::int FROM product_change_requests request WHERE request.lister_id = $1) AS "changeRequests",
+          (SELECT COUNT(*)::int FROM product_change_requests request WHERE request.lister_id = $1 AND request.status IN ('OPEN', 'IN_PROGRESS')) AS "pendingChangeRequests",
+          (SELECT COUNT(*)::int FROM product_change_requests request WHERE request.lister_id = $1 AND request.status = 'FIXED') AS "fixedChangeRequests",
+          (SELECT COUNT(DISTINCT assignment.account_id)::int FROM lister_account_assignments assignment WHERE assignment.lister_id = $1) AS "listingAccountsUsed",
+          (SELECT COUNT(*)::int FROM products p WHERE p.listed_by = $1 AND p.deleted_at IS NULL AND p.listed_at IS NOT NULL) AS "totalListingsByDate"
+      `,
+      [id],
+    ),
+    pool.query(
+      `
+        SELECT
+          COUNT(*)::int AS "ordersAdded",
+          COUNT(*) FILTER (WHERE order_status IN ('PLACED', 'SHIPPED', 'DELIVERED'))::int AS "ordersPlaced",
+          COUNT(*) FILTER (WHERE order_status IN ('SHIPPED', 'DELIVERED'))::int AS "shippedOrders",
+          COUNT(*) FILTER (WHERE order_status = 'ISSUE' OR COALESCE(issue_status, '') IN ('OPEN', 'IN_REVIEW'))::int AS "issueOrders",
+          COUNT(*) FILTER (WHERE profit < 0)::int AS "lossOrders",
+          COUNT(*) FILTER (WHERE product_id IS NULL)::int AS "unmatchedOrders"
+        FROM orders
+        WHERE created_by = $1
+          AND deleted_at IS NULL
+      `,
+      [id],
+    ),
+    pool.query(
+      `
+        SELECT
+          (SELECT COUNT(*)::int FROM employee_profiles profile WHERE profile.created_by = $1 OR profile.updated_by = $1) AS "employeesManaged",
+          (SELECT COUNT(*)::int FROM hr_attendance attendance WHERE attendance.marked_by = $1) AS "attendanceActions",
+          (SELECT COUNT(*)::int FROM hr_leave_requests leave_request WHERE leave_request.approved_by = $1 AND leave_request.status = 'APPROVED') AS "leavesApproved",
+          (SELECT COUNT(*)::int FROM hr_leave_requests leave_request WHERE leave_request.approved_by = $1 AND leave_request.status = 'REJECTED') AS "leavesRejected",
+          (SELECT COUNT(*)::int FROM hr_expenses expense WHERE expense.approved_by = $1 AND expense.status = 'APPROVED') AS "expensesApproved",
+          (SELECT COUNT(*)::int FROM hr_expenses expense WHERE expense.approved_by = $1 AND expense.status = 'REJECTED') AS "expensesRejected",
+          (SELECT COUNT(*)::int FROM hr_payroll payroll WHERE payroll.created_by = $1 OR payroll.updated_by = $1 OR payroll.approved_by = $1) AS "payrollActions"
+      `,
+      [id],
+    ),
+    pool.query(
+      `
+        SELECT
+          (SELECT COUNT(*)::int FROM users workspace_user WHERE workspace_user.created_by = $1) AS "usersCreated",
+          (SELECT COUNT(*)::int FROM audit_logs audit WHERE audit.actor_user_id = $1 AND audit.action IN ('PRODUCT_EDITED_BY_ADMIN', 'product.bulk_update', 'product.update.admin')) AS "productsEdited",
+          (SELECT COUNT(*)::int FROM audit_logs audit WHERE audit.actor_user_id = $1 AND audit.action IN ('PRODUCT_REJECTED_BY_ADMIN', 'product.rejected')) AS "productsRejected",
+          (SELECT COUNT(*)::int FROM audit_logs audit WHERE audit.actor_user_id = $1 AND audit.action IN ('ACCOUNT_EDITED', 'ACCOUNT_DELETED', 'ACCOUNT_DISABLED', 'ACCOUNT_PROFIT_SPLIT_UPDATED', 'account.assignment.update', 'account.bulk_import')) AS "accountsManaged",
+          (SELECT COUNT(*)::int FROM audit_logs audit WHERE audit.actor_user_id = $1 AND (audit.action ILIKE '%export%' OR audit.action IN ('report.export', 'reports.export'))) AS "reportsExported",
+          (SELECT COUNT(*)::int FROM audit_logs audit WHERE audit.actor_user_id = $1) AS "activityFeedActions"
+      `,
+      [id],
+    ),
+  ]);
+
+  return {
+    user,
+    team: teamResult.rows[0] || null,
+    assignedAccounts: assignedAccountsResult.rows,
+    assignedHunters: assignedHuntersResult.rows,
+    assignedListers: assignedListersResult.rows,
+    stats: {
+      ...(hasRole(user, 'hunter') ? { hunter: {
+        ...hunterStatsResult.rows[0],
+        totalProfit: Number(hunterStatsResult.rows[0]?.totalProfit || 0),
+        averageRoi: Number(hunterStatsResult.rows[0]?.averageRoi || 0),
+      } } : {}),
+      ...(hasRole(user, 'lister') ? { lister: listerStatsResult.rows[0] || {} } : {}),
+      ...(hasRole(user, 'order_processor') ? { orderProcessor: orderProcessorStatsResult.rows[0] || {} } : {}),
+      ...(hasRole(user, 'hr') ? { hr: hrStatsResult.rows[0] || {} } : {}),
+      ...(hasRole(user, 'admin') ? { admin: adminStatsResult.rows[0] || {} } : {}),
+    },
   };
 };
 
@@ -610,13 +829,15 @@ const updateUser = async (actor, id, payload) => {
 
   const updatedUser = normalizeUser(result.rows[0]);
   const action =
-    payload.role !== undefined || payload.roles !== undefined
-      ? 'user.role.change'
-      : payload.isActive !== undefined || payload.status !== undefined
-        ? updatedUser.isActive
-          ? 'user.enable'
-          : 'user.disable'
-        : 'user.update';
+    actor.role === 'super_admin'
+      ? 'SUPER_ADMIN_EDITED_USER'
+      : payload.role !== undefined || payload.roles !== undefined
+        ? 'user.role.change'
+        : payload.isActive !== undefined || payload.status !== undefined
+          ? updatedUser.isActive
+            ? 'user.enable'
+            : 'user.disable'
+          : 'user.update';
 
   await writeAuditLog({
     actorUserId: actor.id,
@@ -658,7 +879,7 @@ const softDeleteUser = async (actor, id) => {
 
   await writeAuditLog({
     actorUserId: actor.id,
-    action: 'user.delete',
+    action: actor.role === 'super_admin' ? 'SUPER_ADMIN_DELETED_USER' : 'user.delete',
     targetType: 'user',
     targetId: deletedUser.id,
     details: { role: deletedUser.role, email: deletedUser.email },
@@ -948,6 +1169,8 @@ const getPermissionsMatrix = async () => listPermissionMatrix();
 
 module.exports = {
   getUserById,
+  getUserDetails,
+  listUserReference,
   listUsers,
   createUser,
   bulkImportUsers,

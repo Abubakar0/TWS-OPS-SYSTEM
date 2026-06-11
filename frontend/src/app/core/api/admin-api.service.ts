@@ -4,7 +4,7 @@ import { map, Observable, tap } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 import { CACHE_NAMESPACE, CACHE_TTL, makeCacheKey } from '../config/cache';
-import { LoginResponse, User, UserBulkImportResult, UserPermissions, UserRole } from '../models/auth.models';
+import { LoginResponse, User, UserBulkImportResult, UserDetails, UserPermissions, UserRole } from '../models/auth.models';
 import { HuntingCriteria } from '../models/product.models';
 import { RequestCacheService } from '../state/request-cache.service';
 import { PageResult } from '../state/query-state.models';
@@ -68,6 +68,23 @@ export class AdminApiService {
     );
   }
 
+  listUserReference(role?: UserRole): Observable<User[]> {
+    let params = new HttpParams();
+
+    if (role) {
+      params = params.set('role', role);
+    }
+
+    return this.requestCache.getOrCreate(
+      makeCacheKey(CACHE_NAMESPACE.users, { role: role || 'reference', ref: true }),
+      CACHE_TTL.long,
+      () =>
+        this.http
+          .get<{ users: User[] }>(`${environment.apiUrl}/users/reference`, { params })
+          .pipe(map((response) => response.users)),
+    );
+  }
+
   createUser(payload: {
     name: string;
     email: string;
@@ -110,6 +127,14 @@ export class AdminApiService {
 
   impersonateUser(id: string): Observable<LoginResponse> {
     return this.http.post<LoginResponse>(`${environment.apiUrl}/users/${id}/impersonate`, {});
+  }
+
+  getUserDetails(id: string): Observable<UserDetails> {
+    return this.requestCache.getOrCreate(
+      makeCacheKey(CACHE_NAMESPACE.users, { details: id }),
+      CACHE_TTL.short,
+      () => this.http.get<UserDetails>(`${environment.apiUrl}/users/${id}/details`),
+    );
   }
 
   listAuditLogs(filters: { action?: string; actorUserId?: string; actorRole?: string; targetType?: string; search?: string; from?: string; to?: string; page?: number; limit?: number } = {}): Observable<PageResult<AuditLogEntry>> {

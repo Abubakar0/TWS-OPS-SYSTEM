@@ -7,6 +7,8 @@ const SETTING_KEYS = {
   apiLimits: 'api_limits',
   ipRestriction: 'ip_restriction',
   productCategories: 'product_categories',
+  announcementBar: 'announcement_bar',
+  hrSettings: 'hr_settings',
 };
 
 const DEFAULT_API_LIMITS = {
@@ -55,6 +57,18 @@ const DEFAULT_PRODUCT_CATEGORIES = [
   active: true,
   sortOrder: index + 1,
 }));
+
+const DEFAULT_ANNOUNCEMENT_BAR = {
+  enabled: false,
+  tone: 'info',
+  title: '',
+  message: '',
+  updatedAt: null,
+};
+
+const DEFAULT_HR_SETTINGS = {
+  allowEmployeeProfileEditing: true,
+};
 
 const settingsCache = new Map();
 const CACHE_TTL_MS = 30_000;
@@ -118,6 +132,22 @@ const sanitizeProductCategories = (value = []) =>
     .filter((entry) => Boolean(entry.name))
     .sort((left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name));
 
+const sanitizeAnnouncementBar = (value = {}) => {
+  const tone = String(value.tone || 'info')
+    .trim()
+    .toLowerCase();
+
+  return {
+    enabled: Boolean(value.enabled) && Boolean(String(value.message || '').trim()),
+    tone: ['info', 'success', 'warning', 'danger'].includes(tone) ? tone : 'info',
+    title: String(value.title || '').trim(),
+    message: String(value.message || '')
+      .trim()
+      .replace(/\s+/g, ' '),
+    updatedAt: value.updatedAt || null,
+  };
+};
+
 const normalizeSettingRow = (key, value) => {
   if (key === SETTING_KEYS.apiLimits) {
     return sanitizeApiLimits(value);
@@ -129,6 +159,19 @@ const normalizeSettingRow = (key, value) => {
 
   if (key === SETTING_KEYS.productCategories) {
     return sanitizeProductCategories(value);
+  }
+
+  if (key === SETTING_KEYS.announcementBar) {
+    return sanitizeAnnouncementBar(value);
+  }
+
+  if (key === SETTING_KEYS.hrSettings) {
+    return {
+      allowEmployeeProfileEditing:
+        value?.allowEmployeeProfileEditing !== undefined
+          ? Boolean(value.allowEmployeeProfileEditing)
+          : DEFAULT_HR_SETTINGS.allowEmployeeProfileEditing,
+    };
   }
 
   return value || {};
@@ -227,6 +270,11 @@ const getProductCategories = async ({ includeInactive = false } = {}) => {
 
   return includeInactive ? categories : categories.filter((entry) => entry.active);
 };
+
+const getAnnouncementBar = async () =>
+  getSetting(SETTING_KEYS.announcementBar, DEFAULT_ANNOUNCEMENT_BAR);
+
+const getHrSettings = async () => getSetting(SETTING_KEYS.hrSettings, DEFAULT_HR_SETTINGS);
 
 const createProductCategory = async (user, payload = {}) => {
   const name = String(payload.name || '')
@@ -366,6 +414,49 @@ const updateIpRestriction = async (user, payload = {}) => {
   return saved;
 };
 
+const updateAnnouncementBar = async (user, payload = {}) => {
+  const next = sanitizeAnnouncementBar({
+    ...payload,
+    updatedAt: new Date().toISOString(),
+  });
+  const saved = await saveSetting(user, SETTING_KEYS.announcementBar, next);
+
+  await writeAuditLog({
+    actorUserId: user.id,
+    action: 'settings.announcement.update',
+    targetType: 'system',
+    targetId: user.id,
+    details: {
+      enabled: saved.enabled,
+      tone: saved.tone,
+      title: saved.title,
+      message: saved.message,
+    },
+  });
+
+  return saved;
+};
+
+const updateHrSettings = async (user, payload = {}) => {
+  const next = {
+    allowEmployeeProfileEditing:
+      payload.allowEmployeeProfileEditing !== undefined
+        ? Boolean(payload.allowEmployeeProfileEditing)
+        : DEFAULT_HR_SETTINGS.allowEmployeeProfileEditing,
+  };
+  const saved = await saveSetting(user, SETTING_KEYS.hrSettings, next);
+
+  await writeAuditLog({
+    actorUserId: user.id,
+    action: 'settings.hr.update',
+    targetType: 'system',
+    targetId: user.id,
+    details: saved,
+  });
+
+  return saved;
+};
+
 const getCurrentRequestIp = (req) => {
   const forwarded = req.get('x-forwarded-for');
 
@@ -420,13 +511,20 @@ const assertIpAllowed = async (user, req) => {
 };
 
 const getSystemSettings = async (req) => {
-  const [apiLimits, ipRestriction] = await Promise.all([getApiLimits(), getIpRestriction()]);
+  const [apiLimits, ipRestriction, announcementBar, hrSettings] = await Promise.all([
+    getApiLimits(),
+    getIpRestriction(),
+    getAnnouncementBar(),
+    getHrSettings(),
+  ]);
   const currentIp = getCurrentRequestIp(req);
   const activeIps = ipRestriction.allowedIps.filter((entry) => entry.active);
 
   return {
     apiLimits,
     ipRestriction,
+    announcementBar,
+    hrSettings,
     currentIp,
     ipRestrictionWarning:
       ipRestriction.enabled && activeIps.length === 0 ? 'No allowed IP configured. System currently open.' : '',
@@ -437,11 +535,16 @@ module.exports = {
   DEFAULT_API_LIMITS,
   DEFAULT_IP_RESTRICTION,
   DEFAULT_PRODUCT_CATEGORIES,
+  DEFAULT_HR_SETTINGS,
   getApiLimits,
   getConfiguredLimit,
   updateApiLimits,
   getIpRestriction,
   updateIpRestriction,
+  getAnnouncementBar,
+  updateAnnouncementBar,
+  getHrSettings,
+  updateHrSettings,
   getProductCategories,
   createProductCategory,
   updateProductCategory,

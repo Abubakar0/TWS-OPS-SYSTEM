@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -14,6 +14,7 @@ import { AdminFacade } from '../../core/facades/admin.facade';
 import { ROLE_LABELS } from '../../core/config/roles';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../shared/error-state/error-state.component';
+import { SearchableSelectComponent } from '../../shared/ui/searchable-select.component';
 
 @Component({
   selector: 'app-admin-users',
@@ -30,6 +31,7 @@ import { ErrorStateComponent } from '../../shared/error-state/error-state.compon
     MatTooltipModule,
     EmptyStateComponent,
     ErrorStateComponent,
+    SearchableSelectComponent,
   ],
   templateUrl: './admin-users.component.html',
   styleUrl: './admin-users.component.scss',
@@ -39,4 +41,13 @@ import { ErrorStateComponent } from '../../shared/error-state/error-state.compon
 export class AdminUsersComponent {
   readonly facade = inject(AdminFacade);
   readonly roleLabels = ROLE_LABELS;
+  readonly roleFilterOptions = computed(() => [
+    { value: 'all', label: 'All roles' },
+    ...this.facade.availableRoles().map((role) => ({ value: role, label: this.roleLabels[role] })),
+  ]);
+  readonly statusFilterOptions = [
+    { value: 'all', label: 'All statuses' },
+    { value: 'active', label: 'Active' },
+    { value: 'disabled', label: 'Disabled' },
+  ] as const;
 }

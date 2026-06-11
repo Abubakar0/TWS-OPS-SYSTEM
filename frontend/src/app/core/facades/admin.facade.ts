@@ -7,7 +7,14 @@ import { AdminApiService } from '../api/admin-api.service';
 import { AuthService } from '../auth/auth.service';
 import { ADMIN_MANAGED_ROLES, SUPER_ADMIN_MANAGED_ROLES } from '../config/roles';
 import { SEARCH_DEBOUNCE_MS } from '../config/validation';
-import { User, UserPermissions, UserRole, userHasRole, userHasAnyRole } from '../models/auth.models';
+import {
+  User,
+  UserDetails,
+  UserPermissions,
+  UserRole,
+  userHasRole,
+  userHasAnyRole,
+} from '../models/auth.models';
 import { ExportService } from '../services/export.service';
 import { mapUserRow } from '../mappers/user-row.mapper';
 import { ReferenceDataService } from '../state/reference-data.service';
@@ -18,9 +25,7 @@ import { ValidationMessageService } from '../ui/validation-message.service';
 import { createUserForm } from '../../shared/forms/user.form';
 import { GridSortState, paginateRecords, sortRecords } from '../../shared/grid/grid.utils';
 
-const buildPermissions = (
-  overrides: Partial<UserPermissions> = {},
-): UserPermissions => ({
+const buildPermissions = (overrides: Partial<UserPermissions> = {}): UserPermissions => ({
   canManageAdmins: Boolean(overrides.canManageAdmins),
   canManageUsers: Boolean(overrides.canManageUsers),
   canViewReports: Boolean(overrides.canViewReports),
@@ -38,7 +43,7 @@ const buildPermissions = (
 
 @Injectable()
 export class AdminFacade {
-  readonly pageSizeOptions = [8, 16, 32];
+  readonly pageSizeOptions = [30, 50, 100];
   readonly users = signal<User[]>([]);
   readonly loading = signal(false);
   readonly saving = signal(false);
@@ -53,6 +58,10 @@ export class AdminFacade {
   readonly editingUser = signal<User | null>(null);
   readonly passwordHidden = signal(true);
   readonly importingUsers = signal(false);
+  readonly userDetailsOpen = signal(false);
+  readonly userDetailsLoading = signal(false);
+  readonly userDetailsError = signal('');
+  readonly activeUserDetails = signal<UserDetails | null>(null);
 
   readonly searchControl = new FormControl('', { nonNullable: true });
   readonly userForm = createUserForm();
@@ -61,11 +70,19 @@ export class AdminFacade {
     nonNullable: true,
   });
 
-  readonly adminCount = computed(() => this.users().filter((user) => userHasRole(user, 'admin')).length);
+  readonly adminCount = computed(
+    () => this.users().filter((user) => userHasRole(user, 'admin')).length,
+  );
   readonly hrCount = computed(() => this.users().filter((user) => userHasRole(user, 'hr')).length);
-  readonly hunterCount = computed(() => this.users().filter((user) => userHasRole(user, 'hunter')).length);
-  readonly listerCount = computed(() => this.users().filter((user) => userHasRole(user, 'lister')).length);
-  readonly orderProcessorCount = computed(() => this.users().filter((user) => userHasRole(user, 'order_processor')).length);
+  readonly hunterCount = computed(
+    () => this.users().filter((user) => userHasRole(user, 'hunter')).length,
+  );
+  readonly listerCount = computed(
+    () => this.users().filter((user) => userHasRole(user, 'lister')).length,
+  );
+  readonly orderProcessorCount = computed(
+    () => this.users().filter((user) => userHasRole(user, 'order_processor')).length,
+  );
   readonly activeCount = computed(() => this.users().filter((user) => user.isActive).length);
   readonly disabledCount = computed(() => this.users().filter((user) => !user.isActive).length);
   readonly availableRoles = computed<UserRole[]>(() =>
@@ -80,7 +97,8 @@ export class AdminFacade {
     const status = this.statusFilter();
     const filtered = this.users().filter((user) => {
       const matchesRole = role === 'all' ? true : userHasRole(user, role);
-      const matchesStatus = status === 'all' ? true : status === 'active' ? user.isActive : !user.isActive;
+      const matchesStatus =
+        status === 'all' ? true : status === 'active' ? user.isActive : !user.isActive;
 
       if (!term) {
         return matchesRole && matchesStatus;
@@ -89,9 +107,12 @@ export class AdminFacade {
       return (
         matchesRole &&
         matchesStatus &&
-        [user.name, user.email, ...(user.roles || [user.role]), user.isActive ? 'enabled' : 'disabled'].some((value) =>
-          value.toLowerCase().includes(term),
-        )
+        [
+          user.name,
+          user.email,
+          ...(user.roles || [user.role]),
+          user.isActive ? 'enabled' : 'disabled',
+        ].some((value) => value.toLowerCase().includes(term))
       );
     });
 
@@ -110,10 +131,14 @@ export class AdminFacade {
     });
   });
   readonly userRows = computed(() =>
-    this.filteredUsers().map((user) => mapUserRow(user, this.auth.currentUser()?.role)),
+    this.filteredUsers().map((user) => mapUserRow(user, this.auth.currentUser())),
   );
-  readonly pagedUserRows = computed(() => paginateRecords(this.userRows(), this.pageIndex(), this.pageSize()));
-  readonly pageCount = computed(() => Math.max(1, Math.ceil(this.userRows().length / this.pageSize())));
+  readonly pagedUserRows = computed(() =>
+    paginateRecords(this.userRows(), this.pageIndex(), this.pageSize()),
+  );
+  readonly pageCount = computed(() =>
+    Math.max(1, Math.ceil(this.userRows().length / this.pageSize())),
+  );
   readonly pageLabel = computed(() => {
     const total = this.userRows().length;
 
@@ -126,9 +151,18 @@ export class AdminFacade {
     return `Showing ${start}-${end} of ${total}`;
   });
   readonly formErrors = computed(() => ({
-    name: this.messages.userFieldError(this.userForm.controls.name, this.userForm.controls.name.touched || this.userForm.controls.name.dirty),
-    email: this.messages.userFieldError(this.userForm.controls.email, this.userForm.controls.email.touched || this.userForm.controls.email.dirty),
-    password: this.messages.userFieldError(this.userForm.controls.password, this.userForm.controls.password.touched || this.userForm.controls.password.dirty),
+    name: this.messages.userFieldError(
+      this.userForm.controls.name,
+      this.userForm.controls.name.touched || this.userForm.controls.name.dirty,
+    ),
+    email: this.messages.userFieldError(
+      this.userForm.controls.email,
+      this.userForm.controls.email.touched || this.userForm.controls.email.dirty,
+    ),
+    password: this.messages.userFieldError(
+      this.userForm.controls.password,
+      this.userForm.controls.password.touched || this.userForm.controls.password.dirty,
+    ),
     roles: this.userForm.controls.roles.hasError('required')
       ? 'Select at least one role.'
       : this.userForm.controls.roles.hasError('invalidCombination')
@@ -194,6 +228,31 @@ export class AdminFacade {
     this.userForm.controls.password.setValidators([Validators.required, Validators.minLength(8)]);
     this.userForm.controls.password.updateValueAndValidity({ emitEvent: false });
     this.userModalOpen.set(true);
+  }
+
+  openUserDetails(user: User): void {
+    this.userDetailsOpen.set(true);
+    this.userDetailsLoading.set(true);
+    this.userDetailsError.set('');
+    this.activeUserDetails.set(null);
+
+    this.adminApi.getUserDetails(user.id).subscribe({
+      next: (details) => {
+        this.activeUserDetails.set(details);
+        this.userDetailsLoading.set(false);
+      },
+      error: (error) => {
+        this.userDetailsError.set(error?.error?.message || 'Could not load user details.');
+        this.userDetailsLoading.set(false);
+      },
+    });
+  }
+
+  closeUserDetails(): void {
+    this.userDetailsOpen.set(false);
+    this.userDetailsLoading.set(false);
+    this.userDetailsError.set('');
+    this.activeUserDetails.set(null);
   }
 
   openEditModal(user: User): void {
@@ -346,8 +405,7 @@ export class AdminFacade {
   }
 
   exportUsers(): void {
-    const dateStamp = new Date().toISOString().slice(0, 10);
-
+    const dateStamp = new Date().toLocaleDateString('en-CA');
     this.exportService.exportAsExcelTable({
       filename: `admin-users-${dateStamp}.xlsx`,
       sheetName: 'Users',
@@ -355,7 +413,10 @@ export class AdminFacade {
       columns: [
         { header: 'Name', value: (user) => user.name },
         { header: 'Email', value: (user) => user.email },
-        { header: 'Roles', value: (user) => (user.roles?.length ? user.roles.join(', ') : user.role) },
+        {
+          header: 'Roles',
+          value: (user) => (user.roles?.length ? user.roles.join(', ') : user.role),
+        },
         { header: 'Status', value: (user) => (user.isActive ? 'Enabled' : 'Disabled') },
       ],
     });
@@ -421,7 +482,8 @@ export class AdminFacade {
     } catch (error: unknown) {
       const message =
         error && typeof error === 'object' && 'error' in error
-          ? ((error as { error?: { message?: string } }).error?.message ?? 'Could not import users.')
+          ? ((error as { error?: { message?: string } }).error?.message ??
+            'Could not import users.')
           : 'Could not import users.';
       this.toast.error(message);
     } finally {
@@ -468,16 +530,22 @@ export class AdminFacade {
     this.loadUsers();
 
     this.searchControl.valueChanges
-      .pipe(debounceTime(SEARCH_DEBOUNCE_MS), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
+      .pipe(
+        debounceTime(SEARCH_DEBOUNCE_MS),
+        distinctUntilChanged(),
+        takeUntilDestroyed(this.destroyRef),
+      )
       .subscribe((value) => {
         this.searchTerm.set(value.trim().toLowerCase());
         this.pageIndex.set(0);
       });
 
-    this.roleFilterControl.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((value) => {
-      this.roleFilter.set(value);
-      this.pageIndex.set(0);
-    });
+    this.roleFilterControl.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((value) => {
+        this.roleFilter.set(value);
+        this.pageIndex.set(0);
+      });
 
     this.statusFilterControl.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))

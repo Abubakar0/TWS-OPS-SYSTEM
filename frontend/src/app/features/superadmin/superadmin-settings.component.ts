@@ -8,9 +8,10 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSelectModule } from '@angular/material/select';
 
 import { Account, HuntingCriteria } from '../../core/models/product.models';
-import { ApiLimitSettings } from '../../core/models/system.models';
+import { AnnouncementBarSettings, ApiLimitSettings, HrSettings } from '../../core/models/system.models';
 import { AccountApiService } from '../../core/api/account-api.service';
 import { AdminApiService } from '../../core/api/admin-api.service';
 import { SystemApiService } from '../../core/api/system-api.service';
@@ -31,6 +32,7 @@ import { ToastService } from '../../core/ui/toast.service';
     MatIconModule,
     MatInputModule,
     MatProgressSpinnerModule,
+    MatSelectModule,
   ],
   templateUrl: './superadmin-settings.component.html',
   styleUrl: './superadmin-settings.component.scss',
@@ -87,6 +89,15 @@ export class SuperAdminSettingsComponent implements OnInit {
     listingQueue: new FormControl(30, { nonNullable: true, validators: [Validators.required, Validators.min(10)] }),
     rejections: new FormControl(30, { nonNullable: true, validators: [Validators.required, Validators.min(10)] }),
   });
+  readonly announcementForm = new FormGroup({
+    enabled: new FormControl(false, { nonNullable: true }),
+    tone: new FormControl<'info' | 'success' | 'warning' | 'danger'>('info', { nonNullable: true }),
+    title: new FormControl('', { nonNullable: true }),
+    message: new FormControl('', { nonNullable: true }),
+  });
+  readonly hrSettingsForm = new FormGroup({
+    allowEmployeeProfileEditing: new FormControl(true, { nonNullable: true }),
+  });
 
   constructor(
     private readonly adminApi: AdminApiService,
@@ -132,7 +143,11 @@ export class SuperAdminSettingsComponent implements OnInit {
     });
 
     this.systemApi.getSettings(true).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (settings) => this.apiLimitsForm.patchValue(settings.apiLimits),
+      next: (settings) => {
+        this.apiLimitsForm.patchValue(settings.apiLimits);
+        this.announcementForm.patchValue(settings.announcementBar, { emitEvent: false });
+        this.hrSettingsForm.patchValue(settings.hrSettings, { emitEvent: false });
+      },
       error: (error) => this.error.set(error?.error?.message || 'Could not load system limits.'),
     });
   }
@@ -229,5 +244,53 @@ export class SuperAdminSettingsComponent implements OnInit {
       },
       complete: () => this.saving.set(false),
     });
+  }
+
+  saveAnnouncement(): void {
+    if (this.saving()) {
+      return;
+    }
+
+    this.saving.set(true);
+    this.error.set('');
+
+    this.systemApi
+      .updateAnnouncement(this.announcementForm.getRawValue() as AnnouncementBarSettings)
+      .subscribe({
+        next: (announcement) => {
+          this.announcementForm.patchValue(announcement, { emitEvent: false });
+          this.workspaceSync.notifySettingsChanged();
+          this.toast.success('Announcement updated.');
+        },
+        error: (error) => {
+          this.error.set(error?.error?.message || 'Could not save announcement.');
+          this.saving.set(false);
+        },
+        complete: () => this.saving.set(false),
+      });
+  }
+
+  saveHrSettings(): void {
+    if (this.saving()) {
+      return;
+    }
+
+    this.saving.set(true);
+    this.error.set('');
+
+    this.systemApi
+      .updateHrSettings(this.hrSettingsForm.getRawValue() as HrSettings)
+      .subscribe({
+        next: (settings) => {
+          this.hrSettingsForm.patchValue(settings, { emitEvent: false });
+          this.workspaceSync.notifySettingsChanged();
+          this.toast.success('HR settings updated.');
+        },
+        error: (error) => {
+          this.error.set(error?.error?.message || 'Could not save HR settings.');
+          this.saving.set(false);
+        },
+        complete: () => this.saving.set(false),
+      });
   }
 }

@@ -25,6 +25,8 @@ export class AccountApiService {
   listAccounts(options: {
     includeInactive?: boolean;
     marketplace?: string;
+    country?: string;
+    assignment?: 'assigned' | 'unassigned';
     status?: string;
     search?: string;
     page?: number;
@@ -42,6 +44,14 @@ export class AccountApiService {
 
     if (options.status) {
       params = params.set('status', options.status);
+    }
+
+    if (options.country) {
+      params = params.set('country', options.country);
+    }
+
+    if (options.assignment) {
+      params = params.set('assignment', options.assignment);
     }
 
     if (options.search) {
@@ -80,7 +90,11 @@ export class AccountApiService {
   createAccount(payload: {
     name: string;
     marketplace: string;
+    country?: string | null;
+    currency?: string | null;
     isActive: boolean;
+    clientProfitPercentage?: number | null;
+    companyProfitPercentage?: number | null;
     previousOrderCount?: number;
     lastMonthProfit?: number;
   }): Observable<Account> {
