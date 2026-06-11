@@ -43,7 +43,7 @@ const buildPermissions = (overrides: Partial<UserPermissions> = {}): UserPermiss
 
 @Injectable()
 export class AdminFacade {
-  readonly pageSizeOptions = [8, 16, 32];
+  readonly pageSizeOptions = [30, 50, 100];
   readonly users = signal<User[]>([]);
   readonly loading = signal(false);
   readonly saving = signal(false);

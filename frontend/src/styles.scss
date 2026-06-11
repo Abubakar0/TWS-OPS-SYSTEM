@@ -641,7 +641,7 @@ textarea.mat-mdc-input-element {
 .simple-table__header,
 .simple-table__row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 180px 180px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   align-items: center;
 }
@@ -655,7 +655,7 @@ textarea.mat-mdc-input-element {
 }
 
 .simple-table__row {
-  padding: 12px 14px;
+  padding: 12px 0px 12px 10px;
   border: 1px solid rgba(226, 232, 240, 0.92);
   border-radius: 16px;
   background: rgba(248, 250, 252, 0.78);
@@ -744,7 +744,11 @@ textarea.mat-mdc-input-element {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 251, 255, 0.92));
   color: var(--tws-muted);
 }
+.links-badge {
+  padding: 0 10px 0 0 !important;
+}
 
+.links-badge,
 .status-pill,
 .status-badge {
   display: inline-flex;
@@ -964,6 +968,7 @@ textarea.mat-mdc-input-element {
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.98);
   box-shadow: var(--tws-shadow-lg);
+  overflow: scroll;
 }
 
 .invoice-preview {
@@ -1332,7 +1337,7 @@ textarea.mat-mdc-input-element {
 }
 
 .settings-savebar span {
-  color: #fff;
+  color: #000;
   font-size: 0.82rem;
 }
 

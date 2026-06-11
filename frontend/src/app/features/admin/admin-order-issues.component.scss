@@ -27,6 +27,7 @@
 .issues-table {
   display: grid;
   gap: 10px;
+  overflow: auto;
 }
 
 .issues-table__head,

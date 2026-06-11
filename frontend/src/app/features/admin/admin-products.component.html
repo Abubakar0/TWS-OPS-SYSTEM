@@ -189,58 +189,101 @@
               <strong [attr.title]="product.title || product.asin || 'Untitled product'">{{
                 product.title || product.asin || 'Untitled product'
               }}</strong>
-              <small>ASIN {{ product.asin || 'Not Assigned' }}</small>
+              <small>ASIN: {{ product.asin || 'Not Assigned' }}</small>
               <small>{{ product.category || 'Not Assigned' }}</small>
               <div class="product-links">
                 @if (product.amazonUrl) {
-                  <a class="status-badge" [href]="product.amazonUrl" target="_blank" rel="noopener">Amazon</a>
+                  <a class="links-badge" [href]="product.amazonUrl" target="_blank" rel="noopener"
+                    >Amazon</a
+                  >
                 }
                 @if (product.amazonAltUrl) {
-                  <a class="status-badge" [href]="product.amazonAltUrl" target="_blank" rel="noopener">Amazon Alt</a>
+                  <a
+                    class="links-badge"
+                    [href]="product.amazonAltUrl"
+                    target="_blank"
+                    rel="noopener"
+                    >Amazon Alt</a
+                  >
                 }
                 @if (product.ebayUrl) {
-                  <a class="status-badge" [href]="product.ebayUrl" target="_blank" rel="noopener">Source eBay</a>
+                  <a class="links-badge" [href]="product.ebayUrl" target="_blank" rel="noopener"
+                    >Source eBay</a
+                  >
                 }
                 @if (product.listingUrl) {
-                  <a class="status-badge" [href]="product.listingUrl" target="_blank" rel="noopener">Listed eBay</a>
+                  <a class="links-badge" [href]="product.listingUrl" target="_blank" rel="noopener"
+                    >Listed eBay</a
+                  >
                 }
               </div>
             </div>
             <div class="product-cell">
               <strong>{{ product.hunterName }}</strong>
-              <small>Lister {{ product.assignedListerName || 'Not Assigned' }}</small>
-              <small>Account {{ product.accountName || 'Not Assigned' }}</small>
+              <small>Lister: {{ product.assignedListerName || 'Not Assigned' }}</small>
+              <small>Account: {{ product.accountName || 'Not Assigned' }}</small>
               <div class="product-badges">
-                <span class="status-badge">{{ product.status }}</span>
-                <span class="status-badge">{{ product.qualityLabel || 'Not Assigned' }}</span>
+                <span class="links-badge">{{ product.status }}</span>
+                <span class="links-badge">{{ product.qualityLabel || 'Not Assigned' }}</span>
               </div>
+              @if (product.rejectionReason) {
+                <small class="danger">Reason: {{ product.rejectionReason }}</small>
+              }
             </div>
             <div class="product-cell">
               <strong>${{ product.profit | number: '1.2-2' }}</strong>
               <small>ROI {{ product.roi | number: '1.2-2' }}%</small>
-              <small>Amazon ${{ product.amazonPrice ?? 0 | number: '1.2-2' }} | eBay ${{ product.ebayPrice ?? 0 | number: '1.2-2' }}</small>
+              <small
+                >Amazon ${{ product.amazonPrice ?? 0 | number: '1.2-2' }} | eBay ${{
+                  product.ebayPrice ?? 0 | number: '1.2-2'
+                }}</small
+              >
             </div>
             <div class="product-cell">
               <strong>Rating {{ product.rating ?? '0.0' }}</strong>
-              <small>Sold {{ product.soldCount || 0 }} | Stock {{ product.amazonStockCount ?? product.stockQuantity ?? 0 }}</small>
-              <small>Watchers {{ product.productWatchers ?? 0 }} | Sales {{ product.salesLastTwoMonths ?? 0 }}</small>
+              <small
+                >Sold {{ product.soldCount || 0 }} | Stock
+                {{ product.amazonStockCount ?? product.stockQuantity ?? 0 }}</small
+              >
+              <small
+                >Watchers {{ product.productWatchers ?? 0 }} | Sales
+                {{ product.salesLastTwoMonths ?? 0 }}</small
+              >
             </div>
             <div class="product-cell">
               <strong>Created {{ product.createdAt | date: 'MMM d, y' }}</strong>
-              <small>Listed {{ product.listedAt ? (product.listedAt | date: 'MMM d, y') : 'Not Listed' }}</small>
+              <small
+                >Listed
+                {{ product.listedAt ? (product.listedAt | date: 'MMM d, y') : 'Not Listed' }}</small
+              >
               <small>{{ product.deletedAt ? 'Deleted' : 'Active' }}</small>
             </div>
             <div class="row-actions">
-              <button mat-icon-button type="button" (click)="facade.openDetail(product)" matTooltip="View details">
+              <button
+                mat-icon-button
+                type="button"
+                (click)="facade.openDetail(product)"
+                matTooltip="View details"
+              >
                 <mat-icon>visibility</mat-icon>
               </button>
               @if (facade.canEditProducts()) {
-                <button mat-icon-button type="button" (click)="facade.openEditModal(product)" matTooltip="Edit product">
+                <button
+                  mat-icon-button
+                  type="button"
+                  (click)="facade.openEditModal(product)"
+                  matTooltip="Edit product"
+                >
                   <mat-icon>edit</mat-icon>
                 </button>
               }
               @if (facade.canRejectProducts() && product.status !== 'rejected') {
-                <button mat-icon-button type="button" (click)="facade.openRejectModal(product)" matTooltip="Reject product">
+                <button
+                  mat-icon-button
+                  type="button"
+                  (click)="facade.openRejectModal(product)"
+                  matTooltip="Reject product"
+                >
                   <mat-icon>block</mat-icon>
                 </button>
               }
@@ -360,7 +403,8 @@
             <span>Sold Count</span><strong>{{ product.soldCount || 0 }}</strong>
           </div>
           <div>
-            <span>Stock Count</span><strong>{{ product.amazonStockCount ?? product.stockQuantity ?? 0 }}</strong>
+            <span>Stock Count</span
+            ><strong>{{ product.amazonStockCount ?? product.stockQuantity ?? 0 }}</strong>
           </div>
           <div>
             <span>Watchers</span><strong>{{ product.productWatchers ?? 0 }}</strong>
@@ -372,7 +416,8 @@
             <span>ROI</span><strong>{{ product.roi | number: '1.2-2' }}%</strong>
           </div>
           <div>
-            <span>Amazon Price</span><strong>${{ product.amazonPrice ?? 0 | number: '1.2-2' }}</strong>
+            <span>Amazon Price</span
+            ><strong>${{ product.amazonPrice ?? 0 | number: '1.2-2' }}</strong>
           </div>
           <div>
             <span>eBay Price</span><strong>${{ product.ebayPrice ?? 0 | number: '1.2-2' }}</strong>
@@ -381,16 +426,24 @@
 
         <div class="detail-links">
           @if (product.amazonUrl) {
-            <a mat-stroked-button [href]="product.amazonUrl" target="_blank" rel="noopener">Amazon Link</a>
+            <a mat-stroked-button [href]="product.amazonUrl" target="_blank" rel="noopener"
+              >Amazon Link</a
+            >
           }
           @if (product.amazonAltUrl) {
-            <a mat-stroked-button [href]="product.amazonAltUrl" target="_blank" rel="noopener">Amazon Alternate Link</a>
+            <a mat-stroked-button [href]="product.amazonAltUrl" target="_blank" rel="noopener"
+              >Amazon Alternate Link</a
+            >
           }
           @if (product.ebayUrl) {
-            <a mat-stroked-button [href]="product.ebayUrl" target="_blank" rel="noopener">Source eBay Link</a>
+            <a mat-stroked-button [href]="product.ebayUrl" target="_blank" rel="noopener"
+              >Source eBay Link</a
+            >
           }
           @if (product.listingUrl) {
-            <a mat-stroked-button [href]="product.listingUrl" target="_blank" rel="noopener">Listed eBay Link</a>
+            <a mat-stroked-button [href]="product.listingUrl" target="_blank" rel="noopener"
+              >Listed eBay Link</a
+            >
           }
         </div>
       </section>
@@ -416,7 +469,11 @@
               <mat-label>Product title</mat-label>
               <input matInput formControlName="title" autocomplete="off" />
             </mat-form-field>
-            <app-searchable-select label="Category" [formControl]="facade.editForm.controls.category" [options]="facade.availableCategoryOptions()" />
+            <app-searchable-select
+              label="Category"
+              [formControl]="facade.editForm.controls.category"
+              [options]="facade.availableCategoryOptions()"
+            />
             <mat-form-field appearance="outline">
               <mat-label>Custom label</mat-label>
               <input matInput formControlName="customLabel" autocomplete="off" />
@@ -473,12 +530,21 @@
               <mat-label>Delivery days</mat-label>
               <input matInput type="number" formControlName="deliveryDays" />
             </mat-form-field>
-            <mat-checkbox formControlName="monthlyGraphUptrend">1-month graph trending up</mat-checkbox>
+            <mat-checkbox formControlName="monthlyGraphUptrend"
+              >1-month graph trending up</mat-checkbox
+            >
           </div>
 
           <div class="modal-actions">
-            <button mat-stroked-button type="button" (click)="facade.closeEditModal()">Cancel</button>
-            <button mat-flat-button color="primary" type="submit" [disabled]="facade.bulkEditing() || facade.editForm.invalid">
+            <button mat-stroked-button type="button" (click)="facade.closeEditModal()">
+              Cancel
+            </button>
+            <button
+              mat-flat-button
+              color="primary"
+              type="submit"
+              [disabled]="facade.bulkEditing() || facade.editForm.invalid"
+            >
               <mat-icon>save</mat-icon>
               <span>{{ facade.bulkEditing() ? 'Saving' : 'Save Product' }}</span>
             </button>
@@ -501,18 +567,31 @@
           </button>
         </div>
 
-        <form [formGroup]="facade.rejectForm" class="action-stack" (ngSubmit)="facade.confirmReject()">
+        <form
+          [formGroup]="facade.rejectForm"
+          class="action-stack"
+          (ngSubmit)="facade.confirmReject()"
+        >
           <mat-form-field appearance="outline">
             <mat-label>Rejection reason</mat-label>
             <textarea matInput rows="4" formControlName="reason"></textarea>
-            @if (facade.rejectForm.controls.reason.touched && facade.rejectForm.controls.reason.invalid) {
+            @if (
+              facade.rejectForm.controls.reason.touched && facade.rejectForm.controls.reason.invalid
+            ) {
               <mat-error>Enter at least 3 characters.</mat-error>
             }
           </mat-form-field>
 
           <div class="modal-actions">
-            <button mat-stroked-button type="button" (click)="facade.closeRejectModal()">Cancel</button>
-            <button mat-flat-button color="warn" type="submit" [disabled]="facade.deleting() || facade.rejectForm.invalid">
+            <button mat-stroked-button type="button" (click)="facade.closeRejectModal()">
+              Cancel
+            </button>
+            <button
+              mat-flat-button
+              color="warn"
+              type="submit"
+              [disabled]="facade.deleting() || facade.rejectForm.invalid"
+            >
               <mat-icon>block</mat-icon>
               <span>{{ facade.deleting() ? 'Rejecting' : 'Reject Product' }}</span>
             </button>

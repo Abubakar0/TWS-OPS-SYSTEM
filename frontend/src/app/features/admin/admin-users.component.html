@@ -378,40 +378,7 @@
           (action)="facade.closeUserDetails()"
         />
       } @else if (facade.activeUserDetails(); as details) {
-        <div class="detail-facts">
-          <div class="detail-fact">
-            <span>Name</span>
-            <strong>{{ details.user.name }}</strong>
-          </div>
-          <div class="detail-fact">
-            <span>Email</span>
-            <strong>{{ details.user.email }}</strong>
-          </div>
-          <div class="detail-fact">
-            <span>Status</span>
-            <strong>{{ details.user.isActive ? 'Active' : 'Disabled' }}</strong>
-          </div>
-          <div class="detail-fact">
-            <span>Team</span>
-            <strong>{{ details.team?.name || 'No team assigned' }}</strong>
-          </div>
-          <div class="detail-fact">
-            <span>Created</span>
-            <strong>{{
-              details.user.createdAt ? (details.user.createdAt | date: 'MMM d, y') : 'Unknown'
-            }}</strong>
-          </div>
-          <div class="detail-fact">
-            <span>Last Login</span>
-            <strong>{{
-              details.user.lastLogin
-                ? (details.user.lastLogin | date: 'MMM d, y, h:mm a')
-                : 'No login yet'
-            }}</strong>
-          </div>
-        </div>
-
-        <section class="detail-section">
+        <section class="role-section">
           <h3>Roles</h3>
           <div class="badge-list">
             @for (
@@ -466,13 +433,13 @@
         }
 
         @if (details.assignedListers.length) {
-          <section class="detail-section">
+          <section class="role-section">
             <h3>Assigned Listers</h3>
             <div class="detail-stack">
               @for (lister of details.assignedListers; track lister.id) {
                 <div class="detail-row">
                   <div>
-                    <strong>{{ lister.name }}</strong>
+                    <strong>{{ lister.name }}</strong> |
                     <span>{{ lister.email }}</span>
                   </div>
                 </div>
@@ -480,6 +447,39 @@
             </div>
           </section>
         }
+
+        <div class="detail-facts">
+          <div class="detail-fact">
+            <span>Name</span>
+            <strong>{{ details.user.name }}</strong>
+          </div>
+          <div class="detail-fact">
+            <span>Email</span>
+            <strong>{{ details.user.email }}</strong>
+          </div>
+          <div class="detail-fact">
+            <span>Status</span>
+            <strong>{{ details.user.isActive ? 'Active' : 'Disabled' }}</strong>
+          </div>
+          <div class="detail-fact">
+            <span>Team</span>
+            <strong>{{ details.team?.name || 'No team assigned' }}</strong>
+          </div>
+          <div class="detail-fact">
+            <span>Created</span>
+            <strong>{{
+              details.user.createdAt ? (details.user.createdAt | date: 'MMM d, y') : 'Unknown'
+            }}</strong>
+          </div>
+          <div class="detail-fact">
+            <span>Last Login</span>
+            <strong>{{
+              details.user.lastLogin
+                ? (details.user.lastLogin | date: 'MMM d, y, h:mm a')
+                : 'No login yet'
+            }}</strong>
+          </div>
+        </div>
 
         @if (details.stats.hunter; as hunterStats) {
           <section class="detail-section">

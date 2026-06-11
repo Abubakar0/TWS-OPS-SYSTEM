@@ -92,6 +92,10 @@
   justify-content: flex-end;
 }
 
+.text-white {
+  color: #fff !important;
+}
+
 @media (max-width: 1080px) {
   .settings-sections {
     grid-template-columns: 1fr;
