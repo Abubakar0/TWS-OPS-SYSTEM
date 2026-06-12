@@ -127,6 +127,77 @@
         <p>{{ editorDescription() }}</p>
       </div>
 
+      @if (selectedEmployee(); as employee) {
+        <div class="hr-badges">
+          <span class="status-badge status-badge--neutral">{{
+            employee.profileReviewStatus || 'APPROVED'
+          }}</span>
+          <span
+            class="status-badge"
+            [class.status-badge--danger]="employee.profileLocked"
+            [class.status-badge--success]="!employee.profileLocked"
+          >
+            {{ employee.profileLocked ? 'Locked' : 'Unlocked' }}
+          </span>
+        </div>
+
+        <div class="hr-inline-actions hr-inline-actions--spread">
+          <div class="hr-badges">
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="reviewProfile('APPROVE')"
+              [disabled]="saving()"
+            >
+              <mat-icon>check_circle</mat-icon>
+              <span>Approve</span>
+            </button>
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="reviewProfile('REQUEST_CHANGES')"
+              [disabled]="saving()"
+            >
+              <mat-icon>edit_note</mat-icon>
+              <span>Request Changes</span>
+            </button>
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="reviewProfile(employee.profileLocked ? 'UNLOCK' : 'LOCK')"
+              [disabled]="saving()"
+            >
+              <mat-icon>{{ employee.profileLocked ? 'lock_open' : 'lock' }}</mat-icon>
+              <span>{{ employee.profileLocked ? 'Unlock' : 'Lock' }}</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="hr-meta-grid">
+          <article class="hr-meta-card">
+            <span>Linked User</span><strong>{{ employee.fullName }}</strong>
+          </article>
+          <article class="hr-meta-card">
+            <span>Manager</span><strong>{{ employee.managerName || 'Not assigned' }}</strong>
+          </article>
+          <article class="hr-meta-card">
+            <span>Salary Base</span><strong>{{ employee.basicSalary | currency: 'USD' }}</strong>
+          </article>
+          <article class="hr-meta-card">
+            <span>Allowances</span><strong>{{ employee.allowances | currency: 'USD' }}</strong>
+          </article>
+        </div>
+        @if (employee.profileReviewNotes) {
+          <div class="inline-state inline-state--warning">
+            <mat-icon>feedback</mat-icon>
+            <div class="inline-state__content">
+              <strong>Review note</strong>
+              <span>{{ employee.profileReviewNotes }}</span>
+            </div>
+          </div>
+        }
+      }
+
       <form class="hr-form-grid" [formGroup]="employeeForm" (ngSubmit)="saveEmployee()">
         <app-searchable-select
           label="User"
@@ -224,80 +295,6 @@
           </button>
         </div>
       </form>
-
-      @if (selectedEmployee(); as employee) {
-        <div class="hr-badges">
-          <span class="status-badge status-badge--neutral">{{
-            employee.profileReviewStatus || 'APPROVED'
-          }}</span>
-          <span
-            class="status-badge"
-            [class.status-badge--danger]="employee.profileLocked"
-            [class.status-badge--success]="!employee.profileLocked"
-          >
-            {{ employee.profileLocked ? 'Locked' : 'Unlocked' }}
-          </span>
-        </div>
-
-        <div class="hr-inline-actions hr-inline-actions--spread">
-          <div class="hr-badges">
-            <button
-              mat-stroked-button
-              type="button"
-              (click)="reviewProfile('APPROVE')"
-              [disabled]="saving()"
-            >
-              <mat-icon>check_circle</mat-icon>
-              <span>Approve</span>
-            </button>
-            <button
-              mat-stroked-button
-              type="button"
-              (click)="reviewProfile('REQUEST_CHANGES')"
-              [disabled]="saving()"
-            >
-              <mat-icon>edit_note</mat-icon>
-              <span>Request Changes</span>
-            </button>
-            <button
-              mat-stroked-button
-              type="button"
-              (click)="reviewProfile(employee.profileLocked ? 'UNLOCK' : 'LOCK')"
-              [disabled]="saving()"
-            >
-              <mat-icon>{{ employee.profileLocked ? 'lock_open' : 'lock' }}</mat-icon>
-              <span>{{ employee.profileLocked ? 'Unlock' : 'Lock' }}</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="hr-meta-grid">
-          <article class="hr-meta-card">
-            <span>Linked User</span><strong>{{ employee.fullName }}</strong>
-          </article>
-          <article class="hr-meta-card">
-            <span>Manager</span><strong>{{ employee.managerName || 'Not assigned' }}</strong>
-          </article>
-          <article class="hr-meta-card">
-            <span>Date of Birth</span><strong>{{ employee.dateOfBirth ? (employee.dateOfBirth | date: 'MMM d, y') : 'Not set' }}</strong>
-          </article>
-          <article class="hr-meta-card">
-            <span>Salary Base</span><strong>{{ employee.basicSalary | currency: 'USD' }}</strong>
-          </article>
-          <article class="hr-meta-card">
-            <span>Allowances</span><strong>{{ employee.allowances | currency: 'USD' }}</strong>
-          </article>
-        </div>
-        @if (employee.profileReviewNotes) {
-          <div class="inline-state inline-state--warning">
-            <mat-icon>feedback</mat-icon>
-            <div class="inline-state__content">
-              <strong>Review note</strong>
-              <span>{{ employee.profileReviewNotes }}</span>
-            </div>
-          </div>
-        }
-      }
     </article>
   </section>
 </section>

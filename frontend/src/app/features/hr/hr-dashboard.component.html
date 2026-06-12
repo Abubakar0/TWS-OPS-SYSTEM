@@ -7,6 +7,7 @@
 
     <div class="hr-actions">
       <button mat-stroked-button type="button" (click)="applyPreset('today')">Today</button>
+      <button mat-stroked-button type="button" (click)="applyPreset('yesterday')">Yesterday</button>
       <button mat-stroked-button type="button" (click)="applyPreset('week')">This Week</button>
       <button mat-stroked-button type="button" (click)="applyPreset('month')">This Month</button>
       <button mat-stroked-button type="button" (click)="refresh()" [disabled]="loading()">
@@ -48,15 +49,34 @@
     </article>
   } @else if (stats(); as stats) {
     <section class="hr-kpis">
-      <article class="hr-kpi"><span>Total Employees</span><strong>{{ stats.totalEmployees || 0 }}</strong></article>
-      <article class="hr-kpi"><span>Active Employees</span><strong>{{ stats.activeEmployees || 0 }}</strong></article>
-      <article class="hr-kpi"><span>Present Today</span><strong>{{ stats.presentToday || 0 }}</strong></article>
-      <article class="hr-kpi"><span>Absent Today</span><strong>{{ stats.absentToday || 0 }}</strong></article>
-      <article class="hr-kpi"><span>Late Today</span><strong>{{ stats.lateToday || 0 }}</strong></article>
-      <article class="hr-kpi"><span>On Leave</span><strong>{{ stats.onLeave || 0 }}</strong></article>
-      <article class="hr-kpi"><span>Pending Leaves</span><strong>{{ stats.pendingLeaves || 0 }}</strong></article>
-      <article class="hr-kpi"><span>Pending Expenses</span><strong>{{ stats.pendingExpenses || 0 }}</strong></article>
-      <article class="hr-kpi"><span>Monthly Salary Cost</span><strong>{{ stats.monthlySalaryCost | currency: 'USD' }}</strong></article>
+      <article class="hr-kpi">
+        <span>Total Employees</span><strong>{{ stats.totalEmployees || 0 }}</strong>
+      </article>
+      <article class="hr-kpi">
+        <span>Active Employees</span><strong>{{ stats.activeEmployees || 0 }}</strong>
+      </article>
+      <article class="hr-kpi">
+        <span>Present Today</span><strong>{{ stats.presentToday || 0 }}</strong>
+      </article>
+      <article class="hr-kpi">
+        <span>Absent Today</span><strong>{{ stats.absentToday || 0 }}</strong>
+      </article>
+      <article class="hr-kpi">
+        <span>Late Today</span><strong>{{ stats.lateToday || 0 }}</strong>
+      </article>
+      <article class="hr-kpi">
+        <span>On Leave</span><strong>{{ stats.onLeave || 0 }}</strong>
+      </article>
+      <article class="hr-kpi">
+        <span>Pending Leaves</span><strong>{{ stats.pendingLeaves || 0 }}</strong>
+      </article>
+      <article class="hr-kpi">
+        <span>Pending Expenses</span><strong>{{ stats.pendingExpenses || 0 }}</strong>
+      </article>
+      <article class="hr-kpi">
+        <span>Monthly Salary Cost</span
+        ><strong>{{ stats.monthlySalaryCost | currency: 'USD' }}</strong>
+      </article>
     </section>
 
     <section class="hr-layout">
@@ -105,7 +125,7 @@
             @for (item of stats.todaysBirthdays; track item.id) {
               <div class="hr-list-card">
                 <strong>{{ item.employeeName }}</strong>
-                <small>Birthday today{{ item.department ? (' | ' + item.department) : '' }}</small>
+                <small>Birthday today{{ item.department ? ' | ' + item.department : '' }}</small>
               </div>
             }
             @for (item of stats.upcomingBirthdays; track item.id) {
@@ -147,7 +167,10 @@
             @for (leave of stats.pendingApprovals.leaves; track leave.id) {
               <div class="hr-list-card">
                 <strong>{{ leave.employeeName }}</strong>
-                <small>{{ leave.leaveType }} | {{ leave.startDate | date: 'MMM d' }} - {{ leave.endDate | date: 'MMM d' }}</small>
+                <small
+                  >{{ leave.leaveType }} | {{ leave.startDate | date: 'MMM d' }} -
+                  {{ leave.endDate | date: 'MMM d' }}</small
+                >
               </div>
             }
             @for (expense of stats.pendingApprovals.expenses; track expense.id) {
@@ -172,7 +195,9 @@
             @for (leave of stats.upcomingLeaves; track leave.id) {
               <div class="hr-list-card">
                 <strong>{{ leave.employeeName }}</strong>
-                <small>{{ leave.leaveType }} | Starts {{ leave.startDate | date: 'MMM d, y' }}</small>
+                <small
+                  >{{ leave.leaveType }} | Starts {{ leave.startDate | date: 'MMM d, y' }}</small
+                >
               </div>
             }
             @if (!stats.upcomingLeaves.length) {
@@ -183,6 +208,10 @@
       </div>
     </section>
   } @else {
-    <app-empty-state title="No HR data yet" message="Add employees or mark attendance to start seeing HR insights." icon="badge" />
+    <app-empty-state
+      title="No HR data yet"
+      message="Add employees or mark attendance to start seeing HR insights."
+      icon="badge"
+    />
   }
 </section>

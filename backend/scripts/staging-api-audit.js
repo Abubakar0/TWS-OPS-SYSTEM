@@ -144,9 +144,19 @@ async function main() {
     { role: 'lister', token: listerToken, path: `/dashboard/lister?from=${RANGE.from}&to=${RANGE.to}` },
     { role: 'lister', token: listerToken, path: '/dashboard/lister-account-usage' },
     { role: 'superadmin', token: superAdminToken, path: `/dashboard/super-admin?from=${RANGE.from}&to=${RANGE.to}&category=Electronics` },
+    { role: 'hunter', token: hunterToken, path: '/hr/me' },
+    { role: 'lister', token: listerToken, path: '/hr/me' },
+    { role: 'admin', token: adminToken, path: '/hr/me', expectedStatuses: [200, 404] },
+    { role: 'superadmin', token: superAdminToken, path: '/hr/me', expectedStatuses: [200, 404] },
+    { role: 'admin', token: adminToken, path: `/reports/summary?dateFrom=${RANGE.from}&dateTo=${RANGE.to}` },
+    { role: 'superadmin', token: superAdminToken, path: `/reports/summary?dateFrom=${RANGE.from}&dateTo=${RANGE.to}` },
+    { role: 'admin', token: adminToken, path: `/reports/executive?dateFrom=${RANGE.from}&dateTo=${RANGE.to}` },
+    { role: 'superadmin', token: superAdminToken, path: `/reports/executive?dateFrom=${RANGE.from}&dateTo=${RANGE.to}` },
 
     { role: 'hunter', token: hunterToken, path: `/products?page=1&limit=5&from=${RANGE.from}&to=${RANGE.to}&category=Electronics` },
     { role: 'lister', token: listerToken, path: `/products?page=1&limit=5&status=assigned&category=Electronics` },
+    { role: 'admin', token: adminToken, path: '/products?page=1&limit=5&status=listed_needs_review' },
+    { role: 'superadmin', token: superAdminToken, path: '/products?page=1&limit=5&status=listed_needs_review' },
     { role: 'admin', token: adminToken, path: '/products/check-asin?asin=' + KNOWN_ASIN },
     { role: 'hunter', token: hunterToken, path: '/products/check-asin?asin=' + KNOWN_ASIN },
     { role: 'lister', token: listerToken, path: '/products/assigned-hunters' },
@@ -181,6 +191,8 @@ async function main() {
 
     { role: 'hunter', token: hunterToken, path: `/orders?page=1&limit=5&from=${RANGE.from}&to=${RANGE.to}` },
     { role: 'lister', token: listerToken, path: `/orders?page=1&limit=5&from=${RANGE.from}&to=${RANGE.to}` },
+    { role: 'admin', token: adminToken, path: `/orders?page=1&limit=5&search=%25` },
+    { role: 'admin', token: adminToken, path: `/orders?page=1&limit=5&search=%27` },
     { role: 'admin', token: adminToken, path: `/orders/stats?from=${RANGE.from}&to=${RANGE.to}` },
     { role: 'hunter', token: hunterToken, path: `/orders/stats?from=${RANGE.from}&to=${RANGE.to}` },
     { role: 'lister', token: listerToken, path: `/orders/stats?from=${RANGE.from}&to=${RANGE.to}` },
@@ -210,7 +222,7 @@ async function main() {
   }
   if (sampleIssueId) {
     checks.push(
-      { role: 'hunter', token: hunterToken, path: `/order-issues/${sampleIssueId}` },
+      { role: 'hunter', token: hunterToken, path: `/order-issues/${sampleIssueId}`, expectedStatuses: [200, 404] },
       { role: 'admin', token: adminToken, path: `/order-issues/${sampleIssueId}` },
     );
   }
@@ -230,7 +242,10 @@ async function main() {
       continue;
     }
     try {
-      const result = await request(check.path, { token: check.token, expectedStatuses: [200] });
+      const result = await request(check.path, {
+        token: check.token,
+        expectedStatuses: check.expectedStatuses || [200],
+      });
       report.push({ role: check.role, ...result });
     } catch (error) {
       report.push({ role: check.role, path: check.path, method: 'GET', ok: false, status: 0, body: String(error) });

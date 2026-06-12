@@ -14,6 +14,13 @@ import { ToastService } from '../../core/ui/toast.service';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../shared/error-state/error-state.component';
 
+const toLocalDateInput = (value: Date): string => {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 @Component({
   selector: 'app-hr-expenses',
   imports: [
@@ -49,6 +56,8 @@ export class HrExpensesComponent implements OnInit {
   readonly employeeFilter = new FormControl('', { nonNullable: true });
   readonly statusFilter = new FormControl('', { nonNullable: true });
   readonly categoryFilter = new FormControl('', { nonNullable: true });
+  readonly dateFrom = new FormControl('', { nonNullable: true });
+  readonly dateTo = new FormControl('', { nonNullable: true });
 
   readonly expenseForm = new FormGroup({
     employeeId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
@@ -76,7 +85,7 @@ export class HrExpensesComponent implements OnInit {
   }
 
   loadEmployees(): void {
-    this.hrApi.listEmployees({ limit: 100 }).subscribe({
+    this.hrApi.listEmployees({ limit: 100, activeOnly: true, excludeSuperAdmin: true }).subscribe({
       next: (result) => this.employees.set(result.items),
       error: () => undefined,
     });
@@ -92,6 +101,8 @@ export class HrExpensesComponent implements OnInit {
         employeeId: this.employeeFilter.value,
         status: this.statusFilter.value,
         category: this.categoryFilter.value,
+        dateFrom: this.dateFrom.value,
+        dateTo: this.dateTo.value,
       })
       .subscribe({
         next: (result) => {
@@ -123,6 +134,19 @@ export class HrExpensesComponent implements OnInit {
       expenseDate: '',
       receiptUrl: '',
     });
+  }
+
+  applyDatePreset(preset: 'today' | 'yesterday'): void {
+    const target = new Date();
+
+    if (preset === 'yesterday') {
+      target.setDate(target.getDate() - 1);
+    }
+
+    const date = toLocalDateInput(target);
+    this.dateFrom.setValue(date);
+    this.dateTo.setValue(date);
+    this.loadExpenses(1);
   }
 
   createExpense(): void {

@@ -26,6 +26,20 @@
       [badge]="total() + ' issues'"
       storageKey="tws_hunter_order_issue_filters"
     >
+      <div class="range-toolbar">
+        <button mat-stroked-button type="button" class="range-chip" (click)="applyDatePreset('today')">
+          Today
+        </button>
+        <button
+          mat-stroked-button
+          type="button"
+          class="range-chip"
+          (click)="applyDatePreset('yesterday')"
+        >
+          Yesterday
+        </button>
+      </div>
+
       <form class="issues-filters-form" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
         <mat-form-field appearance="outline" class="grid-toolbar__search">
           <mat-label>Search order, product, ASIN, or issue</mat-label>

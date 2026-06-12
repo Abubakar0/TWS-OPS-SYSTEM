@@ -4,6 +4,7 @@ export type OrderStatus =
   | 'PLACED'
   | 'SHIPPED'
   | 'DELIVERED'
+  | 'RETURNED'
   | 'CANCELLED'
   | 'REFUNDED'
   | 'ISSUE'

@@ -4,9 +4,11 @@ const { normalizePageRequest, buildPageMeta } = require('../../utils/pagination'
 const { getConfiguredLimit } = require('../system/system.service');
 const { writeAuditLog } = require('../users/audit.service');
 const { createLinkedChangeRequest } = require('../change-requests/change-requests.service');
+const { hasRole, hasAnyRole } = require('../users/permissions');
 
 const ORDER_LIMIT_CATEGORY = 'orders';
-const ORDER_STATUSES = ['NEW', 'READY_TO_PLACE', 'PLACED', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED', 'ISSUE', 'ON_HOLD'];
+const BUSINESS_TIMEZONE = process.env.APP_TIMEZONE || 'Asia/Karachi';
+const ORDER_STATUSES = ['NEW', 'READY_TO_PLACE', 'PLACED', 'SHIPPED', 'DELIVERED', 'RETURNED', 'CANCELLED', 'REFUNDED', 'ISSUE', 'ON_HOLD'];
 const PLACEMENT_STATUSES = ['NOT_PLACED', 'PLACED', 'FAILED', 'CANCELLED'];
 const PAYMENT_STATUSES = ['PAID', 'PENDING', 'REFUNDED', 'PARTIALLY_REFUNDED'];
 const MATCH_STATUSES = ['matched', 'unmatched'];
@@ -32,11 +34,17 @@ const ORDER_IMPACTS = [
   'Other',
 ];
 
+const localDateSql = (column) => `((${column}) AT TIME ZONE '${BUSINESS_TIMEZONE}')::date`;
+const localMonthSql = (column) => `date_trunc('month', (${column}) AT TIME ZONE '${BUSINESS_TIMEZONE}')`;
+const currentLocalDateSql = `((NOW()) AT TIME ZONE '${BUSINESS_TIMEZONE}')::date`;
+const currentLocalMonthSql = `date_trunc('month', (NOW()) AT TIME ZONE '${BUSINESS_TIMEZONE}')`;
+
 const hasOrderWriteAccess = (user) =>
-  ['admin', 'super_admin', 'order_processor'].includes(user.role) || Boolean(user.permissions?.canProcessOrders);
+  hasAnyRole(user, ['admin', 'super_admin', 'order_processor']) ||
+  Boolean(user.permissions?.canProcessOrders);
 
 const hasGlobalOrderReadAccess = (user) =>
-  ['admin', 'super_admin'].includes(user.role) || Boolean(user.permissions?.canViewAllOrders);
+  hasAnyRole(user, ['admin', 'super_admin']) || Boolean(user.permissions?.canViewAllOrders);
 
 const toMoney = (value, fallback = 0) => {
   if (value === null || value === undefined || value === '') {
@@ -99,7 +107,7 @@ const isPlacedOrder = (order) =>
       order.placedDate),
   );
 
-const SIMPLE_ORDER_STATUSES = ['NEW', 'READY_TO_PLACE', 'ON_HOLD', 'CANCELLED', 'REFUNDED'];
+const SIMPLE_ORDER_STATUSES = ['RETURNED', 'ON_HOLD', 'CANCELLED', 'REFUNDED', 'ISSUE'];
 
 const isValidHttpUrl = (value, marketplace = null) => {
   if (!value) {
@@ -402,19 +410,46 @@ const ensureOrdersTable = async () => {
   `);
 
   await pool.query(`
+    ALTER TABLE orders
+      ALTER COLUMN supplier_order_status SET DEFAULT 'PLACED',
+      ALTER COLUMN order_status SET DEFAULT 'PLACED',
+      ALTER COLUMN placement_status SET DEFAULT 'PLACED',
+      ALTER COLUMN payment_status SET DEFAULT 'PAID'
+  `);
+
+  await pool.query(`
     UPDATE orders
     SET order_code = COALESCE(order_code, 'ORD-' || UPPER(SUBSTRING(id::text, 1, 8))),
         match_status = COALESCE(match_status, CASE WHEN product_id IS NULL THEN 'unmatched' ELSE 'matched' END),
-        order_status = COALESCE(order_status, 'NEW'),
-        placement_status = COALESCE(placement_status, 'NOT_PLACED'),
-        payment_status = COALESCE(payment_status, 'PENDING'),
-        supplier_order_status = COALESCE(supplier_order_status, 'NOT_PLACED')
+        order_status = CASE
+          WHEN order_status IS NULL OR order_status IN ('NEW', 'READY_TO_PLACE') THEN 'PLACED'
+          ELSE order_status
+        END,
+        placement_status = CASE
+          WHEN placement_status IS NULL OR placement_status IN ('NOT_PLACED', 'FAILED') THEN 'PLACED'
+          WHEN order_status = 'CANCELLED' THEN 'CANCELLED'
+          ELSE placement_status
+        END,
+        payment_status = CASE
+          WHEN payment_status IS NULL OR payment_status = 'PENDING' THEN 'PAID'
+          ELSE payment_status
+        END,
+        supplier_order_status = CASE
+          WHEN supplier_order_status IS NULL OR supplier_order_status IN ('NOT_PLACED', 'NEW', 'READY_TO_PLACE') THEN 'PLACED'
+          ELSE supplier_order_status
+        END,
+        placed_date = COALESCE(placed_date, order_date)
     WHERE order_code IS NULL
        OR match_status IS NULL
        OR order_status IS NULL
        OR placement_status IS NULL
        OR payment_status IS NULL
        OR supplier_order_status IS NULL
+       OR order_status IN ('NEW', 'READY_TO_PLACE')
+       OR placement_status IN ('NOT_PLACED', 'FAILED')
+       OR payment_status = 'PENDING'
+       OR supplier_order_status IN ('NOT_PLACED', 'NEW', 'READY_TO_PLACE')
+       OR placed_date IS NULL
   `);
 
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_ebay_order_id_unique ON orders (LOWER(ebay_order_id))`);
@@ -436,11 +471,11 @@ const buildAccessFilters = (user, query = {}, { column = 'o.order_date' } = {}) 
   };
 
   if (!hasGlobalOrderReadAccess(user)) {
-    if (user.role === 'hunter') {
+    if (hasRole(user, 'hunter') && !hasAnyRole(user, ['admin', 'super_admin', 'lister', 'order_processor'])) {
       add('o.hunter_id = ?', user.id);
-    } else if (user.role === 'lister') {
+    } else if (hasRole(user, 'lister') && !hasAnyRole(user, ['admin', 'super_admin', 'hunter', 'order_processor'])) {
       add('o.lister_id = ?', user.id);
-    } else if (user.role === 'order_processor' || user.permissions?.canProcessOrders) {
+    } else if (hasRole(user, 'order_processor') || user.permissions?.canProcessOrders) {
       add('o.created_by = ?', user.id);
     } else {
       throw new AppError('You do not have access to orders.', 403);
@@ -496,11 +531,14 @@ const buildAccessFilters = (user, query = {}, { column = 'o.order_date' } = {}) 
   }
 
   if (query.dateFrom) {
-    add(`${column} >= ?`, query.dateFrom);
+    add(`${column} >= (?::date::timestamp AT TIME ZONE '${BUSINESS_TIMEZONE}')`, query.dateFrom);
   }
 
   if (query.dateTo) {
-    add(`${column} < (?::date + INTERVAL '1 day')`, query.dateTo);
+    add(
+      `${column} < (((?::date + INTERVAL '1 day')::timestamp) AT TIME ZONE '${BUSINESS_TIMEZONE}')`,
+      query.dateTo,
+    );
   }
 
   if (query.search) {
@@ -746,6 +784,23 @@ const prepareOrderPayload = async (payload, { existingOrder = null } = {}) => {
     otherCost,
   });
 
+  const orderStatus = toBooleanText(
+    payload.orderStatus,
+    ORDER_STATUSES,
+    existingOrder?.orderStatus || 'PLACED',
+  );
+  const placementStatus = toBooleanText(
+    payload.placementStatus,
+    PLACEMENT_STATUSES,
+    existingOrder?.placementStatus || 'PLACED',
+  );
+  const paymentStatus = toBooleanText(
+    payload.paymentStatus,
+    PAYMENT_STATUSES,
+    existingOrder?.paymentStatus || 'PAID',
+  );
+  const placedDate = payload.placedDate || existingOrder?.placedDate || orderDate;
+
   return {
     ebayOrderId,
     ebayItemId: toText(payload.ebayItemId) || existingOrder?.ebayItemId || null,
@@ -776,17 +831,17 @@ const prepareOrderPayload = async (payload, { existingOrder = null } = {}) => {
     orderDate,
     paymentDate: payload.paymentDate || existingOrder?.paymentDate || null,
     expectedShipDate: payload.expectedShipDate || existingOrder?.expectedShipDate || null,
-    placedDate: payload.placedDate || existingOrder?.placedDate || null,
+    placedDate,
     deliveredDate: payload.deliveredDate || existingOrder?.deliveredDate || null,
     trackingNumber: toText(payload.trackingNumber) || existingOrder?.trackingNumber || null,
     carrier: toText(payload.carrier) || existingOrder?.carrier || null,
     amazonOrderId,
     amazonOrderLink: toText(payload.amazonOrderLink) || existingOrder?.amazonOrderLink || null,
     supplierOrderStatus:
-      toBooleanText(payload.supplierOrderStatus, [...PLACEMENT_STATUSES, ...ORDER_STATUSES], existingOrder?.supplierOrderStatus || 'NOT_PLACED'),
-    orderStatus: toBooleanText(payload.orderStatus, ORDER_STATUSES, existingOrder?.orderStatus || 'NEW'),
-    placementStatus: toBooleanText(payload.placementStatus, PLACEMENT_STATUSES, existingOrder?.placementStatus || 'NOT_PLACED'),
-    paymentStatus: toBooleanText(payload.paymentStatus, PAYMENT_STATUSES, existingOrder?.paymentStatus || 'PENDING'),
+      toBooleanText(payload.supplierOrderStatus, [...PLACEMENT_STATUSES, ...ORDER_STATUSES], existingOrder?.supplierOrderStatus || placementStatus),
+    orderStatus,
+    placementStatus,
+    paymentStatus,
     matchStatus,
     issueType,
     issueStatus,
@@ -1410,8 +1465,7 @@ const updateOrderStatus = async (user, id, payload = {}) => {
       return markOrderDelivered(user, id, payload);
     case 'ISSUE':
       return markOrderIssue(user, id, payload);
-    case 'NEW':
-    case 'READY_TO_PLACE':
+    case 'RETURNED':
     case 'ON_HOLD':
     case 'CANCELLED':
     case 'REFUNDED':
@@ -1430,14 +1484,6 @@ const updateOrderStatus = async (user, id, payload = {}) => {
     throw new AppError(`This order is already marked as ${nextStatus.replaceAll('_', ' ').toLowerCase()}.`, 409);
   }
 
-  if (nextStatus === 'NEW' && !['ON_HOLD', 'READY_TO_PLACE', 'ISSUE'].includes(existingOrder.orderStatus)) {
-    throw new AppError('Only on-hold, ready-to-place, or issue orders can be reset to new.', 409);
-  }
-
-  if (nextStatus === 'READY_TO_PLACE' && (isClosedOrderStatus(existingOrder.orderStatus) || isPlacedOrder(existingOrder))) {
-    throw new AppError('Only active unplaced orders can move to ready-to-place.', 409);
-  }
-
   if (nextStatus === 'ON_HOLD' && (isClosedOrderStatus(existingOrder.orderStatus) || existingOrder.orderStatus === 'DELIVERED')) {
     throw new AppError('Delivered, cancelled, or refunded orders cannot be placed on hold.', 409);
   }
@@ -1446,16 +1492,20 @@ const updateOrderStatus = async (user, id, payload = {}) => {
     throw new AppError('Delivered or already closed orders cannot be cancelled.', 409);
   }
 
-  if (nextStatus === 'REFUNDED' && !['DELIVERED', 'CANCELLED', 'ISSUE'].includes(existingOrder.orderStatus)) {
-    throw new AppError('Only delivered, cancelled, or issue orders can be refunded.', 409);
+  if (nextStatus === 'RETURNED' && !['DELIVERED', 'ISSUE'].includes(existingOrder.orderStatus)) {
+    throw new AppError('Only delivered or issue orders can be marked as returned.', 409);
+  }
+
+  if (nextStatus === 'REFUNDED' && !['DELIVERED', 'RETURNED', 'CANCELLED', 'ISSUE'].includes(existingOrder.orderStatus)) {
+    throw new AppError('Only delivered, returned, cancelled, or issue orders can be refunded.', 409);
   }
 
   const nextPlacementStatus =
     nextStatus === 'CANCELLED'
       ? 'CANCELLED'
-      : nextStatus === 'NEW' || nextStatus === 'READY_TO_PLACE' || nextStatus === 'ON_HOLD'
+      : nextStatus === 'ON_HOLD'
         ? existingOrder.placementStatus === 'CANCELLED'
-          ? 'NOT_PLACED'
+          ? 'PLACED'
           : existingOrder.placementStatus
         : existingOrder.placementStatus;
   const nextPaymentStatus = nextStatus === 'REFUNDED' ? 'REFUNDED' : existingOrder.paymentStatus;
@@ -1746,16 +1796,16 @@ const getOrderStats = async (user, query = {}) => {
           COALESCE(SUM(o.total_cost), 0)::numeric(10, 2) AS "totalCost",
           COALESCE(SUM(o.profit), 0)::numeric(10, 2) AS "totalProfit",
           COALESCE(AVG(NULLIF(o.roi, 0)), 0)::numeric(10, 2) AS "averageRoi",
-          COUNT(*) FILTER (WHERE o.placement_status = 'NOT_PLACED' OR o.order_status IN ('NEW', 'READY_TO_PLACE', 'ON_HOLD'))::int AS "pendingPlacement",
-          COUNT(*) FILTER (WHERE o.order_status IN ('PLACED', 'SHIPPED', 'DELIVERED'))::int AS "placedOrders",
+          COUNT(*) FILTER (WHERE o.placement_status <> 'PLACED' AND o.order_status NOT IN ('CANCELLED', 'REFUNDED'))::int AS "pendingPlacement",
+          COUNT(*) FILTER (WHERE o.placement_status = 'PLACED')::int AS "placedOrders",
           COUNT(*) FILTER (WHERE o.order_status = 'DELIVERED')::int AS "deliveredOrders",
           COUNT(*) FILTER (WHERE COALESCE(o.issue_status, '') IN ('OPEN', 'IN_REVIEW'))::int AS "issueOrders",
           COUNT(*) FILTER (WHERE o.profit < 0)::int AS "lossOrders",
           COUNT(*) FILTER (WHERE o.issue_type = 'PRODUCT_NOT_AVAILABLE' AND COALESCE(o.issue_status, '') IN ('OPEN', 'IN_REVIEW'))::int AS "unavailableIssues",
           COUNT(*) FILTER (WHERE o.match_status = 'unmatched')::int AS "unmatchedOrders",
-          COUNT(*) FILTER (WHERE o.order_date::date = CURRENT_DATE)::int AS "ordersToday",
-          COUNT(*) FILTER (WHERE o.placed_date::date = CURRENT_DATE)::int AS "placedToday",
-          COUNT(*) FILTER (WHERE date_trunc('month', o.order_date) = date_trunc('month', CURRENT_DATE))::int AS "ordersThisMonth"
+          COUNT(*) FILTER (WHERE ${localDateSql('o.order_date')} = ${currentLocalDateSql})::int AS "ordersToday",
+          COUNT(*) FILTER (WHERE ${localDateSql('o.placed_date')} = ${currentLocalDateSql})::int AS "placedToday",
+          COUNT(*) FILTER (WHERE ${localMonthSql('o.order_date')} = ${currentLocalMonthSql})::int AS "ordersThisMonth"
         FROM orders o
         ${whereSql}
       `,
@@ -1809,13 +1859,13 @@ const getOrderStats = async (user, query = {}) => {
     pool.query(
       `
         SELECT
-          date_trunc('day', o.order_date)::date AS "date",
+          ${localDateSql('o.order_date')} AS "date",
           COUNT(o.id)::int AS "orders",
           COALESCE(SUM(o.sale_price), 0)::numeric(10, 2) AS "revenue",
           COALESCE(SUM(o.profit), 0)::numeric(10, 2) AS "profit"
         FROM orders o
         ${whereSql}
-        GROUP BY date_trunc('day', o.order_date)::date
+        GROUP BY ${localDateSql('o.order_date')}
         ORDER BY "date" DESC
         LIMIT 31
       `,

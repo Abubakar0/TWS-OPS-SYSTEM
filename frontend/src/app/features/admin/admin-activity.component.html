@@ -35,6 +35,25 @@
       </summary>
 
       <div class="filter-panel__content">
+        <div class="range-toolbar">
+          <button
+            mat-stroked-button
+            type="button"
+            class="range-chip"
+            (click)="facade.applyDatePreset('today')"
+          >
+            Today
+          </button>
+          <button
+            mat-stroked-button
+            type="button"
+            class="range-chip"
+            (click)="facade.applyDatePreset('yesterday')"
+          >
+            Yesterday
+          </button>
+        </div>
+
         <form class="activity-toolbar" [formGroup]="facade.filters" (ngSubmit)="facade.loadLogs()">
           <mat-form-field appearance="outline" class="grid-toolbar__search">
             <mat-label>Search activity</mat-label>

@@ -16,7 +16,7 @@ const listUsers = async (req, res) => {
 };
 
 const getUser = async (req, res) => {
-  const user = await reportsService.getUserReport(req.user, req.params.id);
+  const user = await reportsService.getUserReport(req.user, req.params.id, null, req.query);
   res.json({ user });
 };
 
@@ -26,7 +26,7 @@ const listHunters = async (req, res) => {
 };
 
 const getHunter = async (req, res) => {
-  const hunter = await reportsService.getUserReport(req.user, req.params.id, 'hunter');
+  const hunter = await reportsService.getUserReport(req.user, req.params.id, 'hunter', req.query);
   res.json({ hunter });
 };
 
@@ -36,7 +36,7 @@ const listListers = async (req, res) => {
 };
 
 const getLister = async (req, res) => {
-  const lister = await reportsService.getUserReport(req.user, req.params.id, 'lister');
+  const lister = await reportsService.getUserReport(req.user, req.params.id, 'lister', req.query);
   res.json({ lister });
 };
 
@@ -46,7 +46,7 @@ const listOrderProcessors = async (req, res) => {
 };
 
 const getOrderProcessor = async (req, res) => {
-  const orderProcessor = await reportsService.getUserReport(req.user, req.params.id, 'order_processor');
+  const orderProcessor = await reportsService.getUserReport(req.user, req.params.id, 'order_processor', req.query);
   res.json({ orderProcessor });
 };
 
@@ -56,7 +56,7 @@ const listAdmins = async (req, res) => {
 };
 
 const getAdmin = async (req, res) => {
-  const admin = await reportsService.getUserReport(req.user, req.params.id, 'admin');
+  const admin = await reportsService.getUserReport(req.user, req.params.id, 'admin', req.query);
   res.json({ admin });
 };
 

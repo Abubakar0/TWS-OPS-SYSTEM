@@ -20,6 +20,13 @@ import { FilterPanelComponent } from '../../shared/ui/filter-panel.component';
 
 type ReviewScope = 'lister' | 'admin' | 'superadmin';
 
+const toLocalDateInput = (value: Date): string => {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 @Component({
   selector: 'app-listing-review-queue',
   standalone: true,
@@ -59,6 +66,20 @@ type ReviewScope = 'lister' | 'admin' | 'superadmin';
           [badge]="pageLabel()"
           storageKey="tws_listing_review_filters"
         >
+          <div class="range-toolbar">
+            <button mat-stroked-button type="button" class="range-chip" (click)="applyDatePreset('today')">
+              Today
+            </button>
+            <button
+              mat-stroked-button
+              type="button"
+              class="range-chip"
+              (click)="applyDatePreset('yesterday')"
+            >
+              Yesterday
+            </button>
+          </div>
+
           <form class="filters-grid" [formGroup]="filters" (ngSubmit)="applyFilters()">
             <mat-form-field appearance="outline" class="filters-grid__search">
               <mat-label>Search</mat-label>
@@ -332,6 +353,24 @@ export class ListingReviewQueueComponent implements OnInit {
   resetFilters(): void {
     this.filters.reset(
       { search: '', status: 'listed_needs_review', category: '', from: '', to: '' },
+      { emitEvent: false },
+    );
+    this.load();
+  }
+
+  applyDatePreset(preset: 'today' | 'yesterday'): void {
+    const target = new Date();
+
+    if (preset === 'yesterday') {
+      target.setDate(target.getDate() - 1);
+    }
+
+    const date = toLocalDateInput(target);
+    this.filters.patchValue(
+      {
+        from: date,
+        to: date,
+      },
       { emitEvent: false },
     );
     this.load();

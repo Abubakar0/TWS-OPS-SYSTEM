@@ -38,6 +38,13 @@ interface ReportHubLink {
   icon: string;
 }
 
+const toLocalDateInput = (value: Date): string => {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 @Component({
   selector: 'app-reports-hub',
   standalone: true,
@@ -167,7 +174,12 @@ export class ReportsHubComponent implements OnInit {
       { title: 'Hunters', description: 'Research volume, listed output, and quality outcomes.', section: 'hunters', icon: 'travel_explore' },
       { title: 'Listers', description: 'Listing throughput and change-request pressure.', section: 'listers', icon: 'fact_check' },
       { title: 'Order Processors', description: 'Placement, shipping, and issue handling output.', section: 'order-processors', icon: 'local_shipping' },
-      { title: 'Accounts', description: 'Account-level revenue, profit, and operational load.', section: 'accounts', icon: 'storefront' },
+      {
+        title: 'Orders By Account',
+        description: 'Account-level order volume, revenue, profit, and operational load.',
+        section: 'accounts',
+        icon: 'storefront',
+      },
       { title: 'Products', description: 'Category, profit, ROI, and order generation by product.', section: 'products', icon: 'inventory_2' },
       { title: 'Orders', description: 'Revenue, delivery, refund, and issue performance.', section: 'orders', icon: 'receipt_long' },
       { title: 'Teams', description: 'Team coverage, contribution mix, and profit impact.', section: 'teams', icon: 'groups' },
@@ -418,7 +430,7 @@ export class ReportsHubComponent implements OnInit {
   private resolvePresetDates(preset: DatePreset): Pick<ReportFilters, 'dateFrom' | 'dateTo'> {
     const now = new Date();
     const current = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const format = (date: Date) => date.toISOString().slice(0, 10);
+    const format = (date: Date) => toLocalDateInput(date);
     const addDays = (date: Date, amount: number) => {
       const next = new Date(date);
       next.setDate(next.getDate() + amount);

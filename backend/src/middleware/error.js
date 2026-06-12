@@ -16,6 +16,18 @@ const notFound = (req, res, next) => {
 
 const errorHandler = (err, req, res, next) => {
   const statusCode = err.statusCode || 500;
+
+  if (statusCode >= 500) {
+    console.error(
+      `[api-error] ${req.method} ${req.originalUrl}`,
+      {
+        message: err.message,
+        stack: err.stack,
+        details: err.details || null,
+      },
+    );
+  }
+
   const payload = {
     message: statusCode === 500 ? 'Internal server error' : err.message,
   };

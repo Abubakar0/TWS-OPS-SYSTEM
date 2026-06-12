@@ -37,6 +37,7 @@
     172px;
   gap: 12px;
   align-items: center;
+  overflow: auto;
 }
 
 .products-grid__head {
@@ -144,6 +145,10 @@
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+.danger {
+  color: var(--tws-danger) !important;
 }
 
 @media (max-width: 1180px) {

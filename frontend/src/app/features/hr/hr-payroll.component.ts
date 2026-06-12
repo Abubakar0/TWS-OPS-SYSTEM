@@ -16,6 +16,13 @@ import { ToastService } from '../../core/ui/toast.service';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../shared/error-state/error-state.component';
 
+const toLocalDateInput = (value: Date): string => {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 @Component({
   selector: 'app-hr-payroll',
   imports: [
@@ -84,7 +91,7 @@ export class HrPayrollComponent implements OnInit {
   }
 
   loadEmployees(): void {
-    this.hrApi.listEmployees({ limit: 100 }).subscribe({
+    this.hrApi.listEmployees({ limit: 100, activeOnly: true, excludeSuperAdmin: true }).subscribe({
       next: (result) => this.employees.set(result.items),
       error: () => undefined,
     });
@@ -148,6 +155,17 @@ export class HrPayrollComponent implements OnInit {
       unpaidLeaveDeduction: 0,
       lateDeduction: 0,
     });
+  }
+
+  applyDatePreset(preset: 'today' | 'yesterday'): void {
+    const target = new Date();
+
+    if (preset === 'yesterday') {
+      target.setDate(target.getDate() - 1);
+    }
+
+    this.payrollMonthFilter.setValue(toLocalDateInput(target));
+    this.loadPayroll(1);
   }
 
   savePayroll(): void {

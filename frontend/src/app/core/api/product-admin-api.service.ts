@@ -70,6 +70,8 @@ export class ProductAdminApiService {
       category?: string;
       amazonUrl?: string;
       ebayUrl?: string;
+      status?: 'approved' | 'rejected';
+      rejectionReason?: string;
     },
   ): Observable<Product[]> {
     return this.http

@@ -28,6 +28,13 @@ import { FilterPanelComponent } from '../../shared/ui/filter-panel.component';
 type IssueStatusFilter = '' | 'OPEN' | 'IN_REVIEW' | 'FIXED' | 'REJECTED' | 'CLOSED';
 type IssueTypeFilter = '' | OrderIssueType;
 
+const toLocalDateInput = (value: Date): string => {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 @Component({
   selector: 'app-admin-order-issues',
   imports: [
@@ -182,6 +189,25 @@ export class AdminOrderIssuesComponent {
         accountId: '',
         dateFrom: '',
         dateTo: '',
+      },
+      { emitEvent: false },
+    );
+    this.pageIndex.set(0);
+    this.load();
+  }
+
+  applyDatePreset(preset: 'today' | 'yesterday'): void {
+    const target = new Date();
+
+    if (preset === 'yesterday') {
+      target.setDate(target.getDate() - 1);
+    }
+
+    const value = toLocalDateInput(target);
+    this.filtersForm.patchValue(
+      {
+        dateFrom: value,
+        dateTo: value,
       },
       { emitEvent: false },
     );

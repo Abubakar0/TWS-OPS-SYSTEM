@@ -1474,5 +1474,6 @@ module.exports = {
   assignListersToAccount,
   createAccountInvoice,
   bulkCreateAccountInvoices,
+  ensureAccountSummaryDependencies,
   ensureAccountInvoiceTable,
 };

@@ -1,6 +1,13 @@
 const { pool } = require("../../db/pool");
 const { getCriteria } = require("../criteria/criteria.service");
 const { getOrderStats } = require("../orders/orders.service");
+const { hasRole, hasAnyRole } = require("../users/permissions");
+
+const BUSINESS_TIMEZONE = process.env.APP_TIMEZONE || "Asia/Karachi";
+const HUNTER_ROLE_SQL =
+  `COALESCE(hunter.roles, jsonb_build_array(hunter.role::text)) @> '["hunter"]'::jsonb`;
+const LISTER_ROLE_SQL =
+  `COALESCE(lister.roles, jsonb_build_array(lister.role::text)) @> '["lister"]'::jsonb`;
 
 const addDateFilters = ({ query, where, params, column = "p.created_at" }) => {
   const add = (sql, value) => {
@@ -9,11 +16,14 @@ const addDateFilters = ({ query, where, params, column = "p.created_at" }) => {
   };
 
   if (query.from) {
-    add(`${column} >= ?`, query.from);
+    add(`${column} >= (?::date::timestamp AT TIME ZONE '${BUSINESS_TIMEZONE}')`, query.from);
   }
 
   if (query.to) {
-    add(`${column} < (?::date + INTERVAL '1 day')`, query.to);
+    add(
+      `${column} < (((?::date + INTERVAL '1 day')::timestamp) AT TIME ZONE '${BUSINESS_TIMEZONE}')`,
+      query.to,
+    );
   }
 };
 
@@ -132,7 +142,7 @@ const admin = async (req, res) => {
           COUNT(p.id) FILTER (WHERE p.status = 'listed')::int AS "listed"
         FROM users hunter
         LEFT JOIN products p ON p.hunter_id = hunter.id${joinSql}
-        WHERE hunter.role = 'hunter'
+        WHERE ${HUNTER_ROLE_SQL}
           ${hunterUserFilter}
         GROUP BY hunter.id, hunter.name
         ORDER BY hunter.name
@@ -151,7 +161,7 @@ const admin = async (req, res) => {
         LEFT JOIN products p
           ON (p.listed_by = lister.id OR p.assigned_lister_id = lister.id)${joinSql}
         LEFT JOIN hunter_lister_assignments hla ON hla.lister_id = lister.id
-        WHERE lister.role = 'lister'
+        WHERE ${LISTER_ROLE_SQL}
           ${listerUserFilter}
         GROUP BY lister.id, lister.name
         ORDER BY lister.name
@@ -244,7 +254,7 @@ const hunter = async (req, res) => {
   const summaryWhere = [];
   const summaryParams = [];
 
-  if (req.user.role === "hunter") {
+  if (hasRole(req.user, "hunter") && !hasAnyRole(req.user, ["admin", "super_admin", "lister"])) {
     summaryParams.push(req.user.id);
     summaryWhere.push(`p.hunter_id = $${summaryParams.length}`);
   } else if (req.query.hunterId) {
@@ -390,7 +400,7 @@ const lister = async (req, res) => {
   const listedWhere = ["p.status = 'listed'"];
   const listedParams = [];
 
-  if (req.user.role === "lister") {
+  if (hasRole(req.user, "lister") && !hasAnyRole(req.user, ["admin", "super_admin", "hunter"])) {
     listedParams.push(req.user.id);
     listedWhere.push(`p.listed_by = $${listedParams.length}`);
   }
@@ -405,7 +415,7 @@ const lister = async (req, res) => {
   const rejectedWhere = ["p.status = 'rejected'"];
   const rejectedParams = [];
 
-  if (req.user.role === "lister") {
+  if (hasRole(req.user, "lister") && !hasAnyRole(req.user, ["admin", "super_admin", "hunter"])) {
     rejectedParams.push(req.user.id);
     rejectedWhere.push(`p.assigned_lister_id = $${rejectedParams.length}`);
   }
@@ -511,7 +521,7 @@ const listerHunterAccounts = async (req, res) => {
   const where = ["p.status = 'listed'"];
   const params = [];
 
-  if (req.user.role === "lister") {
+  if (hasRole(req.user, "lister") && !hasAnyRole(req.user, ["admin", "super_admin", "hunter"])) {
     params.push(req.user.id);
     where.push(`p.listed_by = $${params.length}`);
   } else if (req.query.listerId) {
@@ -564,9 +574,18 @@ const superAdmin = async (req, res) => {
     pool.query(
       `
         SELECT
-          COUNT(*) FILTER (WHERE role = 'admin' AND deleted_at IS NULL)::int AS "totalAdmins",
-          COUNT(*) FILTER (WHERE role = 'lister' AND deleted_at IS NULL)::int AS "totalListers",
-          COUNT(*) FILTER (WHERE role = 'hunter' AND deleted_at IS NULL)::int AS "totalHunters",
+          COUNT(*) FILTER (
+            WHERE COALESCE(roles, jsonb_build_array(role::text)) @> '["admin"]'::jsonb
+              AND deleted_at IS NULL
+          )::int AS "totalAdmins",
+          COUNT(*) FILTER (
+            WHERE COALESCE(roles, jsonb_build_array(role::text)) @> '["lister"]'::jsonb
+              AND deleted_at IS NULL
+          )::int AS "totalListers",
+          COUNT(*) FILTER (
+            WHERE COALESCE(roles, jsonb_build_array(role::text)) @> '["hunter"]'::jsonb
+              AND deleted_at IS NULL
+          )::int AS "totalHunters",
           COUNT(*) FILTER (WHERE is_active = TRUE AND deleted_at IS NULL)::int AS "activeUsers",
           COUNT(*) FILTER (WHERE is_active = FALSE AND deleted_at IS NULL)::int AS "disabledUsers",
           COUNT(*) FILTER (WHERE deleted_at IS NOT NULL)::int AS "deletedUsers"
@@ -593,7 +612,7 @@ const superAdmin = async (req, res) => {
           COUNT(p.id) FILTER (WHERE p.status = 'listed')::int AS "listed"
         FROM users hunter
         LEFT JOIN products p ON p.hunter_id = hunter.id${filters.joinSql}
-        WHERE hunter.role = 'hunter'
+        WHERE ${HUNTER_ROLE_SQL}
           AND hunter.deleted_at IS NULL
         GROUP BY hunter.id, hunter.name
         ORDER BY "listed" DESC, hunter.name
@@ -611,7 +630,7 @@ const superAdmin = async (req, res) => {
         LEFT JOIN products p
           ON (p.listed_by = lister.id OR p.assigned_lister_id = lister.id)${filters.joinSql}
         LEFT JOIN hunter_lister_assignments hla ON hla.lister_id = lister.id
-        WHERE lister.role = 'lister'
+        WHERE ${LISTER_ROLE_SQL}
           AND lister.deleted_at IS NULL
         GROUP BY lister.id, lister.name
         ORDER BY "listed" DESC, lister.name

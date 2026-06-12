@@ -27,6 +27,7 @@
 .requests-table {
   display: grid;
   gap: 10px;
+  overflow: auto;
 }
 
 .requests-table__head,

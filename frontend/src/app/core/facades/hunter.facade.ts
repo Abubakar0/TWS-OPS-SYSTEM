@@ -1,7 +1,7 @@
 import { Validators } from '@angular/forms';
 import { computed, DestroyRef, effect, inject, Injectable, Injector, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { finalize } from 'rxjs';
+import { finalize, switchMap, throwError } from 'rxjs';
 
 import { HunterApiService } from '../api/hunter-api.service';
 import { WeeklyReviewApiService } from '../api/weekly-review-api.service';
@@ -658,7 +658,25 @@ export class HunterFacade {
     };
 
     this.productsApi
-      .createProduct(payload)
+      .checkAsin(this.asinControl.value)
+      .pipe(
+        switchMap((result: AsinCheckResult) => {
+          if (result.isDuplicate) {
+            this.handleDuplicateAsinConflict(result.product || null);
+            return throwError(
+              () =>
+                new Error(
+                  'This ASIN was submitted while you were filling the form. Please refresh and review the existing product.',
+                ),
+            );
+          }
+
+          this.asinVerified.set(true);
+          this.asinDuplicate.set(null);
+          this.enableFormOnly();
+          return this.productsApi.createProduct(payload);
+        }),
+      )
       .pipe(finalize(() => this.saving.set(false)))
       .subscribe({
         next: (product) => {
@@ -685,13 +703,20 @@ export class HunterFacade {
           this.workspaceSync.notifyProductsChanged();
         },
         error: (error) => {
-          this.error.set(error?.error?.message || 'Could not submit product.');
-
           if (error?.status === 409 && error?.error?.details?.product) {
-            this.asinDuplicate.set(error.error.details.product);
-            this.asinVerified.set(false);
-            this.disableFormOnly();
+            this.handleDuplicateAsinConflict(error.error.details.product);
+            return;
           }
+
+          if (
+            error instanceof Error &&
+            error.message ===
+              'This ASIN was submitted while you were filling the form. Please refresh and review the existing product.'
+          ) {
+            return;
+          }
+
+          this.error.set(error?.error?.message || 'Could not submit product.');
         },
       });
   }
@@ -708,6 +733,15 @@ export class HunterFacade {
 
   closeSubmissionModal(): void {
     this.submissionModal.set(null);
+  }
+
+  private handleDuplicateAsinConflict(product: ProductDuplicateInfo | null): void {
+    this.asinDuplicate.set(product);
+    this.asinVerified.set(false);
+    this.disableFormOnly();
+    this.error.set(
+      'This ASIN was submitted while you were filling the form. Please refresh and review the existing product.',
+    );
   }
 
   private initialize(): void {

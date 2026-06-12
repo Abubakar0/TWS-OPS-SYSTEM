@@ -95,6 +95,13 @@ export class MyHrComponent implements OnInit {
         this.loading.set(false);
       },
       error: (error) => {
+        if (error?.status === 404) {
+          this.profile.set(null);
+          this.error.set('');
+          this.loading.set(false);
+          return;
+        }
+
         this.error.set(error?.error?.message || 'Could not load your HR profile.');
         this.loading.set(false);
       },

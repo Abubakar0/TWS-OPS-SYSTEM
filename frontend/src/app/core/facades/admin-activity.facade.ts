@@ -8,6 +8,15 @@ import { mapAuditLogRow } from '../mappers/audit-log.mapper';
 import { User } from '../models/auth.models';
 import { ReferenceDataService } from '../state/reference-data.service';
 
+type DateQuickPreset = 'today' | 'yesterday';
+
+const toLocalDateInput = (value: Date): string => {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 @Injectable()
 export class AdminActivityFacade {
   readonly logs = signal<ReturnType<typeof mapAuditLogRow>[]>([]);
@@ -89,7 +98,7 @@ export class AdminActivityFacade {
   }
 
   resetFilters(): void {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = toLocalDateInput(new Date());
     this.filters.reset(
       {
         search: '',
@@ -101,6 +110,25 @@ export class AdminActivityFacade {
       },
       { emitEvent: false },
     );
+    this.loadLogs();
+  }
+
+  applyDatePreset(preset: DateQuickPreset): void {
+    const target = new Date();
+
+    if (preset === 'yesterday') {
+      target.setDate(target.getDate() - 1);
+    }
+
+    const value = toLocalDateInput(target);
+    this.filters.patchValue(
+      {
+        from: value,
+        to: value,
+      },
+      { emitEvent: false },
+    );
+    this.pageIndex.set(0);
     this.loadLogs();
   }
 
@@ -121,8 +149,7 @@ export class AdminActivityFacade {
       .subscribe({
         next: (users) => this.users.set(users),
       });
-
-    const today = new Date().toISOString().slice(0, 10);
+    const today = toLocalDateInput(new Date());
     this.filters.patchValue({ from: today, to: today }, { emitEvent: false });
     this.loadLogs();
   }

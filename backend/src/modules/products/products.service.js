@@ -51,6 +51,15 @@ const resolveReadyRawStatus = (assignedListerId) =>
 const isTrainingHunter = (user) =>
   hasRole(user, "hunter") && String(user?.hunterStatus || "ACTIVE").toUpperCase() === "TRAINING";
 const isDualRoleHunterLister = (user) => hasRole(user, "hunter") && hasRole(user, "lister");
+const hasElevatedProductAccess = (user) => hasAnyRole(user, ["admin", "super_admin"]);
+const isHunterScopedUser = (user) =>
+  !hasElevatedProductAccess(user) &&
+  (user.role === "hunter" ||
+    (user.role !== "lister" && hasRole(user, "hunter") && !hasRole(user, "lister")));
+const isListerScopedUser = (user) =>
+  !hasElevatedProductAccess(user) &&
+  (user.role === "lister" ||
+    (user.role !== "hunter" && hasRole(user, "lister") && !hasRole(user, "hunter")));
 
 const productSelect = `
   p.id,
@@ -229,7 +238,7 @@ const productFromRow = (row, criteria = null) => {
     currentHunterName: row.currentHunterName || row.hunterName,
     hunterStatus: row.hunterStatus || "ACTIVE",
     validationNotes: Array.isArray(row.validationNotes)
-      ? row.validationNotes
+      ? row.validationNotes.filter(Boolean)
       : [],
     deletedBy: row.deletedBy || null,
     deletedAt: row.deletedAt || null,
@@ -284,6 +293,24 @@ const getDuplicateProductByAsin = async (asin) => {
 
   return result.rows[0] ? productFromRow(result.rows[0], criteria) : null;
 };
+
+const buildDuplicateProductConflict = (product) =>
+  new AppError(
+    "This ASIN was submitted while you were filling the form. Please refresh and review the existing product.",
+    409,
+    {
+      product: product
+        ? {
+            id: product.id,
+            title: product.title,
+            asin: product.asin,
+            status: product.status,
+            listedAt: product.listedAt,
+            accountName: product.accountName,
+          }
+        : null,
+    },
+  );
 
 const ensureProductColumns = async () => {
   await pool.query(`
@@ -405,17 +432,17 @@ const addWorkflowStatusFilter = (status, where, params) => {
     case WORKFLOW_STATUS.READY_FOR_LISTING:
       where.push(`p.status IN ('approved', 'assigned')`);
       where.push(
-        `(p.listing_review_status IS NULL OR p.listing_review_status = '${LISTING_REVIEW_STATUS.NOT_REQUIRED}' OR p.listing_review_status = '${LISTING_REVIEW_STATUS.APPROVED}')`,
+        `(COALESCE(UPPER(p.listing_review_status::text), '') IN ('', '${LISTING_REVIEW_STATUS.NOT_REQUIRED}', '${LISTING_REVIEW_STATUS.APPROVED}'))`,
       );
       return true;
     case WORKFLOW_STATUS.LISTED_NEEDS_REVIEW:
       where.push(
-        `p.listing_review_status = '${LISTING_REVIEW_STATUS.PENDING}' AND p.deleted_at IS NULL`,
+        `UPPER(COALESCE(p.listing_review_status::text, '')) = '${LISTING_REVIEW_STATUS.PENDING}' AND p.deleted_at IS NULL`,
       );
       return true;
     case WORKFLOW_STATUS.LISTING_REJECTED:
       where.push(
-        `p.listing_review_status = '${LISTING_REVIEW_STATUS.REJECTED}' AND p.deleted_at IS NULL`,
+        `UPPER(COALESCE(p.listing_review_status::text, '')) = '${LISTING_REVIEW_STATUS.REJECTED}' AND p.deleted_at IS NULL`,
       );
       return true;
     case WORKFLOW_STATUS.LISTED:
@@ -443,17 +470,17 @@ const buildProductFilters = (user, query = {}, criteria = null) => {
     where.push(sql.replace("?", `$${params.length}`));
   };
 
-  if (user.role === "hunter") {
+  if (isHunterScopedUser(user)) {
     add("p.hunter_id = ?", user.id);
     where.push("p.deleted_at IS NULL");
   }
 
-  if (user.role === "lister") {
+  if (isListerScopedUser(user)) {
     add("p.assigned_lister_id = ?", user.id);
     where.push("p.deleted_at IS NULL");
   }
 
-  if (user.role !== "hunter" && user.role !== "lister") {
+  if (!isHunterScopedUser(user) && !isListerScopedUser(user)) {
     const deletedState = query.deletedState || "active";
 
     if (deletedState === "deleted") {
@@ -556,7 +583,7 @@ const buildProductFilters = (user, query = {}, criteria = null) => {
 };
 
 const getListCategory = (user, query = {}) => {
-  if (user.role === "lister") {
+  if (isListerScopedUser(user)) {
     if (query.status === "rejected") {
       return REJECTION_LIMIT_CATEGORY;
     }
@@ -616,16 +643,16 @@ const getProductById = async (user, id) => {
 
   if (
     !product ||
-    (product.deletedAt && !["admin", "super_admin"].includes(user.role))
+    (product.deletedAt && !hasElevatedProductAccess(user))
   ) {
     throw new AppError("Product not found.", 404);
   }
 
-  if (user.role === "hunter" && product.hunterId !== user.id) {
+  if (isHunterScopedUser(user) && product.hunterId !== user.id) {
     throw new AppError("Product not found.", 404);
   }
 
-  if (user.role === "lister" && product.assignedListerId !== user.id) {
+  if (isListerScopedUser(user) && product.assignedListerId !== user.id) {
     throw new AppError("Product not found.", 404);
   }
 
@@ -701,16 +728,7 @@ const createProduct = async (user, payload) => {
   const duplicateProduct = await getDuplicateProductByAsin(input.asin);
 
   if (duplicateProduct) {
-    throw new AppError("ASIN already exists in the system.", 409, {
-      product: {
-        id: duplicateProduct.id,
-        title: duplicateProduct.title,
-        asin: duplicateProduct.asin,
-        status: duplicateProduct.status,
-        listedAt: duplicateProduct.listedAt,
-        accountName: duplicateProduct.accountName,
-      },
-    });
+    throw buildDuplicateProductConflict(duplicateProduct);
   }
 
   const analysis = analyzeProduct(input, effectiveCriteria, {
@@ -721,77 +739,123 @@ const createProduct = async (user, payload) => {
     analysis.status === "approved" && assignedListerId
       ? "assigned"
       : analysis.status;
+  const client = await pool.connect();
+  let createdProductId = null;
 
-  const result = await pool.query(
-    `
-      INSERT INTO products (
-        hunter_id,
-        assigned_lister_id,
-        amazon_url,
-        amazon_alt_url,
-        ebay_url,
-        asin,
-        title,
-        category,
-        custom_label,
-        amazon_price,
-        ebay_price,
-        fees,
-        sold_count,
-        stock_quantity,
-        alternate_stock_quantity,
-        rating,
-        product_watchers,
-        sales_last_two_months,
-        basket_count,
-        delivery_days,
-        monthly_graph_uptrend,
-        profit,
-        roi,
+  try {
+    await client.query("BEGIN");
+
+    if (input.asin) {
+      await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [input.asin]);
+      const lockedDuplicate = await client.query(
+        `
+          SELECT ${productSelect}
+          ${productJoins}
+          WHERE p.asin = $1
+            AND p.deleted_at IS NULL
+          ORDER BY
+            CASE p.status
+              WHEN 'listed' THEN 1
+              WHEN 'assigned' THEN 2
+              WHEN 'approved' THEN 3
+              ELSE 4
+            END,
+            p.created_at DESC
+          LIMIT 1
+        `,
+        [input.asin],
+      );
+
+      if (lockedDuplicate.rows[0]) {
+        throw buildDuplicateProductConflict(productFromRow(lockedDuplicate.rows[0], criteria));
+      }
+    }
+
+    const result = await client.query(
+      `
+        INSERT INTO products (
+          hunter_id,
+          assigned_lister_id,
+          amazon_url,
+          amazon_alt_url,
+          ebay_url,
+          asin,
+          title,
+          category,
+          custom_label,
+          amazon_price,
+          ebay_price,
+          fees,
+          sold_count,
+          stock_quantity,
+          alternate_stock_quantity,
+          rating,
+          product_watchers,
+          sales_last_two_months,
+          basket_count,
+          delivery_days,
+          monthly_graph_uptrend,
+          profit,
+          roi,
+          status,
+          rejection_reason,
+          validation_notes
+        )
+        VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+          $11, $12, $13, $14, $15, $16, $17, $18,
+          $19, $20, $21, $22, $23, $24, $25, $26::jsonb
+        )
+        RETURNING id
+      `,
+      [
+        user.id,
+        assignedListerId,
+        input.amazonUrl,
+        input.amazonAltUrl || null,
+        input.ebayUrl,
+        input.asin || null,
+        input.title || null,
+        input.category || null,
+        input.customLabel || null,
+        input.amazonPrice,
+        input.ebayPrice,
+        analysis.fees,
+        input.soldCount,
+        input.amazonStockCount,
+        input.alternateAmazonStockCount,
+        input.rating,
+        input.productWatchers,
+        input.salesLastTwoMonths,
+        input.basketCount,
+        input.deliveryDays,
+        input.monthlyGraphUptrend,
+        analysis.profit,
+        analysis.roi,
         status,
-        rejection_reason,
-        validation_notes
-      )
-      VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-        $11, $12, $13, $14, $15, $16, $17, $18,
-        $19, $20, $21, $22, $23, $24, $25, $26::jsonb
-      )
-      RETURNING id
-    `,
-    [
-      user.id,
-      assignedListerId,
-      input.amazonUrl,
-      input.amazonAltUrl || null,
-      input.ebayUrl,
-      input.asin || null,
-      input.title || null,
-      input.category || null,
-      input.customLabel || null,
-      input.amazonPrice,
-      input.ebayPrice,
-      analysis.fees,
-      input.soldCount,
-      input.amazonStockCount,
-      input.alternateAmazonStockCount,
-      input.rating,
-      input.productWatchers,
-      input.salesLastTwoMonths,
-      input.basketCount,
-      input.deliveryDays,
-      input.monthlyGraphUptrend,
-      analysis.profit,
-      analysis.roi,
-      status,
-      status === "rejected"
-        ? analysis.primaryFailure || analysis.rejectionReason || null
-        : null,
-      JSON.stringify(analysis.validationNotes),
-    ],
-  );
+        status === "rejected"
+          ? analysis.primaryFailure || analysis.rejectionReason || null
+          : null,
+        JSON.stringify(analysis.validationNotes),
+      ],
+    );
 
-  const product = await getProductById(user, result.rows[0].id);
+    createdProductId = result.rows[0].id;
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+
+    if (error?.code === "23505" && input.asin) {
+      const conflictedProduct = await getDuplicateProductByAsin(input.asin);
+      throw buildDuplicateProductConflict(conflictedProduct);
+    }
+
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  const product = await getProductById(user, createdProductId);
 
   await writeAuditLog({
     actorUserId: user.id,
@@ -817,7 +881,7 @@ const updateProduct = async (user, id, payload = {}) => {
     throw new AppError("Deleted products cannot be edited.", 400);
   }
 
-  if (user.role === "hunter" && product.status === "listed") {
+  if (isHunterScopedUser(user) && product.status === "listed") {
     throw new AppError(
       "Listed products can no longer be edited by hunters.",
       403,
@@ -934,7 +998,7 @@ const updateProduct = async (user, id, payload = {}) => {
 
   const updatedProduct = await getProductById(user, id);
   const action =
-    user.role === "hunter"
+    isHunterScopedUser(user)
       ? "PRODUCT_UPDATED_BY_HUNTER"
       : "PRODUCT_EDITED_BY_ADMIN";
 
@@ -962,13 +1026,14 @@ const listAssignedHunters = async (user) => {
     defaultLimit,
   );
 
-  if (user.role === "admin") {
+  if (hasAnyRole(user, ["admin", "super_admin"])) {
     const result = await pool.query(
       `
         SELECT id, name, email, is_active AS "isActive"
         FROM users
-        WHERE role = 'hunter'
+        WHERE COALESCE(roles, jsonb_build_array(role::text)) @> '["hunter"]'::jsonb
           AND deleted_at IS NULL
+          AND COALESCE(status, CASE WHEN is_active THEN 'active' ELSE 'disabled' END) = 'active'
         ORDER BY name
         LIMIT $1
       `,
@@ -1059,12 +1124,12 @@ const getProductsByIds = async (user, ids) => {
   const params = [ids];
   const accessClauses = ["p.id = ANY($1::uuid[])"];
 
-  if (user.role === "hunter") {
+  if (isHunterScopedUser(user)) {
     params.push(user.id);
     accessClauses.push(`p.hunter_id = $${params.length}`);
   }
 
-  if (user.role === "lister") {
+  if (isListerScopedUser(user)) {
     params.push(user.id);
     accessClauses.push(`p.assigned_lister_id = $${params.length}`);
   }
@@ -1098,7 +1163,7 @@ const markProductsListed = async (user, payload) => {
     throw new AppError("Account and at least one product are required.", 400);
   }
 
-  if (user.role === "lister") {
+  if (isListerScopedUser(user)) {
     await assertListerListingUnblocked(user.id);
   }
 
@@ -1115,7 +1180,7 @@ const markProductsListed = async (user, payload) => {
   }
 
   const account = await pool.query(
-    user.role === "lister"
+    isListerScopedUser(user)
       ? `
           SELECT account.id
           FROM accounts account
@@ -1125,15 +1190,15 @@ const markProductsListed = async (user, payload) => {
             AND assignment.lister_id = $2
         `
       : "SELECT id FROM accounts WHERE id = $1 AND is_active = TRUE",
-    user.role === "lister" ? [accountId, user.id] : [accountId],
+    isListerScopedUser(user) ? [accountId, user.id] : [accountId],
   );
 
   if (account.rowCount === 0) {
     throw new AppError(
-      user.role === "lister"
+      isListerScopedUser(user)
         ? "This listing account is not assigned to you."
         : "Active account not found.",
-      user.role === "lister" ? 403 : 404,
+      isListerScopedUser(user) ? 403 : 404,
     );
   }
 
@@ -1163,7 +1228,7 @@ const markProductsListed = async (user, payload) => {
         throw new AppError("Product not found.", 404);
       }
 
-      if (user.role === "lister" && product.assignedListerId !== user.id) {
+      if (isListerScopedUser(user) && product.assignedListerId !== user.id) {
         throw new AppError("Some products could not be updated for this lister.", 403);
       }
 
@@ -1606,14 +1671,14 @@ const rejectProduct = async (user, id, payload = {}) => {
     throw new AppError("Rejection reason is required.", 400);
   }
 
-  if (user.role === "lister") {
+  if (isListerScopedUser(user)) {
     await assertListerListingUnblocked(user.id);
   }
 
   const params = [id, rejectionReason];
   let accessSql = "";
 
-  if (user.role === "lister") {
+  if (isListerScopedUser(user)) {
     params.push(user.id);
     accessSql = `AND assigned_lister_id = $${params.length}`;
   }
@@ -1642,7 +1707,7 @@ const rejectProduct = async (user, id, payload = {}) => {
   await writeAuditLog({
     actorUserId: user.id,
     action:
-      user.role === "admin" || user.role === "super_admin"
+      hasAnyRole(user, ["admin", "super_admin"])
         ? "PRODUCT_REJECTED_BY_ADMIN"
         : "product.rejected",
     targetType: "product",
@@ -1714,6 +1779,8 @@ const bulkUpdateProducts = async (user, payload = {}) => {
   const category = String(payload.category || "").trim();
   const amazonUrl = String(payload.amazonUrl || "").trim();
   const ebayUrl = String(payload.ebayUrl || "").trim();
+  const status = String(payload.status || "").trim();
+  const rejectionReason = String(payload.rejectionReason || "").trim();
   const updates = [];
   const values = [productIds];
 
@@ -1748,6 +1815,28 @@ const bulkUpdateProducts = async (user, payload = {}) => {
 
     values.push(ebayUrl);
     updates.push(`ebay_url = $${values.length}`);
+  }
+
+  if (status) {
+    if (!["approved", "rejected"].includes(status)) {
+      throw new AppError("Bulk status update only supports approved or rejected.", 400);
+    }
+
+    values.push(status);
+    updates.push(`status = $${values.length}`);
+
+    if (status === "approved") {
+      updates.push(`rejection_reason = NULL`);
+    }
+
+    if (status === "rejected") {
+      if (!rejectionReason) {
+        throw new AppError("Rejection reason is required when rejecting selected products.", 400);
+      }
+
+      values.push(rejectionReason);
+      updates.push(`rejection_reason = $${values.length}`);
+    }
   }
 
   if (!updates.length) {
@@ -1801,12 +1890,19 @@ const bulkUpdateProducts = async (user, payload = {}) => {
     ...(category ? { category } : {}),
     ...(amazonUrl ? { amazonUrl } : {}),
     ...(ebayUrl ? { ebayUrl } : {}),
+    ...(status ? { status } : {}),
+    ...(status === "rejected" && rejectionReason ? { rejectionReason } : {}),
   };
 
   for (const productId of productIds) {
     await writeAuditLog({
       actorUserId: user.id,
-      action: "product.bulk_update",
+      action:
+        status === "approved"
+          ? "PRODUCT_BULK_APPROVED"
+          : status === "rejected"
+            ? "PRODUCT_BULK_REJECTED"
+            : "product.bulk_update",
       targetType: "product",
       targetId: productId,
       details: changedFields,

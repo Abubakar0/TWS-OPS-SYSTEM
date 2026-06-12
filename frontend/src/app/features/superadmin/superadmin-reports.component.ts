@@ -1,7 +1,21 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, ValidatorFn } from '@angular/forms';
+import {
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  ValidationErrors,
+  ValidatorFn,
+} from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -82,9 +96,15 @@ export class SuperAdminReportsComponent implements OnInit {
   readonly activeDateFilters = signal<{ from?: string; to?: string }>({});
   private readonly destroyRef = inject(DestroyRef);
 
-  readonly reportUsers = computed(() => this.users().filter((user) => !userHasRole(user, 'super_admin')));
+  readonly reportUsers = computed(() =>
+    this.users().filter((user) => !userHasRole(user, 'super_admin')),
+  );
   readonly userOptions = computed<readonly SearchableSelectOption<string>[]>(() => [
-    { value: '', label: 'All operators', description: 'Keep every hunter, lister, and admin in the report scope.' },
+    {
+      value: '',
+      label: 'All operators',
+      description: 'Keep every hunter, lister, and admin in the report scope.',
+    },
     ...this.reportUsers().map((user) => ({
       value: user.id,
       label: user.name,
@@ -92,7 +112,11 @@ export class SuperAdminReportsComponent implements OnInit {
     })),
   ]);
   readonly categoryOptions = computed<readonly SearchableSelectOption<string>[]>(() => [
-    { value: '', label: 'All categories', description: 'Do not narrow the report to a single category.' },
+    {
+      value: '',
+      label: 'All categories',
+      description: 'Do not narrow the report to a single category.',
+    },
     ...this.categories().map((category) => ({
       value: category.name,
       label: category.name,
@@ -102,12 +126,26 @@ export class SuperAdminReportsComponent implements OnInit {
     { id: 'hunter', label: 'By hunter', hint: 'Per-hunter hunted and listed totals.' },
     { id: 'lister', label: 'By lister', hint: 'Lister totals and assigned hunter coverage.' },
     { id: 'account', label: 'By account', hint: 'Listed product totals per account.' },
-    { id: 'hunter-account', label: 'Hunter listings by account', hint: 'Where each hunter is landing listings.' },
-    { id: 'order-hunter', label: 'Orders by hunter', hint: 'Order volume, revenue, profit, and ROI by hunter.' },
-    { id: 'order-account', label: 'Orders by account', hint: 'Order load and profitability by account.' },
+    {
+      id: 'hunter-account',
+      label: 'Hunter listings by account',
+      hint: 'Where each hunter is landing listings.',
+    },
+    {
+      id: 'order-hunter',
+      label: 'Orders by hunter',
+      hint: 'Order volume, revenue, profit, and ROI by hunter.',
+    },
+    {
+      id: 'order-account',
+      label: 'Orders by account',
+      hint: 'Order load and profitability by account.',
+    },
   ];
   readonly activeSectionMeta = computed(() => {
-    const section = this.sectionOptions.find((option) => option.id === this.activeSection()) || this.sectionOptions[0];
+    const section =
+      this.sectionOptions.find((option) => option.id === this.activeSection()) ||
+      this.sectionOptions[0];
     return {
       ...section,
       count: this.sectionCount(section.id),
@@ -221,8 +259,7 @@ export class SuperAdminReportsComponent implements OnInit {
     }
 
     const rows = this.buildExportRows(stats);
-    const dateStamp = new Date().toISOString().slice(0, 10);
-
+    const dateStamp = new Date().toLocaleDateString('en-CA');
     this.exportService.exportAsExcelTable({
       filename: `superadmin-reports-${dateStamp}.xlsx`,
       sheetName: 'Super Admin Reports',
@@ -246,8 +283,7 @@ export class SuperAdminReportsComponent implements OnInit {
     }
 
     const rows = this.buildExportRows(stats);
-    const dateStamp = new Date().toISOString().slice(0, 10);
-
+    const dateStamp = new Date().toLocaleDateString('en-CA');
     this.exportService.exportAsCsv({
       filename: `superadmin-reports-${dateStamp}.csv`,
       rows,
@@ -316,7 +352,9 @@ export class SuperAdminReportsComponent implements OnInit {
   }
 
   private buildApiFilters(dateFilters: { from?: string; to?: string }) {
-    const selectedUser = this.reportUsers().find((user) => user.id === this.filtersForm.controls.userId.value);
+    const selectedUser = this.reportUsers().find(
+      (user) => user.id === this.filtersForm.controls.userId.value,
+    );
     return {
       from: dateFilters.from,
       to: dateFilters.to,
@@ -326,7 +364,10 @@ export class SuperAdminReportsComponent implements OnInit {
     };
   }
 
-  private getPresetFilters(range: Exclude<ReportRangePreset, 'custom'>): { from: string; to: string } {
+  private getPresetFilters(range: Exclude<ReportRangePreset, 'custom'>): {
+    from: string;
+    to: string;
+  } {
     const today = new Date();
 
     switch (range) {
@@ -359,12 +400,48 @@ export class SuperAdminReportsComponent implements OnInit {
       { section: 'Summary', name: 'Ready', metricA: stats.ready, metricB: '', notes: '' },
       { section: 'Summary', name: 'Rejected', metricA: stats.rejected, metricB: '', notes: '' },
       { section: 'Summary', name: 'Listed', metricA: stats.listed, metricB: '', notes: '' },
-      { section: 'Summary', name: 'Hunters', metricA: stats.byHunter.length, metricB: '', notes: '' },
-      { section: 'Summary', name: 'Accounts Used', metricA: stats.byAccount.length, metricB: '', notes: '' },
-      { section: 'Orders', name: 'Total Orders', metricA: this.orderReports()?.totalOrders ?? 0, metricB: '', notes: '' },
-      { section: 'Orders', name: 'Revenue', metricA: this.orderReports()?.totalRevenue ?? 0, metricB: '', notes: '' },
-      { section: 'Orders', name: 'Profit', metricA: this.orderReports()?.totalProfit ?? 0, metricB: '', notes: '' },
-      { section: 'Orders', name: 'Average ROI', metricA: this.orderReports()?.averageRoi ?? 0, metricB: '', notes: '' },
+      {
+        section: 'Summary',
+        name: 'Hunters',
+        metricA: stats.byHunter.length,
+        metricB: '',
+        notes: '',
+      },
+      {
+        section: 'Summary',
+        name: 'Accounts Used',
+        metricA: stats.byAccount.length,
+        metricB: '',
+        notes: '',
+      },
+      {
+        section: 'Orders',
+        name: 'Total Orders',
+        metricA: this.orderReports()?.totalOrders ?? 0,
+        metricB: '',
+        notes: '',
+      },
+      {
+        section: 'Orders',
+        name: 'Revenue',
+        metricA: this.orderReports()?.totalRevenue ?? 0,
+        metricB: '',
+        notes: '',
+      },
+      {
+        section: 'Orders',
+        name: 'Profit',
+        metricA: this.orderReports()?.totalProfit ?? 0,
+        metricB: '',
+        notes: '',
+      },
+      {
+        section: 'Orders',
+        name: 'Average ROI',
+        metricA: this.orderReports()?.averageRoi ?? 0,
+        metricB: '',
+        notes: '',
+      },
       ...stats.byHunter.map((row) => ({
         section: 'Hunter',
         name: row.name,

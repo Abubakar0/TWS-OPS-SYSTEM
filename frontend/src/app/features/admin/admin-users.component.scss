@@ -1,9 +1,9 @@
 .users-toolbar {
-    display: grid;
-    grid-template-columns: minmax(0, 0.65fr) repeat(2, minmax(150px, 180px)) auto;
-    gap: 12px;
-    align-items: baseline;
-    margin-bottom: 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 0.65fr) repeat(2, minmax(150px, 180px)) auto;
+  gap: 12px;
+  align-items: baseline;
+  margin-bottom: 16px;
 }
 
 .toolbar-select {
@@ -89,6 +89,48 @@
 .form-error {
   color: var(--mat-sys-error, #d14343);
   font-size: 0.82rem;
+}
+
+.detail-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.detail-fact {
+  padding: 12px 14px;
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  border-radius: 14px;
+  background: rgba(248, 250, 252, 0.82);
+}
+
+.detail-fact span {
+  display: block;
+  color: var(--tws-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.detail-fact strong {
+  display: block;
+  margin-top: 6px;
+  color: var(--tws-text);
+  font-size: 0.96rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.role-section {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.detail-section > h3 {
+  margin: 10px 0;
 }
 
 @media (max-width: 760px) {

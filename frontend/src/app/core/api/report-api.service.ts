@@ -76,13 +76,15 @@ export class ReportApiService {
     return this.listPaged<UserReportRow>('users', filters);
   }
 
-  getUser(id: string): Observable<UserReportRow> {
+  getUser(id: string, filters: ReportFilters = {}): Observable<UserReportRow> {
     return this.requestCache.getOrCreate(
-      makeCacheKey(CACHE_NAMESPACE.reports, { endpoint: 'users', id }),
+      makeCacheKey(CACHE_NAMESPACE.reports, { endpoint: 'users', id, ...filters }),
       CACHE_TTL.medium,
       () =>
         this.http
-          .get<{ user: UserReportRow }>(`${environment.apiUrl}/reports/users/${id}`)
+          .get<{ user: UserReportRow }>(`${environment.apiUrl}/reports/users/${id}`, {
+            params: buildParams(filters),
+          })
           .pipe(map((response) => response.user)),
     );
   }
@@ -91,13 +93,15 @@ export class ReportApiService {
     return this.listPaged<UserReportRow>('hunters', filters);
   }
 
-  getHunter(id: string): Observable<UserReportRow> {
+  getHunter(id: string, filters: ReportFilters = {}): Observable<UserReportRow> {
     return this.requestCache.getOrCreate(
-      makeCacheKey(CACHE_NAMESPACE.reports, { endpoint: 'hunters', id }),
+      makeCacheKey(CACHE_NAMESPACE.reports, { endpoint: 'hunters', id, ...filters }),
       CACHE_TTL.medium,
       () =>
         this.http
-          .get<{ hunter: UserReportRow }>(`${environment.apiUrl}/reports/hunters/${id}`)
+          .get<{ hunter: UserReportRow }>(`${environment.apiUrl}/reports/hunters/${id}`, {
+            params: buildParams(filters),
+          })
           .pipe(map((response) => response.hunter)),
     );
   }
@@ -106,13 +110,15 @@ export class ReportApiService {
     return this.listPaged<UserReportRow>('listers', filters);
   }
 
-  getLister(id: string): Observable<UserReportRow> {
+  getLister(id: string, filters: ReportFilters = {}): Observable<UserReportRow> {
     return this.requestCache.getOrCreate(
-      makeCacheKey(CACHE_NAMESPACE.reports, { endpoint: 'listers', id }),
+      makeCacheKey(CACHE_NAMESPACE.reports, { endpoint: 'listers', id, ...filters }),
       CACHE_TTL.medium,
       () =>
         this.http
-          .get<{ lister: UserReportRow }>(`${environment.apiUrl}/reports/listers/${id}`)
+          .get<{ lister: UserReportRow }>(`${environment.apiUrl}/reports/listers/${id}`, {
+            params: buildParams(filters),
+          })
           .pipe(map((response) => response.lister)),
     );
   }
@@ -121,13 +127,15 @@ export class ReportApiService {
     return this.listPaged<UserReportRow>('order-processors', filters);
   }
 
-  getOrderProcessor(id: string): Observable<UserReportRow> {
+  getOrderProcessor(id: string, filters: ReportFilters = {}): Observable<UserReportRow> {
     return this.requestCache.getOrCreate(
-      makeCacheKey(CACHE_NAMESPACE.reports, { endpoint: 'order-processors', id }),
+      makeCacheKey(CACHE_NAMESPACE.reports, { endpoint: 'order-processors', id, ...filters }),
       CACHE_TTL.medium,
       () =>
         this.http
-          .get<{ orderProcessor: UserReportRow }>(`${environment.apiUrl}/reports/order-processors/${id}`)
+          .get<{ orderProcessor: UserReportRow }>(`${environment.apiUrl}/reports/order-processors/${id}`, {
+            params: buildParams(filters),
+          })
           .pipe(map((response) => response.orderProcessor)),
     );
   }
@@ -136,13 +144,15 @@ export class ReportApiService {
     return this.listPaged<UserReportRow>('admins', filters);
   }
 
-  getAdmin(id: string): Observable<UserReportRow> {
+  getAdmin(id: string, filters: ReportFilters = {}): Observable<UserReportRow> {
     return this.requestCache.getOrCreate(
-      makeCacheKey(CACHE_NAMESPACE.reports, { endpoint: 'admins', id }),
+      makeCacheKey(CACHE_NAMESPACE.reports, { endpoint: 'admins', id, ...filters }),
       CACHE_TTL.medium,
       () =>
         this.http
-          .get<{ admin: UserReportRow }>(`${environment.apiUrl}/reports/admins/${id}`)
+          .get<{ admin: UserReportRow }>(`${environment.apiUrl}/reports/admins/${id}`, {
+            params: buildParams(filters),
+          })
           .pipe(map((response) => response.admin)),
     );
   }

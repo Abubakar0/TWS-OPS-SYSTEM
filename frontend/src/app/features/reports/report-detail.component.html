@@ -36,6 +36,19 @@
       [badge]="total() + ' rows'"
       storageKey="tws_reports_detail_filters"
     >
+      <div class="range-toolbar">
+        @for (range of quickRanges; track range.key) {
+          <button
+            mat-stroked-button
+            type="button"
+            class="range-chip"
+            (click)="applyDatePreset(range.key)"
+          >
+            {{ range.label }}
+          </button>
+        }
+      </div>
+
       <form class="filters-grid" [formGroup]="filtersForm" (ngSubmit)="applyFilters()">
         <mat-form-field appearance="outline">
           <mat-label>Search</mat-label>

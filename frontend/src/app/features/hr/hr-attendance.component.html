@@ -41,6 +41,15 @@
         </summary>
 
         <div class="filter-panel__content">
+          <div class="range-toolbar">
+            <button mat-stroked-button type="button" class="range-chip" (click)="applyDatePreset('today')">
+              Today
+            </button>
+            <button mat-stroked-button type="button" class="range-chip" (click)="applyDatePreset('yesterday')">
+              Yesterday
+            </button>
+          </div>
+
           <div class="hr-form-grid">
             <mat-form-field appearance="outline">
               <mat-label>Search employees</mat-label>
@@ -78,9 +87,7 @@
           </div>
 
           <div class="hr-inline-actions">
-            <button mat-stroked-button type="button" (click)="loadAttendance(1)">
-              Apply Filters
-            </button>
+            <button mat-stroked-button type="button" (click)="loadAttendance(1)">Apply Filters</button>
           </div>
         </div>
       </details>

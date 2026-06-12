@@ -8,7 +8,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { firstValueFrom } from 'rxjs';
+import { combineLatest, firstValueFrom } from 'rxjs';
 
 import { ReportApiService } from '../../core/api/report-api.service';
 import { TeamApiService } from '../../core/api/team-api.service';
@@ -28,6 +28,15 @@ interface DisplayRow {
   badges?: string[];
   raw: unknown;
 }
+
+type DateQuickPreset = 'today' | 'yesterday';
+
+const toLocalDateInput = (value: Date): string => {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 @Component({
   selector: 'app-report-detail',
@@ -95,6 +104,10 @@ export class ReportDetailComponent implements OnInit {
   });
 
   readonly pageSizes = [30, 50, 100];
+  readonly quickRanges: Array<{ key: DateQuickPreset; label: string }> = [
+    { key: 'today', label: 'Today' },
+    { key: 'yesterday', label: 'Yesterday' },
+  ];
 
   readonly roleOptions = computed<readonly SearchableSelectOption<string>[]>(() => [
     { value: '', label: 'All roles', description: 'Keep every role visible.' },
@@ -119,12 +132,13 @@ export class ReportDetailComponent implements OnInit {
       case 'orders':
         return [
           { value: '', label: 'All statuses' },
-          { value: 'NEW', label: 'New' },
           { value: 'PLACED', label: 'Placed' },
           { value: 'SHIPPED', label: 'Shipped' },
           { value: 'DELIVERED', label: 'Delivered' },
+          { value: 'RETURNED', label: 'Returned' },
           { value: 'CANCELLED', label: 'Cancelled' },
           { value: 'REFUNDED', label: 'Refunded' },
+          { value: 'ON_HOLD', label: 'On Hold' },
           { value: 'ISSUE', label: 'Issue' },
         ];
       case 'accounts':
@@ -562,33 +576,37 @@ export class ReportDetailComponent implements OnInit {
       next: (teams) => this.teams.set(teams.map((team) => ({ id: team.id, name: team.name }))),
     });
 
-    this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
-      this.section.set((params.get('section') as ReportSection) || 'users');
-      this.selectedDetail.set(null);
-      this.loadCurrentSection();
-    });
+    combineLatest([this.route.paramMap, this.route.queryParamMap])
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(([routeParams, queryParams]) => {
+        const nextSection = (routeParams.get('section') as ReportSection) || 'users';
+        const sectionChanged = nextSection !== this.section();
+        this.section.set(nextSection);
 
-    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
-      this.page.set(Number(params.get('page') || 1));
-      this.limit.set(Number(params.get('limit') || 30));
-      this.filtersForm.patchValue(
-        {
-          search: params.get('search') || '',
-          role: params.get('role') || '',
-          status: params.get('status') || '',
-          teamId: params.get('teamId') || '',
-          userId: params.get('userId') || '',
-          accountId: params.get('accountId') || '',
-          marketplace: params.get('marketplace') || '',
-          country: params.get('country') || '',
-          category: params.get('category') || '',
-          dateFrom: params.get('dateFrom') || '',
-          dateTo: params.get('dateTo') || '',
-        },
-        { emitEvent: false },
-      );
-      this.loadCurrentSection();
-    });
+        if (sectionChanged) {
+          this.selectedDetail.set(null);
+        }
+
+        this.page.set(Number(queryParams.get('page') || 1));
+        this.limit.set(Number(queryParams.get('limit') || 30));
+        this.filtersForm.patchValue(
+          {
+            search: queryParams.get('search') || '',
+            role: queryParams.get('role') || '',
+            status: queryParams.get('status') || '',
+            teamId: queryParams.get('teamId') || '',
+            userId: queryParams.get('userId') || '',
+            accountId: queryParams.get('accountId') || '',
+            marketplace: queryParams.get('marketplace') || '',
+            country: queryParams.get('country') || '',
+            category: queryParams.get('category') || '',
+            dateFrom: queryParams.get('dateFrom') || '',
+            dateTo: queryParams.get('dateTo') || '',
+          },
+          { emitEvent: false },
+        );
+        this.loadCurrentSection();
+      });
   }
 
   applyFilters(): void {
@@ -624,32 +642,51 @@ export class ReportDetailComponent implements OnInit {
     this.applyFilters();
   }
 
+  applyDatePreset(preset: DateQuickPreset): void {
+    const target = new Date();
+
+    if (preset === 'yesterday') {
+      target.setDate(target.getDate() - 1);
+    }
+
+    const date = toLocalDateInput(target);
+    this.filtersForm.patchValue(
+      {
+        dateFrom: date,
+        dateTo: date,
+      },
+      { emitEvent: false },
+    );
+    this.applyFilters();
+  }
+
   openRow(row: DisplayRow): void {
     const section = this.section();
     const raw = row.raw;
+    const filters = this.buildFilters();
 
     this.reportApi
       .trackEvent({ kind: 'DRILLDOWN', section, targetId: row.id, meta: { scope: this.scope() } })
       .subscribe({ error: () => undefined });
 
     if (section === 'users') {
-      this.reportApi.getUser(row.id).subscribe({ next: (detail) => this.selectedDetail.set(detail) });
+      this.reportApi.getUser(row.id, filters).subscribe({ next: (detail) => this.selectedDetail.set(detail) });
       return;
     }
     if (section === 'hunters') {
-      this.reportApi.getHunter(row.id).subscribe({ next: (detail) => this.selectedDetail.set(detail) });
+      this.reportApi.getHunter(row.id, filters).subscribe({ next: (detail) => this.selectedDetail.set(detail) });
       return;
     }
     if (section === 'listers') {
-      this.reportApi.getLister(row.id).subscribe({ next: (detail) => this.selectedDetail.set(detail) });
+      this.reportApi.getLister(row.id, filters).subscribe({ next: (detail) => this.selectedDetail.set(detail) });
       return;
     }
     if (section === 'order-processors') {
-      this.reportApi.getOrderProcessor(row.id).subscribe({ next: (detail) => this.selectedDetail.set(detail) });
+      this.reportApi.getOrderProcessor(row.id, filters).subscribe({ next: (detail) => this.selectedDetail.set(detail) });
       return;
     }
     if (section === 'admins') {
-      this.reportApi.getAdmin(row.id).subscribe({ next: (detail) => this.selectedDetail.set(detail) });
+      this.reportApi.getAdmin(row.id, filters).subscribe({ next: (detail) => this.selectedDetail.set(detail) });
       return;
     }
     if (section === 'accounts') {
@@ -974,7 +1011,7 @@ export class ReportDetailComponent implements OnInit {
       case 'admins':
         return 'Admins';
       case 'accounts':
-        return 'Accounts';
+        return 'Orders By Account';
       case 'products':
         return 'Products';
       case 'orders':
@@ -1009,7 +1046,7 @@ export class ReportDetailComponent implements OnInit {
       case 'admins':
         return 'Admin management, account, and reporting activity.';
       case 'accounts':
-        return 'Account-level order load, listing volume, and profitability.';
+        return 'Account-level order volume, delivery outcomes, revenue, profit, and operational load.';
       case 'products':
         return 'Product performance, category mix, and order generation.';
       case 'orders':

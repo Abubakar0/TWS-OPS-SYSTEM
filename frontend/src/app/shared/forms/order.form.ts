@@ -114,16 +114,16 @@ export const createOrderForm = (): OrderForm =>
     deliveredDate: new FormControl('', { nonNullable: true }),
     trackingNumber: new FormControl('', { nonNullable: true }),
     carrier: new FormControl('', { nonNullable: true }),
-    supplierOrderStatus: new FormControl('NOT_PLACED', { nonNullable: true }),
-    orderStatus: new FormControl<OrderStatus>('NEW', {
+    supplierOrderStatus: new FormControl('PLACED', { nonNullable: true }),
+    orderStatus: new FormControl<OrderStatus>('PLACED', {
       nonNullable: true,
       validators: [Validators.required],
     }),
-    placementStatus: new FormControl<PlacementStatus>('NOT_PLACED', {
+    placementStatus: new FormControl<PlacementStatus>('PLACED', {
       nonNullable: true,
       validators: [Validators.required],
     }),
-    paymentStatus: new FormControl<PaymentStatus>('PENDING', {
+    paymentStatus: new FormControl<PaymentStatus>('PAID', {
       nonNullable: true,
       validators: [Validators.required],
     }),

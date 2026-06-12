@@ -7,6 +7,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
+import { AuthService } from '../../core/auth/auth.service';
 import { ProductAdminApiService } from '../../core/api/product-admin-api.service';
 import { ProductOwnershipTransferSummary } from '../../core/models/product.models';
 import { ReferenceDataService } from '../../core/state/reference-data.service';
@@ -122,30 +123,24 @@ import { EmptyStateComponent } from '../../shared/empty-state/empty-state.compon
             </div>
           </article>
 
-          <article class="surface-card">
-            <div class="surface-card__header">
-              <div>
-                <h2>Recent Transfer History</h2>
-                <p>Latest ownership changes touching this hunter.</p>
+          @if (lastTransfer(); as transfer) {
+            <article class="surface-card">
+              <div class="surface-card__header">
+                <div>
+                  <h2>Confirmation Result</h2>
+                  <p>Latest product transfer completed from this workspace.</p>
+                </div>
               </div>
-            </div>
 
-            @if (summary.recentTransfers?.length) {
-              <div class="simple-table">
-                @for (item of summary.recentTransfers || []; track item.id) {
-                  <div class="simple-table__row simple-table__row--two">
-                    <div>
-                      <strong>{{ item.sourceHunterName }} to {{ item.targetHunterName }}</strong>
-                      <small>{{ item.transferredByName }} | {{ item.transferredAt | date: 'MMM d, y, h:mm a' }}</small>
-                    </div>
-                    <span class="status-badge">Transfer</span>
-                  </div>
-                }
+              <div class="detail-facts">
+                <div class="detail-fact"><span>Source Hunter</span><strong>{{ transfer.sourceHunterName }}</strong></div>
+                <div class="detail-fact"><span>Target Hunter</span><strong>{{ transfer.targetHunterName }}</strong></div>
+                <div class="detail-fact"><span>Product Count</span><strong>{{ transfer.transferred }}</strong></div>
+                <div class="detail-fact"><span>Transfer Date</span><strong>{{ transfer.transferredAt | date: 'MMM d, y, h:mm a' }}</strong></div>
+                <div class="detail-fact"><span>Transferred By</span><strong>{{ transfer.transferredBy }}</strong></div>
               </div>
-            } @else {
-              <div class="inline-state">No transfer history yet for this hunter.</div>
-            }
-          </article>
+            </article>
+          }
         </section>
       } @else {
         <app-empty-state
@@ -159,6 +154,7 @@ import { EmptyStateComponent } from '../../shared/empty-state/empty-state.compon
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SuperadminProductTransfersComponent implements OnInit {
+  private readonly auth = inject(AuthService);
   private readonly api = inject(ProductAdminApiService);
   private readonly referenceData = inject(ReferenceDataService);
   private readonly toast = inject(ToastService);
@@ -167,6 +163,13 @@ export class SuperadminProductTransfersComponent implements OnInit {
   readonly saving = signal(false);
   readonly error = signal('');
   readonly summary = signal<ProductOwnershipTransferSummary | null>(null);
+  readonly lastTransfer = signal<{
+    sourceHunterName: string;
+    targetHunterName: string;
+    transferred: number;
+    transferredAt: string;
+    transferredBy: string;
+  } | null>(null);
   readonly hunters = signal<Array<{ id: string; name: string; email: string }>>([]);
   readonly form = new FormGroup({
     sourceHunterId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
@@ -185,6 +188,17 @@ export class SuperadminProductTransfersComponent implements OnInit {
     this.hunters()
       .filter((hunter) => hunter.id !== this.form.controls.sourceHunterId.value)
       .map((hunter) => ({ value: hunter.id, label: hunter.name, description: hunter.email })),
+  );
+  readonly sourceHunterName = computed(
+    () =>
+      this.hunters().find((hunter) => hunter.id === this.form.controls.sourceHunterId.value)?.name ||
+      this.summary()?.hunter.name ||
+      'Source hunter',
+  );
+  readonly targetHunterName = computed(
+    () =>
+      this.hunters().find((hunter) => hunter.id === this.form.controls.targetHunterId.value)?.name ||
+      'Target hunter',
   );
 
   ngOnInit(): void {
@@ -221,7 +235,14 @@ export class SuperadminProductTransfersComponent implements OnInit {
     this.error.set('');
     this.api.transferProductOwnership(this.form.getRawValue()).subscribe({
       next: (result) => {
-        this.toast.success(`Transferred ${result.transferred} product(s).`);
+        this.lastTransfer.set({
+          sourceHunterName: this.sourceHunterName(),
+          targetHunterName: this.targetHunterName(),
+          transferred: Number(result.transferred || 0),
+          transferredAt: new Date().toISOString(),
+          transferredBy: this.auth.currentUser()?.name || 'Current user',
+        });
+        this.toast.success(`Transferred ${Number(result.transferred || 0)} product(s).`);
         this.saving.set(false);
         this.loadSummary();
       },

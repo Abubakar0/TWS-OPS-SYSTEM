@@ -142,6 +142,7 @@
 .orders-table {
   display: grid;
   gap: 5px;
+  overflow: auto;
 }
 
 .orders-table__head,

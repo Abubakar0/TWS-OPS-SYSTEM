@@ -6,13 +6,19 @@ const { getConfiguredLimit } = require('../system/system.service');
 const { ensureOrdersTable, getOrderById } = require('../orders/orders.service');
 const { ensureHrTables, getHrDashboard, getAttendanceReport, getPayrollReport, getExpenseReport, getPerformanceReport, listEmployees } = require('../hr/hr.service');
 const { ensureTeamTables, listTeams } = require('../teams/teams.service');
-const { getAccountSummary } = require('../accounts/accounts.service');
+const {
+  getAccountSummary,
+  ensureAccountSummaryDependencies,
+} = require('../accounts/accounts.service');
 const { getProductById } = require('../products/products.service');
 const { getUserDetails } = require('../users/users.service');
 const { normalizeRoles, resolvePrimaryRole, hasAnyRole } = require('../users/permissions');
+const { ensureChangeRequestTable } = require('../change-requests/change-requests.service');
 
+const BUSINESS_TIMEZONE = process.env.APP_TIMEZONE || 'Asia/Karachi';
 const OPEN_ISSUE_SQL = `(o.order_status = 'ISSUE' OR COALESCE(o.issue_status, '') IN ('OPEN', 'IN_REVIEW'))`;
 const OPEN_CHANGE_REQUEST_SQL = `status IN ('OPEN', 'IN_PROGRESS')`;
+const OPEN_CHANGE_REQUEST_STATUS_SQL = `request.status IN ('OPEN', 'IN_PROGRESS')`;
 const REPORT_EVENT_ACTIONS = {
   VIEW: 'REPORT_VIEWED',
   EXPORT: 'REPORT_EXPORTED',
@@ -41,7 +47,13 @@ const ensureReportViewer = (user) => {
 };
 
 const ensureReportDependencies = async () => {
-  await Promise.all([ensureOrdersTable(), ensureHrTables(), ensureTeamTables()]);
+  await Promise.all([
+    ensureOrdersTable(),
+    ensureHrTables(),
+    ensureTeamTables(),
+    ensureChangeRequestTable(),
+    ensureAccountSummaryDependencies(),
+  ]);
 };
 
 const addClause = (clauses, params, sql, value) => {
@@ -51,11 +63,21 @@ const addClause = (clauses, params, sql, value) => {
 
 const addDateFilters = (query, clauses, params, column) => {
   if (query.dateFrom) {
-    addClause(clauses, params, `${column} >= ?`, query.dateFrom);
+    addClause(
+      clauses,
+      params,
+      `${column} >= (?::date::timestamp AT TIME ZONE '${BUSINESS_TIMEZONE}')`,
+      query.dateFrom,
+    );
   }
 
   if (query.dateTo) {
-    addClause(clauses, params, `${column} < (?::date + INTERVAL '1 day')`, query.dateTo);
+    addClause(
+      clauses,
+      params,
+      `${column} < (((?::date + INTERVAL '1 day')::timestamp) AT TIME ZONE '${BUSINESS_TIMEZONE}')`,
+      query.dateTo,
+    );
   }
 };
 
@@ -401,7 +423,7 @@ const getSummaryReport = async (actor, query = {}) => {
     pool.query(
       `
         SELECT
-          COUNT(*) FILTER (WHERE ${OPEN_CHANGE_REQUEST_SQL})::int AS "pendingChangeRequests"
+          COUNT(*) FILTER (WHERE ${OPEN_CHANGE_REQUEST_STATUS_SQL})::int AS "pendingChangeRequests"
         FROM product_change_requests request
         LEFT JOIN products p ON p.id = request.product_id
         ${categoryProductFilters.whereSql.replaceAll('p.', 'p.')}
@@ -566,7 +588,11 @@ const listUserReports = async (actor, query = {}) => {
   );
 
   const ids = result.rows.map((row) => row.id);
-  const items = await Promise.all(ids.map((id) => getUserDetails(actor, id).then(mapUserReportRow)));
+  const items = await Promise.all(
+    ids.map((id) =>
+      getUserDetails(actor, id, { reportQuery: query }).then(mapUserReportRow),
+    ),
+  );
   const total = result.rows[0]?.totalCount || 0;
 
   return {
@@ -575,10 +601,10 @@ const listUserReports = async (actor, query = {}) => {
   };
 };
 
-const getUserReport = async (actor, id, forcedRole = null) => {
+const getUserReport = async (actor, id, forcedRole = null, query = {}) => {
   ensureReportViewer(actor);
   await ensureReportDependencies();
-  const details = await getUserDetails(actor, id);
+  const details = await getUserDetails(actor, id, { reportQuery: query });
   const row = mapUserReportRow(details);
 
   if (forcedRole && !row.roles.includes(forcedRole)) {
@@ -646,7 +672,7 @@ const listAccountReports = async (actor, query = {}) => {
         WHERE request.account_id = account.id
       ) change_metrics ON TRUE
       ${filters.whereSql}
-      ORDER BY account.name
+      ORDER BY "totalOrders" DESC, "totalRevenue" DESC, account.name
       LIMIT $${filters.params.length + 1}
       OFFSET $${filters.params.length + 2}
     `,

@@ -15,6 +15,7 @@ import {
 import { ExportService } from '../services/export.service';
 import { ReferenceDataService } from '../state/reference-data.service';
 import { WorkspaceSyncService } from '../state/workspace-sync.service';
+import { ConfirmService } from '../ui/confirm.service';
 import { ToastService } from '../ui/toast.service';
 import { userHasRole } from '../models/auth.models';
 
@@ -33,6 +34,7 @@ export class AdminProductsFacade {
   readonly detailProduct = signal<Product | null>(null);
   readonly editModalOpen = signal(false);
   readonly rejectModalOpen = signal(false);
+  readonly rejectMode = signal<'single' | 'bulk'>('single');
   readonly deleteModalOpen = signal(false);
   readonly deleteMode = signal<'soft' | 'permanent'>('soft');
   readonly bulkEditModalOpen = signal(false);
@@ -152,6 +154,7 @@ export class AdminProductsFacade {
     const user = this.auth.currentUser();
     return Boolean(user && userHasRole(user, 'super_admin'));
   });
+  readonly canBulkStatusUpdate = computed(() => this.canBulkEdit());
   readonly canEditProducts = computed(() => {
     const user = this.auth.currentUser();
     return Boolean(user && (userHasRole(user, 'admin') || userHasRole(user, 'super_admin')));
@@ -175,6 +178,7 @@ export class AdminProductsFacade {
     private readonly exportService: ExportService,
     private readonly referenceData: ReferenceDataService,
     private readonly workspaceSync: WorkspaceSyncService,
+    private readonly confirm: ConfirmService,
     private readonly toast: ToastService,
   ) {
     this.referenceData
@@ -380,6 +384,25 @@ export class AdminProductsFacade {
     }
 
     this.detailProduct.set(product);
+    this.rejectMode.set('single');
+    this.rejectForm.reset({ reason: '' }, { emitEvent: false });
+    this.rejectModalOpen.set(true);
+  }
+
+  openBulkRejectModal(productIds?: string[]): void {
+    if (!this.canBulkStatusUpdate()) {
+      return;
+    }
+
+    const ids = productIds?.length ? productIds : this.selectedIds();
+
+    if (!ids.length) {
+      this.toast.warning('Select at least one product first.');
+      return;
+    }
+
+    this.selectedIds.set(ids);
+    this.rejectMode.set('bulk');
     this.rejectForm.reset({ reason: '' }, { emitEvent: false });
     this.rejectModalOpen.set(true);
   }
@@ -389,21 +412,49 @@ export class AdminProductsFacade {
       return;
     }
 
+    this.rejectMode.set('single');
     this.rejectModalOpen.set(false);
   }
 
   confirmReject(): void {
     const product = this.detailProduct();
+    const bulkMode = this.rejectMode() === 'bulk';
+    const selectedIds = this.selectedIds();
 
-    if (!product || this.rejectForm.invalid || this.deleting()) {
+    if ((bulkMode ? !selectedIds.length : !product) || this.rejectForm.invalid || this.deleting()) {
       this.rejectForm.markAllAsTouched();
       return;
     }
 
     this.deleting.set(true);
     this.error.set('');
+    const reason = this.rejectForm.controls.reason.value.trim();
 
-    this.api.rejectProduct(product.id, this.rejectForm.controls.reason.value.trim()).subscribe({
+    if (bulkMode) {
+      this.api.bulkUpdateProducts(selectedIds, { status: 'rejected', rejectionReason: reason }).subscribe({
+        next: (updatedProducts) => {
+          const updatedById = new Map(updatedProducts.map((entry) => [entry.id, entry]));
+          this.products.update((products) =>
+            products.map((entry) => updatedById.get(entry.id) ?? entry),
+          );
+          const currentDetail = this.detailProduct();
+          if (currentDetail && updatedById.has(currentDetail.id)) {
+            this.detailProduct.set(updatedById.get(currentDetail.id) ?? currentDetail);
+          }
+          this.workspaceSync.notifyProductsChanged();
+          this.closeRejectModal(true);
+          this.deleting.set(false);
+          this.toast.success('Selected products rejected.');
+        },
+        error: (error) => {
+          this.error.set(error?.error?.message || 'Could not reject selected products.');
+          this.deleting.set(false);
+        },
+      });
+      return;
+    }
+
+    this.api.rejectProduct(product!.id, reason).subscribe({
       next: (updatedProduct) => {
         this.applyProductUpdate(updatedProduct);
         this.closeRejectModal(true);
@@ -412,6 +463,54 @@ export class AdminProductsFacade {
       },
       error: (error) => {
         this.error.set(error?.error?.message || 'Could not reject product.');
+        this.deleting.set(false);
+      },
+    });
+  }
+
+  async bulkApproveSelected(productIds?: string[]): Promise<void> {
+    if (!this.canBulkStatusUpdate() || this.deleting()) {
+      return;
+    }
+
+    const ids = productIds?.length ? productIds : this.selectedIds();
+
+    if (!ids.length) {
+      this.toast.warning('Select at least one product first.');
+      return;
+    }
+
+    const confirmed = await this.confirm.ask({
+      title: 'Approve selected products?',
+      message: `${ids.length} selected product${ids.length === 1 ? '' : 's'} will be moved to approved status.`,
+      confirmText: 'Approve Products',
+      tone: 'default',
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    this.selectedIds.set(ids);
+    this.deleting.set(true);
+    this.error.set('');
+
+    this.api.bulkUpdateProducts(ids, { status: 'approved' }).subscribe({
+      next: (updatedProducts) => {
+        const updatedById = new Map(updatedProducts.map((entry) => [entry.id, entry]));
+        this.products.update((products) =>
+          products.map((entry) => updatedById.get(entry.id) ?? entry),
+        );
+        const currentDetail = this.detailProduct();
+        if (currentDetail && updatedById.has(currentDetail.id)) {
+          this.detailProduct.set(updatedById.get(currentDetail.id) ?? currentDetail);
+        }
+        this.workspaceSync.notifyProductsChanged();
+        this.deleting.set(false);
+        this.toast.success('Selected products approved.');
+      },
+      error: (error) => {
+        this.error.set(error?.error?.message || 'Could not approve selected products.');
         this.deleting.set(false);
       },
     });
@@ -487,7 +586,13 @@ export class AdminProductsFacade {
       ebayUrl: raw.ebayUrl.trim() || undefined,
     };
 
-    if (!payload.title && !payload.customLabel && !payload.category && !payload.amazonUrl && !payload.ebayUrl) {
+    if (
+      !payload.title &&
+      !payload.customLabel &&
+      !payload.category &&
+      !payload.amazonUrl &&
+      !payload.ebayUrl
+    ) {
       this.toast.warning('Add at least one field to apply.');
       return;
     }
@@ -581,7 +686,7 @@ export class AdminProductsFacade {
         rows.push(...nextPage.items);
       }
 
-      const dateStamp = new Date().toISOString().slice(0, 10);
+      const dateStamp = new Date().toLocaleDateString('en-CA');
       this.exportService.exportAsExcelTable({
         filename: `admin-products-${dateStamp}.xlsx`,
         sheetName: 'Products',

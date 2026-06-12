@@ -4,6 +4,24 @@
 :root {
   --tws-body: 'Inter', 'Segoe UI', system-ui, sans-serif;
   --tws-heading: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --mdc-typography-font-family: var(--tws-body);
+  --mat-form-field-container-text-font: var(--tws-body);
+  --mat-form-field-subscript-text-font: var(--tws-body);
+  --mat-select-trigger-text-font: var(--tws-body);
+  --mat-option-label-text-font: var(--tws-body);
+  --mat-menu-item-label-text-font: var(--tws-body);
+  --mat-dialog-subhead-font: var(--tws-body);
+  --mat-dialog-supporting-text-font: var(--tws-body);
+  --mat-table-header-headline-font: var(--tws-body);
+  --mat-table-row-item-label-text-font: var(--tws-body);
+  --mat-tab-header-label-text-font: var(--tws-body);
+  --mat-datepicker-calendar-text-font: var(--tws-body);
+  --mat-checkbox-label-text-font: var(--tws-body);
+  --mat-radio-label-text-font: var(--tws-body);
+  --mat-text-button-label-text-font: var(--tws-body);
+  --mat-filled-button-label-text-font: var(--tws-body);
+  --mat-outlined-button-label-text-font: var(--tws-body);
+  --mat-protected-button-label-text-font: var(--tws-body);
 }
 
 html,
@@ -26,6 +44,22 @@ select,
 .mat-mdc-option,
 .mat-mdc-select-value-text,
 .mat-mdc-select-min-line,
+.mat-mdc-paginator,
+.mat-mdc-paginator *,
+.mat-mdc-tab-group,
+.mat-mdc-tab-group *,
+.mat-mdc-menu-panel,
+.mat-mdc-menu-panel *,
+.mat-mdc-checkbox,
+.mat-mdc-checkbox *,
+.mat-mdc-radio-button,
+.mat-mdc-radio-button *,
+.mat-datepicker-content,
+.mat-datepicker-content *,
+.mat-mdc-autocomplete-panel,
+.mat-mdc-autocomplete-panel *,
+.mat-mdc-tooltip,
+.mat-mdc-tooltip *,
 .mat-mdc-dialog-container,
 .mat-mdc-dialog-container *,
 .mdc-floating-label,

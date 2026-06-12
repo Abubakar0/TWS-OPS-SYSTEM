@@ -24,6 +24,7 @@ const { getCriteria } = require('../criteria/criteria.service');
 
 const VALID_USER_STATUSES = ['active', 'disabled', 'locked', 'deleted'];
 const VALID_HUNTER_STATUSES = ['TRAINING', 'ACTIVE', 'REJECTED'];
+const BUSINESS_TIMEZONE = process.env.APP_TIMEZONE || 'Asia/Karachi';
 
 const userSelect = `
   id,
@@ -109,6 +110,121 @@ const readImportValue = (lookup, ...candidates) => {
   return undefined;
 };
 
+const getReportDateFrom = (query = {}) => query.dateFrom || query.from || null;
+const getReportDateTo = (query = {}) => query.dateTo || query.to || null;
+
+const addScopedDateFilters = (clauses, params, column, query = {}) => {
+  const dateFrom = getReportDateFrom(query);
+  const dateTo = getReportDateTo(query);
+
+  if (dateFrom) {
+    params.push(dateFrom);
+    clauses.push(
+      `${column} >= ($${params.length}::date::timestamp AT TIME ZONE '${BUSINESS_TIMEZONE}')`,
+    );
+  }
+
+  if (dateTo) {
+    params.push(dateTo);
+    clauses.push(
+      `${column} < ((($${params.length}::date + INTERVAL '1 day')::timestamp) AT TIME ZONE '${BUSINESS_TIMEZONE}')`,
+    );
+  }
+};
+
+const addScopedProductFilters = (
+  clauses,
+  params,
+  query = {},
+  { alias = 'p', accountIdColumn = `${alias}.account_used`, dateColumn = `${alias}.created_at` } = {},
+) => {
+  addScopedDateFilters(clauses, params, dateColumn, query);
+
+  if (query.category) {
+    params.push(query.category);
+    clauses.push(`${alias}.category = $${params.length}`);
+  }
+
+  if (query.accountId) {
+    params.push(query.accountId);
+    clauses.push(`${accountIdColumn} = $${params.length}`);
+  }
+
+  if (query.marketplace) {
+    params.push(query.marketplace);
+    clauses.push(
+      `EXISTS (
+        SELECT 1
+        FROM accounts scoped_account
+        WHERE scoped_account.id = ${accountIdColumn}
+          AND scoped_account.marketplace = $${params.length}
+      )`,
+    );
+  }
+
+  if (query.country) {
+    params.push(query.country);
+    clauses.push(
+      `EXISTS (
+        SELECT 1
+        FROM accounts scoped_account
+        WHERE scoped_account.id = ${accountIdColumn}
+          AND scoped_account.country = $${params.length}
+      )`,
+    );
+  }
+};
+
+const addScopedOrderFilters = (
+  clauses,
+  params,
+  query = {},
+  { alias = 'o', accountIdColumn = `${alias}.account_id`, productIdColumn = `${alias}.product_id`, dateColumn = `${alias}.order_date` } = {},
+) => {
+  addScopedDateFilters(clauses, params, dateColumn, query);
+
+  if (query.accountId) {
+    params.push(query.accountId);
+    clauses.push(`${accountIdColumn} = $${params.length}`);
+  }
+
+  if (query.category) {
+    params.push(query.category);
+    clauses.push(
+      `EXISTS (
+        SELECT 1
+        FROM products scoped_product
+        WHERE scoped_product.id = ${productIdColumn}
+          AND scoped_product.category = $${params.length}
+      )`,
+    );
+  }
+
+  if (query.marketplace) {
+    params.push(query.marketplace);
+    clauses.push(
+      `EXISTS (
+        SELECT 1
+        FROM accounts scoped_account
+        WHERE scoped_account.id = ${accountIdColumn}
+          AND scoped_account.marketplace = $${params.length}
+      )`,
+    );
+  }
+
+  if (query.country) {
+    params.push(query.country);
+    clauses.push(
+      `EXISTS (
+        SELECT 1
+        FROM accounts scoped_account
+        WHERE scoped_account.id = ${accountIdColumn}
+          AND scoped_account.country = $${params.length}
+      )`,
+    );
+  }
+};
+
 const isImportRowEmpty = (row) =>
   !row ||
   Object.values(row).every((value) => String(value ?? '').trim() === '');
@@ -133,6 +249,18 @@ const normalizeImportBoolean = (value, fallback = false) => {
   }
 
   return fallback;
+};
+
+const parseQueryBoolean = (value, fallback = false) => {
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  return ['true', '1', 'yes', 'y'].includes(String(value).trim().toLowerCase());
 };
 
 const normalizeImportedRole = (value) => {
@@ -361,6 +489,16 @@ const buildVisibilityFilters = (actor, query) => {
     clauses.push('deleted_at IS NULL');
   }
 
+  if (parseQueryBoolean(query.excludeDisabled, false)) {
+    clauses.push(`COALESCE(status, CASE WHEN is_active THEN 'active' ELSE 'disabled' END) = 'active'`);
+  }
+
+  if (parseQueryBoolean(query.excludeSuperAdmin, false)) {
+    clauses.push(
+      `NOT (COALESCE(roles, jsonb_build_array(role::text)) @> '["super_admin"]'::jsonb)`,
+    );
+  }
+
   if (query.role) {
     assertValidRole(query.role);
 
@@ -393,7 +531,12 @@ const buildVisibilityFilters = (actor, query) => {
 
 const listUserReference = async (actor, query = {}) => {
   await ensureUserRoleSchema();
-  const filters = buildVisibilityFilters(actor, { ...query, includeDeleted: false });
+  const filters = buildVisibilityFilters(actor, {
+    ...query,
+    includeDeleted: false,
+    excludeDisabled: query.excludeDisabled ?? true,
+    excludeSuperAdmin: query.excludeSuperAdmin ?? true,
+  });
   const result = await pool.query(
     `
       SELECT ${userSelect}
@@ -441,7 +584,7 @@ const listUsers = async (actor, query = {}) => {
   };
 };
 
-const getUserDetails = async (actor, id) => {
+const getUserDetails = async (actor, id, options = {}) => {
   await ensureUserRoleSchema();
   await ensureTeamTables();
   await ensureHrTables();
@@ -453,6 +596,93 @@ const getUserDetails = async (actor, id) => {
   const user = await getUserById(id, { includeDeleted: true });
   const criteria = await getCriteria();
   const qualityCase = buildQualityCaseSql(criteria);
+  const reportQuery = options.reportQuery || {};
+
+  const hunterStatsParams = [id];
+  const hunterProductConditions = ['p.hunter_id = $1', 'p.deleted_at IS NULL'];
+  const hunterOwnedConditions = ['COALESCE(p.current_hunter_id, p.hunter_id) = $1', 'p.deleted_at IS NULL'];
+  const hunterOrderConditions = ['o.hunter_id = $1', 'o.deleted_at IS NULL'];
+  const hunterIssueConditions = [
+    ...hunterOrderConditions,
+    `(o.order_status = 'ISSUE' OR COALESCE(o.issue_status, '') IN ('OPEN', 'IN_REVIEW'))`,
+  ];
+  addScopedProductFilters(hunterProductConditions, hunterStatsParams, reportQuery, {
+    alias: 'p',
+    accountIdColumn: 'p.account_used',
+    dateColumn: 'p.created_at',
+  });
+  addScopedProductFilters(hunterOwnedConditions, hunterStatsParams, reportQuery, {
+    alias: 'p',
+    accountIdColumn: 'p.account_used',
+    dateColumn: 'p.created_at',
+  });
+  addScopedOrderFilters(hunterOrderConditions, hunterStatsParams, reportQuery, {
+    alias: 'o',
+    accountIdColumn: 'o.account_id',
+    productIdColumn: 'o.product_id',
+    dateColumn: 'o.order_date',
+  });
+  addScopedOrderFilters(hunterIssueConditions, hunterStatsParams, reportQuery, {
+    alias: 'o',
+    accountIdColumn: 'o.account_id',
+    productIdColumn: 'o.product_id',
+    dateColumn: 'o.order_date',
+  });
+
+  const listerStatsParams = [id];
+  const listerListedConditions = ['p.listed_by = $1', 'p.deleted_at IS NULL', `p.status = 'listed'`];
+  const listerRejectedConditions = ['p.assigned_lister_id = $1', 'p.deleted_at IS NULL', `p.status = 'rejected'`];
+  addScopedProductFilters(listerListedConditions, listerStatsParams, reportQuery, {
+    alias: 'p',
+    accountIdColumn: 'p.account_used',
+    dateColumn: 'p.listed_at',
+  });
+  addScopedProductFilters(listerRejectedConditions, listerStatsParams, reportQuery, {
+    alias: 'p',
+    accountIdColumn: 'p.account_used',
+    dateColumn: 'p.updated_at',
+  });
+
+  const orderProcessorStatsParams = [id];
+  const orderProcessorConditions = ['created_by = $1', 'deleted_at IS NULL'];
+  addScopedDateFilters(orderProcessorConditions, orderProcessorStatsParams, 'created_at', reportQuery);
+  if (reportQuery.accountId) {
+    orderProcessorStatsParams.push(reportQuery.accountId);
+    orderProcessorConditions.push(`account_id = $${orderProcessorStatsParams.length}`);
+  }
+  if (reportQuery.category) {
+    orderProcessorStatsParams.push(reportQuery.category);
+    orderProcessorConditions.push(
+      `EXISTS (
+        SELECT 1
+        FROM products scoped_product
+        WHERE scoped_product.id = orders.product_id
+          AND scoped_product.category = $${orderProcessorStatsParams.length}
+      )`,
+    );
+  }
+  if (reportQuery.marketplace) {
+    orderProcessorStatsParams.push(reportQuery.marketplace);
+    orderProcessorConditions.push(
+      `EXISTS (
+        SELECT 1
+        FROM accounts scoped_account
+        WHERE scoped_account.id = orders.account_id
+          AND scoped_account.marketplace = $${orderProcessorStatsParams.length}
+      )`,
+    );
+  }
+  if (reportQuery.country) {
+    orderProcessorStatsParams.push(reportQuery.country);
+    orderProcessorConditions.push(
+      `EXISTS (
+        SELECT 1
+        FROM accounts scoped_account
+        WHERE scoped_account.id = orders.account_id
+          AND scoped_account.country = $${orderProcessorStatsParams.length}
+      )`,
+    );
+  }
 
   const [
     teamResult,
@@ -520,41 +750,40 @@ const getUserDetails = async (actor, id) => {
             p.status,
             ${qualityCase} AS quality
           FROM products p
-          WHERE p.hunter_id = $1
-            AND p.deleted_at IS NULL
+          WHERE ${hunterProductConditions.join(' AND ')}
         )
         SELECT
-          (SELECT COUNT(*)::int FROM products p WHERE p.hunter_id = $1 AND p.deleted_at IS NULL) AS "productsSubmitted",
-          (SELECT COUNT(*)::int FROM products p WHERE p.hunter_id = $1 AND p.deleted_at IS NULL AND p.status IN ('approved', 'assigned')) AS "approvedProducts",
-          (SELECT COUNT(*)::int FROM products p WHERE p.hunter_id = $1 AND p.deleted_at IS NULL AND p.status = 'rejected') AS "rejectedProducts",
-          (SELECT COUNT(*)::int FROM products p WHERE COALESCE(p.current_hunter_id, p.hunter_id) = $1 AND p.deleted_at IS NULL) AS "currentOwnedProducts",
-          (SELECT COUNT(*)::int FROM products p WHERE COALESCE(p.current_hunter_id, p.hunter_id) = $1 AND p.deleted_at IS NULL AND p.status = 'listed') AS "listedOwnedProducts",
-          (SELECT COUNT(*)::int FROM products p WHERE COALESCE(p.current_hunter_id, p.hunter_id) = $1 AND p.deleted_at IS NULL AND p.status IN ('approved', 'assigned')) AS "pendingOwnedProducts",
+          (SELECT COUNT(*)::int FROM products p WHERE ${hunterProductConditions.join(' AND ')}) AS "productsSubmitted",
+          (SELECT COUNT(*)::int FROM products p WHERE ${hunterProductConditions.join(' AND ')} AND p.status IN ('approved', 'assigned')) AS "approvedProducts",
+          (SELECT COUNT(*)::int FROM products p WHERE ${hunterProductConditions.join(' AND ')} AND p.status = 'rejected') AS "rejectedProducts",
+          (SELECT COUNT(*)::int FROM products p WHERE ${hunterOwnedConditions.join(' AND ')}) AS "currentOwnedProducts",
+          (SELECT COUNT(*)::int FROM products p WHERE ${hunterOwnedConditions.join(' AND ')} AND p.status = 'listed') AS "listedOwnedProducts",
+          (SELECT COUNT(*)::int FROM products p WHERE ${hunterOwnedConditions.join(' AND ')} AND p.status IN ('approved', 'assigned')) AS "pendingOwnedProducts",
           COUNT(*) FILTER (WHERE quality = 'Best Hunt')::int AS "excellentProducts",
           COUNT(*) FILTER (WHERE quality = 'Good Hunt')::int AS "goodProducts",
           COUNT(*) FILTER (WHERE quality = 'Avg Hunt')::int AS "averageProducts",
-          (SELECT COUNT(*)::int FROM products p WHERE p.hunter_id = $1 AND p.deleted_at IS NULL AND p.status = 'listed') AS "listedProducts",
-          (SELECT COUNT(*)::int FROM orders o WHERE o.hunter_id = $1 AND o.deleted_at IS NULL) AS "ordersReceived",
-          (SELECT COUNT(*)::int FROM orders o WHERE o.hunter_id = $1 AND o.deleted_at IS NULL AND (o.order_status = 'ISSUE' OR COALESCE(o.issue_status, '') IN ('OPEN', 'IN_REVIEW'))) AS "orderIssues",
-          COALESCE((SELECT SUM(o.profit) FROM orders o WHERE o.hunter_id = $1 AND o.deleted_at IS NULL), 0)::numeric(10, 2) AS "totalProfit",
-          COALESCE((SELECT AVG(o.roi) FROM orders o WHERE o.hunter_id = $1 AND o.deleted_at IS NULL), 0)::numeric(10, 2) AS "averageRoi"
+          (SELECT COUNT(*)::int FROM products p WHERE ${hunterProductConditions.join(' AND ')} AND p.status = 'listed') AS "listedProducts",
+          (SELECT COUNT(*)::int FROM orders o WHERE ${hunterOrderConditions.join(' AND ')}) AS "ordersReceived",
+          (SELECT COUNT(*)::int FROM orders o WHERE ${hunterIssueConditions.join(' AND ')}) AS "orderIssues",
+          COALESCE((SELECT SUM(o.profit) FROM orders o WHERE ${hunterOrderConditions.join(' AND ')}), 0)::numeric(10, 2) AS "totalProfit",
+          COALESCE((SELECT AVG(o.roi) FROM orders o WHERE ${hunterOrderConditions.join(' AND ')}), 0)::numeric(10, 2) AS "averageRoi"
         FROM product_quality
       `,
-      [id],
+      hunterStatsParams,
     ),
     pool.query(
       `
         SELECT
-          (SELECT COUNT(*)::int FROM products p WHERE p.listed_by = $1 AND p.deleted_at IS NULL AND p.status = 'listed') AS "productsListed",
-          (SELECT COUNT(*)::int FROM products p WHERE p.assigned_lister_id = $1 AND p.deleted_at IS NULL AND p.status = 'rejected') AS "rejectedProducts",
+          (SELECT COUNT(*)::int FROM products p WHERE ${listerListedConditions.join(' AND ')}) AS "productsListed",
+          (SELECT COUNT(*)::int FROM products p WHERE ${listerRejectedConditions.join(' AND ')}) AS "rejectedProducts",
           (SELECT COUNT(*)::int FROM hunter_lister_assignments assignment WHERE assignment.lister_id = $1) AS "assignedHunters",
           (SELECT COUNT(*)::int FROM product_change_requests request WHERE request.lister_id = $1) AS "changeRequests",
           (SELECT COUNT(*)::int FROM product_change_requests request WHERE request.lister_id = $1 AND request.status IN ('OPEN', 'IN_PROGRESS')) AS "pendingChangeRequests",
           (SELECT COUNT(*)::int FROM product_change_requests request WHERE request.lister_id = $1 AND request.status = 'FIXED') AS "fixedChangeRequests",
           (SELECT COUNT(DISTINCT assignment.account_id)::int FROM lister_account_assignments assignment WHERE assignment.lister_id = $1) AS "listingAccountsUsed",
-          (SELECT COUNT(*)::int FROM products p WHERE p.listed_by = $1 AND p.deleted_at IS NULL AND p.listed_at IS NOT NULL) AS "totalListingsByDate"
+          (SELECT COUNT(*)::int FROM products p WHERE ${listerListedConditions.join(' AND ')}) AS "totalListingsByDate"
       `,
-      [id],
+      listerStatsParams,
     ),
     pool.query(
       `
@@ -566,10 +795,9 @@ const getUserDetails = async (actor, id) => {
           COUNT(*) FILTER (WHERE profit < 0)::int AS "lossOrders",
           COUNT(*) FILTER (WHERE product_id IS NULL)::int AS "unmatchedOrders"
         FROM orders
-        WHERE created_by = $1
-          AND deleted_at IS NULL
+        WHERE ${orderProcessorConditions.join(' AND ')}
       `,
-      [id],
+      orderProcessorStatsParams,
     ),
     pool.query(
       `
