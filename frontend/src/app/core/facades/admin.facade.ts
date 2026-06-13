@@ -243,6 +243,7 @@ export class AdminFacade {
     });
     this.userForm.controls.password.setValidators([Validators.required, Validators.minLength(8)]);
     this.userForm.controls.password.updateValueAndValidity({ emitEvent: false });
+    this.syncHunterTrainingControls();
     this.userModalOpen.set(true);
   }
 
@@ -288,6 +289,7 @@ export class AdminFacade {
     });
     this.userForm.controls.password.setValidators([Validators.minLength(8)]);
     this.userForm.controls.password.updateValueAndValidity({ emitEvent: false });
+    this.syncHunterTrainingControls();
     this.userModalOpen.set(true);
   }
 
@@ -311,6 +313,7 @@ export class AdminFacade {
       canProcessOrders: false,
       canViewAllOrders: false,
     });
+    this.syncHunterTrainingControls();
   }
 
   submitUserForm(): void {
@@ -611,5 +614,40 @@ export class AdminFacade {
         this.statusFilter.set(value);
         this.pageIndex.set(0);
       });
+
+    this.userForm.controls.roles.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.syncHunterTrainingControls());
+  }
+
+  private syncHunterTrainingControls(): void {
+    const hasHunterRole = this.userForm.controls.roles.value.includes('hunter');
+    const hunterStatus = this.userForm.controls.hunterStatus;
+    const mentorListerId = this.userForm.controls.mentorListerId;
+    const trainingExtendedUntil = this.userForm.controls.trainingExtendedUntil;
+
+    if (hasHunterRole) {
+      hunterStatus.enable({ emitEvent: false });
+      mentorListerId.enable({ emitEvent: false });
+      trainingExtendedUntil.enable({ emitEvent: false });
+
+      if (!hunterStatus.value) {
+        hunterStatus.setValue('TRAINING', { emitEvent: false });
+      }
+      return;
+    }
+
+    hunterStatus.setValue('ACTIVE', { emitEvent: false });
+    mentorListerId.setValue('', { emitEvent: false });
+    trainingExtendedUntil.setValue('', { emitEvent: false });
+    hunterStatus.disable({ emitEvent: false });
+    mentorListerId.disable({ emitEvent: false });
+    trainingExtendedUntil.disable({ emitEvent: false });
+    hunterStatus.markAsPristine();
+    hunterStatus.markAsUntouched();
+    mentorListerId.markAsPristine();
+    mentorListerId.markAsUntouched();
+    trainingExtendedUntil.markAsPristine();
+    trainingExtendedUntil.markAsUntouched();
   }
 }

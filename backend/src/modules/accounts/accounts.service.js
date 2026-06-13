@@ -728,8 +728,13 @@ const getAccountSummary = async (accountId) => {
           SELECT
             COUNT(*) FILTER (WHERE deleted_at IS NULL)::int AS "totalOrders",
             COALESCE(SUM(sale_price) FILTER (WHERE deleted_at IS NULL), 0)::numeric(10, 2) AS "totalRevenue",
+            COALESCE(SUM(total_cost) FILTER (WHERE deleted_at IS NULL), 0)::numeric(10, 2) AS "totalCost",
             COALESCE(SUM(profit) FILTER (WHERE deleted_at IS NULL), 0)::numeric(10, 2) AS "totalProfit",
+            COALESCE(AVG(NULLIF(roi, 0)) FILTER (WHERE deleted_at IS NULL), 0)::numeric(10, 2) AS "averageRoi",
             COUNT(*) FILTER (WHERE deleted_at IS NULL AND order_status = 'DELIVERED')::int AS "deliveredOrders",
+            COUNT(*) FILTER (WHERE deleted_at IS NULL AND order_status = 'RETURNED')::int AS "returnedOrders",
+            COUNT(*) FILTER (WHERE deleted_at IS NULL AND order_status = 'REFUNDED')::int AS "refundedOrders",
+            COUNT(*) FILTER (WHERE deleted_at IS NULL AND order_status = 'CANCELLED')::int AS "cancelledOrders",
             COUNT(*) FILTER (
               WHERE deleted_at IS NULL
                 AND (
@@ -790,10 +795,15 @@ const getAccountSummary = async (accountId) => {
       lastListedAt: productRow.lastListedAt || null,
       totalOrders: orderRow.totalOrders || 0,
       totalRevenue: Number(orderRow.totalRevenue || 0),
+      totalCost: Number(orderRow.totalCost || 0),
       totalProfit: Number(orderRow.totalProfit || 0),
+      averageRoi: Number(orderRow.averageRoi || 0),
       previousOrderCount: account.previousOrderCount || 0,
       lastMonthProfit: account.lastMonthProfit || 0,
       deliveredOrders: orderRow.deliveredOrders || 0,
+      returnedOrders: orderRow.returnedOrders || 0,
+      refundedOrders: orderRow.refundedOrders || 0,
+      cancelledOrders: orderRow.cancelledOrders || 0,
       issueOrders: orderRow.issueOrders || 0,
       lossOrders: orderRow.lossOrders || 0,
       lastOrderDate: orderRow.lastOrderDate || null,

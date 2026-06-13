@@ -381,6 +381,7 @@ export class ListingReviewQueueComponent implements OnInit {
     if (!product) {
       return;
     }
+    this.resetRejectionReason();
     this.saving.set(true);
     const request$ =
       this.scope() === 'lister'
@@ -389,6 +390,7 @@ export class ListingReviewQueueComponent implements OnInit {
     request$.subscribe({
       next: (updated) => {
         this.applyProductUpdate(updated);
+        this.resetRejectionReason();
         this.toast.success('Listing approved.');
         this.saving.set(false);
       },
@@ -449,5 +451,11 @@ export class ListingReviewQueueComponent implements OnInit {
   private applyProductUpdate(updated: Product): void {
     this.products.update((products) => products.map((product) => (product.id === updated.id ? updated : product)));
     this.selectedProductId.set(updated.id);
+  }
+
+  private resetRejectionReason(): void {
+    this.rejectionReason.reset('', { emitEvent: false });
+    this.rejectionReason.markAsPristine();
+    this.rejectionReason.markAsUntouched();
   }
 }

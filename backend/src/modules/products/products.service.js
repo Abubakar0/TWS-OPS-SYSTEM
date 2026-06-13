@@ -1973,6 +1973,7 @@ const restoreProduct = async (user, id) => {
 };
 
 module.exports = {
+  ensureProductColumns,
   createProduct,
   updateProduct,
   listProducts,

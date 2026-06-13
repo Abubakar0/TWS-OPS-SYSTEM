@@ -1,36 +1,4 @@
 <section class="page-shell hr-page">
-  @if (profile(); as currentProfile) {
-    @if (currentProfile.showBirthdayModal) {
-    <div class="app-modal-backdrop" (click)="dismissBirthdayModal()">
-      <section class="app-modal" (click)="$event.stopPropagation()">
-        <div class="surface-card__header">
-          <div>
-            <h2>Happy Birthday</h2>
-            <p>
-              Wishing you a wonderful year ahead, {{ currentProfile.employee.fullName }}.
-            </p>
-          </div>
-          <button mat-icon-button type="button" (click)="dismissBirthdayModal()">
-            <mat-icon>close</mat-icon>
-          </button>
-        </div>
-
-        <p class="hr-empty-copy">
-          Your birthday greeting for {{ currentProfile.birthdayMessageYear }} has been prepared by the
-          team. Enjoy your day.
-        </p>
-
-        <div class="hr-inline-actions">
-          <button mat-flat-button color="primary" type="button" (click)="dismissBirthdayModal()">
-            <mat-icon>celebration</mat-icon>
-            <span>Thank you</span>
-          </button>
-        </div>
-      </section>
-    </div>
-    }
-  }
-
   <header class="page-hero">
     <div>
       <h1>My Profile</h1>

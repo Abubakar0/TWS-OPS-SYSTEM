@@ -108,6 +108,7 @@ const isPlacedOrder = (order) =>
   );
 
 const SIMPLE_ORDER_STATUSES = ['RETURNED', 'ON_HOLD', 'CANCELLED', 'REFUNDED', 'ISSUE'];
+const ALLOWED_ORDER_STATUS_UPDATES = ['DELIVERED', ...SIMPLE_ORDER_STATUSES];
 
 const isValidHttpUrl = (value, marketplace = null) => {
   if (!value) {
@@ -418,6 +419,22 @@ const ensureOrdersTable = async () => {
   `);
 
   await pool.query(`
+    ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_status_check;
+    ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_placement_status_check;
+    ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_payment_status_check;
+    ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_match_status_check;
+    ALTER TABLE orders
+      ADD CONSTRAINT orders_order_status_check
+        CHECK (order_status IN ('NEW', 'READY_TO_PLACE', 'PLACED', 'SHIPPED', 'DELIVERED', 'RETURNED', 'CANCELLED', 'REFUNDED', 'ISSUE', 'ON_HOLD')),
+      ADD CONSTRAINT orders_placement_status_check
+        CHECK (placement_status IN ('NOT_PLACED', 'PLACED', 'FAILED', 'CANCELLED')),
+      ADD CONSTRAINT orders_payment_status_check
+        CHECK (payment_status IN ('PAID', 'PENDING', 'REFUNDED', 'PARTIALLY_REFUNDED')),
+      ADD CONSTRAINT orders_match_status_check
+        CHECK (match_status IN ('matched', 'unmatched'))
+  `);
+
+  await pool.query(`
     UPDATE orders
     SET order_code = COALESCE(order_code, 'ORD-' || UPPER(SUBSTRING(id::text, 1, 8))),
         match_status = COALESCE(match_status, CASE WHEN product_id IS NULL THEN 'unmatched' ELSE 'matched' END),
@@ -550,9 +567,24 @@ const buildAccessFilters = (user, query = {}, { column = 'o.order_date' } = {}) 
       OR COALESCE(o.amazon_order_id, '') ILIKE $${index}
       OR COALESCE(o.product_title, '') ILIKE $${index}
       OR COALESCE(o.asin, '') ILIKE $${index}
-      OR COALESCE(hunter.name, '') ILIKE $${index}
-      OR COALESCE(lister.name, '') ILIKE $${index}
-      OR COALESCE(account.name, '') ILIKE $${index}
+      OR EXISTS (
+        SELECT 1
+        FROM users hunter_search
+        WHERE hunter_search.id = o.hunter_id
+          AND COALESCE(hunter_search.name, '') ILIKE $${index}
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM users lister_search
+        WHERE lister_search.id = o.lister_id
+          AND COALESCE(lister_search.name, '') ILIKE $${index}
+      )
+      OR EXISTS (
+        SELECT 1
+        FROM accounts account_search
+        WHERE account_search.id = o.account_id
+          AND COALESCE(account_search.name, '') ILIKE $${index}
+      )
       OR COALESCE(o.notes, '') ILIKE $${index}
     )`);
   }
@@ -784,21 +816,27 @@ const prepareOrderPayload = async (payload, { existingOrder = null } = {}) => {
     otherCost,
   });
 
-  const orderStatus = toBooleanText(
-    payload.orderStatus,
-    ORDER_STATUSES,
-    existingOrder?.orderStatus || 'PLACED',
-  );
-  const placementStatus = toBooleanText(
-    payload.placementStatus,
-    PLACEMENT_STATUSES,
-    existingOrder?.placementStatus || 'PLACED',
-  );
-  const paymentStatus = toBooleanText(
-    payload.paymentStatus,
-    PAYMENT_STATUSES,
-    existingOrder?.paymentStatus || 'PAID',
-  );
+  const orderStatus = isCreate
+    ? 'PLACED'
+    : toBooleanText(
+      payload.orderStatus,
+      ORDER_STATUSES,
+      existingOrder?.orderStatus || 'PLACED',
+    );
+  const placementStatus = isCreate
+    ? 'PLACED'
+    : toBooleanText(
+      payload.placementStatus,
+      PLACEMENT_STATUSES,
+      existingOrder?.placementStatus || 'PLACED',
+    );
+  const paymentStatus = isCreate
+    ? 'PAID'
+    : toBooleanText(
+      payload.paymentStatus,
+      PAYMENT_STATUSES,
+      existingOrder?.paymentStatus || 'PAID',
+    );
   const placedDate = payload.placedDate || existingOrder?.placedDate || orderDate;
 
   return {
@@ -1410,18 +1448,20 @@ const markOrderDelivered = async (user, id, payload = {}) => {
     throw new AppError('This order is already marked as delivered.', 409);
   }
 
-  if (isClosedOrderStatus(order.orderStatus)) {
-    throw new AppError('Cancelled or refunded orders cannot be marked as delivered.', 409);
+  if (isClosedOrderStatus(order.orderStatus) || order.orderStatus === 'RETURNED') {
+    throw new AppError('Returned, cancelled, or refunded orders cannot be marked as delivered.', 409);
   }
 
-  if (order.orderStatus !== 'SHIPPED') {
-    throw new AppError('Only shipped orders can be marked as delivered.', 409);
+  if (!['PLACED', 'SHIPPED', 'ISSUE', 'ON_HOLD'].includes(order.orderStatus)) {
+    throw new AppError('Only placed, shipped, issue, or on-hold orders can be marked as delivered.', 409);
   }
 
   await pool.query(
     `
       UPDATE orders
       SET order_status = 'DELIVERED',
+          placement_status = 'PLACED',
+          payment_status = CASE WHEN payment_status = 'PENDING' THEN 'PAID' ELSE payment_status END,
           delivered_date = COALESCE($1, NOW()),
           supplier_order_status = 'DELIVERED',
           updated_by = $2,
@@ -1450,17 +1490,13 @@ const updateOrderStatus = async (user, id, payload = {}) => {
     throw new AppError('You do not have permission to update order status.', 403);
   }
 
-  const nextStatus = toBooleanText(payload.orderStatus, ORDER_STATUSES, null);
+  const nextStatus = toBooleanText(payload.orderStatus, ALLOWED_ORDER_STATUS_UPDATES, null);
 
   if (!nextStatus) {
     throw new AppError('Order status is required.', 400);
   }
 
   switch (nextStatus) {
-    case 'PLACED':
-      return markOrderPlaced(user, id, payload);
-    case 'SHIPPED':
-      return markOrderShipped(user, id, payload);
     case 'DELIVERED':
       return markOrderDelivered(user, id, payload);
     case 'ISSUE':

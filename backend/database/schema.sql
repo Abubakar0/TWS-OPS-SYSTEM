@@ -47,6 +47,9 @@ CREATE TABLE IF NOT EXISTS users (
   deleted_at TIMESTAMPTZ,
   parent_user_id UUID REFERENCES users(id),
   tenant_id TEXT,
+  hunter_status TEXT NOT NULL DEFAULT 'ACTIVE',
+  training_rules_acknowledged_at TIMESTAMPTZ,
+  training_extended_until DATE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -112,6 +115,23 @@ CREATE TABLE IF NOT EXISTS hunting_criteria (
   delivery_days_required BOOLEAN NOT NULL DEFAULT FALSE,
   max_delivery_days INTEGER NOT NULL DEFAULT 7,
   monthly_graph_required BOOLEAN NOT NULL DEFAULT FALSE,
+  category_required BOOLEAN NOT NULL DEFAULT FALSE,
+  amazon_alt_url_required BOOLEAN NOT NULL DEFAULT FALSE,
+  training_min_roi NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  training_min_profit NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  training_min_sold_count INTEGER NOT NULL DEFAULT 0,
+  training_min_stock_count INTEGER NOT NULL DEFAULT 0,
+  training_min_rating NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  training_min_watcher_count INTEGER NOT NULL DEFAULT 0,
+  training_min_sales_last_two_months INTEGER NOT NULL DEFAULT 0,
+  training_asin_required BOOLEAN NOT NULL DEFAULT TRUE,
+  training_custom_label_required BOOLEAN NOT NULL DEFAULT FALSE,
+  training_category_required BOOLEAN NOT NULL DEFAULT FALSE,
+  training_amazon_alt_url_required BOOLEAN NOT NULL DEFAULT FALSE,
+  training_max_rejected_products_allowed INTEGER NOT NULL DEFAULT 10,
+  training_min_approval_rate_for_activation NUMERIC(10, 2) NOT NULL DEFAULT 60,
+  training_min_listed_products_for_activation INTEGER NOT NULL DEFAULT 5,
+  training_min_orders_generated_for_activation INTEGER NOT NULL DEFAULT 1,
   updated_by UUID REFERENCES users(id),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -120,7 +140,11 @@ CREATE TABLE IF NOT EXISTS accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   marketplace TEXT NOT NULL DEFAULT 'ebay',
+  country TEXT,
+  currency TEXT NOT NULL DEFAULT 'USD',
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  client_profit_percentage NUMERIC(6, 2),
+  company_profit_percentage NUMERIC(6, 2),
   previous_order_count INTEGER NOT NULL DEFAULT 0,
   last_month_profit NUMERIC(10, 2) NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -164,6 +188,7 @@ CREATE TABLE IF NOT EXISTS products (
   ebay_url TEXT NOT NULL,
   asin TEXT,
   title TEXT,
+  category TEXT,
   custom_label TEXT,
   amazon_price NUMERIC(10, 2),
   ebay_price NUMERIC(10, 2),
@@ -180,6 +205,13 @@ CREATE TABLE IF NOT EXISTS products (
   profit NUMERIC(10, 2) NOT NULL DEFAULT 0,
   roi NUMERIC(8, 2) NOT NULL DEFAULT 0,
   status product_status NOT NULL DEFAULT 'rejected',
+  listing_review_status TEXT NOT NULL DEFAULT 'NOT_REQUIRED',
+  listing_submitted_for_review_at TIMESTAMPTZ,
+  listing_reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  listing_reviewed_at TIMESTAMPTZ,
+  listing_review_rejection_reason TEXT,
+  original_hunter_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  current_hunter_id UUID REFERENCES users(id) ON DELETE SET NULL,
   rejection_reason TEXT,
   validation_notes JSONB NOT NULL DEFAULT '[]'::jsonb,
   deleted_by UUID REFERENCES users(id),
@@ -240,15 +272,22 @@ CREATE TABLE IF NOT EXISTS orders (
   amazon_order_link TEXT,
   supplier_order_status TEXT NOT NULL DEFAULT 'NOT_PLACED',
   order_status TEXT NOT NULL DEFAULT 'NEW'
-    CHECK (order_status IN ('NEW', 'READY_TO_PLACE', 'PLACED', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'REFUNDED', 'ISSUE', 'ON_HOLD')),
+    CHECK (order_status IN ('NEW', 'READY_TO_PLACE', 'PLACED', 'SHIPPED', 'DELIVERED', 'RETURNED', 'CANCELLED', 'REFUNDED', 'ISSUE', 'ON_HOLD')),
   placement_status TEXT NOT NULL DEFAULT 'NOT_PLACED'
     CHECK (placement_status IN ('NOT_PLACED', 'PLACED', 'FAILED', 'CANCELLED')),
   payment_status TEXT NOT NULL DEFAULT 'PENDING'
     CHECK (payment_status IN ('PAID', 'PENDING', 'REFUNDED', 'PARTIALLY_REFUNDED')),
   match_status TEXT NOT NULL DEFAULT 'matched'
     CHECK (match_status IN ('matched', 'unmatched')),
+  issue_type TEXT,
+  issue_status TEXT,
+  order_impact TEXT,
   notes TEXT,
   issue_reason TEXT,
+  issue_created_at TIMESTAMPTZ,
+  issue_created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  issue_resolved_at TIMESTAMPTZ,
+  issue_resolved_by UUID REFERENCES users(id) ON DELETE SET NULL,
   created_by UUID REFERENCES users(id) ON DELETE SET NULL,
   updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
   deleted_by UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -316,6 +355,7 @@ CREATE TABLE IF NOT EXISTS employee_profiles (
   designation TEXT,
   manager_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
   joining_date DATE,
+  date_of_birth DATE,
   employment_type TEXT NOT NULL DEFAULT 'FULL_TIME',
   employment_status TEXT NOT NULL DEFAULT 'ACTIVE',
   basic_salary NUMERIC(10, 2) NOT NULL DEFAULT 0,
@@ -323,6 +363,13 @@ CREATE TABLE IF NOT EXISTS employee_profiles (
   default_deductions NUMERIC(10, 2) NOT NULL DEFAULT 0,
   payment_method TEXT,
   bank_details JSONB NOT NULL DEFAULT '{}'::jsonb,
+  profile_review_status TEXT NOT NULL DEFAULT 'APPROVED',
+  profile_review_notes TEXT,
+  profile_locked BOOLEAN NOT NULL DEFAULT FALSE,
+  profile_reviewed_at TIMESTAMPTZ,
+  profile_reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  self_edit_requested_at TIMESTAMPTZ,
+  birthday_popup_shown_year INTEGER,
   created_by UUID REFERENCES users(id) ON DELETE SET NULL,
   updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -458,12 +505,18 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS parent_user_id UUID REFERENCES users(id);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS tenant_id TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS hunter_status TEXT NOT NULL DEFAULT 'ACTIVE';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS training_rules_acknowledged_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS training_extended_until DATE;
 UPDATE users
 SET status = CASE WHEN is_active THEN 'active' ELSE 'disabled' END
 WHERE status IS NULL OR status = '';
 UPDATE users
 SET roles = jsonb_build_array(role::text)
 WHERE roles IS NULL OR roles = '[]'::jsonb;
+UPDATE users
+SET hunter_status = 'ACTIVE'
+WHERE hunter_status IS NULL OR trim(hunter_status) = '';
 ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS min_stock_count INTEGER NOT NULL DEFAULT 8;
 ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS min_alt_stock_count INTEGER NOT NULL DEFAULT 8;
 ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS min_rating NUMERIC(4, 2) NOT NULL DEFAULT 0;
@@ -475,7 +528,25 @@ ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS basket_count_required BOOL
 ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS delivery_days_required BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS max_delivery_days INTEGER NOT NULL DEFAULT 7;
 ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS monthly_graph_required BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS category_required BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS amazon_alt_url_required BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS training_min_roi NUMERIC(10, 2) NOT NULL DEFAULT 0;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS training_min_profit NUMERIC(10, 2) NOT NULL DEFAULT 0;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS training_min_sold_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS training_min_stock_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS training_min_rating NUMERIC(10, 2) NOT NULL DEFAULT 0;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS training_min_watcher_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS training_min_sales_last_two_months INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS training_asin_required BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS training_custom_label_required BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS training_category_required BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS training_amazon_alt_url_required BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS training_max_rejected_products_allowed INTEGER NOT NULL DEFAULT 10;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS training_min_approval_rate_for_activation NUMERIC(10, 2) NOT NULL DEFAULT 60;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS training_min_listed_products_for_activation INTEGER NOT NULL DEFAULT 5;
+ALTER TABLE hunting_criteria ADD COLUMN IF NOT EXISTS training_min_orders_generated_for_activation INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS amazon_alt_url TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS category TEXT;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS custom_label TEXT;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS alternate_stock_quantity INTEGER;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS rating NUMERIC(4, 2);
@@ -486,6 +557,17 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS monthly_graph_uptrend BOOLEAN;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS deleted_by UUID REFERENCES users(id);
 ALTER TABLE products ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS delete_reason TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS listing_review_status TEXT NOT NULL DEFAULT 'NOT_REQUIRED';
+ALTER TABLE products ADD COLUMN IF NOT EXISTS listing_submitted_for_review_at TIMESTAMPTZ;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS listing_reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS listing_reviewed_at TIMESTAMPTZ;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS listing_review_rejection_reason TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS original_hunter_id UUID REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS current_hunter_id UUID REFERENCES users(id) ON DELETE SET NULL;
+UPDATE products
+SET original_hunter_id = COALESCE(original_hunter_id, hunter_id),
+    current_hunter_id = COALESCE(current_hunter_id, hunter_id)
+WHERE original_hunter_id IS NULL OR current_hunter_id IS NULL;
 ALTER TABLE account_invoices ADD COLUMN IF NOT EXISTS invoice_code TEXT;
 ALTER TABLE account_invoices ADD COLUMN IF NOT EXISTS account_id UUID REFERENCES accounts(id) ON DELETE CASCADE;
 ALTER TABLE account_invoices ADD COLUMN IF NOT EXISTS bill_to_name TEXT;
@@ -502,8 +584,50 @@ ALTER TABLE account_invoices ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT
 ALTER TABLE account_invoices ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS previous_order_count INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS last_month_profit NUMERIC(10, 2) NOT NULL DEFAULT 0;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS country TEXT;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'USD';
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS client_profit_percentage NUMERIC(6, 2);
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS company_profit_percentage NUMERIC(6, 2);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS issue_type TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS issue_status TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_impact TEXT;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS issue_created_at TIMESTAMPTZ;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS issue_created_by UUID REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS issue_resolved_at TIMESTAMPTZ;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS issue_resolved_by UUID REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE employee_profiles ADD COLUMN IF NOT EXISTS date_of_birth DATE;
+ALTER TABLE employee_profiles ADD COLUMN IF NOT EXISTS profile_review_status TEXT NOT NULL DEFAULT 'APPROVED';
+ALTER TABLE employee_profiles ADD COLUMN IF NOT EXISTS profile_review_notes TEXT;
+ALTER TABLE employee_profiles ADD COLUMN IF NOT EXISTS profile_locked BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE employee_profiles ADD COLUMN IF NOT EXISTS profile_reviewed_at TIMESTAMPTZ;
+ALTER TABLE employee_profiles ADD COLUMN IF NOT EXISTS profile_reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE employee_profiles ADD COLUMN IF NOT EXISTS self_edit_requested_at TIMESTAMPTZ;
+ALTER TABLE employee_profiles ADD COLUMN IF NOT EXISTS birthday_popup_shown_year INTEGER;
 ALTER TABLE listings ALTER COLUMN listing_url DROP NOT NULL;
 ALTER TABLE listings ALTER COLUMN item_id DROP NOT NULL;
+
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_status_check;
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_placement_status_check;
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_payment_status_check;
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_match_status_check;
+ALTER TABLE orders
+  ADD CONSTRAINT orders_order_status_check
+    CHECK (order_status IN ('NEW', 'READY_TO_PLACE', 'PLACED', 'SHIPPED', 'DELIVERED', 'RETURNED', 'CANCELLED', 'REFUNDED', 'ISSUE', 'ON_HOLD')),
+  ADD CONSTRAINT orders_placement_status_check
+    CHECK (placement_status IN ('NOT_PLACED', 'PLACED', 'FAILED', 'CANCELLED')),
+  ADD CONSTRAINT orders_payment_status_check
+    CHECK (payment_status IN ('PAID', 'PENDING', 'REFUNDED', 'PARTIALLY_REFUNDED')),
+  ADD CONSTRAINT orders_match_status_check
+    CHECK (match_status IN ('matched', 'unmatched'));
+
+CREATE TABLE IF NOT EXISTS product_ownership_transfers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  source_hunter_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  target_hunter_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  transferred_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  transferred_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 INSERT INTO hunting_criteria (id)
 VALUES (1)

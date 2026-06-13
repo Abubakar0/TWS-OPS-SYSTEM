@@ -32,16 +32,57 @@ export interface AdminStats {
 }
 
 export interface SuperAdminStats {
+  totalUsers: number;
   totalAdmins: number;
   totalListers: number;
   totalHunters: number;
+  trainingHunters: number;
+  totalOrderProcessors: number;
+  totalHrUsers: number;
   activeUsers: number;
   disabledUsers: number;
   deletedUsers: number;
+  totalProducts: number;
+  approvedProducts: number;
+  listedProducts: number;
+  listedNeedsReview: number;
+  listingRejectedProducts: number;
+  excellentProducts: number;
+  goodProducts: number;
+  averageProducts: number;
+  transferredProducts: number;
   totalListings: number;
   totalHunting: number;
   rejectedProducts: number;
   systemActivity: number;
+  accountStats?: {
+    totalAccounts: number;
+    activeAccounts: number;
+    disabledAccounts: number;
+    accountsByMarketplace: Record<string, number>;
+    accountsByCountry: Record<string, number>;
+  };
+  listerStats?: {
+    totalListings: number;
+    pendingListingReviews: number;
+    approvedListingReviews: number;
+    rejectedListingReviews: number;
+    openChangeRequests: number;
+  };
+  trainingStats?: {
+    trainingHunters: number;
+    activatedHunters: number;
+    rejectedTrainingHunters: number;
+    mentorAssignments: number;
+    trainingApprovalRate: number;
+  };
+  recentActivity?: Array<{
+    id: string;
+    action: string;
+    targetType: string | null;
+    createdAt: string;
+    actorName: string | null;
+  }>;
   byHunter: Array<{ id: string; name: string; hunted: number; listed: number }>;
   byLister: Array<{ id: string; name: string; listed: number; assignedHunters: number }>;
   byAccount: Array<{ id: string; name: string; listed: number }>;

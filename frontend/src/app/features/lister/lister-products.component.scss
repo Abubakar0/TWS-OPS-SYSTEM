@@ -90,6 +90,7 @@
 .listing-table {
   display: grid;
   gap: 8px;
+  overflow: auto;
 }
 
 .listing-table__head,

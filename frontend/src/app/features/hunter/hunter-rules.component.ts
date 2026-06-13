@@ -146,6 +146,86 @@ export class HunterRulesComponent implements OnInit {
     'Reject the product yourself if it clearly fails demand, stock, or duplicate checks.',
     'Submit only after every required field and every rule is satisfied.',
   ];
+  readonly sectionNav = [
+    { id: 'introduction', label: 'Introduction', icon: 'flag' },
+    { id: 'company-rules', label: 'Company Hunting Rules', icon: 'rule' },
+    { id: 'training-rules', label: 'Training Hunter Rules', icon: 'school' },
+    { id: 'quality-rules', label: 'Product Quality Rules', icon: 'verified' },
+    { id: 'profit-rules', label: 'Profit & ROI Rules', icon: 'trending_up' },
+    { id: 'stock-rules', label: 'Stock Rules', icon: 'inventory_2' },
+    { id: 'rating-rules', label: 'Rating Rules', icon: 'star' },
+    { id: 'sales-rules', label: 'Sales Rules', icon: 'shopping_cart' },
+    { id: 'duplicate-rules', label: 'Duplicate Product Rules', icon: 'content_copy' },
+    { id: 'good-examples', label: 'Good Product Examples', icon: 'thumb_up' },
+    { id: 'rejected-examples', label: 'Rejected Product Examples', icon: 'thumb_down' },
+    { id: 'tools', label: 'Tools & Extensions', icon: 'extension' },
+    { id: 'mistakes', label: 'Common Mistakes', icon: 'warning' },
+    { id: 'acknowledgement', label: 'Final Acknowledgement', icon: 'task_alt' },
+  ];
+  readonly companyRules = [
+    {
+      title: 'Match the exact product',
+      text: 'Amazon source, eBay demand, title, fitment, and variant must describe the same real item.',
+      tone: 'success',
+    },
+    {
+      title: 'Validate before submitting',
+      text: 'Every product should pass stock, demand, price, profit, and duplicate checks before it enters review.',
+      tone: 'success',
+    },
+    {
+      title: 'Do not chase one strong metric',
+      text: 'High ROI does not approve a product if stock, sales, rating, or link quality is weak.',
+      tone: 'warning',
+    },
+  ];
+  readonly qualityRules = [
+    'Use clean product titles without keyword stuffing or vague variant language.',
+    'Check that the main item, fitment, pack size, color, and bundle count match across Amazon and eBay.',
+    'Reject products with unclear images, unreliable supplier pages, or weak delivery expectations.',
+    'Prefer products with stable source pricing and enough sold history to support a listing.',
+  ];
+  readonly trainingRules = [
+    'Read and acknowledge the rules before submitting training products.',
+    'Use the stricter training validation thresholds until the hunter is activated.',
+    'Treat mentor feedback as the source of truth during the training period.',
+    'Activation requires consistent approval rate, listed products, and generated orders.',
+  ];
+  readonly goodProductExamples = [
+    {
+      title: 'Stable replacement part',
+      text: 'Exact ASIN match, clear fitment, strong sold history, enough Amazon stock, and positive profit after fees.',
+    },
+    {
+      title: 'Repeatable home accessory',
+      text: 'Consistent buy price, clean supplier page, clear eBay demand, and no duplicate already in the system.',
+    },
+    {
+      title: 'Accessory with broad demand',
+      text: 'Healthy rating, recent sales, available stock, reasonable delivery time, and a clean listing path.',
+    },
+  ];
+  readonly rejectedProductExamples = [
+    {
+      title: 'Variant mismatch',
+      text: 'Amazon source is a different size, color, bundle, fitment, or model than the eBay market result.',
+    },
+    {
+      title: 'Weak demand',
+      text: 'Low sold count, stale eBay sales, or demand based only on active listings rather than completed sales.',
+    },
+    {
+      title: 'Unsafe supplier signal',
+      text: 'Stock is low, price recently jumped, delivery is too slow, or supplier page looks unreliable.',
+    },
+  ];
+  readonly commonMistakes = [
+    'Submitting before duplicate check finishes.',
+    'Copying a competitor title without confirming the exact Amazon variant.',
+    'Ignoring recent Amazon price spikes or low offer count.',
+    'Using screenshots or notes instead of real product URLs.',
+    'Leaving too little profit buffer for fees, refunds, and stock movement.',
+  ];
 
   readonly pageTitle = computed(() =>
     this.isTrainingHunter() ? 'Training Hunter Rules' : 'Hunting Rules',

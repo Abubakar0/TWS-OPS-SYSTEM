@@ -993,7 +993,7 @@ textarea.mat-mdc-input-element {
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.98);
   box-shadow: var(--tws-shadow-lg);
-  overscroll-behavior: contain;
+  overflow: auto;
 }
 
 .mat-icon,

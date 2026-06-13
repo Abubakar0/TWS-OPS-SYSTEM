@@ -781,7 +781,10 @@ const getUserDetails = async (actor, id, options = {}) => {
           (SELECT COUNT(*)::int FROM product_change_requests request WHERE request.lister_id = $1 AND request.status IN ('OPEN', 'IN_PROGRESS')) AS "pendingChangeRequests",
           (SELECT COUNT(*)::int FROM product_change_requests request WHERE request.lister_id = $1 AND request.status = 'FIXED') AS "fixedChangeRequests",
           (SELECT COUNT(DISTINCT assignment.account_id)::int FROM lister_account_assignments assignment WHERE assignment.lister_id = $1) AS "listingAccountsUsed",
-          (SELECT COUNT(*)::int FROM products p WHERE ${listerListedConditions.join(' AND ')}) AS "totalListingsByDate"
+          (SELECT COUNT(*)::int FROM products p WHERE ${listerListedConditions.join(' AND ')}) AS "totalListingsByDate",
+          (SELECT COUNT(*)::int FROM orders o WHERE o.lister_id = $1 AND o.deleted_at IS NULL) AS "ordersGenerated",
+          COALESCE((SELECT SUM(o.sale_price) FROM orders o WHERE o.lister_id = $1 AND o.deleted_at IS NULL), 0)::numeric(10, 2) AS "totalRevenue",
+          COALESCE((SELECT SUM(o.profit) FROM orders o WHERE o.lister_id = $1 AND o.deleted_at IS NULL), 0)::numeric(10, 2) AS "totalProfit"
       `,
       listerStatsParams,
     ),

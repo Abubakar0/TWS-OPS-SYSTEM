@@ -10,7 +10,7 @@ const {
   getAccountSummary,
   ensureAccountSummaryDependencies,
 } = require('../accounts/accounts.service');
-const { getProductById } = require('../products/products.service');
+const { getProductById, ensureProductColumns } = require('../products/products.service');
 const { getUserDetails } = require('../users/users.service');
 const { normalizeRoles, resolvePrimaryRole, hasAnyRole } = require('../users/permissions');
 const { ensureChangeRequestTable } = require('../change-requests/change-requests.service');
@@ -53,6 +53,7 @@ const ensureReportDependencies = async () => {
     ensureTeamTables(),
     ensureChangeRequestTable(),
     ensureAccountSummaryDependencies(),
+    ensureProductColumns(),
   ]);
 };
 
@@ -298,6 +299,82 @@ const buildAccountFilterSql = (query = {}, { alias = 'account' } = {}) => {
     );
   }
 
+  if (query.userId) {
+    addClause(
+      clauses,
+      params,
+      `(
+        EXISTS (
+          SELECT 1
+          FROM products account_product_user
+          WHERE account_product_user.account_used = ${alias}.id
+            AND account_product_user.deleted_at IS NULL
+            AND ? IN (
+              account_product_user.hunter_id,
+              account_product_user.assigned_lister_id,
+              account_product_user.listed_by
+            )
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM orders account_order_user
+          WHERE account_order_user.account_id = ${alias}.id
+            AND account_order_user.deleted_at IS NULL
+            AND ? IN (
+              account_order_user.hunter_id,
+              account_order_user.lister_id,
+              account_order_user.created_by
+            )
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM lister_account_assignments account_lister_user
+          WHERE account_lister_user.account_id = ${alias}.id
+            AND account_lister_user.lister_id = ?
+        )
+      )`,
+      query.userId,
+    );
+  }
+
+  if (query.assignedHunterId) {
+    addClause(
+      clauses,
+      params,
+      `EXISTS (
+        SELECT 1
+        FROM products assigned_hunter_product
+        WHERE assigned_hunter_product.account_used = ${alias}.id
+          AND assigned_hunter_product.deleted_at IS NULL
+          AND assigned_hunter_product.hunter_id = ?
+      )`,
+      query.assignedHunterId,
+    );
+  }
+
+  if (query.assignedListerId) {
+    addClause(
+      clauses,
+      params,
+      `(
+        EXISTS (
+          SELECT 1
+          FROM lister_account_assignments assigned_lister_account
+          WHERE assigned_lister_account.account_id = ${alias}.id
+            AND assigned_lister_account.lister_id = ?
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM products assigned_lister_product
+          WHERE assigned_lister_product.account_used = ${alias}.id
+            AND assigned_lister_product.deleted_at IS NULL
+            AND ? IN (assigned_lister_product.assigned_lister_id, assigned_lister_product.listed_by)
+        )
+      )`,
+      query.assignedListerId,
+    );
+  }
+
   if (query.search) {
     params.push(`%${String(query.search).trim()}%`);
     const index = params.length;
@@ -457,19 +534,43 @@ const getSummaryReport = async (actor, query = {}) => {
 const getExecutiveReport = async (actor, query = {}) => {
   ensureReportViewer(actor);
   const summary = await getSummaryReport(actor, query);
-  const [topHunters, topAccounts, topCategories, topMarketplaces] = await Promise.all([
-    listUserReports(actor, { ...query, role: 'hunter', page: 1, limit: 5 }),
-    listAccountReports(actor, { ...query, page: 1, limit: 5 }),
-    listCategoryReports(actor, { ...query, page: 1, limit: 5 }),
-    listMarketplaceReports(actor, { ...query, page: 1, limit: 5 }),
-  ]);
+  const sectionRequests = {
+    topHunters: () => listUserReports(actor, { ...query, role: 'hunter', page: 1, limit: 5 }),
+    topAccounts: () => listAccountReports(actor, { ...query, page: 1, limit: 5 }),
+    topCategories: () => listCategoryReports(actor, { ...query, page: 1, limit: 5 }),
+    topMarketplaces: () => listMarketplaceReports(actor, { ...query, page: 1, limit: 5 }),
+  };
+  const sectionEntries = Object.entries(sectionRequests);
+  const settled = await Promise.allSettled(sectionEntries.map(([, loader]) => loader()));
+  const warnings = [];
+  const resolveItems = (key) => {
+    const index = sectionEntries.findIndex(([sectionKey]) => sectionKey === key);
+    const result = settled[index];
+
+    if (!result || result.status !== 'fulfilled') {
+      const reason = result?.reason;
+      warnings.push({
+        section: key,
+        message: reason?.message || 'Report section could not be loaded.',
+      });
+      console.error('[report-executive-section-error]', {
+        section: key,
+        message: reason?.message || String(reason),
+        stack: reason?.stack || null,
+      });
+      return [];
+    }
+
+    return result.value?.items || [];
+  };
 
   return {
     summary,
-    topHunters: topHunters.items,
-    topAccounts: topAccounts.items,
-    topCategories: topCategories.items,
-    topMarketplaces: topMarketplaces.items,
+    topHunters: resolveItems('topHunters'),
+    topAccounts: resolveItems('topAccounts'),
+    topCategories: resolveItems('topCategories'),
+    topMarketplaces: resolveItems('topMarketplaces'),
+    warnings,
   };
 };
 
@@ -497,7 +598,7 @@ const mapUserReportRow = (details) => {
       primary: listerStats.productsListed || 0,
       secondary: listerStats.pendingChangeRequests || 0,
       tertiary: listerStats.fixedChangeRequests || 0,
-      profit: 0,
+      profit: toMoney(listerStats.totalProfit),
       roi: 0,
       primaryLabel: 'Listed',
       secondaryLabel: 'Pending fixes',
@@ -620,6 +721,83 @@ const listAccountReports = async (actor, query = {}) => {
   const filters = buildAccountFilterSql(query);
   const defaultLimit = await getConfiguredLimit('accounts', query.limit);
   const pageRequest = normalizePageRequest(query, defaultLimit);
+  const sortColumns = {
+    orders: '"totalOrders"',
+    revenue: '"totalRevenue"',
+    profit: '"totalProfit"',
+    roi: '"averageRoi"',
+    delivered: '"deliveredOrders"',
+    deliveredOrders: '"deliveredOrders"',
+  };
+  const sortBy = sortColumns[query.sortBy] || '"totalOrders"';
+  const sortDirection = String(query.sortDirection || 'desc').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+  const accountMetricsFromSql = `
+      FROM accounts account
+      LEFT JOIN LATERAL (
+        SELECT COUNT(DISTINCT la.lister_id) AS assigned_count
+        FROM lister_account_assignments la
+        WHERE la.account_id = account.id
+      ) assigned ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT
+          STRING_AGG(DISTINCT hunter.name, ', ' ORDER BY hunter.name) AS assigned_hunters,
+          COUNT(DISTINCT hunter.id) AS assigned_hunter_count
+        FROM products p
+        JOIN users hunter ON hunter.id = p.hunter_id
+        WHERE p.account_used = account.id
+          AND p.deleted_at IS NULL
+      ) hunter_metrics ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT
+          STRING_AGG(DISTINCT lister.name, ', ' ORDER BY lister.name) AS assigned_listers
+        FROM (
+          SELECT la.lister_id
+          FROM lister_account_assignments la
+          WHERE la.account_id = account.id
+          UNION
+          SELECT p.assigned_lister_id
+          FROM products p
+          WHERE p.account_used = account.id
+            AND p.deleted_at IS NULL
+            AND p.assigned_lister_id IS NOT NULL
+          UNION
+          SELECT p.listed_by
+          FROM products p
+          WHERE p.account_used = account.id
+            AND p.deleted_at IS NULL
+            AND p.listed_by IS NOT NULL
+        ) scoped_listers
+        JOIN users lister ON lister.id = scoped_listers.lister_id
+      ) lister_metrics ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT
+          COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status = 'listed') AS listed_count,
+          COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status = 'assigned') AS pending_count
+        FROM products p
+        WHERE p.account_used = account.id
+      ) product_metrics ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT
+          COUNT(*) FILTER (WHERE o.deleted_at IS NULL) AS total_orders,
+          COUNT(*) FILTER (WHERE o.deleted_at IS NULL AND o.order_status = 'DELIVERED') AS delivered_orders,
+          COUNT(*) FILTER (WHERE o.deleted_at IS NULL AND o.order_status = 'RETURNED') AS returned_orders,
+          COUNT(*) FILTER (WHERE o.deleted_at IS NULL AND o.order_status = 'REFUNDED') AS refunded_orders,
+          COUNT(*) FILTER (WHERE o.deleted_at IS NULL AND o.order_status = 'CANCELLED') AS cancelled_orders,
+          COUNT(*) FILTER (WHERE o.deleted_at IS NULL AND ${OPEN_ISSUE_SQL}) AS issue_orders,
+          COALESCE(SUM(o.sale_price) FILTER (WHERE o.deleted_at IS NULL), 0)::numeric(10,2) AS total_revenue,
+          COALESCE(SUM(o.total_cost) FILTER (WHERE o.deleted_at IS NULL), 0)::numeric(10,2) AS total_cost,
+          COALESCE(SUM(o.profit) FILTER (WHERE o.deleted_at IS NULL), 0)::numeric(10,2) AS total_profit,
+          COALESCE(AVG(NULLIF(o.roi, 0)) FILTER (WHERE o.deleted_at IS NULL), 0)::numeric(10,2) AS average_roi
+        FROM orders o
+        WHERE o.account_id = account.id
+      ) order_metrics ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*) FILTER (WHERE ${OPEN_CHANGE_REQUEST_SQL}) AS pending_requests
+        FROM product_change_requests request
+        WHERE request.account_id = account.id
+      ) change_metrics ON TRUE
+      ${filters.whereSql}
+  `;
   const result = await pool.query(
     `
       SELECT
@@ -634,60 +812,90 @@ const listAccountReports = async (actor, query = {}) => {
         account.company_profit_percentage AS "companyProfitPercentage",
         account.previous_order_count AS "previousOrderCount",
         account.last_month_profit AS "lastMonthProfit",
+        COALESCE(hunter_metrics.assigned_hunters, '') AS "assignedHunterNames",
+        COALESCE(hunter_metrics.assigned_hunter_count, 0)::int AS "assignedHunterCount",
+        COALESCE(lister_metrics.assigned_listers, '') AS "assignedListerNames",
         COALESCE(assigned.assigned_count, 0)::int AS "assignedListerCount",
         COALESCE(product_metrics.listed_count, 0)::int AS "totalListed",
         COALESCE(product_metrics.pending_count, 0)::int AS "pendingListings",
         COALESCE(order_metrics.total_orders, 0)::int AS "totalOrders",
         COALESCE(order_metrics.delivered_orders, 0)::int AS "deliveredOrders",
+        COALESCE(order_metrics.returned_orders, 0)::int AS "returnedOrders",
+        COALESCE(order_metrics.refunded_orders, 0)::int AS "refundedOrders",
+        COALESCE(order_metrics.cancelled_orders, 0)::int AS "cancelledOrders",
         COALESCE(order_metrics.total_revenue, 0)::numeric(10,2) AS "totalRevenue",
+        COALESCE(order_metrics.total_cost, 0)::numeric(10,2) AS "totalCost",
         COALESCE(order_metrics.total_profit, 0)::numeric(10,2) AS "totalProfit",
+        COALESCE(order_metrics.average_roi, 0)::numeric(10,2) AS "averageRoi",
         COALESCE(order_metrics.issue_orders, 0)::int AS "openIssues",
         COALESCE(change_metrics.pending_requests, 0)::int AS "pendingChangeRequests"
-      FROM accounts account
-      LEFT JOIN LATERAL (
-        SELECT COUNT(DISTINCT la.lister_id) AS assigned_count
-        FROM lister_account_assignments la
-        WHERE la.account_id = account.id
-      ) assigned ON TRUE
-      LEFT JOIN LATERAL (
-        SELECT
-          COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status = 'listed') AS listed_count,
-          COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status = 'assigned') AS pending_count
-        FROM products p
-        WHERE p.account_used = account.id
-      ) product_metrics ON TRUE
-      LEFT JOIN LATERAL (
-        SELECT
-          COUNT(*) FILTER (WHERE o.deleted_at IS NULL) AS total_orders,
-          COUNT(*) FILTER (WHERE o.deleted_at IS NULL AND o.order_status = 'DELIVERED') AS delivered_orders,
-          COUNT(*) FILTER (WHERE o.deleted_at IS NULL AND ${OPEN_ISSUE_SQL}) AS issue_orders,
-          COALESCE(SUM(o.sale_price) FILTER (WHERE o.deleted_at IS NULL), 0)::numeric(10,2) AS total_revenue,
-          COALESCE(SUM(o.profit) FILTER (WHERE o.deleted_at IS NULL), 0)::numeric(10,2) AS total_profit
-        FROM orders o
-        WHERE o.account_id = account.id
-      ) order_metrics ON TRUE
-      LEFT JOIN LATERAL (
-        SELECT COUNT(*) FILTER (WHERE ${OPEN_CHANGE_REQUEST_SQL}) AS pending_requests
-        FROM product_change_requests request
-        WHERE request.account_id = account.id
-      ) change_metrics ON TRUE
-      ${filters.whereSql}
-      ORDER BY "totalOrders" DESC, "totalRevenue" DESC, account.name
+      ${accountMetricsFromSql}
+      ORDER BY ${sortBy} ${sortDirection}, "totalOrders" DESC, "totalRevenue" DESC, account.name
       LIMIT $${filters.params.length + 1}
       OFFSET $${filters.params.length + 2}
     `,
     [...filters.params, pageRequest.limit, pageRequest.offset],
   );
+  const summary = await pool.query(
+    `
+      SELECT
+        COUNT(*) FILTER (WHERE scoped."totalOrders" > 0)::int AS "totalAccountsWithOrders",
+        COALESCE(SUM(scoped."totalOrders"), 0)::int AS "totalOrders",
+        COALESCE(SUM(scoped."totalRevenue"), 0)::numeric(10,2) AS "totalRevenue",
+        COALESCE(SUM(scoped."totalProfit"), 0)::numeric(10,2) AS "totalProfit"
+      FROM (
+        SELECT
+          account.id,
+          COALESCE(order_metrics.total_orders, 0)::int AS "totalOrders",
+          COALESCE(order_metrics.total_revenue, 0)::numeric(10,2) AS "totalRevenue",
+          COALESCE(order_metrics.total_profit, 0)::numeric(10,2) AS "totalProfit"
+        ${accountMetricsFromSql}
+      ) scoped
+    `,
+    filters.params,
+  );
 
   return {
-    items: result.rows.map((row) => ({
-      ...row,
-      totalRevenue: toMoney(row.totalRevenue),
-      totalProfit: toMoney(row.totalProfit),
-      clientProfitPercentage: row.clientProfitPercentage === null ? null : Number(row.clientProfitPercentage),
-      companyProfitPercentage: row.companyProfitPercentage === null ? null : Number(row.companyProfitPercentage),
-      lastMonthProfit: toMoney(row.lastMonthProfit),
-    })),
+    items: result.rows.map((row, index) => {
+      const totalOrders = toInteger(row.totalOrders);
+      const refundedOrders = toInteger(row.refundedOrders);
+      const cancelledOrders = toInteger(row.cancelledOrders);
+      const visualIndicators = [];
+
+      if (pageRequest.page === 1 && index < 3 && totalOrders > 0) {
+        visualIndicators.push('Top Performing Account');
+      }
+
+      if (totalOrders === 0) {
+        visualIndicators.push('No Orders');
+      }
+
+      if (totalOrders > 0 && refundedOrders / totalOrders >= 0.1) {
+        visualIndicators.push('High Refund Rate');
+      }
+
+      if (totalOrders > 0 && cancelledOrders / totalOrders >= 0.1) {
+        visualIndicators.push('High Cancellation Rate');
+      }
+
+      return {
+        ...row,
+        totalRevenue: toMoney(row.totalRevenue),
+        totalCost: toMoney(row.totalCost),
+        totalProfit: toMoney(row.totalProfit),
+        averageRoi: toMoney(row.averageRoi),
+        clientProfitPercentage: row.clientProfitPercentage === null ? null : Number(row.clientProfitPercentage),
+        companyProfitPercentage: row.companyProfitPercentage === null ? null : Number(row.companyProfitPercentage),
+        lastMonthProfit: toMoney(row.lastMonthProfit),
+        visualIndicators,
+      };
+    }),
+    summary: {
+      totalAccountsWithOrders: toInteger(summary.rows[0]?.totalAccountsWithOrders),
+      totalOrders: toInteger(summary.rows[0]?.totalOrders),
+      totalRevenue: toMoney(summary.rows[0]?.totalRevenue),
+      totalProfit: toMoney(summary.rows[0]?.totalProfit),
+    },
     ...buildPageMeta(pageRequest.page, pageRequest.limit, result.rows[0]?.totalCount || 0),
   };
 };
@@ -730,15 +938,20 @@ const listProductReports = async (actor, query = {}) => {
         p.ebay_price AS "ebayPrice",
         p.profit,
         p.roi,
+        p.quality_label AS "qualityLabel",
+        p.rating,
+        p.sold_count AS "soldCount",
         p.created_at AS "createdAt",
         p.listed_at AS "listedAt",
+        p.updated_at AS "updatedAt",
         hunter.name AS "hunterName",
         lister.name AS "listerName",
         account.name AS "accountName",
         account.marketplace,
         account.country,
         COALESCE(order_metrics.order_count, 0)::int AS "orderCount",
-        COALESCE(order_metrics.issue_count, 0)::int AS "issueCount"
+        COALESCE(order_metrics.issue_count, 0)::int AS "issueCount",
+        COALESCE(order_metrics.revenue, 0)::numeric(10,2) AS revenue
       FROM products p
       LEFT JOIN users hunter ON hunter.id = p.hunter_id
       LEFT JOIN users lister ON lister.id = COALESCE(p.listed_by, p.assigned_lister_id)
@@ -746,7 +959,8 @@ const listProductReports = async (actor, query = {}) => {
       LEFT JOIN LATERAL (
         SELECT
           COUNT(*) FILTER (WHERE o.deleted_at IS NULL) AS order_count,
-          COUNT(*) FILTER (WHERE o.deleted_at IS NULL AND ${OPEN_ISSUE_SQL}) AS issue_count
+          COUNT(*) FILTER (WHERE o.deleted_at IS NULL AND ${OPEN_ISSUE_SQL}) AS issue_count,
+          COALESCE(SUM(o.sale_price) FILTER (WHERE o.deleted_at IS NULL), 0)::numeric(10,2) AS revenue
         FROM orders o
         WHERE o.product_id = p.id
       ) order_metrics ON TRUE
@@ -765,6 +979,9 @@ const listProductReports = async (actor, query = {}) => {
       ebayPrice: row.ebayPrice === null ? null : Number(row.ebayPrice),
       profit: toMoney(row.profit),
       roi: toMoney(row.roi),
+      rating: row.rating === null ? null : Number(row.rating),
+      soldCount: toInteger(row.soldCount),
+      revenue: toMoney(row.revenue),
     })),
     ...buildPageMeta(pageRequest.page, pageRequest.limit, result.rows[0]?.totalCount || 0),
   };
@@ -823,6 +1040,8 @@ const listOrderReports = async (actor, query = {}) => {
         o.roi,
         o.order_date AS "orderDate",
         o.delivered_date AS "deliveredDate",
+        o.created_at AS "createdAt",
+        o.updated_at AS "updatedAt",
         hunter.name AS "hunterName",
         lister.name AS "listerName",
         account.name AS "accountName",

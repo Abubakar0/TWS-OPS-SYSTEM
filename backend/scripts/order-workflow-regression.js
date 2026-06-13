@@ -188,6 +188,39 @@ async function main() {
   }
 
   if (adminWorkflowSeed.orderId) {
+    const createdOrderDetail = await request(
+      `/orders/${adminWorkflowSeed.orderId}`,
+      {
+        token: adminToken,
+        expectedStatuses: [200],
+      },
+    );
+    push("admin:created-order-visible", createdOrderDetail, {
+      details: createdOrderDetail.ok
+        ? JSON.stringify({
+          orderStatus: createdOrderDetail.body?.order?.orderStatus,
+          placementStatus: createdOrderDetail.body?.order?.placementStatus,
+          paymentStatus: createdOrderDetail.body?.order?.paymentStatus,
+        })
+        : "",
+    });
+
+    checks.push({
+      name: "admin:created-order-is-paid-and-placed",
+      ok:
+        createdOrderDetail.body?.order?.orderStatus === "PLACED" &&
+        createdOrderDetail.body?.order?.placementStatus === "PLACED" &&
+        createdOrderDetail.body?.order?.paymentStatus === "PAID",
+      status: createdOrderDetail.status,
+      details: createdOrderDetail.ok
+        ? JSON.stringify({
+          orderStatus: createdOrderDetail.body?.order?.orderStatus,
+          placementStatus: createdOrderDetail.body?.order?.placementStatus,
+          paymentStatus: createdOrderDetail.body?.order?.paymentStatus,
+        })
+        : summarize(createdOrderDetail.body),
+    });
+
     const duplicate = await request("/orders", {
       method: "POST",
       token: adminToken,
@@ -203,29 +236,31 @@ async function main() {
     });
     push("admin:create-duplicate-order-blocked", duplicate);
 
-    const shipBeforePlaced = await request(
-      `/orders/${adminWorkflowSeed.orderId}/mark-shipped`,
+    const unsupportedShippedStatus = await request(
+      `/orders/${adminWorkflowSeed.orderId}/status`,
       {
-        method: "POST",
+        method: "PATCH",
         token: adminToken,
         body: {
-          trackingNumber: "TRACK-123",
-          carrier: "UPS",
+          orderStatus: "SHIPPED",
         },
-        expectedStatuses: [409],
+        expectedStatuses: [400],
       },
     );
-    push("admin:ship-before-placed-blocked", shipBeforePlaced);
+    push("admin:status-shipped-not-allowed", unsupportedShippedStatus);
 
-    const deliverBeforeShipped = await request(
-      `/orders/${adminWorkflowSeed.orderId}/mark-delivered`,
+    const unsupportedPlacedStatus = await request(
+      `/orders/${adminWorkflowSeed.orderId}/status`,
       {
-        method: "POST",
+        method: "PATCH",
         token: adminToken,
-        expectedStatuses: [409],
+        body: {
+          orderStatus: "PLACED",
+        },
+        expectedStatuses: [400],
       },
     );
-    push("admin:deliver-before-shipped-blocked", deliverBeforeShipped);
+    push("admin:status-placed-not-allowed", unsupportedPlacedStatus);
 
     const issueMissingFields = await request(
       `/orders/${adminWorkflowSeed.orderId}/mark-issue`,
@@ -249,82 +284,62 @@ async function main() {
           amazonBuyingPrice: "58.07",
           amazonOrderId: `AMZ-${buildOrderId("ADMIN")}`,
         },
-        expectedStatuses: [200],
-      },
-    );
-    push("admin:mark-placed", placed);
-
-    const placedAgain = await request(
-      `/orders/${adminWorkflowSeed.orderId}/mark-placed`,
-      {
-        method: "POST",
-        token: adminToken,
-        body: {
-          amazonBuyingPrice: "58.07",
-          amazonOrderId: `AMZ-${buildOrderId("ADMIN-R")}`,
-        },
         expectedStatuses: [409],
       },
     );
-    push("admin:mark-placed-again-blocked", placedAgain);
-
-    const deliverBeforeRealShipped = await request(
-      `/orders/${adminWorkflowSeed.orderId}/mark-delivered`,
-      {
-        method: "POST",
-        token: adminToken,
-        expectedStatuses: [409],
-      },
-    );
-    push("admin:deliver-before-real-shipped-blocked", deliverBeforeRealShipped);
-
-    const shipped = await request(
-      `/orders/${adminWorkflowSeed.orderId}/mark-shipped`,
-      {
-        method: "POST",
-        token: adminToken,
-        body: {
-          trackingNumber: `TRACK-${buildOrderId("ADMIN")}`,
-          carrier: "UPS",
-        },
-        expectedStatuses: [200],
-      },
-    );
-    push("admin:mark-shipped", shipped);
-
-    const shippedAgain = await request(
-      `/orders/${adminWorkflowSeed.orderId}/mark-shipped`,
-      {
-        method: "POST",
-        token: adminToken,
-        body: {
-          trackingNumber: `TRACK-${buildOrderId("ADMIN-RETRY")}`,
-          carrier: "UPS",
-        },
-        expectedStatuses: [409],
-      },
-    );
-    push("admin:mark-shipped-again-blocked", shippedAgain);
+    push("admin:mark-placed-blocked-for-created-order", placed);
 
     const delivered = await request(
-      `/orders/${adminWorkflowSeed.orderId}/mark-delivered`,
+      `/orders/${adminWorkflowSeed.orderId}/status`,
       {
-        method: "POST",
+        method: "PATCH",
         token: adminToken,
+        body: {
+          orderStatus: "DELIVERED",
+        },
         expectedStatuses: [200],
       },
     );
-    push("admin:mark-delivered", delivered);
+    push("admin:status-delivered-from-placed", delivered);
 
     const deliveredAgain = await request(
-      `/orders/${adminWorkflowSeed.orderId}/mark-delivered`,
+      `/orders/${adminWorkflowSeed.orderId}/status`,
       {
-        method: "POST",
+        method: "PATCH",
         token: adminToken,
+        body: {
+          orderStatus: "DELIVERED",
+        },
         expectedStatuses: [409],
       },
     );
-    push("admin:mark-delivered-again-blocked", deliveredAgain);
+    push("admin:status-delivered-again-blocked", deliveredAgain);
+
+    const returned = await request(
+      `/orders/${adminWorkflowSeed.orderId}/status`,
+      {
+        method: "PATCH",
+        token: adminToken,
+        body: {
+          orderStatus: "RETURNED",
+        },
+        expectedStatuses: [200],
+      },
+    );
+    push("admin:status-returned-after-delivered", returned);
+
+    const refunded = await request(
+      `/orders/${adminWorkflowSeed.orderId}/status`,
+      {
+        method: "PATCH",
+        token: adminToken,
+        body: {
+          orderStatus: "REFUNDED",
+        },
+        expectedStatuses: [200],
+      },
+    );
+    push("admin:status-refunded-after-returned", refunded);
   }
 
   const processorCreate = await createMinimalOrder(
@@ -361,19 +376,34 @@ async function main() {
     );
     push("processor:created-order-visible", processorOrderDetail);
 
-    const processorPlaced = await request(
-      `/orders/${processorWorkflowSeed.orderId}/mark-placed`,
+    checks.push({
+      name: "processor:created-order-is-paid-and-placed",
+      ok:
+        processorOrderDetail.body?.order?.orderStatus === "PLACED" &&
+        processorOrderDetail.body?.order?.placementStatus === "PLACED" &&
+        processorOrderDetail.body?.order?.paymentStatus === "PAID",
+      status: processorOrderDetail.status,
+      details: processorOrderDetail.ok
+        ? JSON.stringify({
+          orderStatus: processorOrderDetail.body?.order?.orderStatus,
+          placementStatus: processorOrderDetail.body?.order?.placementStatus,
+          paymentStatus: processorOrderDetail.body?.order?.paymentStatus,
+        })
+        : summarize(processorOrderDetail.body),
+    });
+
+    const processorDelivered = await request(
+      `/orders/${processorWorkflowSeed.orderId}/status`,
       {
-        method: "POST",
+        method: "PATCH",
         token: processorToken,
         body: {
-          amazonBuyingPrice: "58.07",
-          amazonOrderId: `AMZ-${buildOrderId("PROC")}`,
+          orderStatus: "DELIVERED",
         },
         expectedStatuses: [200],
       },
     );
-    push("processor:mark-placed", processorPlaced);
+    push("processor:status-delivered-from-placed", processorDelivered);
   }
 
   for (const orderId of cleanupOrderIds) {

@@ -412,8 +412,7 @@ export class AdminProductsFacade {
       return;
     }
 
-    this.rejectMode.set('single');
-    this.rejectModalOpen.set(false);
+    this.resetRejectWorkflow();
   }
 
   confirmReject(): void {
@@ -480,6 +479,8 @@ export class AdminProductsFacade {
       return;
     }
 
+    this.resetRejectWorkflow();
+
     const confirmed = await this.confirm.ask({
       title: 'Approve selected products?',
       message: `${ids.length} selected product${ids.length === 1 ? '' : 's'} will be moved to approved status.`,
@@ -506,6 +507,7 @@ export class AdminProductsFacade {
           this.detailProduct.set(updatedById.get(currentDetail.id) ?? currentDetail);
         }
         this.workspaceSync.notifyProductsChanged();
+        this.resetRejectWorkflow();
         this.deleting.set(false);
         this.toast.success('Selected products approved.');
       },
@@ -514,6 +516,14 @@ export class AdminProductsFacade {
         this.deleting.set(false);
       },
     });
+  }
+
+  private resetRejectWorkflow(): void {
+    this.rejectMode.set('single');
+    this.rejectModalOpen.set(false);
+    this.rejectForm.reset({ reason: '' }, { emitEvent: false });
+    this.rejectForm.markAsPristine();
+    this.rejectForm.markAsUntouched();
   }
 
   openDeleteModal(mode: 'soft' | 'permanent', productIds?: string[]): void {

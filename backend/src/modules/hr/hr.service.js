@@ -82,7 +82,10 @@ const toDate = (value) => {
   if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
     const parsed = new Date(`${normalized}T00:00:00.000Z`);
 
-    if (Number.isNaN(parsed.getTime())) {
+    if (
+      Number.isNaN(parsed.getTime()) ||
+      parsed.toISOString().slice(0, 10) !== normalized
+    ) {
       throw new AppError("Date must use a valid YYYY-MM-DD value.", 400);
     }
 
@@ -182,6 +185,25 @@ const toUpperEnum = (value, allowed, fallback = null) => {
 const hasHrAccess = (user) => hasAnyRole(user, ["hr", "super_admin"]);
 const hasPayrollAccess = (user) => hasAnyRole(user, ["hr", "super_admin"]);
 
+const toDateOnlyResponse = (value) => {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === "string") {
+    return value.slice(0, 10);
+  }
+
+  if (value instanceof Date) {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, "0");
+    const day = String(value.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  return toDate(value);
+};
+
 const ensureHrManager = (
   user,
   message = "You do not have access to HR management.",
@@ -202,6 +224,8 @@ const ensurePayrollManager = (
 
 const mapEmployeeRow = (row) => ({
   ...row,
+  joiningDate: toDateOnlyResponse(row.joiningDate),
+  dateOfBirth: toDateOnlyResponse(row.dateOfBirth),
   roles: normalizeRoles(row.roles || row.role, row.role || "hunter"),
   role: resolvePrimaryRole(row.roles || row.role, row.role || "hunter"),
   basicSalary: Number(row.basicSalary || 0),
@@ -2016,8 +2040,20 @@ const getHrDashboard = async (viewer, query = {}) => {
     pool.query(
       `
         SELECT
-          (SELECT COUNT(*)::int FROM employee_profiles) AS "totalEmployees",
-          (SELECT COUNT(*)::int FROM employee_profiles WHERE employment_status = 'ACTIVE') AS "activeEmployees",
+          (
+            SELECT COUNT(DISTINCT e.id)::int
+            FROM employee_profiles e
+            JOIN users u ON u.id = e.user_id
+            WHERE u.deleted_at IS NULL
+          ) AS "totalEmployees",
+          (
+            SELECT COUNT(DISTINCT e.id)::int
+            FROM employee_profiles e
+            JOIN users u ON u.id = e.user_id
+            WHERE u.deleted_at IS NULL
+              AND u.is_active = TRUE
+              AND e.employment_status = 'ACTIVE'
+          ) AS "activeEmployees",
           (SELECT COUNT(*)::int FROM hr_attendance WHERE attendance_date = $1::date AND status = 'PRESENT') AS "presentToday",
           (SELECT COUNT(*)::int FROM hr_attendance WHERE attendance_date = $1::date AND status = 'ABSENT') AS "absentToday",
           (SELECT COUNT(*)::int FROM hr_attendance WHERE attendance_date = $1::date AND status = 'LATE') AS "lateToday",
@@ -2091,6 +2127,8 @@ const getHrDashboard = async (viewer, query = {}) => {
         FROM employee_profiles e
         JOIN users u ON u.id = e.user_id
         WHERE e.date_of_birth IS NOT NULL
+          AND u.deleted_at IS NULL
+          AND u.is_active = TRUE
           AND to_char(e.date_of_birth, 'MM-DD') = to_char($1::date, 'MM-DD')
         ORDER BY u.name
       `,
@@ -2107,6 +2145,8 @@ const getHrDashboard = async (viewer, query = {}) => {
         FROM employee_profiles e
         JOIN users u ON u.id = e.user_id
         WHERE e.date_of_birth IS NOT NULL
+          AND u.deleted_at IS NULL
+          AND u.is_active = TRUE
           AND to_char(e.date_of_birth, 'MM-DD') > to_char($1::date, 'MM-DD')
         ORDER BY to_char(e.date_of_birth, 'MM-DD') ASC, u.name
         LIMIT 10
@@ -2125,6 +2165,8 @@ const getHrDashboard = async (viewer, query = {}) => {
         FROM employee_profiles e
         JOIN users u ON u.id = e.user_id
         WHERE e.joining_date IS NOT NULL
+          AND u.deleted_at IS NULL
+          AND u.is_active = TRUE
           AND to_char(e.joining_date, 'MM-DD') = to_char($1::date, 'MM-DD')
         ORDER BY u.name
       `,
@@ -2142,6 +2184,8 @@ const getHrDashboard = async (viewer, query = {}) => {
         FROM employee_profiles e
         JOIN users u ON u.id = e.user_id
         WHERE e.joining_date IS NOT NULL
+          AND u.deleted_at IS NULL
+          AND u.is_active = TRUE
           AND to_char(e.joining_date, 'MM-DD') > to_char($1::date, 'MM-DD')
         ORDER BY to_char(e.joining_date, 'MM-DD') ASC, u.name
         LIMIT 10

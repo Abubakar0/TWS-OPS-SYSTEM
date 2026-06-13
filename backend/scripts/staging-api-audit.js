@@ -1,4 +1,4 @@
-const BASE_URL = process.env.API_BASE_URL || 'https://tws-ops-system-backend-staging.up.railway.app/api';
+const BASE_URL = process.env.API_BASE_URL || 'http://localhost:4000/api';
 const PASSWORD = process.env.API_AUDIT_PASSWORD || 'Password123!';
 
 const USERS = {
@@ -16,6 +16,7 @@ const RANGE = {
 const RUN_MUTATION_SMOKE = process.env.API_AUDIT_MUTATIONS !== 'false';
 
 async function request(path, { method = 'GET', token, body, expectedStatuses = [200] } = {}) {
+  const start = Date.now();
   const response = await fetch(`${BASE_URL}${path}`, {
     method,
     headers: {
@@ -39,6 +40,7 @@ async function request(path, { method = 'GET', token, body, expectedStatuses = [
     method,
     ok: expectedStatuses.includes(response.status),
     status: response.status,
+    durationMs: Date.now() - start,
     body: json || text,
   };
 }
@@ -77,9 +79,9 @@ async function main() {
   for (const [role, email] of Object.entries(USERS)) {
     try {
       tokens[role] = await login(email);
-      report.push({ role, method: 'POST', path: '/auth/login', ok: true, status: 200, body: 'ok' });
+      report.push({ role, method: 'POST', path: '/auth/login', ok: true, status: 200, durationMs: 0, body: 'ok' });
     } catch (error) {
-      report.push({ role, method: 'POST', path: '/auth/login', ok: false, status: 0, body: String(error) });
+      report.push({ role, method: 'POST', path: '/auth/login', ok: false, status: 0, durationMs: 0, body: String(error) });
     }
   }
 
@@ -238,7 +240,7 @@ async function main() {
 
   for (const check of checks) {
     if (!check.token) {
-      report.push({ ...check, ok: false, status: 0, body: 'no token available' });
+      report.push({ ...check, ok: false, status: 0, durationMs: 0, body: 'no token available' });
       continue;
     }
     try {
@@ -248,7 +250,7 @@ async function main() {
       });
       report.push({ role: check.role, ...result });
     } catch (error) {
-      report.push({ role: check.role, path: check.path, method: 'GET', ok: false, status: 0, body: String(error) });
+      report.push({ role: check.role, path: check.path, method: 'GET', ok: false, status: 0, durationMs: 0, body: String(error) });
     }
   }
 
@@ -271,6 +273,7 @@ async function main() {
           method: options?.method || 'GET',
           ok: false,
           status: 0,
+          durationMs: 0,
           body: String(error),
         });
         return null;
@@ -331,9 +334,8 @@ async function main() {
           method: 'PATCH',
           token: adminToken,
           body: {
-            orderStatus: 'PLACED',
-            amazonBuyingPrice: '18.75',
-            amazonOrderId: `AMZ-${runId}`,
+            orderStatus: 'DELIVERED',
+            deliveredDate: RANGE.to,
           },
           expectedStatuses: [200],
         });
@@ -397,7 +399,7 @@ async function main() {
   for (const entry of report) {
     const tag = entry.ok ? 'OK ' : 'BAD';
     const role = entry.role ? `[${entry.role}]` : '[public]';
-    console.log(`${tag} ${role} ${entry.method || 'GET '} ${entry.path} -> ${entry.status}`);
+    console.log(`${tag} ${role} ${entry.method || 'GET '} ${entry.path} -> ${entry.status} (${entry.durationMs || 0}ms)`);
     if (!entry.ok || entry.status >= 500 || entry.status === 0) {
       console.log(`     ${snippet(entry.body)}`);
     }

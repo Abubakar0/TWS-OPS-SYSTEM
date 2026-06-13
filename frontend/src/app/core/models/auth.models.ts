@@ -140,6 +140,9 @@ export interface ListerUserStats {
   fixedChangeRequests: number;
   listingAccountsUsed: number;
   totalListingsByDate: number;
+  ordersGenerated?: number;
+  totalRevenue?: number;
+  totalProfit?: number;
 }
 
 export interface OrderProcessorStats {

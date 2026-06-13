@@ -80,6 +80,27 @@
     }
   </article>
 
+  <section class="control-center-grid">
+    @for (card of controlCenterCards(); track card.group) {
+      <a class="control-center-card" [routerLink]="card.route">
+        <div class="control-center-card__header">
+          <span class="stat-card__icon">
+            <mat-icon>{{ card.icon }}</mat-icon>
+          </span>
+          <strong>{{ card.group }}</strong>
+        </div>
+        <div class="control-center-card__metrics">
+          @for (metric of card.metrics; track metric[0]) {
+            <div>
+              <span>{{ metric[0] }}</span>
+              <strong>{{ metric[1] }}</strong>
+            </div>
+          }
+        </div>
+      </a>
+    }
+  </section>
+
   <section class="stats-grid">
     <article class="stat-card">
       <span>Total admins</span>

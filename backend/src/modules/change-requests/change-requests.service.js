@@ -83,7 +83,9 @@ const formatStatusLabel = (status) =>
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
 
-const ensureChangeRequestTable = async () => {
+let ensureChangeRequestTablePromise = null;
+
+const runEnsureChangeRequestTable = async () => {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS product_change_requests (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -206,6 +208,17 @@ const ensureChangeRequestTable = async () => {
     CREATE INDEX IF NOT EXISTS idx_product_change_requests_order_id
       ON product_change_requests(order_id)
   `);
+};
+
+const ensureChangeRequestTable = async () => {
+  if (!ensureChangeRequestTablePromise) {
+    ensureChangeRequestTablePromise = runEnsureChangeRequestTable().catch((error) => {
+      ensureChangeRequestTablePromise = null;
+      throw error;
+    });
+  }
+
+  return ensureChangeRequestTablePromise;
 };
 
 const changeRequestSelect = `

@@ -12,7 +12,7 @@ import { combineLatest, firstValueFrom } from 'rxjs';
 
 import { ReportApiService } from '../../core/api/report-api.service';
 import { TeamApiService } from '../../core/api/team-api.service';
-import { AccountReportDetails, AccountReportRow, ActivityReportRow, ActivityReportSummary, CategoryReportRow, ExecutiveReport, HrReportBundle, MarketplaceReportRow, OrderReportDetails, OrderReportRow, ProductReportDetails, ProductReportRow, ReportFilters, ReportScope, ReportSection, TeamReportRow, UserReportRow } from '../../core/models/report.models';
+import { AccountReportDetails, AccountReportRow, AccountReportSummary, ActivityReportRow, ActivityReportSummary, CategoryReportRow, ExecutiveReport, HrReportBundle, MarketplaceReportRow, OrderReportDetails, OrderReportRow, ProductReportDetails, ProductReportRow, ReportFilters, ReportScope, ReportSection, TeamReportRow, UserReportRow } from '../../core/models/report.models';
 import { ProductCategory } from '../../core/models/product.models';
 import { ReferenceDataService } from '../../core/state/reference-data.service';
 import { ToastService } from '../../core/ui/toast.service';
@@ -27,6 +27,11 @@ interface DisplayRow {
   cells: string[];
   badges?: string[];
   raw: unknown;
+}
+
+interface ReportSortState {
+  columnIndex: number;
+  direction: 'asc' | 'desc';
 }
 
 type DateQuickPreset = 'today' | 'yesterday';
@@ -76,6 +81,7 @@ export class ReportDetailComponent implements OnInit {
   readonly executive = signal<ExecutiveReport | null>(null);
   readonly hrBundle = signal<HrReportBundle | null>(null);
   readonly activitySummary = signal<ActivityReportSummary | null>(null);
+  readonly accountSummary = signal<AccountReportSummary | null>(null);
   readonly selectedDetail = signal<unknown | null>(null);
   readonly loading = signal(false);
   readonly exporting = signal(false);
@@ -84,6 +90,7 @@ export class ReportDetailComponent implements OnInit {
   readonly limit = signal(30);
   readonly total = signal(0);
   readonly hasMore = signal(false);
+  readonly sortState = signal<ReportSortState>({ columnIndex: 0, direction: 'asc' });
   readonly accounts = signal<Array<{ id: string; name: string; marketplace: string; country?: string | null }>>([]);
   readonly users = signal<Array<{ id: string; name: string; roles: string[] }>>([]);
   readonly categories = signal<ProductCategory[]>([]);
@@ -191,18 +198,20 @@ export class ReportDetailComponent implements OnInit {
 
   readonly columns = computed(() => {
     switch (this.section()) {
-      case 'users':
       case 'hunters':
+        return ['Team', 'Submitted', 'Approved', 'Rejected', 'Listed', 'Orders', 'Revenue', 'Profit', 'Approval Rate', 'Status'];
       case 'listers':
+        return ['Team', 'Listings Completed', 'Reviews Pending', 'Reviews Approved', 'Reviews Rejected', 'Orders', 'Revenue', 'Profit'];
+      case 'users':
       case 'order-processors':
       case 'admins':
         return ['Team / Roles', 'Primary', 'Secondary', 'Profit / ROI'];
       case 'accounts':
-        return ['Market / Country', 'Listings', 'Orders', 'Profit'];
+        return ['Marketplace', 'Country', 'Products Listed', 'Orders', 'Revenue', 'Profit', 'ROI', 'Assigned Hunter', 'Assigned Lister'];
       case 'products':
-        return ['Hunter / Lister', 'Status', 'Prices', 'Orders'];
+        return ['ASIN', 'Hunter', 'Lister', 'Account', 'Status', 'Quality', 'Orders', 'Revenue', 'Profit', 'ROI', 'Rating', 'Sold Count'];
       case 'orders':
-        return ['Account', 'Status', 'Financials', 'Dates'];
+        return ['Product', 'Account', 'Hunter', 'Lister', 'Revenue', 'Profit', 'Order Status', 'Created Date', 'Updated Date'];
       case 'teams':
         return ['Members', 'Coverage', 'Orders', 'Profit'];
       case 'categories':
@@ -212,7 +221,7 @@ export class ReportDetailComponent implements OnInit {
       case 'activity':
         return ['Actor', 'Action', 'Target', 'When'];
       case 'hr':
-        return ['Department', 'Status', 'Role', 'Designation'];
+        return ['Team', 'Attendance %', 'Leaves', 'Payroll', 'Performance Status'];
       default:
         return [];
     }
@@ -223,9 +232,55 @@ export class ReportDetailComponent implements OnInit {
     const rows = this.sectionItems();
 
     switch (section) {
-      case 'users':
       case 'hunters':
+        return (rows as UserReportRow[]).map((row) => {
+          const stats = row.details.stats.hunter;
+          const approvalRate = stats?.productsSubmitted
+            ? ((stats.approvedProducts || 0) / stats.productsSubmitted) * 100
+            : 0;
+
+          return {
+            id: row.id,
+            title: row.name,
+            subtitle: row.email,
+            cells: [
+              row.teamName || 'Not assigned',
+              String(stats?.productsSubmitted || 0),
+              String(stats?.approvedProducts || 0),
+              String(stats?.rejectedProducts || 0),
+              String(stats?.listedProducts || 0),
+              String(stats?.ordersReceived || 0),
+              this.formatMoney(0),
+              this.formatMoney(stats?.totalProfit || 0),
+              `${approvalRate.toFixed(2)}%`,
+              this.titleCase(row.status),
+            ],
+            badges: [row.role.replaceAll('_', ' '), row.status],
+            raw: row,
+          };
+        });
       case 'listers':
+        return (rows as UserReportRow[]).map((row) => {
+          const stats = row.details.stats.lister;
+          return {
+            id: row.id,
+            title: row.name,
+            subtitle: row.email,
+            cells: [
+              row.teamName || 'Not assigned',
+              String(stats?.productsListed || 0),
+              String(stats?.pendingChangeRequests || 0),
+              String(stats?.fixedChangeRequests || 0),
+              String(stats?.rejectedProducts || 0),
+              String(stats?.ordersGenerated || 0),
+              this.formatMoney(stats?.totalRevenue || 0),
+              this.formatMoney(stats?.totalProfit || 0),
+            ],
+            badges: [row.role.replaceAll('_', ' '), row.status],
+            raw: row,
+          };
+        });
+      case 'users':
       case 'order-processors':
       case 'admins':
         return (rows as UserReportRow[]).map((row) => ({
@@ -245,14 +300,19 @@ export class ReportDetailComponent implements OnInit {
         return (rows as AccountReportRow[]).map((row) => ({
           id: row.id,
           title: row.name,
-          subtitle: row.isActive ? 'Active account' : 'Disabled account',
+          subtitle: row.country || 'Country not set',
           cells: [
-            `${this.titleCase(row.marketplace)}${row.country ? ' | ' + row.country : ''}`,
-            `Listed ${row.totalListed} | Pending ${row.pendingListings}`,
-            `Orders ${row.totalOrders} | Delivered ${row.deliveredOrders}`,
-            `${this.formatMoney(row.totalProfit)} | ${row.openIssues} issues`,
+            `${this.titleCase(row.marketplace)} | ${row.currency}`,
+            row.country || 'Not set',
+            String(row.totalListed),
+            String(row.totalOrders),
+            this.formatMoney(row.totalRevenue),
+            this.formatMoney(row.totalProfit),
+            `${row.averageRoi.toFixed(2)}%`,
+            row.assignedHunterNames || 'Not assigned',
+            row.assignedListerNames || 'Not assigned',
           ],
-          badges: [row.currency, row.isActive ? 'Active' : 'Disabled'],
+          badges: [row.isActive ? 'Active' : 'Disabled', ...(row.visualIndicators || [])],
           raw: row,
         }));
       case 'products':
@@ -261,10 +321,18 @@ export class ReportDetailComponent implements OnInit {
           title: row.title || row.asin || 'Untitled product',
           subtitle: row.asin || row.customLabel || 'No ASIN',
           cells: [
-            `${row.hunterName || 'No hunter'} | ${row.listerName || 'No lister'}`,
-            `${this.titleCase(row.status)}${row.category ? ' | ' + row.category : ''}`,
-            `${this.formatMoney(row.amazonPrice || 0)} -> ${this.formatMoney(row.ebayPrice || 0)}`,
-            `${row.orderCount} orders | ${row.issueCount} issues`,
+            row.asin || 'No ASIN',
+            row.hunterName || 'No hunter',
+            row.listerName || 'No lister',
+            row.accountName || 'No account',
+            this.titleCase(row.status),
+            row.qualityLabel || 'Not graded',
+            String(row.orderCount),
+            this.formatMoney(row.revenue || 0),
+            this.formatMoney(row.profit),
+            `${row.roi.toFixed(2)}%`,
+            row.rating === null ? 'Not set' : String(row.rating),
+            String(row.soldCount || 0),
           ],
           badges: [row.accountName || 'No account'],
           raw: row,
@@ -275,10 +343,15 @@ export class ReportDetailComponent implements OnInit {
           title: row.orderCode,
           subtitle: row.productTitle || row.asin || row.ebayOrderId,
           cells: [
-            `${row.accountName || 'No account'}${row.marketplace ? ' | ' + this.titleCase(row.marketplace) : ''}`,
-            `${row.orderStatus} | ${row.placementStatus}${row.issueStatus ? ' | ' + row.issueStatus : ''}`,
-            `${this.formatMoney(row.profit)} | ${row.roi.toFixed(2)}% ROI`,
-            `${this.formatDate(row.orderDate)}${row.deliveredDate ? ' | ' + this.formatDate(row.deliveredDate) : ''}`,
+            row.productTitle || row.asin || 'No product',
+            row.accountName || 'No account',
+            row.hunterName || 'No hunter',
+            row.listerName || 'No lister',
+            this.formatMoney(row.salePrice),
+            this.formatMoney(row.profit),
+            row.orderStatus,
+            this.formatDate(row.createdAt || row.orderDate, true),
+            this.formatDate(row.updatedAt || row.orderDate, true),
           ],
           badges: [row.hunterName || 'No hunter', row.listerName || 'No lister'],
           raw: row,
@@ -342,10 +415,11 @@ export class ReportDetailComponent implements OnInit {
           title: String(row['fullName'] || row['employeeCode'] || 'Employee'),
           subtitle: String(row['email'] || ''),
           cells: [
-            `${String(row['department'] || 'No department')}`,
-            `${String(row['employmentStatus'] || 'Unknown')}`,
-            `${String(row['role'] || '')}`,
-            `${String(row['designation'] || 'No designation')}`,
+            `${String(row['department'] || row['teamName'] || 'No team')}`,
+            `${String(row['attendanceRate'] || row['attendancePercent'] || 0)}%`,
+            `${String(row['approvedLeaves'] || row['leaveCount'] || 0)}`,
+            this.formatMoney(Number(row['netSalary'] || row['basicSalary'] || 0)),
+            `${String(row['profileReviewStatus'] || row['employmentStatus'] || 'Unknown')}`,
           ],
           raw: row,
         }));
@@ -353,6 +427,25 @@ export class ReportDetailComponent implements OnInit {
       default:
         return [];
     }
+  });
+
+  readonly gridTemplateColumns = computed(() => {
+    const cellCount = this.columns().length;
+    const minCellWidth = this.section() === 'products' || this.section() === 'orders' ? 132 : 124;
+    return `minmax(230px, 1.35fr) repeat(${cellCount}, minmax(${minCellWidth}px, 1fr))`;
+  });
+
+  readonly sortedDisplayRows = computed<DisplayRow[]>(() => {
+    const sort = this.sortState();
+    const rows = [...this.displayRows()];
+
+    return rows.sort((left, right) => {
+      const leftValue = sort.columnIndex === 0 ? left.title : left.cells[sort.columnIndex - 1] || '';
+      const rightValue = sort.columnIndex === 0 ? right.title : right.cells[sort.columnIndex - 1] || '';
+      const result = this.compareCellValues(leftValue, rightValue);
+
+      return sort.direction === 'asc' ? result : -result;
+    });
   });
 
   readonly facts = computed<Array<{ label: string; value: string }>>(() => {
@@ -387,7 +480,13 @@ export class ReportDetailComponent implements OnInit {
           { label: 'Country', value: row.account.country || 'Unspecified' },
           { label: 'Assigned Listers', value: String(row.stats.assignedListerCount) },
           { label: 'Total Orders', value: String(row.stats.totalOrders) },
+          { label: 'Delivered Orders', value: String(row.stats.deliveredOrders) },
+          { label: 'Returned Orders', value: String(row.stats.returnedOrders || 0) },
+          { label: 'Refunded Orders', value: String(row.stats.refundedOrders || 0) },
+          { label: 'Cancelled Orders', value: String(row.stats.cancelledOrders || 0) },
+          { label: 'Revenue', value: this.formatMoney(row.stats.totalRevenue) },
           { label: 'Total Profit', value: this.formatMoney(row.stats.totalProfit) },
+          { label: 'Average ROI', value: `${Number(row.stats.averageRoi || 0).toFixed(2)}%` },
           { label: 'Company Share', value: this.formatMoney(row.split.companyShare) },
           { label: 'Client Share', value: this.formatMoney(row.split.clientShare) },
           { label: 'Open Change Requests', value: String(row.stats.openChangeRequests) },
@@ -773,6 +872,25 @@ export class ReportDetailComponent implements OnInit {
     });
   }
 
+  sortByColumn(columnIndex: number): void {
+    const current = this.sortState();
+
+    this.sortState.set({
+      columnIndex,
+      direction: current.columnIndex === columnIndex && current.direction === 'asc' ? 'desc' : 'asc',
+    });
+  }
+
+  sortIcon(columnIndex: number): string {
+    const current = this.sortState();
+
+    if (current.columnIndex !== columnIndex) {
+      return 'unfold_more';
+    }
+
+    return current.direction === 'asc' ? 'arrow_upward' : 'arrow_downward';
+  }
+
   private loadCurrentSection(): void {
     const section = this.section();
     const filters = {
@@ -869,6 +987,11 @@ export class ReportDetailComponent implements OnInit {
   private assignPage(result: { items: unknown[]; page: number; limit: number; total: number; hasMore: boolean }, callback: () => void): void {
     this.executive.set(null);
     this.hrBundle.set(null);
+    this.accountSummary.set(
+      this.section() === 'accounts'
+        ? ((result as { summary?: AccountReportSummary }).summary || null)
+        : null,
+    );
     this.sectionItems.set(result.items);
     this.page.set(result.page);
     this.limit.set(result.limit);
@@ -1080,6 +1203,21 @@ export class ReportDetailComponent implements OnInit {
     return includeTime
       ? new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
       : new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(date);
+  }
+
+  private compareCellValues(left: string, right: string): number {
+    const leftText = String(left || '');
+    const rightText = String(right || '');
+    const leftNumber = Number(leftText.replace(/[^0-9.-]/g, ''));
+    const rightNumber = Number(rightText.replace(/[^0-9.-]/g, ''));
+    const leftHasNumber = /\d/.test(leftText);
+    const rightHasNumber = /\d/.test(rightText);
+
+    if (leftHasNumber && rightHasNumber && Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) {
+      return leftNumber - rightNumber;
+    }
+
+    return leftText.localeCompare(rightText, undefined, { numeric: true, sensitivity: 'base' });
   }
 
   private titleCase(value: string): string {

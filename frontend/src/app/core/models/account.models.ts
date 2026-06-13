@@ -48,10 +48,15 @@ export interface AccountSummary {
     lastListedAt: string | null;
     totalOrders: number;
     totalRevenue: number;
+    totalCost: number;
     totalProfit: number;
+    averageRoi: number;
     previousOrderCount: number;
     lastMonthProfit: number;
     deliveredOrders: number;
+    returnedOrders: number;
+    refundedOrders: number;
+    cancelledOrders: number;
     issueOrders: number;
     lossOrders: number;
     lastOrderDate: string | null;

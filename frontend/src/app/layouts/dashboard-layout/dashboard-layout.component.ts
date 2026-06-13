@@ -18,8 +18,10 @@ import { filter, map, startWith } from 'rxjs';
 
 import { SystemApiService } from '../../core/api/system-api.service';
 import { TeamApiService } from '../../core/api/team-api.service';
+import { HrApiService } from '../../core/api/hr-api.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { BRANDING } from '../../core/config/branding';
+import { MyHrProfile } from '../../core/models/hr.models';
 import { AnnouncementBarSettings } from '../../core/models/system.models';
 import { WorkspaceSyncService } from '../../core/state/workspace-sync.service';
 import { ConfirmService } from '../../core/ui/confirm.service';
@@ -92,6 +94,7 @@ export class DashboardLayoutComponent {
   private readonly title = inject(Title);
   private readonly systemApi = inject(SystemApiService);
   private readonly teamApi = inject(TeamApiService);
+  private readonly hrApi = inject(HrApiService);
   private readonly workspaceSync = inject(WorkspaceSyncService);
   readonly currentUrl = toSignal(
     this.router.events.pipe(
@@ -104,6 +107,8 @@ export class DashboardLayoutComponent {
 
   readonly user = this.auth.currentUser;
   readonly announcement = signal<AnnouncementBarSettings | null>(null);
+  readonly birthdayProfile = signal<MyHrProfile | null>(null);
+  readonly birthdaySaving = signal(false);
   readonly teamName = signal('');
   readonly sidebarOpen = signal(false);
   readonly sidebarCollapsed = signal(this.readSidebarCollapsed());
@@ -302,6 +307,7 @@ export class DashboardLayoutComponent {
       homeRoute: user ? this.homeRouteForRole(user.role) : '/login',
     };
   });
+  private birthdayCheckedUserId = '';
 
   constructor() {
     this.meta.updateTag({ name: 'robots', content: 'noindex, nofollow' });
@@ -325,6 +331,8 @@ export class DashboardLayoutComponent {
 
       if (!user) {
         this.teamName.set('');
+        this.birthdayProfile.set(null);
+        this.birthdayCheckedUserId = '';
         return;
       }
 
@@ -339,6 +347,23 @@ export class DashboardLayoutComponent {
           this.teamName.set('');
         },
       });
+    });
+
+    effect(() => {
+      const user = this.user();
+
+      if (!user) {
+        this.birthdayProfile.set(null);
+        this.birthdayCheckedUserId = '';
+        return;
+      }
+
+      if (this.birthdayCheckedUserId === user.id) {
+        return;
+      }
+
+      this.birthdayCheckedUserId = user.id;
+      this.checkBirthdayPopup();
     });
   }
 
@@ -396,6 +421,24 @@ export class DashboardLayoutComponent {
     await this.router.navigateByUrl('/login');
   }
 
+  dismissBirthdayModal(): void {
+    if (this.birthdaySaving()) {
+      return;
+    }
+
+    this.birthdaySaving.set(true);
+    this.hrApi.markBirthdayPopupShown().subscribe({
+      next: (profile) => {
+        this.birthdayProfile.set(profile.showBirthdayModal ? profile : null);
+        this.birthdaySaving.set(false);
+      },
+      error: () => {
+        this.birthdayProfile.set(null);
+        this.birthdaySaving.set(false);
+      },
+    });
+  }
+
   private readSidebarCollapsed(): boolean {
     try {
       return JSON.parse(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) || 'false') === true;
@@ -411,6 +454,17 @@ export class DashboardLayoutComponent {
       },
       error: () => {
         this.announcement.set(null);
+      },
+    });
+  }
+
+  private checkBirthdayPopup(): void {
+    this.hrApi.getMyHr().subscribe({
+      next: (profile) => {
+        this.birthdayProfile.set(profile.showBirthdayModal ? profile : null);
+      },
+      error: () => {
+        this.birthdayProfile.set(null);
       },
     });
   }

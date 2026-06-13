@@ -565,6 +565,10 @@ const superAdmin = async (req, res) => {
   const [
     userCounts,
     productCounts,
+    accountCounts,
+    listerCounts,
+    trainingCounts,
+    recentActivity,
     byHunter,
     byLister,
     byAccount,
@@ -574,6 +578,7 @@ const superAdmin = async (req, res) => {
     pool.query(
       `
         SELECT
+          COUNT(*) FILTER (WHERE deleted_at IS NULL)::int AS "totalUsers",
           COUNT(*) FILTER (
             WHERE COALESCE(roles, jsonb_build_array(role::text)) @> '["admin"]'::jsonb
               AND deleted_at IS NULL
@@ -586,6 +591,19 @@ const superAdmin = async (req, res) => {
             WHERE COALESCE(roles, jsonb_build_array(role::text)) @> '["hunter"]'::jsonb
               AND deleted_at IS NULL
           )::int AS "totalHunters",
+          COUNT(*) FILTER (
+            WHERE COALESCE(roles, jsonb_build_array(role::text)) @> '["hunter"]'::jsonb
+              AND COALESCE(hunter_status::text, '') = 'TRAINING'
+              AND deleted_at IS NULL
+          )::int AS "trainingHunters",
+          COUNT(*) FILTER (
+            WHERE COALESCE(roles, jsonb_build_array(role::text)) @> '["order_processor"]'::jsonb
+              AND deleted_at IS NULL
+          )::int AS "totalOrderProcessors",
+          COUNT(*) FILTER (
+            WHERE COALESCE(roles, jsonb_build_array(role::text)) @> '["hr"]'::jsonb
+              AND deleted_at IS NULL
+          )::int AS "totalHrUsers",
           COUNT(*) FILTER (WHERE is_active = TRUE AND deleted_at IS NULL)::int AS "activeUsers",
           COUNT(*) FILTER (WHERE is_active = FALSE AND deleted_at IS NULL)::int AS "disabledUsers",
           COUNT(*) FILTER (WHERE deleted_at IS NOT NULL)::int AS "deletedUsers"
@@ -595,13 +613,116 @@ const superAdmin = async (req, res) => {
     pool.query(
       `
         SELECT
+          COUNT(*) FILTER (WHERE p.deleted_at IS NULL)::int AS "totalProducts",
+          COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status::text IN ('approved', 'assigned'))::int AS "approvedProducts",
+          COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status::text = 'rejected')::int AS "rejectedProducts",
+          COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status::text = 'listed')::int AS "listedProducts",
+          COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status::text = 'listed_needs_review')::int AS "listedNeedsReview",
+          COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status::text = 'listing_rejected')::int AS "listingRejectedProducts",
+          COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status::text <> 'rejected' AND COALESCE(p.roi, 0) >= 45 AND COALESCE(p.profit, 0) >= 15)::int AS "excellentProducts",
+          COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status::text <> 'rejected' AND COALESCE(p.roi, 0) >= 35 AND COALESCE(p.profit, 0) >= 10)::int AS "goodProducts",
+          COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status::text <> 'rejected' AND COALESCE(p.roi, 0) < 35)::int AS "averageProducts",
+          (SELECT COUNT(DISTINCT transfer.product_id)::int FROM product_ownership_transfers transfer) AS "transferredProducts",
           COUNT(*)::int AS "totalHunting",
-          COUNT(*) FILTER (WHERE p.status = 'listed')::int AS "totalListings",
-          COUNT(*) FILTER (WHERE p.status = 'rejected')::int AS "rejectedProducts"
+          COUNT(*) FILTER (WHERE p.status::text = 'listed')::int AS "totalListings"
         FROM products p
         ${filters.whereSql}
       `,
       filters.params,
+    ),
+    pool.query(
+      `
+        SELECT
+          COUNT(*)::int AS "totalAccounts",
+          COUNT(*) FILTER (WHERE is_active = TRUE)::int AS "activeAccounts",
+          COUNT(*) FILTER (WHERE is_active = FALSE)::int AS "disabledAccounts",
+          COALESCE(
+            jsonb_object_agg(marketplace, marketplace_count) FILTER (WHERE marketplace IS NOT NULL),
+            '{}'::jsonb
+          ) AS "accountsByMarketplace",
+          COALESCE(
+            jsonb_object_agg(COALESCE(country, 'Unspecified'), country_count),
+            '{}'::jsonb
+          ) AS "accountsByCountry"
+        FROM (
+          SELECT
+            *,
+            COUNT(*) OVER (PARTITION BY marketplace) AS marketplace_count,
+            COUNT(*) OVER (PARTITION BY COALESCE(country, 'Unspecified')) AS country_count
+          FROM accounts
+        ) scoped_accounts
+      `,
+    ),
+    pool.query(
+      `
+        SELECT
+          COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status::text = 'listed')::int AS "totalListings",
+          COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status::text = 'listed_needs_review')::int AS "pendingListingReviews",
+          COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status::text = 'listed')::int AS "approvedListingReviews",
+          COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status::text = 'listing_rejected')::int AS "rejectedListingReviews",
+          (SELECT COUNT(*)::int FROM product_change_requests WHERE status IN ('OPEN', 'IN_PROGRESS')) AS "openChangeRequests"
+        FROM products p
+        ${filters.whereSql}
+      `,
+      filters.params,
+    ),
+    pool.query(
+      `
+        SELECT
+          COUNT(*) FILTER (
+            WHERE COALESCE(roles, jsonb_build_array(role::text)) @> '["hunter"]'::jsonb
+              AND COALESCE(hunter_status::text, '') = 'TRAINING'
+              AND deleted_at IS NULL
+          )::int AS "trainingHunters",
+          COUNT(*) FILTER (
+            WHERE COALESCE(roles, jsonb_build_array(role::text)) @> '["hunter"]'::jsonb
+              AND COALESCE(hunter_status::text, '') = 'ACTIVE'
+              AND deleted_at IS NULL
+          )::int AS "activatedHunters",
+          COUNT(*) FILTER (
+            WHERE COALESCE(roles, jsonb_build_array(role::text)) @> '["hunter"]'::jsonb
+              AND COALESCE(hunter_status::text, '') = 'REJECTED'
+              AND deleted_at IS NULL
+          )::int AS "rejectedTrainingHunters",
+          (
+            SELECT COUNT(DISTINCT assignment.hunter_id)::int
+            FROM hunter_lister_assignments assignment
+            JOIN users assigned_hunter ON assigned_hunter.id = assignment.hunter_id
+            WHERE assigned_hunter.deleted_at IS NULL
+          ) AS "mentorAssignments",
+          COALESCE(
+            ROUND(
+              100.0 * COUNT(*) FILTER (
+                WHERE COALESCE(roles, jsonb_build_array(role::text)) @> '["hunter"]'::jsonb
+                  AND COALESCE(hunter_status::text, '') = 'ACTIVE'
+                  AND deleted_at IS NULL
+              ) / NULLIF(COUNT(*) FILTER (
+                WHERE COALESCE(roles, jsonb_build_array(role::text)) @> '["hunter"]'::jsonb
+                  AND deleted_at IS NULL
+              ), 0),
+              2
+            ),
+            0
+          )::numeric(10,2) AS "trainingApprovalRate"
+        FROM users
+      `,
+    ),
+    pool.query(
+      `
+        SELECT
+          log.id::text,
+          log.action,
+          log.target_type AS "targetType",
+          log.created_at AS "createdAt",
+          actor.name AS "actorName"
+        FROM audit_logs log
+        LEFT JOIN users actor ON actor.id = log.actor_user_id
+        WHERE log.created_at >= COALESCE($1::date, NOW() - INTERVAL '30 days')
+          AND log.created_at < COALESCE(($2::date + INTERVAL '1 day'), NOW() + INTERVAL '1 day')
+        ORDER BY log.created_at DESC
+        LIMIT 8
+      `,
+      [req.query.from || null, req.query.to || null],
     ),
     pool.query(
       `
@@ -668,7 +789,14 @@ const superAdmin = async (req, res) => {
     stats: {
       ...userCounts.rows[0],
       ...productCounts.rows[0],
+      accountStats: accountCounts.rows[0],
+      listerStats: listerCounts.rows[0],
+      trainingStats: {
+        ...trainingCounts.rows[0],
+        trainingApprovalRate: Number(trainingCounts.rows[0]?.trainingApprovalRate || 0),
+      },
       systemActivity: systemActivity.rows[0].activityCount,
+      recentActivity: recentActivity.rows,
       byHunter: byHunter.rows,
       byLister: byLister.rows,
       byAccount: byAccount.rows,

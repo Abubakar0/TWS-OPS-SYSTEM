@@ -146,4 +146,37 @@
       </button>
     </div>
   </mat-menu>
+
+  @if (birthdayProfile(); as birthday) {
+    <div class="birthday-backdrop" (click)="dismissBirthdayModal()">
+      <section class="birthday-modal" (click)="$event.stopPropagation()">
+        <button
+          mat-icon-button
+          type="button"
+          class="birthday-modal__close"
+          (click)="dismissBirthdayModal()"
+          matTooltip="Continue"
+        >
+          <mat-icon>close</mat-icon>
+        </button>
+        <div class="birthday-modal__icon">
+          <mat-icon>celebration</mat-icon>
+        </div>
+        <div>
+          <h2>Happy Birthday, {{ birthday.employee.fullName }}!</h2>
+          <p>Wishing you a wonderful year ahead from Trend Wave Solutions.</p>
+        </div>
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          (click)="dismissBirthdayModal()"
+          [disabled]="birthdaySaving()"
+        >
+          <mat-icon>arrow_forward</mat-icon>
+          <span>Continue</span>
+        </button>
+      </section>
+    </div>
+  }
 }

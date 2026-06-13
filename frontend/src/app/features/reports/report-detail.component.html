@@ -239,6 +239,27 @@
       </section>
     }
 
+    @if (section() === 'accounts' && accountSummary()) {
+      <section class="stats-grid stats-grid--four">
+        <article class="stat-card">
+          <span>Accounts With Orders</span>
+          <strong>{{ accountSummary()?.totalAccountsWithOrders || 0 }}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Total Orders</span>
+          <strong>{{ accountSummary()?.totalOrders || 0 }}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Total Revenue</span>
+          <strong>{{ accountSummary()?.totalRevenue || 0 | currency: 'USD' }}</strong>
+        </article>
+        <article class="stat-card">
+          <span>Total Profit</span>
+          <strong>{{ accountSummary()?.totalProfit || 0 | currency: 'USD' }}</strong>
+        </article>
+      </section>
+    }
+
     <section class="report-layout">
       <article class="surface-card report-list">
         <div class="surface-card__header">
@@ -248,19 +269,34 @@
           </div>
         </div>
 
-        @if (!displayRows().length) {
+        @if (!sortedDisplayRows().length) {
           <div class="empty-state">No rows matched the current filters.</div>
         } @else {
-          <div class="report-grid">
-            <div class="report-grid__header">
-              <span>Item</span>
-              @for (column of columns(); track column) {
-                <span>{{ column }}</span>
+          <div class="report-grid" [class.report-grid--accounts]="section() === 'accounts'">
+            <div class="report-grid__header" [style.grid-template-columns]="gridTemplateColumns()">
+              <button type="button" class="report-grid__sort" (click)="sortByColumn(0)">
+                <span>Item</span>
+                <mat-icon>{{ sortIcon(0) }}</mat-icon>
+              </button>
+              @for (column of columns(); track column; let columnIndex = $index) {
+                <button
+                  type="button"
+                  class="report-grid__sort"
+                  (click)="sortByColumn(columnIndex + 1)"
+                >
+                  <span>{{ column }}</span>
+                  <mat-icon>{{ sortIcon(columnIndex + 1) }}</mat-icon>
+                </button>
               }
             </div>
 
-            @for (row of displayRows(); track row.id) {
-              <button type="button" class="report-grid__row" (click)="openRow(row)">
+            @for (row of sortedDisplayRows(); track row.id) {
+              <button
+                type="button"
+                class="report-grid__row"
+                [style.grid-template-columns]="gridTemplateColumns()"
+                (click)="openRow(row)"
+              >
                 <span class="report-grid__item">
                   <strong>{{ row.title }}</strong>
                   <small>{{ row.subtitle }}</small>

@@ -31,10 +31,14 @@ export interface ReportFilters {
   teamId?: string;
   userId?: string;
   accountId?: string;
+  assignedHunterId?: string;
+  assignedListerId?: string;
   marketplace?: string;
   country?: string;
   category?: string;
   status?: string;
+  sortBy?: string;
+  sortDirection?: string;
 }
 
 export interface ReportSummary {
@@ -88,15 +92,31 @@ export interface AccountReportRow {
   companyProfitPercentage: number | null;
   previousOrderCount: number;
   lastMonthProfit: number;
+  assignedHunterNames: string;
+  assignedHunterCount: number;
+  assignedListerNames: string;
   assignedListerCount: number;
   totalListed: number;
   pendingListings: number;
   totalOrders: number;
   deliveredOrders: number;
+  returnedOrders: number;
+  refundedOrders: number;
+  cancelledOrders: number;
   totalRevenue: number;
+  totalCost: number;
   totalProfit: number;
+  averageRoi: number;
   openIssues: number;
   pendingChangeRequests: number;
+  visualIndicators?: string[];
+}
+
+export interface AccountReportSummary {
+  totalAccountsWithOrders: number;
+  totalOrders: number;
+  totalRevenue: number;
+  totalProfit: number;
 }
 
 export interface ProductReportRow {
@@ -110,8 +130,13 @@ export interface ProductReportRow {
   ebayPrice: number | null;
   profit: number;
   roi: number;
+  revenue: number;
+  qualityLabel: string | null;
+  rating: number | null;
+  soldCount: number;
   createdAt: string;
   listedAt: string | null;
+  updatedAt: string;
   hunterName: string | null;
   listerName: string | null;
   accountName: string | null;
@@ -137,6 +162,8 @@ export interface OrderReportRow {
   roi: number;
   orderDate: string;
   deliveredDate: string | null;
+  createdAt: string;
+  updatedAt: string;
   hunterName: string | null;
   listerName: string | null;
   accountName: string | null;
@@ -219,6 +246,7 @@ export interface ExecutiveReport {
   topAccounts: AccountReportRow[];
   topCategories: CategoryReportRow[];
   topMarketplaces: MarketplaceReportRow[];
+  warnings?: Array<{ section: string; message: string }>;
 }
 
 export interface HrReportBundle {
@@ -242,6 +270,7 @@ export interface PagedReportResult<T> {
   limit: number;
   total: number;
   hasMore: boolean;
+  summary?: Record<string, number>;
 }
 
 export interface ReportEventPayload {

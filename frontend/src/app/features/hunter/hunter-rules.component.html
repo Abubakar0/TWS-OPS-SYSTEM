@@ -1,27 +1,26 @@
-<section class="page-shell">
-  <article class="surface-card">
-    <div class="surface-card__header">
-      <div>
-        <h1>{{ pageTitle() }}</h1>
-        <p>{{ pageDescription() }}</p>
-      </div>
-      <div class="page-actions">
-        @if (!isTrainingHunter()) {
-          <a mat-stroked-button routerLink="/hunter/review">
-            <mat-icon>assignment_turned_in</mat-icon>
-            <span>Weekly Review</span>
-          </a>
-          <a mat-flat-button color="primary" routerLink="/hunter/changes">
-            <mat-icon>swap_horiz</mat-icon>
-            <span>Changed Product Requests</span>
-          </a>
-        } @else if (hasAcknowledgedRules()) {
-          <a mat-flat-button color="primary" routerLink="/hunter/submission">
-            <mat-icon>playlist_add</mat-icon>
-            <span>Go to Product Submission</span>
-          </a>
-        }
-      </div>
+<section class="page-shell rules-page">
+  <article class="surface-card rules-hero">
+    <div>
+      <span class="kicker">Hunter onboarding</span>
+      <h1>{{ pageTitle() }}</h1>
+      <p>{{ pageDescription() }}</p>
+    </div>
+    <div class="page-actions">
+      @if (!isTrainingHunter()) {
+        <a mat-stroked-button routerLink="/hunter/review">
+          <mat-icon>assignment_turned_in</mat-icon>
+          <span>Weekly Review</span>
+        </a>
+        <a mat-flat-button color="primary" routerLink="/hunter/changes">
+          <mat-icon>swap_horiz</mat-icon>
+          <span>Change Requests</span>
+        </a>
+      } @else if (hasAcknowledgedRules()) {
+        <a mat-flat-button color="primary" routerLink="/hunter/submission">
+          <mat-icon>playlist_add</mat-icon>
+          <span>Submit Product</span>
+        </a>
+      }
     </div>
   </article>
 
@@ -35,24 +34,325 @@
       </div>
     </article>
   } @else {
-    <section class="section-grid">
-      @if (isTrainingHunter()) {
-        <article class="surface-card training-banner">
-          <div>
-            <h2>Training acknowledgment</h2>
-            <p>
-              Read the guide, confirm you understand the rules, and then start submitting training
-              products.
-            </p>
-          </div>
+    <div class="rules-layout">
+      <aside class="surface-card rules-nav" aria-label="Hunting rules sections">
+        <strong>Sections</strong>
+        <nav>
+          @for (item of sectionNav; track item.id) {
+            <a [href]="'#' + item.id">
+              <mat-icon>{{ item.icon }}</mat-icon>
+              <span>{{ item.label }}</span>
+            </a>
+          }
+        </nav>
+      </aside>
 
-          <div class="training-banner__actions">
+      <main class="rules-content">
+        @if (isTrainingHunter()) {
+          <section id="acknowledgement-top" class="surface-card training-banner">
+            <div>
+              <h2>Training acknowledgement</h2>
+              <p>Training product submission unlocks after you confirm these rules once.</p>
+            </div>
+            <div class="training-banner__actions">
+              @if (hasAcknowledgedRules()) {
+                <span class="status-badge status-badge--success">Rules acknowledged</span>
+                <a mat-flat-button color="primary" routerLink="/hunter/submission">
+                  <mat-icon>playlist_add</mat-icon>
+                  <span>Open Product Submission</span>
+                </a>
+              } @else {
+                <button
+                  mat-flat-button
+                  color="primary"
+                  type="button"
+                  (click)="acknowledgeRules()"
+                  [disabled]="acknowledging()"
+                >
+                  <mat-icon>task_alt</mat-icon>
+                  <span>{{ acknowledging() ? 'Saving' : 'I have read and understood the rules' }}</span>
+                </button>
+              }
+            </div>
+          </section>
+        }
+
+        <section id="introduction" class="surface-card doc-section">
+          <div class="doc-section__header">
+            <mat-icon>flag</mat-icon>
+            <div>
+              <h2>Introduction</h2>
+              <p>Use this guide every time you decide whether a product is safe to submit.</p>
+            </div>
+          </div>
+          <div class="rule-card-grid">
+            @for (item of basics; track item) {
+              <article class="rule-card">
+                <mat-icon>check_circle</mat-icon>
+                <strong>{{ item }}</strong>
+              </article>
+            }
+          </div>
+        </section>
+
+        <section id="company-rules" class="surface-card doc-section">
+          <div class="doc-section__header">
+            <mat-icon>rule</mat-icon>
+            <div>
+              <h2>Company Hunting Rules</h2>
+              <p>Baseline operating standards for every hunter and training hunter.</p>
+            </div>
+          </div>
+          <div class="callout-grid">
+            @for (rule of companyRules; track rule.title) {
+              <article class="callout" [class.callout--warning]="rule.tone === 'warning'">
+                <strong>{{ rule.title }}</strong>
+                <span>{{ rule.text }}</span>
+              </article>
+            }
+          </div>
+        </section>
+
+        <section id="training-rules" class="surface-card doc-section">
+          <div class="doc-section__header">
+            <mat-icon>school</mat-icon>
+            <div>
+              <h2>Training Hunter Rules</h2>
+              <p>Training hunters must follow stricter validation and mentor feedback until activation.</p>
+            </div>
+          </div>
+          <div class="simple-table">
+            @for (rule of trainingRules; track rule) {
+              <div class="simple-table__row">
+                <strong>{{ rule }}</strong>
+              </div>
+            }
+          </div>
+        </section>
+
+        <section id="quality-rules" class="surface-card doc-section">
+          <div class="doc-section__header">
+            <mat-icon>verified</mat-icon>
+            <div>
+              <h2>Product Quality Rules</h2>
+              <p>Quality labels are assigned after required validation passes.</p>
+            </div>
+          </div>
+          <div class="quality-guide">
+            @for (rule of qualityGuide(); track rule.label) {
+              <div class="quality-guide__row">
+                <strong>{{ rule.label }}</strong>
+                <span>{{ rule.detail }}</span>
+              </div>
+            }
+          </div>
+          <div class="rule-list">
+            @for (rule of qualityRules; track rule) {
+              <div><mat-icon>done</mat-icon><span>{{ rule }}</span></div>
+            }
+          </div>
+        </section>
+
+        <section id="profit-rules" class="surface-card doc-section">
+          <div class="doc-section__header">
+            <mat-icon>trending_up</mat-icon>
+            <div>
+              <h2>Profit & ROI Rules</h2>
+              <p>Use live admin settings and leave enough margin for normal order movement.</p>
+            </div>
+          </div>
+          <div class="criteria-grid">
+            @for (rule of ruleRows(); track rule[0]) {
+              @if (rule[0].includes('ROI') || rule[0].includes('profit')) {
+                <article class="criteria-card">
+                  <span>{{ rule[0] }}</span>
+                  <strong>{{ rule[1] }}</strong>
+                </article>
+              }
+            }
+          </div>
+          <div class="callout callout--warning">
+            <strong>Margin warning</strong>
+            <span>Do not submit products that only pass because one price snapshot looks unusually high.</span>
+          </div>
+        </section>
+
+        <section id="stock-rules" class="surface-card doc-section">
+          <div class="doc-section__header">
+            <mat-icon>inventory_2</mat-icon>
+            <div>
+              <h2>Stock Rules</h2>
+              <p>Supplier availability must be strong enough for the product to survive listing work.</p>
+            </div>
+          </div>
+          <div class="criteria-grid">
+            @for (rule of ruleRows(); track rule[0]) {
+              @if (rule[0].includes('stock') || rule[0].includes('delivery') || rule[0].includes('basket')) {
+                <article class="criteria-card">
+                  <span>{{ rule[0] }}</span>
+                  <strong>{{ rule[1] }}</strong>
+                </article>
+              }
+            }
+          </div>
+        </section>
+
+        <section id="rating-rules" class="surface-card doc-section">
+          <div class="doc-section__header">
+            <mat-icon>star</mat-icon>
+            <div>
+              <h2>Rating Rules</h2>
+              <p>Rating is a quality signal, not a replacement for demand and stock validation.</p>
+            </div>
+          </div>
+          <div class="criteria-grid">
+            @for (rule of ruleRows(); track rule[0]) {
+              @if (rule[0].includes('rating') || rule[0].includes('watcher')) {
+                <article class="criteria-card">
+                  <span>{{ rule[0] }}</span>
+                  <strong>{{ rule[1] }}</strong>
+                </article>
+              }
+            }
+          </div>
+        </section>
+
+        <section id="sales-rules" class="surface-card doc-section">
+          <div class="doc-section__header">
+            <mat-icon>shopping_cart</mat-icon>
+            <div>
+              <h2>Sales Rules</h2>
+              <p>Prioritize actual sold history and recent market movement over active listing count.</p>
+            </div>
+          </div>
+          <div class="criteria-grid">
+            @for (rule of ruleRows(); track rule[0]) {
+              @if (rule[0].includes('sold') || rule[0].includes('sales') || rule[0].includes('graph')) {
+                <article class="criteria-card">
+                  <span>{{ rule[0] }}</span>
+                  <strong>{{ rule[1] }}</strong>
+                </article>
+              }
+            }
+          </div>
+        </section>
+
+        <section id="duplicate-rules" class="surface-card doc-section">
+          <div class="doc-section__header">
+            <mat-icon>content_copy</mat-icon>
+            <div>
+              <h2>Duplicate Product Rules</h2>
+              <p>The duplicate check protects the team from repeated listings and account clutter.</p>
+            </div>
+          </div>
+          <div class="rule-card-grid">
+            <article class="rule-card">
+              <mat-icon>search</mat-icon>
+              <strong>Check ASIN before final submit.</strong>
+            </article>
+            <article class="rule-card">
+              <mat-icon>link</mat-icon>
+              <strong>Compare URLs and titles when ASIN looks different.</strong>
+            </article>
+            <article class="rule-card">
+              <mat-icon>block</mat-icon>
+              <strong>Stop if the same product already exists in the workspace.</strong>
+            </article>
+          </div>
+        </section>
+
+        <section id="good-examples" class="surface-card doc-section">
+          <div class="doc-section__header">
+            <mat-icon>thumb_up</mat-icon>
+            <div>
+              <h2>Good Product Examples</h2>
+              <p>Patterns that usually lead to cleaner approval and listing outcomes.</p>
+            </div>
+          </div>
+          <div class="example-grid">
+            @for (example of goodProductExamples; track example.title) {
+              <article class="example-card example-card--good">
+                <strong>{{ example.title }}</strong>
+                <span>{{ example.text }}</span>
+              </article>
+            }
+          </div>
+        </section>
+
+        <section id="rejected-examples" class="surface-card doc-section">
+          <div class="doc-section__header">
+            <mat-icon>thumb_down</mat-icon>
+            <div>
+              <h2>Rejected Product Examples</h2>
+              <p>Common patterns that should be rejected before review.</p>
+            </div>
+          </div>
+          <div class="example-grid">
+            @for (example of rejectedProductExamples; track example.title) {
+              <article class="example-card example-card--bad">
+                <strong>{{ example.title }}</strong>
+                <span>{{ example.text }}</span>
+              </article>
+            }
+          </div>
+        </section>
+
+        <section id="tools" class="surface-card doc-section">
+          <div class="doc-section__header">
+            <mat-icon>extension</mat-icon>
+            <div>
+              <h2>Tools & Extensions</h2>
+              <p>Use these to validate demand, price history, supplier stability, and competition faster.</p>
+            </div>
+          </div>
+          <div class="tool-grid">
+            @for (tool of recommendedTools; track tool.name) {
+              <article class="tool-card">
+                <div>
+                  <h3>{{ tool.name }}</h3>
+                  <p>{{ tool.description }}</p>
+                </div>
+                <div class="tool-card__facts">
+                  <div><span>Purpose</span><strong>{{ tool.purpose }}</strong></div>
+                  <div><span>How to use it</span><strong>{{ tool.usage }}</strong></div>
+                </div>
+                <a mat-stroked-button [href]="tool.link" target="_blank" rel="noopener">
+                  <mat-icon>open_in_new</mat-icon>
+                  <span>Open Tool</span>
+                </a>
+              </article>
+            }
+          </div>
+        </section>
+
+        <section id="mistakes" class="surface-card doc-section">
+          <div class="doc-section__header">
+            <mat-icon>warning</mat-icon>
+            <div>
+              <h2>Common Mistakes</h2>
+              <p>These mistakes create most product rejections and product change requests.</p>
+            </div>
+          </div>
+          <div class="simple-table">
+            @for (mistake of commonMistakes; track mistake) {
+              <div class="simple-table__row">
+                <strong>{{ mistake }}</strong>
+              </div>
+            }
+          </div>
+        </section>
+
+        <section id="acknowledgement" class="surface-card doc-section final-card">
+          <div class="doc-section__header">
+            <mat-icon>task_alt</mat-icon>
+            <div>
+              <h2>Final Acknowledgement</h2>
+              <p>Confirm the rules before starting training submissions.</p>
+            </div>
+          </div>
+          @if (isTrainingHunter()) {
             @if (hasAcknowledgedRules()) {
-              <span class="status-badge status-badge--success">Rules acknowledged</span>
-              <a mat-flat-button color="primary" routerLink="/hunter/submission">
-                <mat-icon>playlist_add</mat-icon>
-                <span>Open Product Submission</span>
-              </a>
+              <div class="inline-state inline-state--success">Rules are acknowledged for this training hunter.</div>
             } @else {
               <button
                 mat-flat-button
@@ -62,157 +362,14 @@
                 [disabled]="acknowledging()"
               >
                 <mat-icon>task_alt</mat-icon>
-                <span>{{ acknowledging() ? 'Saving' : 'I have read and understood the rules' }}</span>
+                <span>{{ acknowledging() ? 'Saving' : 'Acknowledge rules' }}</span>
               </button>
             }
-          </div>
-        </article>
-      }
-
-      <article class="surface-card">
-        <div class="surface-card__header">
-          <div>
-            <h2>How to hunt cleanly</h2>
-            <p>Use this as the short version before every submission.</p>
-          </div>
-        </div>
-
-        <div class="breakdown-list">
-          @for (item of basics; track item) {
-            <div class="breakdown-row">
-              <div>
-                <strong>{{ item }}</strong>
-              </div>
-            </div>
+          } @else {
+            <div class="inline-state">Active hunters should keep these rules open while reviewing or submitting products.</div>
           }
-        </div>
-      </article>
-
-      <article class="surface-card">
-        <div class="surface-card__header">
-          <div>
-            <h2>Live criteria</h2>
-            <p>
-              These values come from the current
-              {{ isTrainingHunter() ? 'training hunter' : 'active hunter' }} settings.
-            </p>
-          </div>
-        </div>
-
-        <div class="simple-table">
-          @for (rule of ruleRows(); track rule[0]) {
-            <div class="simple-table__row simple-table__row--two">
-              <strong>{{ rule[0] }}</strong>
-              <span>{{ rule[1] }}</span>
-            </div>
-          }
-        </div>
-      </article>
-
-      <article class="surface-card">
-        <div class="surface-card__header">
-          <div>
-            <h2>Quality guide</h2>
-            <p>How hunting labels are assigned once a product passes validation.</p>
-          </div>
-        </div>
-
-        <div class="quality-guide">
-          @for (rule of qualityGuide(); track rule.label) {
-            <div class="quality-guide__row">
-              <strong>{{ rule.label }}</strong>
-              <span>{{ rule.detail }}</span>
-            </div>
-          }
-        </div>
-      </article>
-
-      <article class="surface-card">
-        <div class="surface-card__header">
-          <div>
-            <h2>Training guide</h2>
-            <p>Step-by-step guardrails for sourcing, validation, and duplicate control.</p>
-          </div>
-        </div>
-
-        <div class="rules-sections">
-          @for (section of documentationSections; track section.title) {
-            <section class="rules-section">
-              <h3>{{ section.title }}</h3>
-              <ul>
-                @for (item of section.items; track item) {
-                  <li>{{ item }}</li>
-                }
-              </ul>
-            </section>
-          }
-        </div>
-      </article>
-
-      <article class="surface-card">
-        <div class="surface-card__header">
-          <div>
-            <h2>Recommended tools</h2>
-            <p>Use these tools to validate demand, price history, and competition faster.</p>
-          </div>
-        </div>
-
-        <div class="tool-grid">
-          @for (tool of recommendedTools; track tool.name) {
-            <article class="tool-card">
-              <div>
-                <h3>{{ tool.name }}</h3>
-                <p>{{ tool.description }}</p>
-              </div>
-              <div class="tool-card__facts">
-                <div><span>Purpose</span><strong>{{ tool.purpose }}</strong></div>
-                <div><span>How hunters use it</span><strong>{{ tool.usage }}</strong></div>
-              </div>
-              <a mat-stroked-button [href]="tool.link" target="_blank" rel="noopener">
-                <mat-icon>open_in_new</mat-icon>
-                <span>Open</span>
-              </a>
-            </article>
-          }
-        </div>
-      </article>
-
-      <article class="surface-card">
-        <div class="surface-card__header">
-          <div>
-            <h2>Hunting process</h2>
-            <p>Use this sequence every time you move from search to submission.</p>
-          </div>
-        </div>
-
-        <div class="breakdown-list">
-          @for (step of processSteps; track step; let index = $index) {
-            <div class="breakdown-row">
-              <div>
-                <strong>Step {{ index + 1 }}</strong>
-                <span>{{ step }}</span>
-              </div>
-            </div>
-          }
-        </div>
-      </article>
-
-      <article class="surface-card">
-        <div class="surface-card__header">
-          <div>
-            <h2>Common rejection reasons</h2>
-            <p>These are the most common reasons products fail review.</p>
-          </div>
-        </div>
-
-        <div class="simple-table">
-          @for (reason of rejectedReasons; track reason) {
-            <div class="simple-table__row">
-              <strong>{{ reason }}</strong>
-            </div>
-          }
-        </div>
-      </article>
-    </section>
+        </section>
+      </main>
+    </div>
   }
 </section>

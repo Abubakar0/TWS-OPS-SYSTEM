@@ -77,6 +77,119 @@ export class SuperAdminDashboardComponent implements OnInit {
   readonly topListers = computed(() => this.stats()?.byLister.slice(0, 6) ?? []);
   readonly topAccounts = computed(() => this.stats()?.byAccount.slice(0, 6) ?? []);
   readonly orderStats = computed(() => this.stats()?.orderStats ?? null);
+  readonly controlCenterCards = computed(() => {
+    const stats = this.stats();
+    const hr = this.hrStats();
+
+    return [
+      {
+        group: 'Users',
+        route: '/superadmin/users',
+        icon: 'group',
+        metrics: [
+          ['Total', stats?.totalUsers ?? 0],
+          ['Active', stats?.activeUsers ?? 0],
+          ['Disabled', stats?.disabledUsers ?? 0],
+          ['Admins', stats?.totalAdmins ?? 0],
+          ['Hunters', stats?.totalHunters ?? 0],
+          ['Training Hunters', stats?.trainingHunters ?? 0],
+          ['Listers', stats?.totalListers ?? 0],
+          ['Order Processors', stats?.totalOrderProcessors ?? 0],
+          ['HR Users', stats?.totalHrUsers ?? 0],
+        ],
+      },
+      {
+        group: 'Products',
+        route: '/superadmin/products',
+        icon: 'inventory_2',
+        metrics: [
+          ['Total', stats?.totalProducts ?? 0],
+          ['Approved', stats?.approvedProducts ?? 0],
+          ['Rejected', stats?.rejectedProducts ?? 0],
+          ['Listed', stats?.listedProducts ?? 0],
+          ['Needs Review', stats?.listedNeedsReview ?? 0],
+          ['Best', stats?.excellentProducts ?? 0],
+          ['Good', stats?.goodProducts ?? 0],
+          ['Average', stats?.averageProducts ?? 0],
+          ['Transferred', stats?.transferredProducts ?? 0],
+        ],
+      },
+      {
+        group: 'Orders',
+        route: '/superadmin/orders',
+        icon: 'receipt_long',
+        metrics: [
+          ['Total', this.orderStats()?.totalOrders ?? 0],
+          ['Delivered', this.orderStats()?.deliveredOrders ?? 0],
+          ['Issues', this.orderStats()?.issueOrders ?? 0],
+          ['Revenue', `$${(this.orderStats()?.totalRevenue ?? 0).toFixed(2)}`],
+          ['Profit', `$${(this.orderStats()?.totalProfit ?? 0).toFixed(2)}`],
+          ['Average ROI', `${(this.orderStats()?.averageRoi ?? 0).toFixed(2)}%`],
+        ],
+      },
+      {
+        group: 'Accounts',
+        route: '/superadmin/reports/accounts',
+        icon: 'storefront',
+        metrics: [
+          ['Total', stats?.accountStats?.totalAccounts ?? 0],
+          ['Active', stats?.accountStats?.activeAccounts ?? 0],
+          ['Disabled', stats?.accountStats?.disabledAccounts ?? 0],
+          ['Marketplaces', Object.keys(stats?.accountStats?.accountsByMarketplace || {}).length],
+          ['Countries', Object.keys(stats?.accountStats?.accountsByCountry || {}).length],
+        ],
+      },
+      {
+        group: 'Listers',
+        route: '/superadmin/listing-reviews',
+        icon: 'fact_check',
+        metrics: [
+          ['Total Listings', stats?.listerStats?.totalListings ?? 0],
+          ['Pending Reviews', stats?.listerStats?.pendingListingReviews ?? 0],
+          ['Approved Reviews', stats?.listerStats?.approvedListingReviews ?? 0],
+          ['Rejected Reviews', stats?.listerStats?.rejectedListingReviews ?? 0],
+          ['Open Change Requests', stats?.listerStats?.openChangeRequests ?? 0],
+        ],
+      },
+      {
+        group: 'Training',
+        route: '/superadmin/reports/hunters',
+        icon: 'school',
+        metrics: [
+          ['Training Hunters', stats?.trainingStats?.trainingHunters ?? 0],
+          ['Activated', stats?.trainingStats?.activatedHunters ?? 0],
+          ['Rejected', stats?.trainingStats?.rejectedTrainingHunters ?? 0],
+          ['Mentors', stats?.trainingStats?.mentorAssignments ?? 0],
+          ['Approval Rate', `${(stats?.trainingStats?.trainingApprovalRate ?? 0).toFixed(2)}%`],
+        ],
+      },
+      {
+        group: 'HR',
+        route: '/hr/dashboard',
+        icon: 'badge',
+        metrics: [
+          ['Employees', hr?.totalEmployees ?? 0],
+          ['Active', hr?.activeEmployees ?? 0],
+          ['Present Today', hr?.presentToday ?? 0],
+          ['Absent Today', hr?.absentToday ?? 0],
+          ['On Leave', hr?.onLeave ?? 0],
+          ['Pending Leaves', hr?.pendingLeaves ?? 0],
+          ['Monthly Payroll', `$${(hr?.monthlySalaryCost ?? 0).toFixed(2)}`],
+          ['Pending Expenses', hr?.pendingExpenses ?? 0],
+          ['Birthdays Today', hr?.todaysBirthdays?.length ?? 0],
+        ],
+      },
+      {
+        group: 'Activity',
+        route: '/superadmin/audit',
+        icon: 'history',
+        metrics: [
+          ['Recent Events', stats?.systemActivity ?? 0],
+          ['Latest Actions', stats?.recentActivity?.length ?? 0],
+        ],
+      },
+    ];
+  });
   readonly orderHighlights = computed(() => [
     {
       label: 'Orders Today',
