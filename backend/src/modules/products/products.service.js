@@ -103,11 +103,22 @@ const productSelect = `
   listing_reviewer.name AS "listingReviewedByName",
   p.listing_reviewed_at AS "listingReviewedAt",
   p.listing_review_rejection_reason AS "listingReviewRejectionReason",
+  p.listing_notes AS "listingNotes",
+  p.review_notes AS "reviewNotes",
   p.original_hunter_id AS "originalHunterId",
   original_hunter.name AS "originalHunterName",
   p.current_hunter_id AS "currentHunterId",
   current_hunter.name AS "currentHunterName",
   p.rejection_reason AS "rejectionReason",
+  p.rejected_by AS "rejectedBy",
+  rejected_user.name AS "rejectedByName",
+  p.rejected_at AS "rejectedAt",
+  p.rejection_previous_status AS "rejectionPreviousStatus",
+  p.rejection_previous_listing_review_status AS "rejectionPreviousListingReviewStatus",
+  p.rejection_reversed_by AS "rejectionReversedBy",
+  rejection_reverser.name AS "rejectionReversedByName",
+  p.rejection_reversed_at AS "rejectionReversedAt",
+  COALESCE(order_metrics.order_count, 0)::int AS "orderCount",
   p.validation_notes AS "validationNotes",
   p.deleted_by AS "deletedBy",
   p.deleted_at AS "deletedAt",
@@ -125,8 +136,16 @@ const productJoins = `
   LEFT JOIN users assigned_lister ON assigned_lister.id = p.assigned_lister_id
   LEFT JOIN users lister ON lister.id = p.listed_by
   LEFT JOIN users listing_reviewer ON listing_reviewer.id = p.listing_reviewed_by
+  LEFT JOIN users rejected_user ON rejected_user.id = p.rejected_by
+  LEFT JOIN users rejection_reverser ON rejection_reverser.id = p.rejection_reversed_by
   LEFT JOIN accounts account ON account.id = p.account_used
   LEFT JOIN listings listing ON listing.product_id = p.id
+  LEFT JOIN LATERAL (
+    SELECT COUNT(*)::int AS order_count
+    FROM orders order_metrics_order
+    WHERE order_metrics_order.product_id = p.id
+      AND order_metrics_order.deleted_at IS NULL
+  ) order_metrics ON TRUE
 `;
 
 const deriveWorkflowStatus = (row) => {
@@ -232,10 +251,23 @@ const productFromRow = (row, criteria = null) => {
     listingReviewedByName: row.listingReviewedByName || null,
     listingReviewedAt: row.listingReviewedAt || null,
     listingReviewRejectionReason: row.listingReviewRejectionReason || null,
+    listingNotes: row.listingNotes || null,
+    reviewNotes: row.reviewNotes || null,
     originalHunterId: row.originalHunterId || row.hunterId,
     originalHunterName: row.originalHunterName || row.hunterName,
     currentHunterId: row.currentHunterId || row.hunterId,
     currentHunterName: row.currentHunterName || row.hunterName,
+    rejectedBy: row.rejectedBy || null,
+    rejectedByName: row.rejectedByName || null,
+    rejectedAt: row.rejectedAt || null,
+    rejectionPreviousStatus: row.rejectionPreviousStatus || null,
+    rejectionPreviousListingReviewStatus:
+      row.rejectionPreviousListingReviewStatus || null,
+    rejectionReversedBy: row.rejectionReversedBy || null,
+    rejectionReversedByName: row.rejectionReversedByName || null,
+    rejectionReversedAt: row.rejectionReversedAt || null,
+    orderCount: Number(row.orderCount || 0),
+    hasOrders: Number(row.orderCount || 0) > 0,
     hunterStatus: row.hunterStatus || "ACTIVE",
     validationNotes: Array.isArray(row.validationNotes)
       ? row.validationNotes.filter(Boolean)
@@ -324,8 +356,16 @@ const ensureProductColumns = async () => {
       ADD COLUMN IF NOT EXISTS listing_reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL,
       ADD COLUMN IF NOT EXISTS listing_reviewed_at TIMESTAMPTZ,
       ADD COLUMN IF NOT EXISTS listing_review_rejection_reason TEXT,
+      ADD COLUMN IF NOT EXISTS listing_notes TEXT,
+      ADD COLUMN IF NOT EXISTS review_notes TEXT,
       ADD COLUMN IF NOT EXISTS original_hunter_id UUID REFERENCES users(id) ON DELETE SET NULL,
-      ADD COLUMN IF NOT EXISTS current_hunter_id UUID REFERENCES users(id) ON DELETE SET NULL
+      ADD COLUMN IF NOT EXISTS current_hunter_id UUID REFERENCES users(id) ON DELETE SET NULL,
+      ADD COLUMN IF NOT EXISTS rejected_by UUID REFERENCES users(id) ON DELETE SET NULL,
+      ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS rejection_previous_status TEXT,
+      ADD COLUMN IF NOT EXISTS rejection_previous_listing_review_status TEXT,
+      ADD COLUMN IF NOT EXISTS rejection_reversed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+      ADD COLUMN IF NOT EXISTS rejection_reversed_at TIMESTAMPTZ
   `);
 
   await pool.query(`
@@ -344,6 +384,23 @@ const ensureProductColumns = async () => {
       transferred_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
       transferred_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS product_listing_history (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      field_changed TEXT NOT NULL,
+      old_value TEXT,
+      new_value TEXT,
+      edited_by UUID REFERENCES users(id) ON DELETE SET NULL,
+      edited_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_product_listing_history_product
+      ON product_listing_history(product_id, edited_at DESC)
   `);
 };
 
@@ -652,7 +709,12 @@ const getProductById = async (user, id) => {
     throw new AppError("Product not found.", 404);
   }
 
-  if (isListerScopedUser(user) && product.assignedListerId !== user.id) {
+  if (
+    isListerScopedUser(user) &&
+    product.assignedListerId !== user.id &&
+    product.listedBy !== user.id &&
+    product.rejectedBy !== user.id
+  ) {
     throw new AppError("Product not found.", 404);
   }
 
@@ -677,9 +739,29 @@ const getProductById = async (user, id) => {
     [id],
   );
 
+  const listingHistory = await pool.query(
+    `
+      SELECT
+        history.id,
+        history.field_changed AS "fieldChanged",
+        history.old_value AS "oldValue",
+        history.new_value AS "newValue",
+        history.edited_by AS "editedBy",
+        actor.name AS "editedByName",
+        history.edited_at AS "editedAt"
+      FROM product_listing_history history
+      LEFT JOIN users actor ON actor.id = history.edited_by
+      WHERE history.product_id = $1
+      ORDER BY history.edited_at DESC
+      LIMIT 50
+    `,
+    [id],
+  );
+
   return {
     ...product,
     transferHistory: history.rows,
+    listingHistory: listingHistory.rows,
   };
 };
 
@@ -1101,6 +1183,121 @@ const canUserSelfListProduct = async (user, product) => {
     selfListing: true,
     allowed,
   };
+};
+
+const normalizeNullableText = (value) => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const normalized = String(value || "").trim();
+  return normalized || null;
+};
+
+const canCorrectListing = (user, product) => {
+  if (hasElevatedProductAccess(user)) {
+    return true;
+  }
+
+  if (!hasRole(user, "lister")) {
+    return false;
+  }
+
+  return product.assignedListerId === user.id || product.listedBy === user.id;
+};
+
+const canUndoProductRejection = (user, product) => {
+  if (hasElevatedProductAccess(user)) {
+    return true;
+  }
+
+  if (!hasRole(user, "lister")) {
+    return false;
+  }
+
+  return product.rejectedBy === user.id;
+};
+
+const normalizeListingCorrectionStatus = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return undefined;
+  }
+
+  const normalized = String(value).trim();
+  const allowed = new Set([
+    WORKFLOW_STATUS.READY_FOR_LISTING,
+    WORKFLOW_STATUS.LISTED_NEEDS_REVIEW,
+    WORKFLOW_STATUS.LISTED,
+    WORKFLOW_STATUS.LISTING_REJECTED,
+  ]);
+
+  if (!allowed.has(normalized)) {
+    throw new AppError("Listing status is not valid for correction.", 400);
+  }
+
+  return normalized;
+};
+
+const getCorrectionStatusUpdate = (status, product, user, reviewNotes) => {
+  if (!status || status === product.status) {
+    return null;
+  }
+
+  const readyStatus = resolveReadyRawStatus(product.assignedListerId);
+
+  if (status === WORKFLOW_STATUS.LISTED) {
+    return {
+      rawStatus: "listed",
+      reviewStatus: LISTING_REVIEW_STATUS.APPROVED,
+      reviewedBy: user.id,
+      reviewedAt: true,
+      listedAt: true,
+      rejectionReason: null,
+    };
+  }
+
+  if (status === WORKFLOW_STATUS.LISTED_NEEDS_REVIEW) {
+    return {
+      rawStatus: readyStatus,
+      reviewStatus: LISTING_REVIEW_STATUS.PENDING,
+      reviewedBy: null,
+      reviewedAt: false,
+      listedAt: false,
+      rejectionReason: null,
+      submittedForReview: true,
+    };
+  }
+
+  if (status === WORKFLOW_STATUS.LISTING_REJECTED) {
+    return {
+      rawStatus: readyStatus,
+      reviewStatus: LISTING_REVIEW_STATUS.REJECTED,
+      reviewedBy: user.id,
+      reviewedAt: true,
+      listedAt: false,
+      rejectionReason:
+        reviewNotes ||
+        product.listingReviewRejectionReason ||
+        "Listing correction requires review.",
+    };
+  }
+
+  return {
+    rawStatus: readyStatus,
+    reviewStatus: LISTING_REVIEW_STATUS.NOT_REQUIRED,
+    reviewedBy: null,
+    reviewedAt: false,
+    listedAt: false,
+    rejectionReason: null,
+  };
+};
+
+const formatHistoryValue = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  return String(value);
 };
 
 const normalizeTransferMode = (value) => {
@@ -1664,7 +1861,317 @@ const transferProductOwnership = async (user, payload = {}) => {
   };
 };
 
+const correctListing = async (user, id, payload = {}) => {
+  await ensureProductColumns();
+  const product = await getProductById(user, id);
+
+  if (!canCorrectListing(user, product)) {
+    throw new AppError("You cannot correct this product listing.", 403);
+  }
+
+  if (product.hasOrders && !payload.confirmOrderImpact) {
+    throw new AppError("This product already has orders associated with it.", 409, {
+      orderCount: product.orderCount,
+      requiresConfirmation: true,
+    });
+  }
+
+  const listingUrl = normalizeNullableText(payload.listingUrl);
+  const accountId = normalizeNullableText(payload.accountId);
+  const listingNotes = normalizeNullableText(payload.listingNotes);
+  const reviewNotes = normalizeNullableText(payload.reviewNotes);
+  const listingStatus = normalizeListingCorrectionStatus(payload.listingStatus);
+
+  if (listingUrl !== undefined && listingUrl && !isEbayUrl(listingUrl)) {
+    throw new AppError("Listed eBay link must be a valid eBay URL.", 400);
+  }
+
+  let account = null;
+
+  if (accountId !== undefined) {
+    if (!accountId) {
+      throw new AppError("Listing account is required.", 400);
+    }
+
+    const accountResult = await pool.query(
+      isListerScopedUser(user)
+        ? `
+            SELECT account.id, account.name
+            FROM accounts account
+            JOIN lister_account_assignments assignment ON assignment.account_id = account.id
+            WHERE account.id = $1
+              AND account.is_active = TRUE
+              AND assignment.lister_id = $2
+            LIMIT 1
+          `
+        : `
+            SELECT id, name
+            FROM accounts
+            WHERE id = $1
+              AND is_active = TRUE
+            LIMIT 1
+          `,
+      isListerScopedUser(user) ? [accountId, user.id] : [accountId],
+    );
+
+    if (!accountResult.rows[0]) {
+      throw new AppError(
+        isListerScopedUser(user)
+          ? "This listing account is not assigned to you."
+          : "Active account not found.",
+        isListerScopedUser(user) ? 403 : 404,
+      );
+    }
+
+    account = accountResult.rows[0];
+  }
+
+  const changes = [];
+  const addChange = (fieldChanged, oldValue, newValue) => {
+    const formattedOld = formatHistoryValue(oldValue);
+    const formattedNew = formatHistoryValue(newValue);
+
+    if (formattedOld !== formattedNew) {
+      changes.push({ fieldChanged, oldValue: formattedOld, newValue: formattedNew });
+    }
+  };
+
+  if (listingUrl !== undefined) {
+    addChange("Listed Link", product.listingUrl, listingUrl);
+  }
+
+  if (accountId !== undefined) {
+    addChange("Account", product.accountName || product.accountUsed, account?.name || accountId);
+  }
+
+  if (listingNotes !== undefined) {
+    addChange("Listing Notes", product.listingNotes, listingNotes);
+  }
+
+  if (reviewNotes !== undefined) {
+    addChange("Review Notes", product.reviewNotes, reviewNotes);
+  }
+
+  if (listingStatus !== undefined) {
+    addChange("Listing Status", product.status, listingStatus);
+  }
+
+  if (!changes.length) {
+    throw new AppError("No listing changes were provided.", 400);
+  }
+
+  const statusUpdate = getCorrectionStatusUpdate(listingStatus, product, user, reviewNotes);
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const updates = [];
+    const values = [id];
+
+    if (accountId !== undefined) {
+      values.push(accountId);
+      updates.push(`account_used = $${values.length}`);
+    }
+
+    if (listingNotes !== undefined) {
+      values.push(listingNotes);
+      updates.push(`listing_notes = $${values.length}`);
+    }
+
+    if (reviewNotes !== undefined) {
+      values.push(reviewNotes);
+      updates.push(`review_notes = $${values.length}`);
+    }
+
+    if (statusUpdate) {
+      values.push(statusUpdate.rawStatus);
+      updates.push(`status = $${values.length}`);
+      values.push(statusUpdate.reviewStatus);
+      updates.push(`listing_review_status = $${values.length}`);
+      values.push(statusUpdate.reviewedBy);
+      updates.push(`listing_reviewed_by = $${values.length}`);
+      updates.push(
+        statusUpdate.reviewedAt
+          ? `listing_reviewed_at = NOW()`
+          : `listing_reviewed_at = NULL`,
+      );
+      updates.push(
+        statusUpdate.listedAt ? `listed_at = COALESCE(listed_at, NOW())` : `listed_at = NULL`,
+      );
+      updates.push(
+        statusUpdate.submittedForReview
+          ? `listing_submitted_for_review_at = COALESCE(listing_submitted_for_review_at, NOW())`
+          : `listing_submitted_for_review_at = listing_submitted_for_review_at`,
+      );
+      values.push(statusUpdate.rejectionReason);
+      updates.push(`listing_review_rejection_reason = $${values.length}`);
+    }
+
+    if (updates.length) {
+      await client.query(
+        `
+          UPDATE products
+          SET ${updates.join(", ")},
+              updated_at = NOW()
+          WHERE id = $1
+        `,
+        values,
+      );
+    }
+
+    if (listingUrl !== undefined || accountId !== undefined) {
+      const nextAccountId = accountId || product.accountUsed;
+      const nextListingUrl = listingUrl !== undefined ? listingUrl : product.listingUrl;
+      const nextListerId = product.listedBy || user.id;
+
+      if (!nextAccountId) {
+        throw new AppError("Listing account is required before saving listing data.", 400);
+      }
+
+      await client.query(
+        `
+          INSERT INTO listings (product_id, lister_id, account_id, listing_url)
+          VALUES ($1, $2, $3, $4)
+          ON CONFLICT (product_id) DO UPDATE
+          SET lister_id = COALESCE(listings.lister_id, EXCLUDED.lister_id),
+              account_id = EXCLUDED.account_id,
+              listing_url = EXCLUDED.listing_url,
+              updated_at = NOW()
+        `,
+        [id, nextListerId, nextAccountId, nextListingUrl],
+      );
+    }
+
+    for (const change of changes) {
+      await client.query(
+        `
+          INSERT INTO product_listing_history (
+            product_id,
+            field_changed,
+            old_value,
+            new_value,
+            edited_by
+          )
+          VALUES ($1, $2, $3, $4, $5)
+        `,
+        [id, change.fieldChanged, change.oldValue, change.newValue, user.id],
+      );
+    }
+
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  const updated = await getProductById(user, id);
+  const details = {
+    changes,
+    orderCount: product.orderCount,
+    confirmedOrderImpact: Boolean(product.hasOrders && payload.confirmOrderImpact),
+  };
+
+  await writeAuditLog({
+    actorUserId: user.id,
+    action: "LISTING_CORRECTED",
+    targetType: "product",
+    targetId: id,
+    details,
+  });
+
+  if (changes.some((change) => change.fieldChanged === "Listed Link")) {
+    await writeAuditLog({
+      actorUserId: user.id,
+      action: "LISTING_LINK_CHANGED",
+      targetType: "product",
+      targetId: id,
+      details,
+    });
+  }
+
+  if (changes.some((change) => change.fieldChanged === "Account")) {
+    await writeAuditLog({
+      actorUserId: user.id,
+      action: "LISTING_ACCOUNT_CHANGED",
+      targetType: "product",
+      targetId: id,
+      details,
+    });
+  }
+
+  return updated;
+};
+
+const undoProductRejection = async (user, id) => {
+  await ensureProductColumns();
+  const product = await getProductById(user, id);
+
+  if (product.rawStatus !== "rejected") {
+    throw new AppError("Only rejected products can have rejection undone.", 400);
+  }
+
+  if (!canUndoProductRejection(user, product)) {
+    throw new AppError("You cannot undo this product rejection.", 403);
+  }
+
+  const previousStatus =
+    product.rejectionPreviousStatus || resolveReadyRawStatus(product.assignedListerId);
+  const previousReviewStatus =
+    product.rejectionPreviousListingReviewStatus || LISTING_REVIEW_STATUS.NOT_REQUIRED;
+
+  await pool.query(
+    `
+      UPDATE products
+      SET status = $2,
+          listing_review_status = $3,
+          rejection_reversed_by = $4,
+          rejection_reversed_at = NOW(),
+          updated_at = NOW()
+      WHERE id = $1
+        AND status = 'rejected'
+        AND deleted_at IS NULL
+    `,
+    [id, previousStatus, previousReviewStatus, user.id],
+  );
+
+  await pool.query(
+    `
+      INSERT INTO product_listing_history (
+        product_id,
+        field_changed,
+        old_value,
+        new_value,
+        edited_by
+      )
+      VALUES ($1, 'Product Rejection', 'Rejected', 'Rejection undone', $2)
+    `,
+    [id, user.id],
+  );
+
+  const updated = await getProductById(user, id);
+
+  await writeAuditLog({
+    actorUserId: user.id,
+    action: "PRODUCT_REJECTION_REVERSED",
+    targetType: "product",
+    targetId: id,
+    details: {
+      previousStatus,
+      previousReviewStatus,
+      rejectionReason: product.rejectionReason,
+      rejectedBy: product.rejectedBy,
+      rejectedAt: product.rejectedAt,
+    },
+  });
+
+  return updated;
+};
+
 const rejectProduct = async (user, id, payload = {}) => {
+  await ensureProductColumns();
   const rejectionReason = String(payload.rejectionReason || "").trim();
 
   if (!rejectionReason) {
@@ -1675,7 +2182,7 @@ const rejectProduct = async (user, id, payload = {}) => {
     await assertListerListingUnblocked(user.id);
   }
 
-  const params = [id, rejectionReason];
+  const params = [id, rejectionReason, user.id];
   let accessSql = "";
 
   if (isListerScopedUser(user)) {
@@ -1688,6 +2195,12 @@ const rejectProduct = async (user, id, payload = {}) => {
       UPDATE products
       SET status = 'rejected',
           rejection_reason = $2,
+          rejected_by = $3,
+          rejected_at = NOW(),
+          rejection_previous_status = status,
+          rejection_previous_listing_review_status = listing_review_status,
+          rejection_reversed_by = NULL,
+          rejection_reversed_at = NULL,
           updated_at = NOW()
       WHERE id = $1
         AND status IN ('approved', 'assigned')
@@ -1768,6 +2281,7 @@ const softDeleteProducts = async (user, payload = {}) => {
 };
 
 const bulkUpdateProducts = async (user, payload = {}) => {
+  await ensureProductColumns();
   const productIds = [...new Set((payload.productIds || []).filter(Boolean))];
 
   if (productIds.length === 0) {
@@ -1827,6 +2341,12 @@ const bulkUpdateProducts = async (user, payload = {}) => {
 
     if (status === "approved") {
       updates.push(`rejection_reason = NULL`);
+      updates.push(`rejected_by = NULL`);
+      updates.push(`rejected_at = NULL`);
+      updates.push(`rejection_previous_status = NULL`);
+      updates.push(`rejection_previous_listing_review_status = NULL`);
+      updates.push(`rejection_reversed_by = NULL`);
+      updates.push(`rejection_reversed_at = NULL`);
     }
 
     if (status === "rejected") {
@@ -1836,6 +2356,13 @@ const bulkUpdateProducts = async (user, payload = {}) => {
 
       values.push(rejectionReason);
       updates.push(`rejection_reason = $${values.length}`);
+      values.push(user.id);
+      updates.push(`rejected_by = $${values.length}`);
+      updates.push(`rejected_at = NOW()`);
+      updates.push(`rejection_previous_status = CASE WHEN status = 'rejected' THEN rejection_previous_status ELSE status END`);
+      updates.push(`rejection_previous_listing_review_status = CASE WHEN status = 'rejected' THEN rejection_previous_listing_review_status ELSE listing_review_status END`);
+      updates.push(`rejection_reversed_by = NULL`);
+      updates.push(`rejection_reversed_at = NULL`);
     }
   }
 
@@ -1985,6 +2512,8 @@ module.exports = {
   rejectListingReview,
   getOwnershipTransferSummary,
   transferProductOwnership,
+  correctListing,
+  undoProductRejection,
   rejectProduct,
   softDeleteProducts,
   bulkUpdateProducts,

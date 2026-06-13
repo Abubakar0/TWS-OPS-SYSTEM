@@ -14,6 +14,7 @@ import {
 
 import { ChangeRequestApiService } from '../api/change-request-api.service';
 import { ListerApiService } from '../api/lister-api.service';
+import { AuthService } from '../auth/auth.service';
 import { SEARCH_DEBOUNCE_MS } from '../config/validation';
 import {
   Account,
@@ -54,6 +55,9 @@ export class ListerFacade {
   readonly copied = signal('');
   readonly error = signal('');
   readonly rejectingId = signal('');
+  readonly correctionModalOpen = signal(false);
+  readonly correcting = signal(false);
+  readonly correctionProduct = signal<Product | null>(null);
   readonly actionFormVersion = signal(0);
   readonly attemptedCurrentAction = signal(false);
   readonly changeRequestBlockStatus = signal<ListerChangeRequestBlockStatus>({
@@ -73,6 +77,19 @@ export class ListerFacade {
   readonly actionForm = new FormGroup({
     accountId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
   });
+  readonly correctionForm = new FormGroup({
+    accountId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    listingUrl: new FormControl('', { nonNullable: true, validators: [listingLinkValidator] }),
+    listingStatus: new FormControl<ProductStatus>('listed', { nonNullable: true }),
+    listingNotes: new FormControl('', { nonNullable: true }),
+    reviewNotes: new FormControl('', { nonNullable: true }),
+  });
+  readonly listingStatusOptions: Array<{ value: ProductStatus; label: string }> = [
+    { value: 'listed', label: 'Listed' },
+    { value: 'listed_needs_review', label: 'Pending review' },
+    { value: 'listing_rejected', label: 'Listing rejected' },
+    { value: 'ready_for_listing', label: 'Ready for listing' },
+  ];
 
   readonly listingLinkControls = new FormRecord<FormControl<string>>({});
   readonly rejectionReasonControls = new FormRecord<FormControl<string>>({});
@@ -187,6 +204,14 @@ export class ListerFacade {
     const product = this.selectedProduct();
     return product ? this.canReject(product) : false;
   });
+  readonly canCorrectCurrentListing = computed(() => {
+    const product = this.selectedProduct();
+    return product ? this.canCorrectListing(product) : false;
+  });
+  readonly canUndoCurrentRejection = computed(() => {
+    const product = this.selectedProduct();
+    return product ? this.canUndoRejection(product) : false;
+  });
   readonly currentListingLinkError = computed(() => {
     this.actionFormVersion();
     const control = this.currentListingLinkControl();
@@ -271,6 +296,7 @@ export class ListerFacade {
 
   constructor(
     private readonly listerApi: ListerApiService,
+    private readonly auth: AuthService,
     private readonly changeRequestApi: ChangeRequestApiService,
     private readonly referenceData: ReferenceDataService,
     private readonly sessionCache: SessionCacheService,
@@ -385,6 +411,7 @@ export class ListerFacade {
   selectProduct(productId: string): void {
     this.currentProductId.set(productId);
     this.attemptedCurrentAction.set(false);
+    this.loadProductDetail(productId);
   }
 
   goToPreviousProduct(): void {
@@ -415,6 +442,20 @@ export class ListerFacade {
     return product.status === 'approved' || product.status === 'assigned';
   }
 
+  canCorrectListing(product: Product): boolean {
+    return (
+      Boolean(product.listingUrl || product.accountUsed) ||
+      product.status === 'listed' ||
+      product.status === 'listed_needs_review' ||
+      product.status === 'listing_rejected'
+    );
+  }
+
+  canUndoRejection(product: Product): boolean {
+    const currentUser = this.auth.currentUser();
+    return product.status === 'rejected' && Boolean(currentUser && product.rejectedBy === currentUser.id);
+  }
+
   copy(value: string | null | undefined, label: string): void {
     if (!value) {
       return;
@@ -431,6 +472,120 @@ export class ListerFacade {
     }
 
     window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  openCorrectionModal(product = this.selectedProduct()): void {
+    if (!product || !this.canCorrectListing(product)) {
+      return;
+    }
+
+    this.correctionProduct.set(product);
+    this.correctionForm.reset(
+      {
+        accountId: product.accountUsed || this.actionForm.controls.accountId.value || '',
+        listingUrl: product.listingUrl || '',
+        listingStatus: this.listingStatusOptions.some((option) => option.value === product.status)
+          ? product.status
+          : 'ready_for_listing',
+        listingNotes: product.listingNotes || '',
+        reviewNotes: product.reviewNotes || '',
+      },
+      { emitEvent: false },
+    );
+    this.correctionModalOpen.set(true);
+  }
+
+  closeCorrectionModal(force = false): void {
+    if (this.correcting() && !force) {
+      return;
+    }
+
+    this.correctionModalOpen.set(false);
+    this.correctionProduct.set(null);
+  }
+
+  async submitListingCorrection(confirmOrderImpact = false): Promise<void> {
+    const product = this.correctionProduct();
+
+    if (!product || this.correctionForm.invalid || this.correcting()) {
+      this.correctionForm.markAllAsTouched();
+      return;
+    }
+
+    this.correcting.set(true);
+    this.error.set('');
+
+    const raw = this.correctionForm.getRawValue();
+
+    this.listerApi
+      .correctListing(product.id, {
+        accountId: raw.accountId,
+        listingUrl: raw.listingUrl.trim(),
+        listingStatus: raw.listingStatus,
+        listingNotes: raw.listingNotes.trim() || null,
+        reviewNotes: raw.reviewNotes.trim() || null,
+        confirmOrderImpact,
+      })
+      .pipe(finalize(() => this.correcting.set(false)))
+      .subscribe({
+        next: (updatedProduct) => {
+          this.applyProductUpdate(updatedProduct);
+          this.closeCorrectionModal(true);
+          this.workspaceSync.notifyProductsChanged();
+          this.toast.success('Listing corrected.');
+        },
+        error: async (error) => {
+          if (error?.status === 409 && error?.error?.requiresConfirmation) {
+            this.correcting.set(false);
+            const confirmed = await this.confirm.ask({
+              title: 'Orders already exist',
+              message:
+                'This product already has orders associated with it. Continue with this listing correction?',
+              confirmText: 'Continue',
+              tone: 'danger',
+            });
+
+            if (confirmed) {
+              await this.submitListingCorrection(true);
+              return;
+            }
+          }
+
+          this.error.set(error?.error?.message || 'Could not correct listing.');
+        },
+      });
+  }
+
+  async undoCurrentRejection(): Promise<void> {
+    const product = this.selectedProduct();
+
+    if (!product || !this.canUndoRejection(product) || this.rejectingId()) {
+      return;
+    }
+
+    const confirmed = await this.confirm.ask({
+      title: 'Undo rejection?',
+      message: 'This will move the product back to its previous listing state.',
+      confirmText: 'Undo Rejection',
+      tone: 'default',
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    this.rejectingId.set(product.id);
+    this.error.set('');
+
+    this.listerApi.undoProductRejection(product.id).subscribe({
+      next: (updatedProduct) => {
+        this.applyProductUpdate(updatedProduct);
+        this.workspaceSync.notifyProductsChanged();
+        this.toast.success('Rejection undone.');
+      },
+      error: (error) => this.error.set(error?.error?.message || 'Could not undo rejection.'),
+      complete: () => this.rejectingId.set(''),
+    });
   }
 
   markCurrentListed(): void {
@@ -745,6 +900,24 @@ export class ListerFacade {
     }
 
     this.actionFormVersion.update((value) => value + 1);
+  }
+
+  private applyProductUpdate(updatedProduct: Product): void {
+    this.products.update((products) =>
+      products.map((product) => (product.id === updatedProduct.id ? updatedProduct : product)),
+    );
+    this.currentProductId.set(updatedProduct.id);
+  }
+
+  private loadProductDetail(productId: string): void {
+    if (!productId) {
+      return;
+    }
+
+    this.listerApi.getProductById(productId).subscribe({
+      next: (product) => this.applyProductUpdate(product),
+      error: () => undefined,
+    });
   }
 
   private applyListedUpdates(productId: string, listingUrl: string, accountId: string): void {

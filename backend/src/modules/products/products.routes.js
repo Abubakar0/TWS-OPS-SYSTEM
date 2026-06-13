@@ -38,6 +38,16 @@ router.patch(
   requireRoles('lister', 'admin', 'super_admin'),
   asyncHandler(productsController.rejectListingReview),
 );
+router.patch(
+  '/:id/listing-correction',
+  requireRoles('lister', 'admin', 'super_admin'),
+  asyncHandler(productsController.correctListing),
+);
+router.post(
+  '/:id/rejection/undo',
+  requireRoles('lister', 'admin', 'super_admin'),
+  asyncHandler(productsController.undoProductRejection),
+);
 router.patch('/:id/reject', requireRoles('lister', 'admin', 'super_admin'), asyncHandler(productsController.rejectProduct));
 router.patch('/:id', requireRoles('hunter', 'admin', 'super_admin'), asyncHandler(productsController.updateProduct));
 router.post('/:id/restore', requireRoles('super_admin'), asyncHandler(productsController.restoreProduct));

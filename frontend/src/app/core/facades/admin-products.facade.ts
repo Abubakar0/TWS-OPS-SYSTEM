@@ -18,6 +18,7 @@ import { WorkspaceSyncService } from '../state/workspace-sync.service';
 import { ConfirmService } from '../ui/confirm.service';
 import { ToastService } from '../ui/toast.service';
 import { userHasRole } from '../models/auth.models';
+import { listingLinkValidator } from '../../shared/validators/listing-link.validator';
 
 @Injectable()
 export class AdminProductsFacade {
@@ -25,6 +26,7 @@ export class AdminProductsFacade {
   readonly exporting = signal(false);
   readonly deleting = signal(false);
   readonly bulkEditing = signal(false);
+  readonly correcting = signal(false);
   readonly error = signal('');
   readonly products = signal<Product[]>([]);
   readonly total = signal(0);
@@ -38,6 +40,8 @@ export class AdminProductsFacade {
   readonly deleteModalOpen = signal(false);
   readonly deleteMode = signal<'soft' | 'permanent'>('soft');
   readonly bulkEditModalOpen = signal(false);
+  readonly correctionModalOpen = signal(false);
+  readonly correctionProduct = signal<Product | null>(null);
   readonly availableHunters = signal<Array<{ id: string; name: string }>>([]);
   readonly availableListers = signal<Array<{ id: string; name: string }>>([]);
   readonly availableAccounts = signal<Array<{ id: string; name: string }>>([]);
@@ -154,6 +158,19 @@ export class AdminProductsFacade {
     const user = this.auth.currentUser();
     return Boolean(user && userHasRole(user, 'super_admin'));
   });
+  readonly correctionForm = new FormGroup({
+    accountId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    listingUrl: new FormControl('', { nonNullable: true, validators: [listingLinkValidator] }),
+    listingStatus: new FormControl<ProductStatus>('listed', { nonNullable: true }),
+    listingNotes: new FormControl('', { nonNullable: true }),
+    reviewNotes: new FormControl('', { nonNullable: true }),
+  });
+  readonly listingStatusOptions: Array<{ value: ProductStatus; label: string }> = [
+    { value: 'listed', label: 'Listed' },
+    { value: 'listed_needs_review', label: 'Pending review' },
+    { value: 'listing_rejected', label: 'Listing rejected' },
+    { value: 'ready_for_listing', label: 'Ready for listing' },
+  ];
   readonly canBulkStatusUpdate = computed(() => this.canBulkEdit());
   readonly canEditProducts = computed(() => {
     const user = this.auth.currentUser();
@@ -287,6 +304,10 @@ export class AdminProductsFacade {
 
   openDetail(product: Product): void {
     this.detailProduct.set(product);
+    this.api.getProductById(product.id).subscribe({
+      next: (detail) => this.detailProduct.set(detail),
+      error: () => undefined,
+    });
   }
 
   closeDetail(): void {
@@ -376,6 +397,133 @@ export class AdminProductsFacade {
           this.bulkEditing.set(false);
         },
       });
+  }
+
+  canCorrectListing(product: Product): boolean {
+    return (
+      Boolean(product.listingUrl || product.accountUsed) ||
+      product.status === 'listed' ||
+      product.status === 'listed_needs_review' ||
+      product.status === 'listing_rejected'
+    );
+  }
+
+  canUndoRejection(product: Product): boolean {
+    return product.status === 'rejected' && this.canRejectProducts();
+  }
+
+  openCorrectionModal(product: Product): void {
+    if (!this.canEditProducts() || !this.canCorrectListing(product)) {
+      return;
+    }
+
+    this.detailProduct.set(product);
+    this.correctionProduct.set(product);
+    this.correctionForm.reset(
+      {
+        accountId: product.accountUsed || '',
+        listingUrl: product.listingUrl || '',
+        listingStatus: this.listingStatusOptions.some((option) => option.value === product.status)
+          ? product.status
+          : 'ready_for_listing',
+        listingNotes: product.listingNotes || '',
+        reviewNotes: product.reviewNotes || '',
+      },
+      { emitEvent: false },
+    );
+    this.correctionModalOpen.set(true);
+  }
+
+  closeCorrectionModal(force = false): void {
+    if (this.correcting() && !force) {
+      return;
+    }
+
+    this.correctionModalOpen.set(false);
+    this.correctionProduct.set(null);
+  }
+
+  async submitListingCorrection(confirmOrderImpact = false): Promise<void> {
+    const product = this.correctionProduct();
+
+    if (!product || this.correctionForm.invalid || this.correcting()) {
+      this.correctionForm.markAllAsTouched();
+      return;
+    }
+
+    const raw = this.correctionForm.getRawValue();
+    this.correcting.set(true);
+    this.error.set('');
+
+    this.api
+      .correctListing(product.id, {
+        accountId: raw.accountId,
+        listingUrl: raw.listingUrl.trim(),
+        listingStatus: raw.listingStatus,
+        listingNotes: raw.listingNotes.trim() || null,
+        reviewNotes: raw.reviewNotes.trim() || null,
+        confirmOrderImpact,
+      })
+      .subscribe({
+        next: (updatedProduct) => {
+          this.applyProductUpdate(updatedProduct);
+          this.closeCorrectionModal(true);
+          this.correcting.set(false);
+          this.toast.success('Listing corrected.');
+        },
+        error: async (error) => {
+          this.correcting.set(false);
+
+          if (error?.status === 409 && error?.error?.requiresConfirmation) {
+            const confirmed = await this.confirm.ask({
+              title: 'Orders already exist',
+              message:
+                'This product already has orders associated with it. Continue with this listing correction?',
+              confirmText: 'Continue',
+              tone: 'danger',
+            });
+
+            if (confirmed) {
+              await this.submitListingCorrection(true);
+              return;
+            }
+          }
+
+          this.error.set(error?.error?.message || 'Could not correct listing.');
+        },
+      });
+  }
+
+  async undoRejection(product: Product): Promise<void> {
+    if (!this.canUndoRejection(product) || this.correcting()) {
+      return;
+    }
+
+    const confirmed = await this.confirm.ask({
+      title: 'Undo rejection?',
+      message: 'This will move the product back to its previous listing state.',
+      confirmText: 'Undo Rejection',
+      tone: 'default',
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    this.correcting.set(true);
+    this.error.set('');
+
+    this.api.undoProductRejection(product.id).subscribe({
+      next: (updatedProduct) => {
+        this.applyProductUpdate(updatedProduct);
+        this.correcting.set(false);
+        this.toast.success('Rejection undone.');
+      },
+      error: (error) => {
+        this.error.set(error?.error?.message || 'Could not undo rejection.');
+        this.correcting.set(false);
+      },
+    });
   }
 
   openRejectModal(product: Product): void {

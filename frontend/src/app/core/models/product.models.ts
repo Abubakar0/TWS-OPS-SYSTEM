@@ -14,6 +14,16 @@ export interface ValidationNote {
   message: string;
 }
 
+export interface ProductListingHistoryEntry {
+  id: string;
+  fieldChanged: string;
+  oldValue: string | null;
+  newValue: string | null;
+  editedBy: string | null;
+  editedByName: string | null;
+  editedAt: string;
+}
+
 export interface Product {
   id: string;
   hunterId: string;
@@ -57,10 +67,23 @@ export interface Product {
   listingReviewedByName?: string | null;
   listingReviewedAt?: string | null;
   listingReviewRejectionReason?: string | null;
+  listingNotes?: string | null;
+  reviewNotes?: string | null;
   originalHunterId?: string | null;
   originalHunterName?: string | null;
   currentHunterId?: string | null;
   currentHunterName?: string | null;
+  rejectedBy?: string | null;
+  rejectedByName?: string | null;
+  rejectedAt?: string | null;
+  rejectionPreviousStatus?: string | null;
+  rejectionPreviousListingReviewStatus?: string | null;
+  rejectionReversedBy?: string | null;
+  rejectionReversedByName?: string | null;
+  rejectionReversedAt?: string | null;
+  orderCount?: number;
+  hasOrders?: boolean;
+  listingHistory?: ProductListingHistoryEntry[];
   transferHistory?: Array<{
     id: string;
     sourceHunterId: string;
@@ -244,6 +267,15 @@ export interface BulkListedPayload {
     listingUrl: string;
     itemId?: string;
   }>;
+}
+
+export interface ListingCorrectionPayload {
+  listingUrl?: string | null;
+  accountId?: string | null;
+  listingNotes?: string | null;
+  listingStatus?: ProductStatus;
+  reviewNotes?: string | null;
+  confirmOrderImpact?: boolean;
 }
 
 export interface ProductOwnershipTransferSummary {

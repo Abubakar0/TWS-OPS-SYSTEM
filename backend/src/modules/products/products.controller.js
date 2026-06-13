@@ -69,6 +69,16 @@ const rejectProduct = async (req, res) => {
   res.json({ product });
 };
 
+const correctListing = async (req, res) => {
+  const product = await productsService.correctListing(req.user, req.params.id, req.body);
+  res.json({ product });
+};
+
+const undoProductRejection = async (req, res) => {
+  const product = await productsService.undoProductRejection(req.user, req.params.id);
+  res.json({ product });
+};
+
 const softDeleteProducts = async (req, res) => {
   const deletedIds = await productsService.softDeleteProducts(req.user, req.body);
   res.json({ deletedIds });
@@ -102,6 +112,8 @@ module.exports = {
   getOwnershipTransferSummary,
   transferProductOwnership,
   rejectProduct,
+  correctListing,
+  undoProductRejection,
   softDeleteProducts,
   bulkUpdateProducts,
   permanentlyDeleteProducts,

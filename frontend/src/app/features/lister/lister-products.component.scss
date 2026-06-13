@@ -360,6 +360,47 @@
   min-height: 42px;
 }
 
+.history-list {
+  display: grid;
+  gap: 8px;
+}
+
+.history-row {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  border-radius: 14px;
+  background: rgba(248, 250, 252, 0.82);
+}
+
+.history-row strong,
+.history-row span,
+.history-row small {
+  overflow-wrap: anywhere;
+}
+
+.history-row > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.history-row span,
+.history-row small {
+  color: var(--tws-muted);
+  font-size: 0.78rem;
+}
+
+.listing-correction-modal {
+  width: min(100%, 640px);
+}
+
+.correction-form {
+  display: grid;
+  gap: 12px;
+}
+
 @media (max-width: 1680px) {
   .listing-table__head,
   .listing-row {

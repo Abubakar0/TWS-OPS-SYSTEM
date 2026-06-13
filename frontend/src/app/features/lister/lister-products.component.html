@@ -508,6 +508,17 @@
                 <mat-icon>done</mat-icon>
                 <span>Mark as Listed</span>
               </button>
+
+              @if (facade.canCorrectCurrentListing()) {
+                <button
+                  mat-stroked-button
+                  type="button"
+                  (click)="facade.openCorrectionModal(currentProduct)"
+                >
+                  <mat-icon>edit_note</mat-icon>
+                  <span>Correct Listing</span>
+                </button>
+              }
             </div>
           </div>
 
@@ -542,14 +553,124 @@
                   facade.rejectingId() === currentProduct.id ? 'Rejecting' : 'Reject Product'
                 }}</span>
               </button>
+
+              @if (facade.canUndoCurrentRejection()) {
+                <button
+                  mat-stroked-button
+                  type="button"
+                  (click)="facade.undoCurrentRejection()"
+                  [disabled]="facade.rejectingId() === currentProduct.id"
+                >
+                  <mat-icon>undo</mat-icon>
+                  <span>Undo Rejection</span>
+                </button>
+              }
             </div>
           </div>
 
           @if (currentProduct.rejectionReason) {
             <div class="inline-state inline-state--error">{{ currentProduct.rejectionReason }}</div>
           }
+
+          <div class="detail-section">
+            <h3>Listing History</h3>
+            @if (currentProduct.listingHistory?.length) {
+              <div class="history-list">
+                @for (entry of currentProduct.listingHistory || []; track entry.id) {
+                  <div class="history-row">
+                    <div>
+                      <strong>{{ entry.fieldChanged }}</strong>
+                      <span>{{ entry.editedByName || 'System user' }}</span>
+                    </div>
+                    <div>
+                      <small>{{ entry.editedAt | date: 'MMM d, y, h:mm a' }}</small>
+                      <span>{{ entry.oldValue || 'Not set' }} → {{ entry.newValue || 'Not set' }}</span>
+                    </div>
+                  </div>
+                }
+              </div>
+            } @else {
+              <div class="inline-state">No listing corrections recorded.</div>
+            }
+          </div>
         }
       </aside>
     </section>
+  }
+
+  @if (facade.correctionModalOpen()) {
+    <div class="app-modal-backdrop" (click)="facade.closeCorrectionModal()">
+      <div class="app-modal listing-correction-modal" (click)="$event.stopPropagation()">
+        <div class="app-modal__header">
+          <div>
+            <h2>Correct Listing</h2>
+            <p>Update listing-only fields without changing product ownership or financial data.</p>
+          </div>
+          <button mat-icon-button type="button" (click)="facade.closeCorrectionModal()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <form class="app-modal__body correction-form" [formGroup]="facade.correctionForm">
+          @if (facade.correctionProduct()?.hasOrders) {
+            <div class="inline-state inline-state--warning">
+              This product already has orders associated with it.
+            </div>
+          }
+
+          <mat-form-field appearance="outline">
+            <mat-label>Listing account</mat-label>
+            <mat-select formControlName="accountId">
+              @for (account of facade.accounts(); track account.id) {
+                <mat-option [value]="account.id">{{ account.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Listed eBay link</mat-label>
+            <input matInput formControlName="listingUrl" autocomplete="off" />
+            @if (facade.correctionForm.controls.listingUrl.hasError('ebayUrl')) {
+              <mat-error>Enter a valid eBay URL.</mat-error>
+            }
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Listing status</mat-label>
+            <mat-select formControlName="listingStatus">
+              @for (option of facade.listingStatusOptions; track option.value) {
+                <mat-option [value]="option.value">{{ option.label }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Listing notes</mat-label>
+            <textarea matInput rows="3" formControlName="listingNotes"></textarea>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Review notes</mat-label>
+            <textarea matInput rows="3" formControlName="reviewNotes"></textarea>
+          </mat-form-field>
+        </form>
+
+        <div class="app-modal__footer">
+          <button mat-stroked-button type="button" (click)="facade.closeCorrectionModal()">
+            Cancel
+          </button>
+          <button
+            mat-flat-button
+            color="primary"
+            type="button"
+            (click)="facade.submitListingCorrection()"
+            [disabled]="facade.correctionForm.invalid || facade.correcting()"
+          >
+            <mat-icon>save</mat-icon>
+            <span>{{ facade.correcting() ? 'Saving' : 'Save Correction' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
   }
 </section>

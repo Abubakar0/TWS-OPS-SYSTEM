@@ -11,12 +11,14 @@ import { MatSelectModule } from '@angular/material/select';
 
 import { ListerApiService } from '../../core/api/lister-api.service';
 import { ProductAdminApiService } from '../../core/api/product-admin-api.service';
-import { Product, ProductCategory, ProductFilters } from '../../core/models/product.models';
+import { Account, Product, ProductCategory, ProductFilters, ProductStatus } from '../../core/models/product.models';
 import { ReferenceDataService } from '../../core/state/reference-data.service';
+import { ConfirmService } from '../../core/ui/confirm.service';
 import { ToastService } from '../../core/ui/toast.service';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../shared/error-state/error-state.component';
 import { FilterPanelComponent } from '../../shared/ui/filter-panel.component';
+import { listingLinkValidator } from '../../shared/validators/listing-link.validator';
 
 type ReviewScope = 'lister' | 'admin' | 'superadmin';
 
@@ -157,7 +159,7 @@ const toLocalDateInput = (value: Date): string => {
                   type="button"
                   class="listing-row"
                   [class.is-active]="selectedProductId() === product.id"
-                  (click)="selectedProductId.set(product.id)"
+                  (click)="selectProduct(product.id)"
                 >
                   <div class="listing-row__product">
                     <div class="listing-row__product-copy">
@@ -278,11 +280,113 @@ const toLocalDateInput = (value: Date): string => {
                     <mat-icon>block</mat-icon>
                     <span>Reject Listing</span>
                   </button>
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    (click)="openCorrectionModal(currentProduct)"
+                    [disabled]="saving()"
+                  >
+                    <mat-icon>edit_note</mat-icon>
+                    <span>Correct Listing</span>
+                  </button>
                 </div>
+              </div>
+
+              <div class="detail-section">
+                <h3>Listing History</h3>
+                @if (currentProduct.listingHistory?.length) {
+                  <div class="history-list">
+                    @for (entry of currentProduct.listingHistory || []; track entry.id) {
+                      <div class="history-row">
+                        <div>
+                          <strong>{{ entry.fieldChanged }}</strong>
+                          <small>{{ entry.editedAt | date: 'MMM d, y, h:mm a' }}</small>
+                        </div>
+                        <span>{{ entry.oldValue || 'Not set' }} → {{ entry.newValue || 'Not set' }}</span>
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <div class="inline-state">No listing corrections recorded.</div>
+                }
               </div>
             }
           </aside>
         </section>
+      }
+
+      @if (correctionModalOpen()) {
+        <div class="app-modal-backdrop" (click)="closeCorrectionModal()">
+          <div class="app-modal listing-correction-modal" (click)="$event.stopPropagation()">
+            <div class="app-modal__header">
+              <div>
+                <h2>Correct Listing</h2>
+                <p>Update listing-only fields before completing review.</p>
+              </div>
+              <button mat-icon-button type="button" (click)="closeCorrectionModal()">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
+
+            <form class="app-modal__body correction-form" [formGroup]="correctionForm">
+              @if (correctionProduct()?.hasOrders) {
+                <div class="inline-state inline-state--warning">
+                  This product already has orders associated with it.
+                </div>
+              }
+
+              <mat-form-field appearance="outline">
+                <mat-label>Listing account</mat-label>
+                <mat-select formControlName="accountId">
+                  @for (account of accounts(); track account.id) {
+                    <mat-option [value]="account.id">{{ account.name }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Listed eBay link</mat-label>
+                <input matInput formControlName="listingUrl" autocomplete="off" />
+                @if (correctionForm.controls.listingUrl.hasError('ebayUrl')) {
+                  <mat-error>Enter a valid eBay URL.</mat-error>
+                }
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Listing status</mat-label>
+                <mat-select formControlName="listingStatus">
+                  @for (option of listingStatusOptions; track option.value) {
+                    <mat-option [value]="option.value">{{ option.label }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Listing notes</mat-label>
+                <textarea matInput rows="3" formControlName="listingNotes"></textarea>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Review notes</mat-label>
+                <textarea matInput rows="3" formControlName="reviewNotes"></textarea>
+              </mat-form-field>
+            </form>
+
+            <div class="app-modal__footer">
+              <button mat-stroked-button type="button" (click)="closeCorrectionModal()">Cancel</button>
+              <button
+                mat-flat-button
+                color="primary"
+                type="button"
+                (click)="submitListingCorrection()"
+                [disabled]="correctionForm.invalid || saving()"
+              >
+                <mat-icon>save</mat-icon>
+                <span>Save Correction</span>
+              </button>
+            </div>
+          </div>
+        </div>
       }
     </section>
   `,
@@ -294,6 +398,7 @@ export class ListingReviewQueueComponent implements OnInit {
   private readonly listerApi = inject(ListerApiService);
   private readonly productAdminApi = inject(ProductAdminApiService);
   private readonly referenceData = inject(ReferenceDataService);
+  private readonly confirm = inject(ConfirmService);
   private readonly toast = inject(ToastService);
 
   readonly loading = signal(false);
@@ -301,8 +406,24 @@ export class ListingReviewQueueComponent implements OnInit {
   readonly error = signal('');
   readonly products = signal<Product[]>([]);
   readonly categories = signal<ProductCategory[]>([]);
+  readonly accounts = signal<Account[]>([]);
   readonly selectedProductId = signal('');
+  readonly correctionModalOpen = signal(false);
+  readonly correctionProduct = signal<Product | null>(null);
   readonly rejectionReason = new FormControl('', { nonNullable: true, validators: [Validators.required] });
+  readonly correctionForm = new FormGroup({
+    accountId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    listingUrl: new FormControl('', { nonNullable: true, validators: [listingLinkValidator] }),
+    listingStatus: new FormControl<ProductStatus>('listed_needs_review', { nonNullable: true }),
+    listingNotes: new FormControl('', { nonNullable: true }),
+    reviewNotes: new FormControl('', { nonNullable: true }),
+  });
+  readonly listingStatusOptions: Array<{ value: ProductStatus; label: string }> = [
+    { value: 'listed', label: 'Listed' },
+    { value: 'listed_needs_review', label: 'Pending review' },
+    { value: 'listing_rejected', label: 'Listing rejected' },
+    { value: 'ready_for_listing', label: 'Ready for listing' },
+  ];
   readonly filters = new FormGroup({
     search: new FormControl('', { nonNullable: true }),
     status: new FormControl<'listed_needs_review' | 'listing_rejected' | ''>('listed_needs_review', { nonNullable: true }),
@@ -321,6 +442,7 @@ export class ListingReviewQueueComponent implements OnInit {
 
   ngOnInit(): void {
     this.referenceData.getProductCategories(true).subscribe((categories) => this.categories.set(categories));
+    this.referenceData.getAccounts(true).subscribe((accounts) => this.accounts.set(accounts));
     this.load();
   }
 
@@ -376,6 +498,19 @@ export class ListingReviewQueueComponent implements OnInit {
     this.load();
   }
 
+  selectProduct(productId: string): void {
+    this.selectedProductId.set(productId);
+    const request$ =
+      this.scope() === 'lister'
+        ? this.listerApi.getProductById(productId)
+        : this.productAdminApi.getProductById(productId);
+
+    request$.subscribe({
+      next: (product) => this.applyProductUpdate(product),
+      error: () => undefined,
+    });
+  }
+
   approveCurrent(): void {
     const product = this.selectedProduct();
     if (!product) {
@@ -425,6 +560,95 @@ export class ListingReviewQueueComponent implements OnInit {
       error: (error) => {
         this.error.set(error?.error?.message || 'Could not reject listing.');
         this.saving.set(false);
+      },
+    });
+  }
+
+  openCorrectionModal(product = this.selectedProduct()): void {
+    if (!product) {
+      return;
+    }
+
+    this.correctionProduct.set(product);
+    this.correctionForm.reset(
+      {
+        accountId: product.accountUsed || '',
+        listingUrl: product.listingUrl || '',
+        listingStatus: this.listingStatusOptions.some((option) => option.value === product.status)
+          ? product.status
+          : 'listed_needs_review',
+        listingNotes: product.listingNotes || '',
+        reviewNotes: product.reviewNotes || '',
+      },
+      { emitEvent: false },
+    );
+    this.correctionModalOpen.set(true);
+  }
+
+  closeCorrectionModal(force = false): void {
+    if (this.saving() && !force) {
+      return;
+    }
+
+    this.correctionModalOpen.set(false);
+    this.correctionProduct.set(null);
+  }
+
+  async submitListingCorrection(confirmOrderImpact = false): Promise<void> {
+    const product = this.correctionProduct();
+
+    if (!product || this.correctionForm.invalid || this.saving()) {
+      this.correctionForm.markAllAsTouched();
+      return;
+    }
+
+    const raw = this.correctionForm.getRawValue();
+    const request$ =
+      this.scope() === 'lister'
+        ? this.listerApi.correctListing(product.id, {
+            accountId: raw.accountId,
+            listingUrl: raw.listingUrl.trim(),
+            listingStatus: raw.listingStatus,
+            listingNotes: raw.listingNotes.trim() || null,
+            reviewNotes: raw.reviewNotes.trim() || null,
+            confirmOrderImpact,
+          })
+        : this.productAdminApi.correctListing(product.id, {
+            accountId: raw.accountId,
+            listingUrl: raw.listingUrl.trim(),
+            listingStatus: raw.listingStatus,
+            listingNotes: raw.listingNotes.trim() || null,
+            reviewNotes: raw.reviewNotes.trim() || null,
+            confirmOrderImpact,
+          });
+
+    this.saving.set(true);
+    request$.subscribe({
+      next: (updated) => {
+        this.applyProductUpdate(updated);
+        this.closeCorrectionModal(true);
+        this.toast.success('Listing corrected.');
+        this.saving.set(false);
+      },
+      error: async (error) => {
+        this.saving.set(false);
+
+        if (error?.status === 409 && error?.error?.requiresConfirmation) {
+          const confirmed = await this.confirm.ask({
+            title: 'Orders already exist',
+            message:
+              'This product already has orders associated with it. Continue with this listing correction?',
+            confirmText: 'Continue',
+            tone: 'danger',
+          });
+
+          if (confirmed) {
+            await this.submitListingCorrection(true);
+            return;
+          }
+        }
+
+        this.error.set(error?.error?.message || 'Could not correct listing.');
       },
     });
   }

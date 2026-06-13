@@ -304,6 +304,16 @@
                 >
                   <mat-icon>edit</mat-icon>
                 </button>
+                @if (facade.canCorrectListing(product)) {
+                  <button
+                    mat-icon-button
+                    type="button"
+                    (click)="$event.stopPropagation(); facade.openCorrectionModal(product)"
+                    matTooltip="Correct listing"
+                  >
+                    <mat-icon>edit_note</mat-icon>
+                  </button>
+                }
               }
               @if (facade.canRejectProducts() && product.status !== 'rejected') {
                 <button
@@ -313,6 +323,16 @@
                   matTooltip="Reject product"
                 >
                   <mat-icon>block</mat-icon>
+                </button>
+              }
+              @if (facade.canUndoRejection(product)) {
+                <button
+                  mat-icon-button
+                  type="button"
+                  (click)="$event.stopPropagation(); facade.undoRejection(product)"
+                  matTooltip="Undo rejection"
+                >
+                  <mat-icon>undo</mat-icon>
                 </button>
               }
               <button
@@ -480,6 +500,124 @@
             >
           }
         </div>
+
+        <div class="detail-actions">
+          @if (facade.canEditProducts() && facade.canCorrectListing(product)) {
+            <button mat-stroked-button type="button" (click)="facade.openCorrectionModal(product)">
+              <mat-icon>edit_note</mat-icon>
+              <span>Correct Listing</span>
+            </button>
+          }
+          @if (facade.canUndoRejection(product)) {
+            <button mat-stroked-button type="button" (click)="facade.undoRejection(product)">
+              <mat-icon>undo</mat-icon>
+              <span>Undo Rejection</span>
+            </button>
+          }
+        </div>
+
+        <section class="detail-history">
+          <h3>Listing History</h3>
+          @if (product.listingHistory?.length) {
+            <div class="history-list">
+              @for (entry of product.listingHistory || []; track entry.id) {
+                <div class="history-row">
+                  <div>
+                    <strong>{{ entry.fieldChanged }}</strong>
+                    <small>{{ entry.editedAt | date: 'MMM d, y, h:mm a' }}</small>
+                  </div>
+                  <div>
+                    <span>{{ entry.editedByName || 'System user' }}</span>
+                    <span>{{ entry.oldValue || 'Not set' }} → {{ entry.newValue || 'Not set' }}</span>
+                  </div>
+                </div>
+              }
+            </div>
+          } @else {
+            <p>No listing corrections recorded.</p>
+          }
+        </section>
+      </section>
+    </div>
+  }
+
+  @if (facade.correctionModalOpen()) {
+    <div class="app-modal-backdrop" (click)="facade.closeCorrectionModal()">
+      <section class="app-modal bulk-edit-modal" (click)="$event.stopPropagation()">
+        <div class="app-modal__header">
+          <div>
+            <h2>Correct listing</h2>
+            <p>Update listing-only fields. Product owner, ASIN, and financial data stay locked.</p>
+          </div>
+          <button mat-icon-button type="button" (click)="facade.closeCorrectionModal()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <form
+          [formGroup]="facade.correctionForm"
+          class="action-stack"
+          (ngSubmit)="facade.submitListingCorrection()"
+        >
+          @if (facade.correctionProduct()?.hasOrders) {
+            <div class="inline-state inline-state--warning">
+              This product already has orders associated with it.
+            </div>
+          }
+
+          <div class="bulk-edit-grid bulk-edit-grid--two">
+            <mat-form-field appearance="outline">
+              <mat-label>Listing account</mat-label>
+              <mat-select formControlName="accountId">
+                @for (account of facade.availableAccounts(); track account.id) {
+                  <mat-option [value]="account.id">{{ account.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Listing status</mat-label>
+              <mat-select formControlName="listingStatus">
+                @for (option of facade.listingStatusOptions; track option.value) {
+                  <mat-option [value]="option.value">{{ option.label }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="bulk-edit-grid__wide">
+              <mat-label>Listed eBay link</mat-label>
+              <input matInput formControlName="listingUrl" autocomplete="off" />
+              @if (facade.correctionForm.controls.listingUrl.hasError('ebayUrl')) {
+                <mat-error>Enter a valid eBay URL.</mat-error>
+              }
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Listing notes</mat-label>
+              <textarea matInput rows="3" formControlName="listingNotes"></textarea>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline">
+              <mat-label>Review notes</mat-label>
+              <textarea matInput rows="3" formControlName="reviewNotes"></textarea>
+            </mat-form-field>
+          </div>
+
+          <div class="modal-actions">
+            <button mat-stroked-button type="button" (click)="facade.closeCorrectionModal()">
+              Cancel
+            </button>
+            <button
+              mat-flat-button
+              color="primary"
+              type="submit"
+              [disabled]="facade.correcting() || facade.correctionForm.invalid"
+            >
+              <mat-icon>save</mat-icon>
+              <span>{{ facade.correcting() ? 'Saving' : 'Save Correction' }}</span>
+            </button>
+          </div>
+        </form>
       </section>
     </div>
   }

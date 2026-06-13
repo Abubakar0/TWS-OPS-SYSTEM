@@ -210,9 +210,17 @@ CREATE TABLE IF NOT EXISTS products (
   listing_reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL,
   listing_reviewed_at TIMESTAMPTZ,
   listing_review_rejection_reason TEXT,
+  listing_notes TEXT,
+  review_notes TEXT,
   original_hunter_id UUID REFERENCES users(id) ON DELETE SET NULL,
   current_hunter_id UUID REFERENCES users(id) ON DELETE SET NULL,
   rejection_reason TEXT,
+  rejected_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  rejected_at TIMESTAMPTZ,
+  rejection_previous_status TEXT,
+  rejection_previous_listing_review_status TEXT,
+  rejection_reversed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  rejection_reversed_at TIMESTAMPTZ,
   validation_notes JSONB NOT NULL DEFAULT '[]'::jsonb,
   deleted_by UUID REFERENCES users(id),
   deleted_at TIMESTAMPTZ,
@@ -341,6 +349,16 @@ CREATE TABLE IF NOT EXISTS listings (
   item_id TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS product_listing_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  field_changed TEXT NOT NULL,
+  old_value TEXT,
+  new_value TEXT,
+  edited_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  edited_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS employee_profiles (
@@ -562,8 +580,16 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS listing_submitted_for_review_at TI
 ALTER TABLE products ADD COLUMN IF NOT EXISTS listing_reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS listing_reviewed_at TIMESTAMPTZ;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS listing_review_rejection_reason TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS listing_notes TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS review_notes TEXT;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS original_hunter_id UUID REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS current_hunter_id UUID REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS rejected_by UUID REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMPTZ;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS rejection_previous_status TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS rejection_previous_listing_review_status TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS rejection_reversed_by UUID REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS rejection_reversed_at TIMESTAMPTZ;
 UPDATE products
 SET original_hunter_id = COALESCE(original_hunter_id, hunter_id),
     current_hunter_id = COALESCE(current_hunter_id, hunter_id)
@@ -637,6 +663,8 @@ CREATE INDEX IF NOT EXISTS idx_products_hunter_id ON products(hunter_id);
 CREATE INDEX IF NOT EXISTS idx_products_assigned_lister_id ON products(assigned_lister_id);
 CREATE INDEX IF NOT EXISTS idx_products_status ON products(status);
 CREATE INDEX IF NOT EXISTS idx_products_deleted_at ON products(deleted_at);
+CREATE INDEX IF NOT EXISTS idx_product_listing_history_product
+  ON product_listing_history(product_id, edited_at DESC);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_roles_gin ON users USING GIN(roles);
 CREATE INDEX IF NOT EXISTS idx_users_deleted_at ON users(deleted_at);

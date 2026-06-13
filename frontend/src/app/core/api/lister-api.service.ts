@@ -8,6 +8,7 @@ import {
   Account,
   AssignedHunter,
   BulkListedPayload,
+  ListingCorrectionPayload,
   Product,
   ProductFilters,
   ProductStatus,
@@ -63,6 +64,12 @@ export class ListerApiService {
     );
   }
 
+  getProductById(id: string): Observable<Product> {
+    return this.http
+      .get<{ product: Product }>(`${environment.apiUrl}/products/${id}`)
+      .pipe(map((response) => response.product));
+  }
+
   markBulkListed(payload: BulkListedPayload): Observable<Product[]> {
     return this.http
       .patch<{ products: Product[] }>(`${environment.apiUrl}/products/bulk-listed`, payload)
@@ -75,6 +82,24 @@ export class ListerApiService {
   rejectProduct(id: string, rejectionReason: string): Observable<Product> {
     return this.http
       .patch<{ product: Product }>(`${environment.apiUrl}/products/${id}/reject`, { rejectionReason })
+      .pipe(
+        map((response) => response.product),
+        tap(() => this.invalidateListingCaches()),
+      );
+  }
+
+  correctListing(id: string, payload: ListingCorrectionPayload): Observable<Product> {
+    return this.http
+      .patch<{ product: Product }>(`${environment.apiUrl}/products/${id}/listing-correction`, payload)
+      .pipe(
+        map((response) => response.product),
+        tap(() => this.invalidateListingCaches()),
+      );
+  }
+
+  undoProductRejection(id: string): Observable<Product> {
+    return this.http
+      .post<{ product: Product }>(`${environment.apiUrl}/products/${id}/rejection/undo`, {})
       .pipe(
         map((response) => response.product),
         tap(() => this.invalidateListingCaches()),

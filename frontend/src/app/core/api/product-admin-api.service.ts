@@ -5,6 +5,7 @@ import { Observable, map, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { CACHE_NAMESPACE, CACHE_TTL, makeCacheKey } from '../config/cache';
 import {
+  ListingCorrectionPayload,
   Product,
   ProductFilters,
   ProductOwnershipTransferSummary,
@@ -48,6 +49,12 @@ export class ProductAdminApiService {
             })),
           ),
     );
+  }
+
+  getProductById(id: string): Observable<Product> {
+    return this.http
+      .get<{ product: Product }>(`${environment.apiUrl}/products/${id}`)
+      .pipe(map((response) => response.product));
   }
 
   softDeleteProducts(productIds: string[], reason: string): Observable<string[]> {
@@ -120,6 +127,24 @@ export class ProductAdminApiService {
   rejectProduct(id: string, rejectionReason: string): Observable<Product> {
     return this.http
       .patch<{ product: Product }>(`${environment.apiUrl}/products/${id}/reject`, { rejectionReason })
+      .pipe(
+        map((response) => response.product),
+        tap(() => this.requestCache.invalidatePrefix(CACHE_NAMESPACE.products)),
+      );
+  }
+
+  correctListing(id: string, payload: ListingCorrectionPayload): Observable<Product> {
+    return this.http
+      .patch<{ product: Product }>(`${environment.apiUrl}/products/${id}/listing-correction`, payload)
+      .pipe(
+        map((response) => response.product),
+        tap(() => this.requestCache.invalidatePrefix(CACHE_NAMESPACE.products)),
+      );
+  }
+
+  undoProductRejection(id: string): Observable<Product> {
+    return this.http
+      .post<{ product: Product }>(`${environment.apiUrl}/products/${id}/rejection/undo`, {})
       .pipe(
         map((response) => response.product),
         tap(() => this.requestCache.invalidatePrefix(CACHE_NAMESPACE.products)),
