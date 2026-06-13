@@ -467,18 +467,20 @@ const run = async () => {
       userIds[user.key] = await upsertUser(client, passwordHash, user);
     }
 
-    await client.query(
+    const teamResult = await client.query(
       `
         INSERT INTO teams (id, name, description, created_by, updated_by)
         VALUES ($1, 'Team Abubakar', 'Local regression team for linked workflow checks.', $2, $2)
-        ON CONFLICT (id) DO UPDATE
-        SET name = EXCLUDED.name,
-            description = EXCLUDED.description,
+        ON CONFLICT (name) DO UPDATE
+        SET description = EXCLUDED.description,
+            created_by = COALESCE(teams.created_by, EXCLUDED.created_by),
             updated_by = EXCLUDED.updated_by,
             updated_at = NOW()
+        RETURNING id
       `,
       [IDS.team, userIds.admin],
     );
+    const teamId = teamResult.rows[0].id;
 
     for (const userId of [userIds.hunter, userIds.hashim, userIds.trainingHunter, userIds.lister, userIds.sunny, userIds.processor, userIds.hr]) {
       await client.query(
@@ -489,7 +491,7 @@ const run = async () => {
           SET assigned_by = EXCLUDED.assigned_by,
               updated_at = NOW()
         `,
-        [IDS.team, userId, userIds.admin],
+        [teamId, userId, userIds.admin],
       );
     }
 
