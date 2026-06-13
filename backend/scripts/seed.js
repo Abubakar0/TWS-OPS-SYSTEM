@@ -852,16 +852,17 @@ const run = async () => {
       ],
     );
 
+    const employeeProfileIds = {};
     const employees = [
-      [IDS.employees.admin, userIds.admin, 'EMP-ADM-001', 'Management', 'Admin', '1990-01-10', 2500],
-      [IDS.employees.hr, userIds.hr, 'EMP-HR-001', 'Human Resources', 'HR Manager', '1992-05-15', 1800],
-      [IDS.employees.hunter, userIds.hunter, 'EMP-HUN-001', 'Research', 'Hunter', '1996-07-20', 1200],
-      [IDS.employees.lister, userIds.lister, 'EMP-LIS-001', 'Listing', 'Lister', '1995-09-02', 1300],
-      [IDS.employees.processor, userIds.processor, 'EMP-ORD-001', 'Orders', 'Order Processor', '1994-11-12', 1400],
+      ['admin', IDS.employees.admin, userIds.admin, 'EMP-ADM-001', 'Management', 'Admin', '1990-01-10', 2500],
+      ['hr', IDS.employees.hr, userIds.hr, 'EMP-HR-001', 'Human Resources', 'HR Manager', '1992-05-15', 1800],
+      ['hunter', IDS.employees.hunter, userIds.hunter, 'EMP-HUN-001', 'Research', 'Hunter', '1996-07-20', 1200],
+      ['lister', IDS.employees.lister, userIds.lister, 'EMP-LIS-001', 'Listing', 'Lister', '1995-09-02', 1300],
+      ['processor', IDS.employees.processor, userIds.processor, 'EMP-ORD-001', 'Orders', 'Order Processor', '1994-11-12', 1400],
     ];
 
-    for (const employee of employees) {
-      await client.query(
+    for (const [key, ...employee] of employees) {
+      const employeeResult = await client.query(
         `
           INSERT INTO employee_profiles (
             id,
@@ -879,18 +880,19 @@ const run = async () => {
             updated_by
           )
           VALUES ($1, $2, $3, $4, $5, '2025-01-01', $6, 'FULL_TIME', 'ACTIVE', $7, 'BANK', $8, $8)
-          ON CONFLICT (id) DO UPDATE
-          SET user_id = EXCLUDED.user_id,
-              employee_code = EXCLUDED.employee_code,
+          ON CONFLICT (user_id) DO UPDATE
+          SET employee_code = EXCLUDED.employee_code,
               department = EXCLUDED.department,
               designation = EXCLUDED.designation,
               date_of_birth = EXCLUDED.date_of_birth,
               basic_salary = EXCLUDED.basic_salary,
               updated_by = EXCLUDED.updated_by,
               updated_at = NOW()
+          RETURNING id
         `,
         [...employee, userIds.hr],
       );
+      employeeProfileIds[key] = employeeResult.rows[0].id;
     }
 
     await client.query(
@@ -907,7 +909,7 @@ const run = async () => {
             marked_by = EXCLUDED.marked_by,
             updated_at = NOW()
       `,
-      [IDS.employees.hr, IDS.employees.hunter, IDS.employees.lister, userIds.hr],
+      [employeeProfileIds.hr, employeeProfileIds.hunter, employeeProfileIds.lister, userIds.hr],
     );
 
     await client.query(
@@ -916,7 +918,7 @@ const run = async () => {
         VALUES ($1, 'ANNUAL', '2026-06-13', '2026-06-13', 1, 'PENDING', 'Local regression leave request')
         ON CONFLICT DO NOTHING
       `,
-      [IDS.employees.lister],
+      [employeeProfileIds.lister],
     );
 
     await client.query(
@@ -931,7 +933,7 @@ const run = async () => {
             updated_by = EXCLUDED.updated_by,
             updated_at = NOW()
       `,
-      [IDS.employees.lister, userIds.hr],
+      [employeeProfileIds.lister, userIds.hr],
     );
 
     await client.query(
@@ -940,7 +942,7 @@ const run = async () => {
         VALUES ($1, 'SOFTWARE', 'Research tool subscription', 29.99, '2026-06-10', 'SUBMITTED')
         ON CONFLICT DO NOTHING
       `,
-      [IDS.employees.hunter],
+      [employeeProfileIds.hunter],
     );
 
     await client.query(
