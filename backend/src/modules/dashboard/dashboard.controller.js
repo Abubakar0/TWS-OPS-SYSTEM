@@ -618,7 +618,10 @@ const superAdmin = async (req, res) => {
           COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status::text = 'rejected')::int AS "rejectedProducts",
           COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status::text = 'listed')::int AS "listedProducts",
           COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status::text = 'listed_needs_review')::int AS "listedNeedsReview",
-          COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status::text = 'listing_rejected')::int AS "listingRejectedProducts",
+          COUNT(*) FILTER (
+            WHERE p.deleted_at IS NULL
+              AND UPPER(COALESCE(p.listing_review_status::text, '')) = 'REJECTED'
+          )::int AS "listingRejectedProducts",
           COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status::text <> 'rejected' AND COALESCE(p.roi, 0) >= 45 AND COALESCE(p.profit, 0) >= 15)::int AS "excellentProducts",
           COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status::text <> 'rejected' AND COALESCE(p.roi, 0) >= 35 AND COALESCE(p.profit, 0) >= 10)::int AS "goodProducts",
           COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status::text <> 'rejected' AND COALESCE(p.roi, 0) < 35)::int AS "averageProducts",
@@ -659,7 +662,10 @@ const superAdmin = async (req, res) => {
           COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status::text = 'listed')::int AS "totalListings",
           COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status::text = 'listed_needs_review')::int AS "pendingListingReviews",
           COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status::text = 'listed')::int AS "approvedListingReviews",
-          COUNT(*) FILTER (WHERE p.deleted_at IS NULL AND p.status::text = 'listing_rejected')::int AS "rejectedListingReviews",
+          COUNT(*) FILTER (
+            WHERE p.deleted_at IS NULL
+              AND UPPER(COALESCE(p.listing_review_status::text, '')) = 'REJECTED'
+          )::int AS "rejectedListingReviews",
           (SELECT COUNT(*)::int FROM product_change_requests WHERE status IN ('OPEN', 'IN_PROGRESS')) AS "openChangeRequests"
         FROM products p
         ${filters.whereSql}

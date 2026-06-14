@@ -257,11 +257,13 @@
                   class="status-badge"
                   [class.status-badge--success]="product.status === 'listed'"
                   [class.status-badge--warning]="
-                    product.status === 'approved' || product.status === 'assigned'
+                    product.status === 'approved' ||
+                    product.status === 'assigned' ||
+                    product.status === 'ready_for_listing'
                   "
                   [class.status-badge--danger]="product.status === 'rejected'"
                 >
-                  {{ product.status }}
+                  {{ facade.productStatusLabel(product.status) }}
                 </span>
               </div>
 
@@ -349,11 +351,13 @@
                 class="status-badge"
                 [class.status-badge--success]="currentProduct.status === 'listed'"
                 [class.status-badge--warning]="
-                  currentProduct.status === 'approved' || currentProduct.status === 'assigned'
+                  currentProduct.status === 'approved' ||
+                  currentProduct.status === 'assigned' ||
+                  currentProduct.status === 'ready_for_listing'
                 "
                 [class.status-badge--danger]="currentProduct.status === 'rejected'"
               >
-                {{ currentProduct.status }}
+                {{ facade.productStatusLabel(currentProduct.status) }}
               </span>
               @if (currentProduct.qualityLabel) {
                 <span

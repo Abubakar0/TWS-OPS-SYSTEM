@@ -25,6 +25,7 @@ import {
   ProductFilters,
   ProductStatus,
 } from '../models/product.models';
+import { productStatusLabel } from '../config/statuses';
 import { ExportService } from '../services/export.service';
 import { ReferenceDataService } from '../state/reference-data.service';
 import { SessionCacheService } from '../state/session-cache.service';
@@ -87,9 +88,10 @@ export class ListerFacade {
   readonly listingStatusOptions: Array<{ value: ProductStatus; label: string }> = [
     { value: 'listed', label: 'Listed' },
     { value: 'listed_needs_review', label: 'Pending review' },
-    { value: 'listing_rejected', label: 'Listing rejected' },
-    { value: 'ready_for_listing', label: 'Ready for listing' },
+    { value: 'rejected', label: 'Rejected' },
+    { value: 'ready_for_listing', label: 'Assigned' },
   ];
+  readonly productStatusLabel = productStatusLabel;
 
   readonly listingLinkControls = new FormRecord<FormControl<string>>({});
   readonly rejectionReasonControls = new FormRecord<FormControl<string>>({});
@@ -435,18 +437,32 @@ export class ListerFacade {
   }
 
   canMarkListed(product: Product): boolean {
-    return product.status === 'approved' || product.status === 'assigned';
+    return (
+      product.status === 'ready_for_listing' ||
+      product.status === 'approved' ||
+      product.status === 'assigned' ||
+      product.rawStatus === 'approved' ||
+      product.rawStatus === 'assigned'
+    );
   }
 
   canReject(product: Product): boolean {
-    return product.status === 'approved' || product.status === 'assigned';
+    return (
+      product.status === 'ready_for_listing' ||
+      product.status === 'approved' ||
+      product.status === 'assigned' ||
+      product.rawStatus === 'approved' ||
+      product.rawStatus === 'assigned'
+    );
   }
 
   canCorrectListing(product: Product): boolean {
     return (
       Boolean(product.listingUrl || product.accountUsed) ||
+      product.status === 'ready_for_listing' ||
       product.status === 'listed' ||
       product.status === 'listed_needs_review' ||
+      product.status === 'rejected' ||
       product.status === 'listing_rejected'
     );
   }

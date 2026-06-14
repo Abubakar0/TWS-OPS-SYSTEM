@@ -11,6 +11,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { User } from '../../core/models/auth.models';
 import { HuntingCriteria, Product } from '../../core/models/product.models';
 import { DashboardService, HunterDashboardStats } from '../../core/services/dashboard.service';
+import { productStatusLabel } from '../../core/config/statuses';
 import { ReferenceDataService } from '../../core/state/reference-data.service';
 import { EmptyStateComponent } from '../../shared/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../shared/error-state/error-state.component';
@@ -168,7 +169,7 @@ import { ErrorStateComponent } from '../../shared/error-state/error-state.compon
                     <strong>{{ product.title || product.asin || 'Untitled product' }}</strong>
                     <small>{{ product.asin || product.customLabel || 'No ASIN' }}</small>
                   </span>
-                  <span class="status-badge">{{ product.status.replaceAll('_', ' ') | titlecase }}</span>
+                  <span class="status-badge">{{ productStatusLabel(product.status) }}</span>
                   <span>{{ product.qualityLabel || 'Not graded' }}</span>
                   <span>{{ product.profit | currency: 'USD' }}</span>
                   <span>{{ product.createdAt | date: 'mediumDate' }}</span>
@@ -395,6 +396,7 @@ export class HunterTrainingProgressComponent implements OnInit {
   readonly listers = signal<User[]>([]);
 
   readonly statusLabel = computed(() => this.auth.currentUser()?.hunterStatus || 'ACTIVE');
+  readonly productStatusLabel = productStatusLabel;
   readonly mentorLister = computed(() => {
     const mentorId = this.auth.currentUser()?.mentorListerId;
     return mentorId ? this.listers().find((lister) => lister.id === mentorId) || null : null;

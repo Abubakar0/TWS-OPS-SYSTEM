@@ -12,6 +12,7 @@ import {
   ProductQualityLabel,
   ProductStatus,
 } from '../models/product.models';
+import { productStatusLabel } from '../config/statuses';
 import { ExportService } from '../services/export.service';
 import { ReferenceDataService } from '../state/reference-data.service';
 import { WorkspaceSyncService } from '../state/workspace-sync.service';
@@ -168,9 +169,10 @@ export class AdminProductsFacade {
   readonly listingStatusOptions: Array<{ value: ProductStatus; label: string }> = [
     { value: 'listed', label: 'Listed' },
     { value: 'listed_needs_review', label: 'Pending review' },
-    { value: 'listing_rejected', label: 'Listing rejected' },
-    { value: 'ready_for_listing', label: 'Ready for listing' },
+    { value: 'rejected', label: 'Rejected' },
+    { value: 'ready_for_listing', label: 'Assigned' },
   ];
+  readonly productStatusLabel = productStatusLabel;
   readonly canBulkStatusUpdate = computed(() => this.canBulkEdit());
   readonly canEditProducts = computed(() => {
     const user = this.auth.currentUser();
@@ -402,8 +404,10 @@ export class AdminProductsFacade {
   canCorrectListing(product: Product): boolean {
     return (
       Boolean(product.listingUrl || product.accountUsed) ||
+      product.status === 'ready_for_listing' ||
       product.status === 'listed' ||
       product.status === 'listed_needs_review' ||
+      product.status === 'rejected' ||
       product.status === 'listing_rejected'
     );
   }

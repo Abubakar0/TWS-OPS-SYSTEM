@@ -19,6 +19,7 @@ import { EmptyStateComponent } from '../../shared/empty-state/empty-state.compon
 import { ErrorStateComponent } from '../../shared/error-state/error-state.component';
 import { FilterPanelComponent } from '../../shared/ui/filter-panel.component';
 import { listingLinkValidator } from '../../shared/validators/listing-link.validator';
+import { productStatusLabel } from '../../core/config/statuses';
 
 type ReviewScope = 'lister' | 'admin' | 'superadmin';
 
@@ -91,7 +92,7 @@ const toLocalDateInput = (value: Date): string => {
               <mat-label>Status</mat-label>
               <mat-select formControlName="status">
                 <mat-option value="listed_needs_review">Needs Review</mat-option>
-                <mat-option value="listing_rejected">Listing Rejected</mat-option>
+                <mat-option value="rejected">Rejected</mat-option>
                 <mat-option value="">All</mat-option>
               </mat-select>
             </mat-form-field>
@@ -185,12 +186,16 @@ const toLocalDateInput = (value: Date): string => {
                     <strong>{{ product.roi | number: '1.0-2' }}%</strong>
                   </div>
                   <div class="listing-row__status">
-                    <span
+                      <span
                       class="status-badge"
-                      [class.status-badge--warning]="product.status === 'listed_needs_review'"
-                      [class.status-badge--danger]="product.status === 'listing_rejected'"
+                      [class.status-badge--warning]="
+                        product.status === 'listed_needs_review' || product.status === 'ready_for_listing'
+                      "
+                      [class.status-badge--danger]="
+                        product.status === 'rejected' || product.status === 'listing_rejected'
+                      "
                     >
-                      {{ product.status }}
+                      {{ productStatusLabel(product.status) }}
                     </span>
                   </div>
                 </button>
@@ -421,12 +426,13 @@ export class ListingReviewQueueComponent implements OnInit {
   readonly listingStatusOptions: Array<{ value: ProductStatus; label: string }> = [
     { value: 'listed', label: 'Listed' },
     { value: 'listed_needs_review', label: 'Pending review' },
-    { value: 'listing_rejected', label: 'Listing rejected' },
-    { value: 'ready_for_listing', label: 'Ready for listing' },
+    { value: 'rejected', label: 'Rejected' },
+    { value: 'ready_for_listing', label: 'Assigned' },
   ];
+  readonly productStatusLabel = productStatusLabel;
   readonly filters = new FormGroup({
     search: new FormControl('', { nonNullable: true }),
-    status: new FormControl<'listed_needs_review' | 'listing_rejected' | ''>('listed_needs_review', { nonNullable: true }),
+    status: new FormControl<'listed_needs_review' | 'rejected' | ''>('listed_needs_review', { nonNullable: true }),
     category: new FormControl('', { nonNullable: true }),
     from: new FormControl('', { nonNullable: true }),
     to: new FormControl('', { nonNullable: true }),

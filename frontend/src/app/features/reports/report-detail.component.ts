@@ -16,6 +16,7 @@ import { AccountReportDetails, AccountReportRow, AccountReportSummary, ActivityR
 import { ProductCategory } from '../../core/models/product.models';
 import { ReferenceDataService } from '../../core/state/reference-data.service';
 import { ToastService } from '../../core/ui/toast.service';
+import { productStatusLabel } from '../../core/config/statuses';
 import { ExportService } from '../../core/services/export.service';
 import { FilterPanelComponent } from '../../shared/ui/filter-panel.component';
 import { SearchableSelectComponent, SearchableSelectOption } from '../../shared/ui/searchable-select.component';
@@ -496,7 +497,7 @@ export class ReportDetailComponent implements OnInit {
         const row = detail as ProductReportDetails;
         return [
           { label: 'Category', value: row.product.category || 'Uncategorized' },
-          { label: 'Status', value: this.titleCase(row.product.status) },
+          { label: 'Status', value: productStatusLabel(row.product.status) },
           { label: 'Account', value: row.product.accountName || 'Not assigned' },
           { label: 'Profit', value: this.formatMoney(row.product.profit) },
           { label: 'ROI', value: `${row.product.roi.toFixed(2)}%` },

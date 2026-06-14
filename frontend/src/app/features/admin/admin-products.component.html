@@ -251,7 +251,7 @@
               <small>Lister: {{ product.assignedListerName || 'Not Assigned' }}</small>
               <small>Account: {{ product.accountName || 'Not Assigned' }}</small>
               <div class="product-badges">
-                <span class="links-badge">{{ product.status }}</span>
+                <span class="links-badge">{{ facade.productStatusLabel(product.status) }}</span>
                 <span class="links-badge">{{ product.qualityLabel || 'Not Assigned' }}</span>
               </div>
               @if (product.rejectionReason) {
@@ -430,7 +430,7 @@
             <strong>{{ product.assignedListerName || 'Not Assigned' }}</strong>
           </div>
           <div>
-            <span>Status</span><strong>{{ product.status }}</strong>
+            <span>Status</span><strong>{{ facade.productStatusLabel(product.status) }}</strong>
           </div>
           <div>
             <span>Quality</span><strong>{{ product.qualityLabel || 'Not Assigned' }}</strong>

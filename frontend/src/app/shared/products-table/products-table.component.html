@@ -72,7 +72,12 @@
         <th mat-header-cell *matHeaderCellDef mat-sort-header>Status</th>
         <td mat-cell *matCellDef="let product">
           <div class="cell-stack">
-            <span class="status-pill" [class]="'status-pill status-pill--' + product.status">{{ product.status }}</span>
+            <span
+              class="status-pill"
+              [class]="'status-pill status-pill--' + normalizedProductStatus(product.status)"
+            >
+              {{ productStatusLabel(product.status) }}
+            </span>
             @if (product.qualityLabel) {
               <span class="status-badge status-badge--neutral">{{ product.qualityLabel }}</span>
             }

@@ -21,6 +21,9 @@ const {
 const {
   assertListerListingUnblocked,
 } = require("../change-requests/change-requests.service");
+const {
+  normalizeProductWorkflowFilterStatus,
+} = require("../../utils/productStatus");
 
 const PRODUCT_LIMIT_CATEGORY = "products";
 const LISTING_QUEUE_LIMIT_CATEGORY = "listingQueue";
@@ -158,7 +161,7 @@ const deriveWorkflowStatus = (row) => {
   }
 
   if (row.listingReviewStatus === LISTING_REVIEW_STATUS.REJECTED) {
-    return WORKFLOW_STATUS.LISTING_REJECTED;
+    return WORKFLOW_STATUS.REJECTED;
   }
 
   if (row.rawStatus === "listed") {
@@ -506,7 +509,7 @@ const addWorkflowStatusFilter = (status, where, params) => {
       where.push(`p.status = 'listed'`);
       return true;
     case WORKFLOW_STATUS.REJECTED:
-      where.push(`p.status = 'rejected'`);
+      where.push(`(p.status = 'rejected' OR UPPER(COALESCE(p.listing_review_status::text, '')) = 'REJECTED')`);
       return true;
     default:
       return false;
@@ -556,7 +559,7 @@ const buildProductFilters = (user, query = {}, criteria = null) => {
   }
 
   if (query.status) {
-    const normalizedStatus = String(query.status).trim().toLowerCase();
+    const normalizedStatus = normalizeProductWorkflowFilterStatus(query.status);
 
     if (!addWorkflowStatusFilter(normalizedStatus, where, params)) {
       add("p.status = ?", query.status);
@@ -641,7 +644,9 @@ const buildProductFilters = (user, query = {}, criteria = null) => {
 
 const getListCategory = (user, query = {}) => {
   if (isListerScopedUser(user)) {
-    if (query.status === "rejected") {
+    const normalizedStatus = normalizeProductWorkflowFilterStatus(query.status);
+
+    if (normalizedStatus === "rejected") {
       return REJECTION_LIMIT_CATEGORY;
     }
 
@@ -1224,11 +1229,15 @@ const normalizeListingCorrectionStatus = (value) => {
   }
 
   const normalized = String(value).trim();
+  if (normalized === WORKFLOW_STATUS.LISTING_REJECTED) {
+    return WORKFLOW_STATUS.REJECTED;
+  }
+
   const allowed = new Set([
     WORKFLOW_STATUS.READY_FOR_LISTING,
     WORKFLOW_STATUS.LISTED_NEEDS_REVIEW,
     WORKFLOW_STATUS.LISTED,
-    WORKFLOW_STATUS.LISTING_REJECTED,
+    WORKFLOW_STATUS.REJECTED,
   ]);
 
   if (!allowed.has(normalized)) {
@@ -1268,9 +1277,9 @@ const getCorrectionStatusUpdate = (status, product, user, reviewNotes) => {
     };
   }
 
-  if (status === WORKFLOW_STATUS.LISTING_REJECTED) {
+  if (status === WORKFLOW_STATUS.REJECTED) {
     return {
-      rawStatus: readyStatus,
+      rawStatus: "rejected",
       reviewStatus: LISTING_REVIEW_STATUS.REJECTED,
       reviewedBy: user.id,
       reviewedAt: true,
@@ -1278,7 +1287,7 @@ const getCorrectionStatusUpdate = (status, product, user, reviewNotes) => {
       rejectionReason:
         reviewNotes ||
         product.listingReviewRejectionReason ||
-        "Listing correction requires review.",
+        "Listing rejected.",
     };
   }
 
@@ -1613,20 +1622,25 @@ const rejectListingReview = async (user, id, payload = {}) => {
     `
       UPDATE products
       SET status = $2,
+          rejection_reason = $3,
+          rejected_by = $4,
+          rejected_at = NOW(),
+          rejection_previous_status = status,
+          rejection_previous_listing_review_status = listing_review_status,
           listed_at = NULL,
-          listing_review_status = $3,
+          listing_review_status = $5,
           listing_reviewed_by = $4,
           listing_reviewed_at = NOW(),
-          listing_review_rejection_reason = $5,
+          listing_review_rejection_reason = $3,
           updated_at = NOW()
       WHERE id = $1
     `,
     [
       id,
-      resolveReadyRawStatus(product.assignedListerId),
-      LISTING_REVIEW_STATUS.REJECTED,
-      user.id,
+      "rejected",
       rejectionReason,
+      user.id,
+      LISTING_REVIEW_STATUS.REJECTED,
     ],
   );
 
@@ -2006,6 +2020,19 @@ const correctListing = async (user, id, payload = {}) => {
       );
       values.push(statusUpdate.rejectionReason);
       updates.push(`listing_review_rejection_reason = $${values.length}`);
+
+      if (statusUpdate.rawStatus === "rejected") {
+        values.push(statusUpdate.rejectionReason || null);
+        updates.push(`rejection_reason = $${values.length}`);
+        values.push(user.id);
+        updates.push(`rejected_by = $${values.length}`);
+        updates.push(`rejected_at = NOW()`);
+        updates.push(`rejection_previous_status = status`);
+        updates.push(`rejection_previous_listing_review_status = listing_review_status`);
+        updates.push(`listed_at = NULL`);
+        updates.push(`rejection_reversed_by = NULL`);
+        updates.push(`rejection_reversed_at = NULL`);
+      }
     }
 
     if (updates.length) {

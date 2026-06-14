@@ -14,6 +14,9 @@ const { getProductById, ensureProductColumns } = require('../products/products.s
 const { getUserDetails } = require('../users/users.service');
 const { normalizeRoles, resolvePrimaryRole, hasAnyRole } = require('../users/permissions');
 const { ensureChangeRequestTable } = require('../change-requests/change-requests.service');
+const {
+  normalizeProductWorkflowFilterStatus,
+} = require('../../utils/productStatus');
 
 const BUSINESS_TIMEZONE = process.env.APP_TIMEZONE || 'Asia/Karachi';
 const OPEN_ISSUE_SQL = `(o.order_status = 'ISSUE' OR COALESCE(o.issue_status, '') IN ('OPEN', 'IN_REVIEW'))`;
@@ -93,7 +96,31 @@ const buildProductFilterSql = (query = {}, { alias = 'p', accountIdColumn = 'p.a
   }
 
   if (query.status) {
-    addClause(clauses, params, `${alias}.status = ?`, query.status);
+    const normalizedStatus = normalizeProductWorkflowFilterStatus(query.status);
+
+    switch (normalizedStatus) {
+      case 'ready_for_listing':
+        clauses.push(
+          `${alias}.status IN ('approved', 'assigned') AND COALESCE(UPPER(${alias}.listing_review_status::text), '') IN ('', 'NOT_REQUIRED', 'APPROVED')`,
+        );
+        break;
+      case 'listed_needs_review':
+        clauses.push(
+          `UPPER(COALESCE(${alias}.listing_review_status::text, '')) = 'PENDING'`,
+        );
+        break;
+      case 'rejected':
+        clauses.push(
+          `(${alias}.status = 'rejected' OR UPPER(COALESCE(${alias}.listing_review_status::text, '')) = 'REJECTED')`,
+        );
+        break;
+      case 'listed':
+        addClause(clauses, params, `${alias}.status = ?`, 'listed');
+        break;
+      default:
+        addClause(clauses, params, `${alias}.status = ?`, query.status);
+        break;
+    }
   }
 
   if (query.accountId) {

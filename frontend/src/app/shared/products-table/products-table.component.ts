@@ -6,6 +6,7 @@ import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { Product } from '../../core/models/product.models';
+import { normalizeProductStatus, productStatusLabel } from '../../core/config/statuses';
 
 @Component({
   selector: 'app-products-table',
@@ -15,6 +16,8 @@ import { Product } from '../../core/models/product.models';
 })
 export class ProductsTableComponent implements AfterViewInit {
   private readonly data = new MatTableDataSource<Product>([]);
+  readonly productStatusLabel = productStatusLabel;
+  readonly normalizedProductStatus = normalizeProductStatus;
 
   @ViewChild(MatSort) private sort?: MatSort;
 

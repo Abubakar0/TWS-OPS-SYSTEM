@@ -123,13 +123,23 @@ export class DashboardLayoutComponent {
     { label: 'Change Requests', route: '/hunter/changes', exact: true, icon: 'edit_note' },
     { label: 'Weekly Review', route: '/hunter/review', exact: true, icon: 'assignment_turned_in' },
     { label: 'Hunting Rules', route: '/hunter/rules', exact: true, icon: 'rule' },
-    { label: 'My Training Progress', route: '/hunter/training-progress', exact: true, icon: 'school' },
+    {
+      label: 'My Training Progress',
+      route: '/hunter/training-progress',
+      exact: true,
+      icon: 'school',
+    },
     SHARED_TEAM_ITEM,
   ];
   readonly listerTabs: NavItem[] = [
     { label: 'Dashboard', route: '/lister/dashboard', exact: true, icon: 'space_dashboard' },
     { label: 'Listing Queue', route: '/lister/products', exact: true, icon: 'view_kanban' },
-    { label: 'Listing Review Queue', route: '/lister/listing-reviews', exact: true, icon: 'fact_check' },
+    {
+      label: 'Listing Review Queue',
+      route: '/lister/listing-reviews',
+      exact: true,
+      icon: 'fact_check',
+    },
     { label: 'Orders', route: '/lister/orders', exact: true, icon: 'receipt_long' },
     { label: 'Change Requests', route: '/lister/changes', exact: true, icon: 'fact_check' },
     { label: 'Account Usage', route: '/lister/account-usage', exact: true, icon: 'storefront' },
@@ -162,7 +172,7 @@ export class DashboardLayoutComponent {
     ORDER_PROCESSOR_ISSUES_ITEM,
   ];
   readonly hrTabs: NavItem[] = [
-    { label: 'HR Dashboard', route: '/hr/dashboard', exact: true, icon: 'monitoring' },
+    { label: 'HR Dashboard', route: '/hr/dashboard', exact: true, icon: 'space_dashboard' },
     { label: 'Employees', route: '/hr/employees', exact: true, icon: 'badge' },
     { label: 'Attendance', route: '/hr/attendance', exact: true, icon: 'event_available' },
     { label: 'Leaves', route: '/hr/leaves', exact: true, icon: 'event_busy' },
@@ -174,14 +184,24 @@ export class DashboardLayoutComponent {
     { label: 'Reports', route: '/hr/reports', exact: true, icon: 'query_stats' },
   ];
   readonly superAdminTabs: NavItem[] = [
-    { label: 'Dashboard', route: '/superadmin/dashboard', exact: true, icon: 'monitoring' },
-    { label: 'Admins', route: '/superadmin/admins', exact: true, icon: 'shield_person' },
+    { label: 'Dashboard', route: '/superadmin/dashboard', exact: true, icon: 'space_dashboard' },
+    { label: 'Admins', route: '/superadmin/admins', exact: true, icon: 'grid_view' },
     { label: 'Users', route: '/superadmin/users', exact: true, icon: 'manage_accounts' },
     { label: 'Products', route: '/superadmin/products', exact: true, icon: 'inventory_2' },
-    { label: 'Listing Reviews', route: '/superadmin/listing-reviews', exact: true, icon: 'fact_check' },
+    {
+      label: 'Listing Reviews',
+      route: '/superadmin/listing-reviews',
+      exact: true,
+      icon: 'fact_check',
+    },
     { label: 'Reports', route: '/superadmin/reports', exact: true, icon: 'query_stats' },
     { label: 'Orders', route: '/superadmin/orders', exact: true, icon: 'receipt_long' },
-    { label: 'Product Transfers', route: '/superadmin/product-transfers', exact: true, icon: 'swap_horiz' },
+    {
+      label: 'Product Transfers',
+      route: '/superadmin/product-transfers',
+      exact: true,
+      icon: 'swap_horiz',
+    },
     { label: 'Settings', route: '/superadmin/settings', exact: true, icon: 'settings' },
     { label: 'System', route: '/superadmin/system', exact: true, icon: 'dns' },
     { label: 'Security', route: '/superadmin/security', exact: true, icon: 'lan' },
@@ -225,7 +245,12 @@ export class DashboardLayoutComponent {
       const hunterItems = isTrainingHunterUser(user)
         ? this.hunterTabs.filter((item) =>
             (user.trainingRulesAcknowledgedAt
-              ? ['/hunter/submission', '/hunter/products', '/hunter/rules', '/hunter/training-progress']
+              ? [
+                  '/hunter/submission',
+                  '/hunter/products',
+                  '/hunter/rules',
+                  '/hunter/training-progress',
+                ]
               : ['/hunter/products', '/hunter/rules', '/hunter/training-progress']
             ).includes(item.route),
           )

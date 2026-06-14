@@ -1,3 +1,3 @@
 export const environment = {
-  apiUrl: 'https://tws-ops-system-backend-staging.up.railway.app/api',
+  apiUrl: 'http://127.0.0.1:4000/api',
 };
